@@ -79,4 +79,6 @@ python3 scripts/build_plan.py --cuda-root /path/to/cuda-12.9
 
 ## ライセンス
 
-上流ソースのライセンス・著作権表記は保持しています。[第三者コード](THIRD_PARTY_NOTICES.md)と[謝辞・参考OSS](ACKNOWLEDGMENTS.md)を参照してください。独自部分のライセンスは未決定です。この公開によって、含まれる第三者コードや資料のライセンスを変更するものではありません。
+当プロジェクトの独自コード・文書は [MIT License](LICENSE) で提供します。著作権表記は `Copyright (c) 2026 万華鏡みゃん` です。
+
+上流ソースや同梱する第三者コード・資料には、それぞれの既存ライセンスが適用されます。ライセンス・著作権表記は保持しています。[第三者コード](THIRD_PARTY_NOTICES.md)と[謝辞・参考OSS](ACKNOWLEDGMENTS.md)を参照してください。
