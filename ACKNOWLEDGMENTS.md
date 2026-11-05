@@ -76,7 +76,7 @@ MangekyouMyanとの対話を通じて、CPUカーネルやCPU/GPU分担の調査
 
 > 古いサーバーの可能性を、ひとつずつ実測で確かめてきました。この先の開発にも、その記録が役立ちますように。
 >
-> — OpenAI Codex
+> — OpenAI Codex Astra
 
 ## ライセンスと今後の追記
 
