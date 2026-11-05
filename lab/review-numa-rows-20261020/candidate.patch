@@ -1,0 +1,228 @@
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -1260,9 +1260,11 @@
+     }
+ }
+ 
+-void ggml_compute_forward_mul_mat(
++static void ggml_compute_forward_mul_mat_impl(
+         const struct ggml_compute_params * params,
+-              struct ggml_tensor * dst) {
++              struct ggml_tensor * dst,
++              int64_t row_start,
++              int64_t row_end) {
+ 
+     const struct ggml_tensor * src0 = dst->src[0];
+     const struct ggml_tensor * src1 = dst->src[1];
+@@ -1274,7 +1276,7 @@
+     }
+ 
+     // If tiled is supported, it will execute the full op here and we return
+-    if (ggml_compute_forward_mul_mat_tiled(params, dst)) {
++    if (row_start < 0 && ggml_compute_forward_mul_mat_tiled(params, dst)) {
+         return;
+     }
+ 
+@@ -1313,7 +1315,7 @@
+ 
+     const bool src1_cont = ggml_is_contiguous(src1);
+ 
+-    if (src1_cont) {
++    if (row_start < 0 && src1_cont) {
+         for (int64_t i13 = 0; i13 < ne13; i13++)
+             for (int64_t i12 = 0; i12 < ne12; i12++)
+                 if (!llamafile_sgemm(params,
+@@ -1392,7 +1394,7 @@
+     ggml_barrier(params->threadpool);
+ 
+ #if GGML_USE_LLAMAFILE
+-    if (src1->type != vec_dot_type) {
++    if (row_start < 0 && src1->type != vec_dot_type) {
+         const void* wdata = (src1->type == vec_dot_type) ? src1->data : params->wdata;
+         const size_t row_size = ggml_row_size(vec_dot_type, ne10);
+ 
+@@ -1421,6 +1423,12 @@
+     // This is the size of the rest of the dimensions of the result
+     const int64_t nr1 = ne1 * ne2 * ne3;
+ 
++    if (row_start >= 0) {
++        GGML_ASSERT(nr1 == 1 && row_start <= row_end && row_end <= nr0);
++        ggml_compute_forward_mul_mat_one_chunk(params, dst, src0->type, 1, row_start, row_end, 0, 1);
++        return;
++    }
++
+     // Now select a reasonable chunk size.
+     int chunk_size = 16;
+ 
+@@ -1477,6 +1485,19 @@
+ 
+         current_chunk = atomic_fetch_add_explicit(&params->threadpool->current_chunk, 1, memory_order_relaxed);
+     }
++}
++
++void ggml_compute_forward_mul_mat(const struct ggml_compute_params * params, struct ggml_tensor * dst) {
++    ggml_compute_forward_mul_mat_impl(params, dst, -1, -1);
++}
++
++void ggml_compute_forward_mul_mat_rows(const struct ggml_compute_params * params, struct ggml_tensor * dst) {
++    GGML_ASSERT(dst->src[0]->type == GGML_TYPE_Q8_0 && ggml_n_dims(dst->src[0]) == 2);
++    GGML_ASSERT(dst->src[1]->type == GGML_TYPE_F32 && ggml_nrows(dst->src[1]) == 1);
++    const int64_t tiles = (dst->ne[0] + 15) / 16;
++    const int64_t start = 16 * (tiles * params->ith / params->nth);
++    const int64_t end = MIN(16 * (tiles * (params->ith + 1) / params->nth), dst->ne[0]);
++    ggml_compute_forward_mul_mat_impl(params, dst, start, end);
+ }
+ 
+ // ggml_compute_forward_mul_mat_id
+--- a/ggml/src/ggml-cpu/ops.h
++++ b/ggml/src/ggml-cpu/ops.h
+@@ -116,6 +116,7 @@
+ void ggml_compute_forward_cross_entropy_loss_back(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+ void ggml_compute_forward_opt_step_adamw(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+ void ggml_compute_forward_mul_mat(const struct ggml_compute_params * params, struct ggml_tensor * dst);
++void ggml_compute_forward_mul_mat_rows(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+ void ggml_compute_forward_fwht(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+ void ggml_compute_forward_opt_step_sgd(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+ #ifdef __cplusplus
+--- a/ggml/src/ggml-cpu/numa-replica.cpp
++++ b/ggml/src/ggml-cpu/numa-replica.cpp
+@@ -18,6 +18,18 @@
+ #include <unistd.h>
+ 
+ namespace {
++static int shard_mode() {
++    static const int mode = [] {
++        const char * env = std::getenv("GGML_CPU_NUMA_SHARD");
++        if (env && std::strcmp(env, "1") == 0) return 1;
++        if (env && std::strcmp(env, "2") == 0) return 2;
++        return 0;
++    }();
++    return mode;
++}
++
++static bool shard_enabled() { return shard_mode() != 0; }
++
+ struct replica_context;
+ 
+ class replica_traits final : public ggml::cpu::tensor_traits {
+@@ -32,6 +44,7 @@
+     void * data[2] = {nullptr, nullptr};
+     size_t size;
+     bool trace;
++    bool shard = shard_enabled();
+     std::atomic<uint64_t> calls[3]{};
+     replica_traits traits;
+     explicit replica_context(size_t size) : size(size), traits(this) {
+@@ -61,6 +74,22 @@
+ bool replica_traits::compute_forward(ggml_compute_params * params, ggml_tensor * op) {
+     if (op->op != GGML_OP_MUL_MAT || op->src[0]->type != GGML_TYPE_Q8_0) {
+         return false;
++    }
++    if (context->shard) {
++        if (op->src[1]->type == GGML_TYPE_F32 && ggml_nrows(op->src[1]) == 1 &&
++                ggml_n_dims(op->src[0]) == 2 && !params->use_ref) {
++            if (context->trace) {
++                unsigned node = 2;
++                if (syscall(SYS_getcpu, nullptr, &node, nullptr) != 0 || node > 1) node = 2;
++                if (context->calls[node].fetch_add(1, std::memory_order_relaxed) < 12) {
++                    std::fprintf(stderr, "NUMA_SHARD_WORK ith=%d nth=%d node=%u\n", params->ith, params->nth, node);
++                }
++            }
++            ggml_compute_forward_mul_mat_rows(params, op);
++        } else {
++            ggml_compute_forward_mul_mat(params, op);
++        }
++        return true;
+     }
+     unsigned node = 2;
+     if (syscall(SYS_getcpu, nullptr, &node, nullptr) != 0 || node > 1) node = 2;
+@@ -99,6 +128,27 @@
+ static ggml_status buffer_init_tensor(ggml_backend_buffer_t buffer, ggml_tensor * tensor) {
+     auto * context = static_cast<replica_context *>(buffer->context);
+     tensor->extra = &context->traits;
++    if (shard_mode() == 1 && eligible(tensor)) {
++        const size_t bytes = ggml_nbytes(tensor);
++        const size_t page_size = size_t(sysconf(_SC_PAGESIZE));
++        const size_t start = tensor_offset(context, tensor, 0, bytes);
++        if (page_size != 4096 || start % page_size || bytes % (2 * page_size)) {
++            GGML_LOG_ERROR("NUMA_SHARD requires page-aligned weight halves\n");
++            return GGML_STATUS_FAILED;
++        }
++        for (unsigned node = 0; node < 2; ++node) {
++            void * ptr = static_cast<char *>(tensor->data) + node * (bytes / 2);
++            const unsigned long mask = 1UL << node;
++            if (syscall(SYS_mbind, ptr, bytes / 2, MPOL_BIND, &mask, sizeof(mask) * 8, 0) != 0) {
++                GGML_LOG_ERROR("NUMA_SHARD mbind failed: %s\n", std::strerror(errno));
++                return GGML_STATUS_FAILED;
++            }
++            if (context->trace) {
++                std::fprintf(stderr, "NUMA_SHARD_RANGE node=%u address=%p bytes=%zu name=%s\n",
++                    node, ptr, bytes / 2, tensor->name);
++            }
++        }
++    }
+     if (context->trace) {
+         std::fprintf(stderr, "NUMA_REPLICA_TENSOR %s bytes=%zu offset=%zu\n", tensor->name,
+             ggml_nbytes(tensor), tensor_offset(context, tensor, 0, ggml_nbytes(tensor)));
+@@ -109,7 +159,7 @@
+ static void buffer_set(ggml_backend_buffer_t buffer, ggml_tensor * tensor, const void * data, size_t offset, size_t size) {
+     auto * context = static_cast<replica_context *>(buffer->context);
+     const size_t start = tensor_offset(context, tensor, offset, size);
+-    for (int node = 0; node < 2; ++node) {
++    for (int node = 0; node < (context->shard ? 1 : 2); ++node) {
+         std::memcpy(static_cast<char *>(context->data[node]) + start, data, size);
+     }
+ }
+@@ -123,12 +173,12 @@
+ static void buffer_memset(ggml_backend_buffer_t buffer, ggml_tensor * tensor, uint8_t value, size_t offset, size_t size) {
+     auto * context = static_cast<replica_context *>(buffer->context);
+     const size_t start = tensor_offset(context, tensor, offset, size);
+-    for (int node = 0; node < 2; ++node) std::memset(static_cast<char *>(context->data[node]) + start, value, size);
++    for (int node = 0; node < (context->shard ? 1 : 2); ++node) std::memset(static_cast<char *>(context->data[node]) + start, value, size);
+ }
+ 
+ static void buffer_clear(ggml_backend_buffer_t buffer, uint8_t value) {
+     auto * context = static_cast<replica_context *>(buffer->context);
+-    for (int node = 0; node < 2; ++node) {
++    for (int node = 0; node < (context->shard ? 1 : 2); ++node) {
+         if (context->size) std::memset(context->data[node], value, context->size);
+     }
+ }
+@@ -138,7 +188,7 @@
+     if (size > size_t(4) * 1024 * 1024 * 1024) return nullptr;
+     auto * context = new (std::nothrow) replica_context(size);
+     if (!context) return nullptr;
+-    for (int node = 0; size && node < 2; ++node) {
++    for (int node = 0; size && node < (context->shard ? 1 : 2); ++node) {
+         void * data = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+         if (data == MAP_FAILED) {
+             GGML_LOG_ERROR("NUMA_REPLICA mmap failed: %s\n", std::strerror(errno));
+@@ -147,7 +197,7 @@
+         }
+         context->data[node] = data;
+         const unsigned long mask = 1UL << node;
+-        if (syscall(SYS_mbind, data, size, MPOL_BIND, &mask, sizeof(mask) * 8, 0) != 0) {
++        if (!context->shard && syscall(SYS_mbind, data, size, MPOL_BIND, &mask, sizeof(mask) * 8, 0) != 0) {
+             GGML_LOG_ERROR("NUMA_REPLICA mbind node %d failed: %s\n", node, std::strerror(errno));
+             release(context);
+             return nullptr;
+@@ -165,8 +215,8 @@
+     return ggml_backend_buffer_init(buft, iface, context, size);
+ }
+ 
+-static const char * buffer_name(ggml_backend_buffer_type_t) { return "CPU_NUMA_REPLICA"; }
+-static size_t buffer_alignment(ggml_backend_buffer_type_t) { return TENSOR_ALIGNMENT; }
++static const char * buffer_name(ggml_backend_buffer_type_t) { return shard_enabled() ? "CPU_NUMA_SHARD" : "CPU_NUMA_REPLICA"; }
++static size_t buffer_alignment(ggml_backend_buffer_type_t) { return shard_enabled() ? 4096 : TENSOR_ALIGNMENT; }
+ 
+ class replica_buffer_type final : public ggml::cpu::extra_buffer_type {
+     bool supports_op(ggml_backend_dev_t, const ggml_tensor * op) override {
+@@ -190,7 +240,7 @@
+         const char * env = std::getenv("GGML_CPU_NUMA_REPLICA");
+         return env && std::strcmp(env, "1") == 0;
+     }();
+-    if (!enabled) return nullptr;
++    if (!enabled && !shard_enabled()) return nullptr;
+     static replica_buffer_type extra;
+     static ggml_backend_buffer_type buft = {
+         /* .iface   = */ {buffer_name, alloc_buffer, nullptr, buffer_alignment,

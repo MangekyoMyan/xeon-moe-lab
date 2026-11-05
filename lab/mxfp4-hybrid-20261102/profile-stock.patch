@@ -1,0 +1,24 @@
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -1560,6 +1560,10 @@
+     return ptr;
+ }
+ 
++#if defined(GGML_MOE_HISTOGRAM) && defined(__linux__)
++#include "moe-histogram.h"
++#endif
++
+ static void ggml_compute_forward_mul_mat_id(
+         const struct ggml_compute_params * params,
+               struct ggml_tensor * dst) {
+@@ -1681,6 +1685,10 @@
+     }
+ 
+     ggml_barrier(params->threadpool);
++
++#if defined(GGML_MOE_HISTOGRAM) && defined(__linux__)
++    if (ith == 0) moe_hist_record(params, dst, matrix_row_counts, n_as);
++#endif
+ 
+     for (int cur_a = 0; cur_a < n_as; ++cur_a) {
+         const int64_t cne1 = matrix_row_counts[cur_a];

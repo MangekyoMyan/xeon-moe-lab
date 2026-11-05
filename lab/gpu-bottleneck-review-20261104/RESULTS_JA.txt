@@ -1,0 +1,84 @@
+GPU使用率・電力とprefillの改善余地 / 2026-11-04
+
+結論
+使用率90〜100%と150W前後の消費電力だけでは、GPU演算またはHBM帯域を使い切ったとは判断できない。
+この個体の単体性能は過去に測定済み。現在のDeepSeek prefillでその何割を使えているかは未測定。
+GPU内部の候補として、Volta向け大batch MoE経路のCPUへのrouting往復・同期・expert単位の処理が具体的に見つかった。
+今回は読み取り調査。API停止、起動、設定変更、電力変更、新しい推論リクエスト、GPU負荷試験は実施していない。
+
+現在の実行状態
+llm-deepseek41-api.service active/running、llama-server PID39141。
+Vision F16がロード済み。128k、画像上限256、CPU compact96GiB、gpu3-stream1024を維持。
+直近の本番ログ:
+ task1104:入力10351token /203641.90ms =50.83tok/s、生成54token =6.32tok/s。
+ task2514:入力6893token /134086.19ms =51.41tok/s、生成595token =6.36tok/s。
+短い入力はGPU移行の固定しきい値未満なので、これらの長い入力とは別条件。
+ユーザーの会話本文・APIキーは採取していない。
+
+待機時の一回読み取り（負荷中の結果ではない）:
+ PG500-216 / driver580.196.07 / ECC有効 /150W。
+ PCIe Gen3 x16、HBM1107MHz（報告上の最大1107MHz）、SM1260MHz（最大1380MHz）。
+ VRAM30646MiB、GPU使用率0%、約39W、温度約30℃。
+ SW power cap / HW thermal slowdown / HW power brakeはいずれもinactive。
+ この待機時結果からprefill中のクロック・制限理由は推定しない。
+
+過去の同個体の単体実測（2026-10-25、150W/ECC）
+ 256MiB device copy:943.662407GB/s（読み+書きの合計、有効転送量、GPU内コピー）。
+ FP32 SGEMM4096:11.9687177TFLOPS。
+ FP16 Tensor Core GEMM4096 / FP32 accumulation:74.4179421TFLOPS。
+ 連続約20秒の各単体試験、サンプル出力検証済み。
+ 元データ:results/v100-performance-20261025/gpu-roofline-sustained/stdout.txt
+ カウント方法:v100-performance-20261025/gpu_roofline.cu
+ 大きな規則的コピー/行列積の値。現在の混合量子化・小さいexpert行列・routingを含む速度とは同一視しない。
+
+過去の同モデル重みを使った単体比較（2026-11-03、1024入力/384expert）
+ IQ3_XXS up:重み1,734,082,560bytes、GPU常駐処理19.996020ms、登録RAMから重み転送+処理213.563679ms。
+ MXFP4 up:重み2,406,481,920bytes、GPU常駐処理19.656013ms、登録RAMから重み転送+処理278.318424ms。
+ 計測は固定seedの合成入力/routing。本番の実分布ではない。
+ GPU常駐処理にもホスト側の投入/同期などが含まれる。純粋なGPU kernel実行時間の測定とは限らない。
+ 両試験の差は転送等の影響の大きさを示すが、その差を本番のDMA時間や時間割合として使わない。
+ 元データ:gpu-stream-20261103/measurements.csv、RESULTS_JA.txt。
+
+現在のコードで確認したGPU内部改善候補
+ source/ggml/src/ggml-cuda/mmq.cu:382ff のggml_cuda_should_use_mmqは、NVIDIAでFP16 Tensor Coreを持ちTuring MMAを持たない場合、通常ne11<64で量子化専用MMQを選ぶ。
+ source/ggml/src/ggml-cuda/mmq.cuh:MMQ_DP4A_MAX_BATCH_SIZE=64。
+ 現在のbuild:CUDA architecture70-real、GGML_CUDA_FORCE_MMQ=OFF、GGML_CUDA_FORCE_CUBLAS=OFF。
+ source/ggml/src/ggml-cuda/mmf.cu:133ff は量子化重みに対してMMFを選ばない。
+ source/ggml/src/ggml-cuda/ggml-cuda.cu:2200ff の大きな量子化MUL_MAT_IDは、この場合fallbackへ進む。
+ fallbackには以下がある:
+  1) routing IDをGPU→CPUへコピーしcudaStreamSynchronize。
+  2) CPUでexpert×token×topkのループを回して並べ替え用indexを作る。
+  3) indexをGPUへ戻し、もう一度cudaStreamSynchronize。
+  4) expertごとにggml_cuda_mul_matを呼び出す。各expertでの演算経路にはさらに量子化/サイズ別分岐がある。
+ 全体batch1024、384expert/top6の平均割当は16入力/expert。ただし実際の偏りは未採取。
+ GPU常駐重みでも、このホスト側整理・同期があり得る。PCIe重み転送の有無とは別の問題。
+ 候補はGPU内でのrouting/grouping、MoE限定のVolta MMQ選択、grouped処理、展開/小kernelの統合。
+ FORCE_MMQを一律有効化するのは未検証。通常のdenseや別batchに回帰する可能性があるため、本番変更はしていない。
+ ここまではソース/ビルド設定の確認。実際の各kernelの所要時間、fallbackの本番寄与、改善倍率は未測定。
+
+次の測定で分ける項目
+ A. PCIe RX/TX、電力制限時間、SM/HBMクロックをprefillの時刻と対応させる。
+ B. GPU timelineで重みDMA、展開、行列積、attention、空き時間とCPU同期待ちを分離する。
+ C. 重いkernelに限定し、実HBM read/write bytesと時間、SM/Tensor演算率、occupancy、warp待ち理由を取得する。
+ D. 同一数値条件でGPU内処理のみ/転送込み、現行/候補を比較。NVML memory%×944GB/s等の換算はしない。
+ GPU power capがactiveでSMクロックが抑制されても、同じ150W内で命令/展開/メモリアクセス削減が有効な可能性は残る。
+ まず150Wで測る。200W化・ファン変更はこの調査では不要。
+
+計測可能性の確認
+ nvidia-smi dmon -i GPU-6622f7a2-ee1a-a79e-1277-cee96d850aa3 -s pucvmet -d1 -c1 -o DT は成功。
+ sm/mem稼働時間率、mclk/pclk、pviol/tviol、rxpci/txpci（MB/s）を出せる。
+ dmonのmemはHBM実転送GB/sではない。idleの一回試験なので負荷特性はまだ不明。
+ 現在ncu/nsys/CUPTIは確認した配置先に見つからない。新規インストールは行っていない。
+ Nsight最新版はVolta非対応になっているため、精密計測用ツールはVolta対応版を選ぶ必要がある。
+ 常駐監視履歴にはクロック/PCIe実転送/SMやTensor演算量がなく、GPU使用率と電力だけでの分類は不可。
+ 履歴の粗い時刻をprefillへ近似対応させる試算も行ったが、時間窓とサンプルの粗さのため結論には採用していない。
+
+参考（NVIDIA一次資料）
+ https://docs.nvidia.com/deploy/archive/R550/nvml-api/structnvmlUtilization__t.html
+  GPU utilizationは1個以上のkernelが動いていた時間率。Memory utilizationもメモリが読み書きされていた時間率。
+ https://docs.nvidia.com/deploy/nvidia-smi/index.html
+  SW Power Capは電力のため要求クロックより抑えられていることを表す。電力数値だけとは区別。
+ https://docs.nvidia.com/nsight-compute/ProfilingGuide/
+  実throughput、演算/メモリ側counterやkernel性能解析。
+ https://docs.nvidia.com/nsight-compute/ReleaseNotes/topics/gpu-support.html
+  最新のVolta非対応表。実際の導入前に利用する旧版の対応を再確認する。

@@ -1,0 +1,12 @@
+--- a/ggml/src/ggml-cpu/arch/x86/quants.c
++++ b/ggml/src/ggml-cpu/arch/x86/quants.c
+@@ -1344,6 +1344,9 @@
+     __m256 accum = _mm256_setzero_ps();
+ 
+     for (; ib + 1 < nb; ib += 2) {
++        if (ib + 16 < nb) {
++            _mm_prefetch((const char *) &x[ib + 16], _MM_HINT_T0);
++        }
+         const __m128i qx_1_0 = _mm_loadu_si128((const __m128i *)x[ib].qs);
+         const __m128i qx_1_1 = _mm_loadu_si128((const __m128i *)x[ib].qs + 1);
+         const __m128i qx_2_0 = _mm_loadu_si128((const __m128i *)x[ib + 1].qs);

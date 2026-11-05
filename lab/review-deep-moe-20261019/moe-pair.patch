@@ -1,0 +1,141 @@
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -1553,7 +1553,8 @@
+ 
+ static void ggml_compute_forward_mul_mat_id(
+         const struct ggml_compute_params * params,
+-              struct ggml_tensor * dst) {
++              struct ggml_tensor * dst,
++              struct ggml_tensor * pair) {
+ 
+     const struct ggml_tensor * src0 = dst->src[0];
+     const struct ggml_tensor * src1 = dst->src[1];
+@@ -1676,7 +1677,7 @@
+         }
+ 
+         // tiled takes over if profitable for this expert (see tiled.h)
+-        if (ggml_compute_forward_mul_mat_id_tiled(params, dst, cur_a, cne1, (const int32_t *) &MMID_MATRIX_ROW(cur_a, 0), tiled_scratch)) {
++        if (!pair && ggml_compute_forward_mul_mat_id_tiled(params, dst, cur_a, cne1, (const int32_t *) &MMID_MATRIX_ROW(cur_a, 0), tiled_scratch)) {
+             continue;
+         }
+ 
+@@ -1726,6 +1727,16 @@
+                 src0_cur, matrix_rows, row_size, src1_cont, wdata
+             );
+ 
++            if (pair) {
++                const struct ggml_tensor * pair_weight = pair->src[0];
++                ggml_compute_forward_mul_mat_id_one_chunk(
++                    pair, pair_weight, src1, ids, cur_a,
++                    ir0_start, ir0_end, ir1_start, ir1_end,
++                    (const char *) pair_weight->data + cur_a * pair_weight->nb[2],
++                    matrix_rows, row_size, src1_cont, wdata
++                );
++            }
++
+             if (nth >= nchunk0 * nchunk1) {
+                 break;
+             }
+@@ -1868,7 +1879,7 @@
+             } break;
+         case GGML_OP_MUL_MAT_ID:
+             {
+-                ggml_compute_forward_mul_mat_id(params, tensor);
++                ggml_compute_forward_mul_mat_id(params, tensor, NULL);
+             } break;
+         case GGML_OP_OUT_PROD:
+             {
+@@ -3064,6 +3075,60 @@
+ // Returns the number of nodes skipped by fusion (>=1), or 0 if no fusion was applied.
+ static bool ggml_cpu_disable_fusion = false;  // initialized once in ggml_cpu_init(), read-only afterwards
+ 
++static bool ggml_cpu_moe_pair = true;
++static bool ggml_cpu_moe_pair_trace = false;
++
++static bool ggml_cpu_plain_tensor(const struct ggml_tensor * tensor) {
++    if (tensor->extra != NULL) {
++        return false;
++    }
++    if (tensor->buffer == NULL) {
++        return true;
++    }
++    // CPU and CPU_Mapped have no format conversion and share the host predicate.
++    const ggml_backend_buffer_type_t buft = ggml_backend_buffer_get_type(tensor->buffer);
++    const ggml_backend_buffer_type_t plain = ggml_backend_cpu_buffer_type();
++    return buft->iface.is_host == plain->iface.is_host &&
++        buft->iface.alloc_buffer == plain->iface.alloc_buffer &&
++        tensor->buffer->iface.init_tensor == NULL;
++}
++
++static bool ggml_cpu_can_pair_moe(const struct ggml_tensor * a, const struct ggml_tensor * b) {
++    if (a->op != GGML_OP_MUL_MAT_ID || b->op != GGML_OP_MUL_MAT_ID ||
++        !(b->flags & GGML_TENSOR_FLAG_COMPUTE) || ggml_is_empty(a) || ggml_is_empty(b) ||
++        a->src[1] != b->src[1] || a->src[2] != b->src[2] ||
++        a->src[0]->type != GGML_TYPE_IQ2_XXS || b->src[0]->type != GGML_TYPE_IQ2_XXS ||
++        a->src[1]->type != GGML_TYPE_F32 ||
++        a->src[1]->ne[1] != 1 || a->src[1]->ne[2] != 1 || a->src[1]->ne[3] != 1 ||
++        a->src[2]->ne[1] != 1 ||
++        a->type != GGML_TYPE_F32 || b->type != GGML_TYPE_F32 ||
++        !ggml_are_same_shape(a->src[0], b->src[0]) || !ggml_are_same_shape(a, b) ||
++        !ggml_is_contiguous(a->src[0]) || !ggml_is_contiguous(b->src[0]) ||
++        !ggml_is_contiguous(a) || !ggml_is_contiguous(b) ||
++        !ggml_cpu_plain_tensor(a) || !ggml_cpu_plain_tensor(b)) {
++        return false;
++    }
++    for (int i = 0; i < 3; ++i) {
++        if (!ggml_cpu_plain_tensor(a->src[i]) || !ggml_cpu_plain_tensor(b->src[i])) {
++            return false;
++        }
++    }
++    // Duplicate expert IDs can select a tiled kernel in the separate path.
++    const struct ggml_tensor * ids = a->src[2];
++    for (int64_t i = 0; i < ids->ne[0]; ++i) {
++        const int32_t id = *(const int32_t *) ((const char *) ids->data + i * ids->nb[0]);
++        for (int64_t j = 0; j < i; ++j) {
++            if (id == *(const int32_t *) ((const char *) ids->data + j * ids->nb[0])) {
++                return false;
++            }
++        }
++    }
++    const uintptr_t ap = (uintptr_t) a->data;
++    const uintptr_t bp = (uintptr_t) b->data;
++    const size_t bytes = ggml_nbytes(a);
++    return ap < bp ? bp - ap >= bytes : ap - bp >= bytes;
++}
++
+ static int ggml_cpu_try_fuse_ops(
+         const struct ggml_cgraph * cgraph,
+         const int node_n,
+@@ -3075,6 +3140,17 @@
+     }
+ 
+     struct ggml_tensor * node = cgraph->nodes[node_n];
++
++    if (ggml_cpu_moe_pair && node_n + 1 < cgraph->n_nodes &&
++        ggml_cpu_can_pair_moe(node, cgraph->nodes[node_n + 1])) {
++        struct ggml_tensor * pair = cgraph->nodes[node_n + 1];
++        if (ggml_cpu_moe_pair_trace && params->ith == 0) {
++            fprintf(stderr, "MOE_PAIR %s %s K=%" PRId64 " M=%" PRId64 " selected=%" PRId64 "\n",
++                node->name, pair->name, node->src[0]->ne[0], node->src[0]->ne[1], node->src[2]->ne[0]);
++        }
++        ggml_compute_forward_mul_mat_id(params, node, pair);
++        return 1;
++    }
+ 
+     if (node->op == GGML_OP_RMS_NORM) {
+         // RMS_NORM + MUL fusion
+@@ -3927,6 +4003,14 @@
+         {
+             const char * env = getenv("GGML_CPU_DISABLE_FUSION");
+             ggml_cpu_disable_fusion = (env != NULL && atoi(env) == 1);
++            env = getenv("GGML_CPU_MOE_PAIR");
++            ggml_cpu_moe_pair = (env == NULL || strcmp(env, "0") != 0);
++            env = getenv("GGML_CPU_TILED_MM_FORCE");
++            if (env != NULL && atoi(env) != 0) {
++                ggml_cpu_moe_pair = false;
++            }
++            env = getenv("GGML_CPU_MOE_PAIR_TRACE");
++            ggml_cpu_moe_pair_trace = (env != NULL && strcmp(env, "1") == 0);
+         }
+ 
+         is_first_call = false;

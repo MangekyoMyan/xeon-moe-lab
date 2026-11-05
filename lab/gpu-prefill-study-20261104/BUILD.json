@@ -1,0 +1,82 @@
+{
+  "commands": [
+    [
+      "g++",
+      "-O2",
+      "-std=c++17",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+      "-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include",
+      "-I/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include",
+      "-shared",
+      "-fPIC",
+      "/home/codex/projects/llm-lab/gpu-prefill-study-20261104/grouped_dispatch.cpp",
+      "-ldl",
+      "-o",
+      "/home/codex/projects/llm-lab/gpu-prefill-study-20261104/grouped_dispatch.so"
+    ],
+    [
+      "g++",
+      "-O2",
+      "-std=c++17",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+      "-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include",
+      "-I/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include",
+      "-shared",
+      "-fPIC",
+      "/home/codex/projects/llm-lab/gpu-prefill-study-20261104/activity_trace.cpp",
+      "-L/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/lib",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/lib",
+      "-lcupti",
+      "-o",
+      "/home/codex/projects/llm-lab/gpu-prefill-study-20261104/activity_trace.so"
+    ],
+    [
+      "g++",
+      "-O2",
+      "-std=c++17",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+      "-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include",
+      "-I/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include",
+      "-DENABLE_PMU",
+      "-I/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/samples/common",
+      "-I/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/samples/range_profiling",
+      "/home/codex/projects/llm-lab/gpu-prefill-study-20261104/operator_probe.cpp",
+      "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+      "-L/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+      "-L/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/lib",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/lib",
+      "-lggml-cuda",
+      "-lggml-cpu",
+      "-lggml-base",
+      "-lggml",
+      "-lcudart",
+      "-lcuda",
+      "-lcupti",
+      "-ldl",
+      "-o",
+      "/home/codex/projects/llm-lab/gpu-prefill-study-20261104/operator_probe"
+    ]
+  ],
+  "binaries": [
+    {
+      "path": "/home/codex/projects/llm-lab/gpu-prefill-study-20261104/grouped_dispatch.so",
+      "sha256": "ba45026316fc2aeba9bdc79f2cafa88489677f983e04babd26b05462cfd59afb"
+    },
+    {
+      "path": "/home/codex/projects/llm-lab/gpu-prefill-study-20261104/activity_trace.so",
+      "sha256": "307b1cb896d46974193e5752130d1e615c0432061749ab995ae192a37d40fb0a"
+    },
+    {
+      "path": "/home/codex/projects/llm-lab/gpu-prefill-study-20261104/operator_probe",
+      "sha256": "92ba7769a0f1acd374f144da81ccf88e66a0f0eb136e8bc364d3f2e402f519bf"
+    }
+  ],
+  "source_SHA256": {
+    "operator_probe.cpp": "7495c5818feef42ea99d30b6b3fda1718a09ad5bdeb17c6dc1de20626c7fa8ad",
+    "activity_trace.cpp": "ec93aa84924024ca0ddcd0c3afac7fce1695516dda267e1b51ffd533172627de",
+    "grouped_dispatch.cpp": "79c38f67dba3b12083827addc88bc76680dd805957a53680cd8677984c3dbad3"
+  },
+  "production_changed": false
+}

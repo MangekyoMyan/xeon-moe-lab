@@ -1,0 +1,56 @@
+--- a/ggml/src/ggml-cpu/tiled/tiled-kernel.h
++++ b/ggml/src/ggml-cpu/tiled/tiled-kernel.h
+@@ -15,7 +15,7 @@
+ #include <stddef.h>
+ #include <stdint.h>
+ 
+-#if defined(__AVX2__)
++#if defined(__AVX2__) || defined(__SSSE3__)
+ #include <immintrin.h>
+ #endif
+ 
+@@ -123,7 +123,7 @@
+ }
+ #else
+ 
+-// Scalar definitions for unpackers.
++// Fallback unpackers for CPUs without AVX2.
+ 
+ 
+ inline void tiled_unpk_nib4(const uint8_t * src, uint8_t * lo, uint8_t * hi) {
+@@ -142,6 +142,27 @@
+ }
+ inline void tiled_unpk_sign32(uint64_t g0, uint64_t g1, uint64_t g2, uint64_t g3,
+                               const uint8_t signs[4], uint8_t * dst32) {
++#if defined(__SSSE3__)
++    const uint32_t packed = (uint32_t) signs[0] | (uint32_t) signs[1] << 8 |
++                            (uint32_t) signs[2] << 16 | (uint32_t) signs[3] << 24;
++    const __m128i sv = _mm_cvtsi32_si128((int32_t) packed);
++    const __m128i sel = _mm_set1_epi64x((int64_t) 0x8040201008040201ULL);
++    const __m128i bias = _mm_set1_epi8((int8_t) 128);
++    const __m128i groups[2] = {
++        _mm_set_epi64x((int64_t) g1, (int64_t) g0),
++        _mm_set_epi64x((int64_t) g3, (int64_t) g2),
++    };
++    const __m128i shuf[2] = {
++        _mm_setr_epi8(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1),
++        _mm_setr_epi8(2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3),
++    };
++    for (int i = 0; i < 2; ++i) {
++        const __m128i s = _mm_shuffle_epi8(sv, shuf[i]);
++        const __m128i mask = _mm_cmpeq_epi8(_mm_and_si128(s, sel), sel);
++        const __m128i sgn = _mm_sub_epi8(_mm_xor_si128(groups[i], mask), mask);
++        _mm_storeu_si128((__m128i *) (dst32 + 16 * i), _mm_add_epi8(sgn, bias));
++    }
++#else
+     const uint64_t g[4] = { g0, g1, g2, g3 };
+     for (int l = 0; l < 4; l++) {
+         const uint8_t * v = (const uint8_t *) &g[l];
+@@ -150,6 +171,7 @@
+             dst32[8 * l + j] = (s & (1 << j)) ? (uint8_t) (128 - v[j]) : (uint8_t) (128 + v[j]);
+         }
+     }
++#endif
+ }
+ // 8 ternary grid bytes (0 = 0, 1 = +1, 0xFF = -1): dst[j] = 128 + delta + 8 * (int8_t) src[j]
+ inline void tiled_unpk_tern8(const uint8_t * src, int8_t delta, uint8_t * dst) {

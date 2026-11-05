@@ -1,0 +1,64 @@
+{
+  "status": "completed_target_cpu_validation",
+  "api": "stopped; user-run start command in final-runtime.json",
+  "production_config_modified": false,
+  "source_commit": "dde879bc4f954b809892fd0d660515f42536394a",
+  "variants": [
+    "stock",
+    "mxfp4_only"
+  ],
+  "guard": "guarded_run.py reads existing xeon-watch; stops own process group on alert, stale snapshot, CPU>=60C, BMC limits, ECC/throttle counter change",
+  "planned": [
+    "normal CMake CPU graph builds",
+    "verify loaded DSO hashes",
+    "bit-exact full-output boundary comparisons",
+    "ABBA MXFP4 real shapes at1/6/12/24threads",
+    "routing spread/SMT/NUMA interpretation",
+    "CPU-upgrade considerations using Intel specs"
+  ],
+  "no_model_restart_planned": true,
+  "completed": [
+    "API stopped per user authorization",
+    "isolated normal CMake stock/MXFP4 builds",
+    "actual DSO hash checks",
+    "boundary and full-output comparisons",
+    "real-shape1/6/12/24threads",
+    "strict worker affinity followups",
+    "12expert spread and384expert small tests",
+    "prequantized Q8 stride route checks",
+    "actual pair-kernel dispatch proof",
+    "reports and CPU-upgrade considerations"
+  ],
+  "findings": [
+    "t1 pairs about1.26-1.32x",
+    "unpinned t12 up3 regression0.839x needs followup",
+    "unpinned t24 up1 control0.437x anomalous; no pair kernel there"
+  ],
+  "probe_change": "optional --strict-cpu and actual worker mask recording added equally to both probes; originals saved",
+  "current": null,
+  "remaining": [],
+  "key_results": {
+    "case_definitions": 228,
+    "candidate_comparisons": 516,
+    "compared_elements": 35362584,
+    "bit_mismatches": 0,
+    "max_cpu_C": 34,
+    "strict24_shared_inputs2_ratio": [
+      1.075,
+      1.162
+    ],
+    "strict24_shared_inputs8_ratio": [
+      1.269,
+      1.305
+    ],
+    "remaining_regression": "strict12 shared6experts up3inputs ratio0.877; not generalized to all3input cases"
+  },
+  "production_candidate_applied": false,
+  "followup": "Future full-model A/B and regression analysis; not automatically started",
+  "reports": [
+    "RESULTS_JA.txt",
+    "CPU_UPGRADE_JA.txt",
+    "TIMINGS.csv",
+    "SUMMARY.json"
+  ]
+}

@@ -1,0 +1,23 @@
+2026-11-04 COMPLETE: measurement-derived CPU/GPU shadow adviser and optional route observer implemented/validated. No production deployment or scheduling changes.
+Read RESULTS_JA.txt, DESIGN_JA.txt, SUMMARY.json, COMMANDS_JA.txt. Historical checkpoints are RESUME_HISTORY.txt; do NOT resume their old jobs.
+
+User requested dynamically measured costs instead of only fixed thresholds; explicitly requested subagents. Root edits; Astra xhigh reviewed mathematics/measurement claims, Terra high reviewed observer/activation. Both final reviews had no remaining blockers within staged scope.
+Current policy: GPU150W/ECC/Standard fans<=70%. Long startup/download user-run. Never restart inactive API automatically. Follow lab AGENTS.md. No model inference request/fullmodel reload issued this turn.
+
+Production preserved:
+API PID39141, configSHA11ca8641aee16173e38283407182b6febc264915535df93dc7ce4dd840a2e44b. Vision/multi96/gpu3-stream1024 currentprofile intact. API+watch+notify active; noalerts/probes. FINAL_STATE.json. Root privateobserverdir /var/lib/xeon-expert-shadow NOTcreated. observer_profile.py enable DRYRUN only passed.
+
+Frozen experiment:
+376 successful operator cases =264train+48calibration+64heldout (8routing workloads x8quant/direction strata).24/48/96experts,T64..1024. THPdisabled perprocess matchingproduction. Old192defaultTHP data excluded under preliminary-default-thp. Originalaccepted CUDAbackend COMPUTE streaming,WEIGHTSresident separate; latestacceptedCPU24/interleave/strict0-23. GPUactivations+hostroutesready ->GPUoutput boundary. SharedIDfetch excluded equally, noqueues, no concurrentCPU/GPU split.
+MODEL2d6bd294bdf7cbb8a810e15a41aec066ee66055e10335a952c97df3621da1d62 frozen togetherwithcost_model.py implementationhash; EVALUATION_LOCK protectsheldout. Do NOT modify/refit model/code and reuse sameheldout. All sessionsfinished including21587.
+Heldout combinedCPU+GPUstream errors median1.338%,p904.466%;GPUresidentmedian4.157%,p9011.263%.63recommendationsmatchmeasuredmedians(62GPU1CPU),1overlapabstention. AlwaysGPU wins62/64; bothCPUwins same test07routingworkload. Adviser aggregate1943.95ms vsalwaysGPU1961.77ms=ONLY0.91% less. Fixedthresholdsum9942.07ms must notbe presentedasfullmodel speedup. Empiricalenvelopes only56/50/51of64CPU/stream/resident coverage; notconfidenceinterval. Production384/queues/partialresidency/concurrencynotvalidated; adviserabstains.
+
+Observer:
+shadow_capture.h/capture.patch/runtime/libllama.so.0.8.0 a74bf60281dae7b7062d7418dccb6a8069bf912c6d9c9e5b858a5dfe7d9e0f3e.
+ExistinghostIDcopy reused; no extraGPUget/sync. HookAFTERgraphassignment; cannotchange sameoperator backend without redesign. ProductionALREADYselectivecopies activeexperts,continuousruns+padding; don'tclaimoldfullbankcopies.
+Processwidegeneration invalidatesTLShist onANYactualrefresh, includingexcludedcallback/otherthread. Asynccappedqueue128,2048records/8MiB,0600freshfiles,lossledger,failopen. CPU/GPUresident/nativecache worknotobserved. Hostwall is observer-perturbed/inclusive, NOTDMA. Sharedfetchcountonceperroute_epoch; missingrefresh meansunknown,notzero.
+15predictorunit+64routefeatures+6capturefixtureobservations/security/drop/crossthreadchecks+5isolatedprofiletransactiontestspass. Tinyoriginal/off/on identical65920bytes=16480float(first32logitsper512prefill+3decode);12actualGPUcallbacks at512inputs,4groups exactH2D,0drops. LOADER_CHECK bindsactualdladdr libraryhash andsource/fixture. Olderzeroeventfixture was correctedbecause last-tokenlogits pruning collapsed1-layerMoE512->1; oldartifactpreserved.
+Profileconfigcopiesverifiedlibtorootprivateimmutablepath,root0700backup/captures,0600state,requiresAPIinactive androotservice,byte-exactrestore, refuseschangedconfig. One-shotfilename: repeatrecordrequiresstop+restore+enable. Neverautostarts/stopsAPI. UserinstructionsCOMMANDS_JA.txt. capture_report.py --latest needs sudo afterproductioncaptureexists.
+
+Next useful scope:
+Optionaluser-run restartwithobserver forreal384expert inputhistograms. Need separate384expert calibrationwhenVRAMheadroomavailable; no extrapolation<=96->384. Validate nearCPU/GPUcrossover andnonemptyqueues/concurrentinterference withnewheldout. Onlythen designliveassignmentpoint/compactC++prediction andA/B actualmodel. Current Pythonadviser isoffline, notperoperatorhotpath.

@@ -1,0 +1,63 @@
+{
+  "status": "user_started_candidate_first_live_observation",
+  "date_JST": "2026-11-03",
+  "API": "user started; successful request observed in logs",
+  "model_startup_policy": "User runs long model startup; do not start automatically",
+  "production_source_changed": false,
+  "production_config_changed": true,
+  "production_config_sha256": "73090349bcdcebb010eb78daf888e1bc74fd7d1d3bac0cbeb024eb1e939dae77",
+  "candidate": "gpu3-stream1024",
+  "command": "sudo python3 /home/codex/projects/llm-lab/gpu-stream-20261103/switch_profile.py gpu3-stream1024 --apply",
+  "rollback": "same switch_profile.py baseline --apply; baseline means gpu2/stock/b128 without oldhist",
+  "implementation": [
+    "libllama opt-in readonly CPU-expert mmap CUDA registration; RAII unregister before unmap",
+    "libggml-base opt-in MXFP4 offload minimum1024",
+    "previous validated hybrid4/2/1 CPU library",
+    "IQ GPU minimum512 via existing CUDA flag; 3GPUresident layers37-39; batch/ubatch1024"
+  ],
+  "preserved": [
+    "context131072",
+    "f16 KV",
+    "cache-prompt",
+    "GPU150W",
+    "ECC",
+    "fan<=70%",
+    "API address/key/model files"
+  ],
+  "completed": [
+    "33 actualweight operator cases passed (3vector smoke,24readonlymmap stock,6readonlymmap hybrid)",
+    "helper ASan/UBSan bounds/lifetime tests passed",
+    "tiny synthetic MoE load/register/free3times; disabledcontrol",
+    "actualscheduler wholeFFN12cases, independentFP64sample checks; stockCPUerrors identical tohybrid",
+    "scheduler allocation andGET_ROWS CPU checks128/512/1024",
+    "7switchmocktests",
+    "CLI dryrun and3libraryhashes/configinvariants",
+    "originalsource clean/APIinactive/monitorsactive/GPU0MiB150WECC"
+  ],
+  "important_limits": [
+    "batch1024 supported by source; rawSWA grows1280cells; longcontext attention accuracy nottested",
+    "Thresholds fixed by quanttype andbatch, notruntime expert load/hitcount",
+    "Earlierstockhist actualdata only1/9/11 batch, truncated; currentreadyhelper timedout30min beforeload60min29s",
+    "Fullmodel registration196.57GiB completed and first request succeeded; peakVRAM and longcontext correctness remain untested",
+    "One user request49.93PP/5.33TG is not a controlledAB benchmark"
+  ],
+  "next": [
+    "Current candidate already user-started; do not restart automatically",
+    "Generation CPU expert / activation-transfer / synchronization breakdown is next measurement target",
+    "KV mirror not implemented: current CPU experts do not consume KV",
+    "Controlled same-prompt baseline/candidate comparison and longcontext VRAM/quality validation still pending"
+  ],
+  "artifacts": [
+    "RESULTS_JA.txt",
+    "SUMMARY.json",
+    "measurements.csv",
+    "OVERLAY.json",
+    "SCHEDULER.json",
+    "PROFILES.json",
+    "VALIDATION_LATEST.json"
+  ],
+  "privacy": "before-server-config.json and profiles contain private endpoint/key-file paths; do not put into external share ZIP. No actual keys/prompts logged.",
+  "candidate_applied_by": "user",
+  "full_model_controlled_AB": false,
+  "first_live_observation": "/home/codex/projects/llm-lab/gpu-stream-20261103/live-first-observation.json"
+}

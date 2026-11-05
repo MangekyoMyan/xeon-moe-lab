@@ -1,0 +1,39 @@
+{
+  "passed": true,
+  "unix": 1793756445.0827758,
+  "sources": {
+    "gpu_guard.py": "b9a4f123b78c125e155a8cc2710c67436d6d05ef742559240519a40309492c2d",
+    "supervise.py": "ae8f58d2cf9e70847ce219bb35fd8ac77544fdc0e435987b31316c11b904c5ed",
+    "recovery.py": "38af766ab2f4682aa9a22c99cb1df40f69652329b6a3ee7e4a6947dadb744904",
+    "deploy.py": "2eab1ab62eb1063f25fd7994fbc2bca9db18a66d2fe498a75a0be7d2098ce1cb",
+    "test_gpu_guard.py": "3c3aee3dd538a20336f4d66dd4f952fd0e601f97ff02b8632fd9eb534db869fe",
+    "test_supervisor.py": "a115180e32c1f751b53dfc26a7c7c8e34f360dccfbd48ad8f2026a03cd3c591e",
+    "test_recovery.py": "4b5df3dbeb73ea2ae8ac905b688e2c1f3027356862f4b0bd8c21779c637ccf18",
+    "test_deploy.py": "2e3c8234724c13c890907116fbe7c8a33e0a6747841a37e54eb706ed3dc3874e"
+  },
+  "test_command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "/home/codex/projects/llm-lab/guard-retry-20261104",
+    "-p",
+    "test_*.py",
+    "-v"
+  ],
+  "test_log_sha256": "f99a64fc2e7f83a5e2817c3bc8565d925f2d3e4a111a7d6399a222ec9ad2503e",
+  "incident_sha256": "323513f181d5f0fbdb12d81399a12c6387ae77e1bfb9e8db324ccbe7abee58a2",
+  "original_supervisor_sha256": "f31ec8ae7176a549e6ebc2494f3a23e77f92c3bd8d0dca6d8ea4a4512bfdafb7",
+  "scope": "40 simulated tests including failure/cancellation/incident-acknowledgement races; no model or hardware commands executed by tests",
+  "runtime_policy": {
+    "query_timeout_seconds": 5,
+    "max_attempts": 3,
+    "retry_gap_seconds": 1,
+    "checked_recovery_budget_seconds": 20,
+    "independent_snapshot_max_age_seconds": 20,
+    "BMC_max_age_seconds": 90,
+    "temperature_limits_unchanged": true
+  },
+  "model_started": false
+}

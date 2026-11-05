@@ -1,0 +1,69 @@
+--- /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/ggml-cpu.c
++++ /home/codex/projects/llm-lab/iq3-cache-20261103/ggml-cpu.c
+@@ -3,6 +3,7 @@
+ 
+ #include "ggml-backend-impl.h"
+ #include "ggml-backend.h"
++#include "iq3-cache.h"
+ #include "traits.h"
+ #include "ggml-cpu-impl.h"
+ #include "ggml-impl.h"
+@@ -1503,14 +1504,17 @@
+     const struct mmid_row_mapping * matrix_rows,
+     const size_t row_size,
+     const bool src1_cont,
+-    const void * wdata) {
++    const void * wdata,
++    const void * compact_data) {
+ 
+     GGML_TENSOR_BINARY_OP_LOCALS
+ 
+     const enum ggml_type type = src0->type;
+ 
+-    ggml_vec_dot_t    const vec_dot      = type_traits_cpu[type].vec_dot;
+-    enum ggml_type    const vec_dot_type = type_traits_cpu[type].vec_dot_type;
++    ggml_vec_dot_t const vec_dot = compact_data ? xeon_iq3_compact_dot : type_traits_cpu[type].vec_dot;
++    enum ggml_type const vec_dot_type = type_traits_cpu[type].vec_dot_type;
++    const size_t weight_stride = compact_data ? (size_t)(ne00/256)*144 : nb01;
++    const char * weight_data = compact_data ? (const char *) compact_data : src0_cur;
+ 
+     const int64_t blck_0 = 16;
+     const int64_t blck_1 = 16;
+@@ -1543,7 +1547,7 @@
+                 float * dst_col = (float *) ((char *) dst->data + (i1*nb1 + i2*nb2));
+ 
+                 for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir0_end; ++ir0) {
+-                    vec_dot(ne00, &tmp[ir0 - iir0], 0, src0_cur + ir0*nb01, 0, src1_col, 0, 1);
++                    vec_dot(ne00, &tmp[ir0 - iir0], 0, weight_data + ir0*weight_stride, 0, src1_col, 0, 1);
+                 }
+ 
+                 memcpy(&dst_col[iir0], tmp, (MIN(iir0 + blck_0, ir0_end) - iir0)*sizeof(float));
+@@ -1812,6 +1816,9 @@
+ 
+     ggml_barrier(params->threadpool);
+ 
++    const char * compact_data = (!params->use_ref && type == GGML_TYPE_IQ3_XXS && ids->ne[1] == 1)
++        ? (const char *) xeon_iq3_cache_lookup(src0) : NULL;
++
+     for (int cur_a = 0; cur_a < n_as; ++cur_a) {
+         const int64_t cne1 = matrix_row_counts[cur_a];
+ 
+@@ -1820,7 +1827,7 @@
+         }
+ 
+         // tiled takes over if profitable for this expert (see tiled.h)
+-        if (ggml_compute_forward_mul_mat_id_tiled(params, dst, cur_a, cne1, (const int32_t *) &MMID_MATRIX_ROW(cur_a, 0), tiled_scratch)) {
++        if (!compact_data && ggml_compute_forward_mul_mat_id_tiled(params, dst, cur_a, cne1, (const int32_t *) &MMID_MATRIX_ROW(cur_a, 0), tiled_scratch)) {
+             continue;
+         }
+ 
+@@ -1885,7 +1892,8 @@
+                 ggml_compute_forward_mul_mat_id_one_chunk(
+                     dst, src0, src1, ids, cur_a,
+                     ir0_start, ir0_end, ir1_start, ir1_end,
+-                    src0_cur, matrix_rows, row_size, src1_cont, wdata
++                    src0_cur, matrix_rows, row_size, src1_cont, wdata,
++                    compact_data ? compact_data + (size_t)cur_a*ne01*(ne00/256)*144 : NULL
+                 );
+             }
+ 

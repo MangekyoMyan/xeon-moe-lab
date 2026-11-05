@@ -1,0 +1,17 @@
+[Unit]
+Description=Private DeepSeek4.1 Mix256 baseline API (user started)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=<LAB_ROOT>/deepseek41-bringup-20261101
+ExecStart=/usr/bin/python3 <LAB_ROOT>/deepseek41-bringup-20261101/supervise.py
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+LimitMEMLOCK=infinity
+TimeoutStopSec=60
+KillMode=mixed
+Restart=no
+UMask=0077
+StandardOutput=journal
+StandardError=journal

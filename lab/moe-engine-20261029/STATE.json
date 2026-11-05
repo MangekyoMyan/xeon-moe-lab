@@ -1,0 +1,123 @@
+{
+  "goal_status": "active",
+  "started_utc": "2026-10-28T17:44:59.147149+00:00",
+  "boot_id": "e5211f8c-6584-4ce6-9d51-2509c22fc0be",
+  "phase": "User requested server shutdown; integration saved, no workloads active",
+  "ambient_C_user": 14,
+  "active_processes": [],
+  "previous_goal_turn_classification": "progress (prior bounded goal closed with verified evidence); this is a new goal",
+  "baseline": "/home/codex/projects/llm-lab/moe-engine-20261027/MODEL_LAUNCH_READY.json",
+  "hypotheses": [
+    "ExactCPU/GPUQ8arithmetic canenableplacementchangeswithoutnumericalroutingdrift",
+    "Device residency updates mustbeatrealcopycost",
+    "DistinguishactiveCPU bandwidth fromwholeprocessaverages; do notinferirreduciblelimitprematurely"
+  ],
+  "updated_utc": "2026-10-28T23:12:44.389419+00:00",
+  "next": [
+    "Active mutable src now matches adopted frozen hybrid-reuse-v1; future custom test runners must explicitly enable GGML_XV_SHARE_DECODE_GRAPHS=1 when using it as baseline",
+    "Keep CPU/GPU expert selection unchanged; sharing does not alter placement or quantization",
+    "No general hardware ceiling established; remaining heavy CPU Q8/DRAM work and cost-aware cache policies remain investigation targets",
+    "RAM upgrade not yet installed; profile is bound to model/plan/CPU topology and RAM capacity with only64KiB reservation tolerance"
+  ],
+  "research_sources": [
+    {
+      "url": "https://github.com/FlashML-org/FreeToken",
+      "use": "Primary description of bandwidth-adaptiveCPU/GPUcoexecution; no performance assumptions transferred tothishardware"
+    },
+    {
+      "url": "https://github.com/Niko1221/Strata",
+      "use": "Primaryrepoidentified; no externalcodeexecuted orinstalled"
+    }
+  ],
+  "readiness": {
+    "resident_percent": 100,
+    "paired_split_percent": 99.94462083733293,
+    "migration_needed": false
+  },
+  "verified": {
+    "operator_cases_CPU_bitexact": 1288,
+    "model_unique_positions_CPU_canonical_bitexact": 320,
+    "model_inputs": 3,
+    "fixed_and_adaptive_placement_equal": true,
+    "copy_pipeline_same_membership_snapshots": 89,
+    "copy_pipeline_readback_verified": true,
+    "ordinary_cli_output_identical_bytes": 460,
+    "cli_256_all_output_equal": true,
+    "cli_ABBA_compute_speedup_percent": 4.479745907881005,
+    "kernel_warp32_CPU_bitexact_cases": 508,
+    "kernel_isolated_speedup_factor_range": [
+      1.33,
+      2.27
+    ],
+    "bridge_reversed_gate_order_regression": "old FAIL, fixed PASS",
+    "deferred_consumed_slotmaps_identical": 110,
+    "deferred_avoided_final_copy_bytes": 827228160,
+    "kernel_whole_model_speedup_percent_observed": 0.19575199817496447,
+    "kernel_whole_model_gain_established": false,
+    "cpu_window_Q8_loop_fraction": 0.97028245399603,
+    "imc_read_GB_s": 42.10118050902495,
+    "imc_all_counters_running_ratio": 1.0
+  },
+  "pending_notes": [
+    "GPU exactmodule uses pinnedCUDAABI head accessor, manifesthashchecked",
+    "User explicitly requests subagents; concurrent read-only review allowed, performance jobs serialized",
+    "Measurement audit: previous model-probe timers stop before llama_get_logits_ith synchronization. Do not call old small timing gains end-to-end verified."
+  ],
+  "candidate_default": "hybrid-reuse-v1; adaptive + deferred commit + shared decode graphs; default spin",
+  "candidate_optional": "--gpu-kernel warp32 selects hybrid-reuse-v1-warp32; --no-graph-reuse disables sharing",
+  "stable_launcher_changed": true,
+  "report": "/home/codex/projects/llm-lab/moe-engine-20261029/reports/hybrid-integration/RESULT_JA.html",
+  "user_request": "Integrate applicable improvements from streaming experiment into the existing CPU/GPU hybrid inference mechanism",
+  "stream_experiment": {
+    "v1_root": "/home/codex/projects/llm-lab/moe-engine-20261029/experiments/stream-active-agent/variant",
+    "v2_root": "/home/codex/projects/llm-lab/moe-engine-20261029/experiments/stream-active-agent/v2/variant",
+    "scope": "Q8 expert matrix operations all GPU; original CPU activation/input preparation remains; weights fresh every operator, RAM originals retained, no weight D2H",
+    "correctness": "independent24case CPU/pinned/pageable bitexact plus model16/32 all-logit CPU oracle; v2 arena reused across shape/pool changes",
+    "screening_32": {
+      "hybrid_decode_seconds": 4.4374,
+      "stream_default_decode_seconds": 41.9761,
+      "stream_t12_spin0_decode_seconds": 34.3703,
+      "stream_t12_spin0_copy_seconds": 25.7598
+    },
+    "next": "Finish t1/spin0 screen; v2 full-model screen; formal repeat original/improved vs hybrid; copy-only NVML diagnostic",
+    "status": "completed_measured_experiment",
+    "adopted_default": false,
+    "launcher": "/home/codex/projects/llm-lab/run_xeon_volta_stream.sh",
+    "clean_summary": "/home/codex/projects/llm-lab/moe-engine-20261029/experiments/stream-measure-agent/stream-abccba64-v1-v2/clean-summary.json",
+    "hybrid_decode_tps": 7.1318766700194995,
+    "original_stream_decode_tps": 0.7381203521048769,
+    "improved_stream_decode_tps": 1.0951473473216087,
+    "improvement_over_initial_stream_percent": 48.36967820389211,
+    "ordinary_CLI_equal_bytes": 460,
+    "copy_only_NVML_utilization_percent": 100.0,
+    "copy_only_H2D_GB_s": 10.653661442
+  },
+  "integration": {
+    "base": "exact-v4",
+    "variant": "/home/codex/projects/llm-lab/moe-engine-20261029/experiments/hybrid-integration-agent/variant",
+    "buffers_already_reused": [
+      "resident expert weights",
+      "pinned activation pool",
+      "two staging slots",
+      "prefill graphs by shape"
+    ],
+    "proposed_new": "decode graph sharing by shape/hit count across banks, including gate/up pair",
+    "stream_spin0_transferability": "unverified; old hybrid had lower throughput with reduced spin",
+    "status": "adopted",
+    "accepted": "decode graph reuse by shape/hits including gate/up pairs",
+    "spin_policy": "default retained; 0 and1000 slower in hybrid",
+    "release_variants": [
+      "/home/codex/projects/llm-lab/moe-engine-20261029/variants/hybrid-reuse-v1",
+      "/home/codex/projects/llm-lab/moe-engine-20261029/variants/hybrid-reuse-v1-warp32"
+    ],
+    "normal_launcher": "/home/codex/projects/llm-lab/run_xeon_volta_model.sh",
+    "legacy_launcher": "/home/codex/projects/llm-lab/run_xeon_volta_model_legacy.sh",
+    "main_entry_smoke": "96-token cap, 460 output bytes CPU-canonical equal, actual sharing/adaptive/12-24 profile verified",
+    "mutable_source": "/home/codex/projects/llm-lab/moe-engine-20261029/src/expert-cache.cpp",
+    "required_env": {
+      "GGML_XV_SHARE_DECODE_GRAPHS": "1",
+      "GGML_XV_EXACT_Q8": "1"
+    }
+  },
+  "shutdown_requested_utc": "2026-10-29T00:48:03.909800+00:00"
+}

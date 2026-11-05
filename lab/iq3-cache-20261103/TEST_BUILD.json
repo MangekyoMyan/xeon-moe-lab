@@ -1,0 +1,23 @@
+[
+  "g++",
+  "-O3",
+  "-std=c++17",
+  "-march=ivybridge",
+  "-mno-avx2",
+  "-mno-fma",
+  "-ffp-contract=off",
+  "-fopenmp",
+  "-I/home/codex/projects/llm-lab/iq3-cache-20261103",
+  "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+  "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+  "/home/codex/projects/llm-lab/iq3-cache-20261103/test-cache.cpp",
+  "-L/home/codex/projects/llm-lab/iq3-cache-20261103/runtime",
+  "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+  "-Wl,-rpath,/home/codex/projects/llm-lab/iq3-cache-20261103/runtime",
+  "-Wl,-rpath,/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+  "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+  "-lggml-cpu",
+  "-lggml-base",
+  "-o",
+  "/home/codex/projects/llm-lab/iq3-cache-20261103/test-cache"
+]

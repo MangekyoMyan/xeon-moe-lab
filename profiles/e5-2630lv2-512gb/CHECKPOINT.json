@@ -1,0 +1,122 @@
+{
+  "date_jst": "2026-11-05",
+  "optimization_status": "paused_by_user",
+  "baseline_label": "E5-2630L-v2-dual-512GB-PG500-216-150W",
+  "CPU_observed": {
+    "Architecture": "x86_64",
+    "CPU(s)": "24",
+    "Model name": "Intel(R) Xeon(R) CPU E5-2630L v2 @ 2.40GHz",
+    "Socket(s)": "2",
+    "Core(s) per socket": "6",
+    "Thread(s) per core": "2",
+    "NUMA node(s)": "2"
+  },
+  "board_observed": "X9DR3-F",
+  "board_vendor_observed": "Sugon",
+  "memory_memtotal_kib": 528334420,
+  "runtime_profile": {
+    "context": 131072,
+    "slot_count": 1,
+    "cpu_moe": false,
+    "cache_prompt": true,
+    "cache_ram_mib": 0,
+    "ctx_checkpoints": 0,
+    "kv_type": "f16",
+    "source_revision": "dde879bc4f954b809892fd0d660515f42536394a",
+    "n_cpu_moe": 37,
+    "gpu_resident_expert_layers": [
+      37,
+      38,
+      39
+    ],
+    "gpu_stream_profile": {
+      "name": "gpu3-stream1024",
+      "full_model_validation": "pending",
+      "ordinary_context": 131072,
+      "CPU_kernel": "hybrid4/2/1",
+      "decode_policy": "CPU experts except resident GPU layers; IQ offload>=512, MXFP4>=1024"
+    },
+    "cpu_iq3_compact_profile": {
+      "name": "multi96",
+      "additional_ram_budget_bytes": 103079215104,
+      "minimum_mem_available_bytes": 68719476736,
+      "scope": "IQ3_XXS + IQ2_S + IQ3_S CPU MUL_MAT_ID single-token only",
+      "full_model_validation": "pending user startup",
+      "selection": "IQ3_S, then other up/gate, then IQ2_S down, then IQ3_XXS down; stable layer order in ties; measured coarse priorities, no dynamic LRU",
+      "original_weights_retained": true,
+      "runtime": "/home/codex/projects/llm-lab/iq-cache-next-20261103/runtime"
+    },
+    "vision_profile": {
+      "name": "orca-f16-gpu256",
+      "projector": "/home/codex/projects/llm-lab/models/deepseek41-vision/mmproj-DeepSeek-V4.1-Flash-1017-abliterated-F16.gguf",
+      "image_max_tokens": 256,
+      "batch_max_tokens": 256,
+      "full_image_inference_verified": false,
+      "context_unchanged": 131072
+    },
+    "tuning_environment": {
+      "OMP_DYNAMIC": "FALSE",
+      "OMP_THREAD_LIMIT": "24",
+      "OMP_MAX_ACTIVE_LEVELS": "1",
+      "GGML_CUDA_REGISTER_HOST": "1",
+      "GGML_OP_OFFLOAD_MIN_BATCH": "512",
+      "GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH": "1024",
+      "GGML_CPU_IQ3_COMPACT_MIB": "98304"
+    }
+  },
+  "config_sha256": "11ca8641aee16173e38283407182b6febc264915535df93dc7ce4dd840a2e44b",
+  "evidence_hashes": [
+    {
+      "path": "deepseek41-bringup-20261101/server-config.json",
+      "bytes": 4490,
+      "sha256": "11ca8641aee16173e38283407182b6febc264915535df93dc7ce4dd840a2e44b"
+    },
+    {
+      "path": "deepseek41-bringup-20261101/BUILD_READY.json",
+      "bytes": 2232,
+      "sha256": "fb29f7952b73aa217676e522535bb84e7b9527f854ac287f2d5151e362a02689"
+    },
+    {
+      "path": "iq-cache-next-20261103/BUILD.json",
+      "bytes": 12263,
+      "sha256": "cb7e171c82a9b2dfae2c8eec9451beb5a1ab19eaf09f361e8d1c2718d5da6c97"
+    },
+    {
+      "path": "iq-cache-next-20261103/RESULTS_JA.txt",
+      "bytes": 11451,
+      "sha256": "3feb0267d430a90ab679fb5c49f74ba147b0291c89f6a26579142034324f4a16"
+    },
+    {
+      "path": "iq3-cache-20261103/BUILD.json",
+      "bytes": 11989,
+      "sha256": "7b0b4543bc8d88b27d81b070be904c9c4983102fbca1c3f1fabf05ec5d0df656"
+    },
+    {
+      "path": "apex-split-20261105/BUILD.json",
+      "bytes": 1532,
+      "sha256": "6ab7768e46fb8d1bdc2c5bdb5716ede46ce74d52ef1376c114e35cde0d274978"
+    },
+    {
+      "path": "apex-split-20261105/SUMMARY.json",
+      "bytes": 29633,
+      "sha256": "07ed9e2d48e87b33f874e05f68ef5674a47cdd532ee17b111d0a70c5e50af97a"
+    },
+    {
+      "path": "expert-cost-shadow-20261104/MODEL.json",
+      "bytes": 251183,
+      "sha256": "e4dbdeee4498f7f996a2315d346ec9b195c8d5612b4839273208c4e365d63f5a"
+    },
+    {
+      "path": "gpu-prefill-study-20261104/RESULTS_JA.txt",
+      "bytes": 11810,
+      "sha256": "1ee37f1c15e0fcd24b961e645c46c346dd6227642b2cbf9225a8aa36886d8137"
+    }
+  ],
+  "experimental_not_deployed": [
+    "expert-cost-shadow-20261104",
+    "apex-split-20261105",
+    "gpu-prefill-study-20261104/runtime"
+  ],
+  "github_upload_performed": false,
+  "archive_scope": "Checkpoint and existing artifact references; not a complete code backup or Git repository yet"
+}

@@ -1,0 +1,87 @@
+DeepSeek expert配置: 小規模実測と次回起動設定 / 2026-11-01
+
+現在地
+実際のGGUF量子化重みを少数のexpertだけ読み、CPU/GPU単体演算と転送を比較した。
+正式条件の28ケースすべてで数値チェックを通過。現在のAPI設定は変更していない。
+次回比較用に、40層のうち38・39層のrouted expert重みをGPUへ常駐させる設定を用意した。
+エンジン本体の再ビルドは不要。モデル再起動はユーザー実行の方針に従い、ここでは実行していない。
+
+会話キャッシュについて
+現在も候補設定も、context131072、f16 K/V、cache-prompt有効を維持する。
+通常のコンテキストを保持するKVそのものを次の会話で再利用し、別の4GiB上限は設けていない。
+--cache-ram 0は、別会話のKV状態をRAMへ退避する機能を使わない指定。GPUの通常KVを0にしたり、4GiBへ制限したりする指定ではない。
+ctx-checkpoints0は別の巻き戻し状態の保存を無効にする指定。今回も未検証のcheckpoint復元は有効化しない。
+会話履歴の正本はOpen WebUI側に残す。APIには履歴全文を送り、再利用できる接頭部分だけprefillを省く。
+GPUにはKVだけでなく非expert重みと作業領域もある。今回の常駐expertはそれらと別の重み領域で、context枠を小さくする設定変更はしていない。
+
+テスト方法
+新しいモデルプロセスを立ち上げず、既存ビルドのggml共有ライブラリへ小さなC++測定器をリンクした。
+対象: IQ2_S、IQ3_XXS、IQ3_S、MXFP4。gate/up相当5120x2304とdown相当2304x5120、top6相当。
+GGUFヘッダーをno_allocで読み、tensor位置を確認して先頭6または96expertの重みスライスを読み出した。モデルファイルは読み取り専用。
+入力activationとroutingは固定seed42の合成データ。実際のルーター分布ではない。
+CPUは本番と同じ12threads生成 / 24threads入力側、0-23のCPU範囲、NUMA interleave0,1、常設threadpool、strict affinity、poll0。
+CPU時間は3回、GPU resident時間は7回の中央値。同期後に計測終了。
+全出力のCPU/GPU誤差に加え、一部行を量子化解除しFP64積和で独立確認した。
+正式ケース: 1token x 8行列、16token・同じ6expertを共用 x 8行列、16token・96expertへ分散 x 8行列、128token x 候補層で使う4行列。
+初期測定器の結果はinitial-harnessと古いresultsに保存したが、CPU threadpool条件が異なるため正式集計には含めない。
+
+結果の要点（単体行列演算、モデル全体のtok/sではない）
+1tokenで6expertを使う正式8ケース:
+ CPU演算                  1.20〜2.70 ms
+ GPUに重みがある場合       0.089〜0.132 ms
+ 通常RAMから全重みを転送してGPU演算 11.78〜19.42 ms
+
+GPU常駐なら速いが、毎回の転送は計算時間の節約を上回った。
+固定ページメモリからのDMA自体は速かったが、毎回そこへコピーする準備時間を足すと改善せず、stagingを足すだけの変更は採用しない。
+実際のMoE cacheはミス分だけを転送するので、この全量転送試験をそのまま実運用の速度やhit率へ換算しない。
+
+prefillでは利用の偏りで結論が変わる例:
+ IQ2_S up、16tokenが同じ6expertを共用:
+   CPU22.328ms / GPU常駐0.269ms / 転送込み12.025ms
+ 同じ型・同じ16tokenを96expertへ分散:
+   CPU24.876ms / GPU常駐3.017ms / 転送込み181.858ms
+これは「token数」だけでなく「異なるexpertをいくつ読んで、一つの重みを何回使うか」が判断材料になる実測例。
+128tokenの候補型も検証を通過したが、同じ6expertを共用する試験であり、実モデルのprefill分布や速度を保証しない。
+
+数値確認
+非有限値なし。正式28ケースのCPU/GPU最大NMSEは2.58822e-5、独立サンプル参照との差の最大NMSEは2.34134e-5。
+診断閾値は5e-4。CPU/GPU用の閾値は既存test-backend-opsのMUL_MAT_IDに合わせた。FP64サンプルにも同じ閾値を使うのはこの測定器の独自チェック。
+bit exactではない。小さな演算試験の合格は、実モデル全体の品質保証や長文精度検証ではない。
+
+今回選んだ変更
+ baseline: --cpu-moe
+ gpu2候補: --n-cpu-moe 38（実際のargvではフラグと38は別引数）
+CPUに0〜37層のrouted expertを残し、38・39層はGPUの通常配置を使う。
+-ngl all、--no-op-offload、EngramのCPU指定、その他の起動条件は維持する。
+今回--moe-cache-mibは有効にしない。GPUへの常駐を確実にして転送を避ける、小さな配置変更から比較する。
+対象2層のexpert重みは実メタデータとggmlのrow_size計算で10.316162GiB。
+既存VRAM使用8.36GiBとの単純合計は約18.68GiB。ただし起動・prefillの作業領域等が加わるため、実割当の確認は次回起動時に必要。
+モデルは40層、nextn追加層なし。配置のflag経路はソースで確認。GPU非対応時のCPU fallbackがあり得るので、実際のGPU割当・VRAM増加も確認する。
+全体の改善幅は未測定。2層をGPUへ移すだけで全体が単体カーネルと同じ倍率で速くなるわけではない。
+
+既存実装から利用した部分
+標準llama.cppのGGUF読込み、MUL_MAT_ID、CPU/GPU kernel、層単位の配置機構をそのまま利用。
+GLM用のQ8専用exact/TCカーネルは、このモデルのIQ2/IQ3/MXFP4へそのまま移植しなかった。
+DeepInferからはprefill/decodeを分け、重み共用と転送費用を分けて見る考え方を採用。
+今回独自の分担プラグインや新しいエンジンを追加していない。
+
+切替手順
+RUN_NEXT_JA.txtを参照。Open WebUIなどの送信・自動タスクを止めてからユーザーが実行する。
+switch_profile.pyは既定で検証のみ。--applyで対象APIだけを停止し、設定を切替え、既存start.pyを使って起動要求を出す。
+応答中のAPI、未知の設定変更、保護停止記録、監視異常がある場合は拒否する。
+停止後は既存daemonの新しい記録でGPU解放を確認してから起動する。温度を取得する新しい常駐監視は追加していない。
+起動前チェックで拒否された場合は旧設定へ戻し、自動で再起動を繰り返さない。読込中の後発エラーは既存監視とログで確認し、必要ならbaselineへ戻す。
+切替スクリプトの8テストをモックと一時ファイルで実行し合格。実サービスの切替はまだ行っていない。
+idle確認は排他ロックではないため、実行時はクライアントから新しい要求を送らない。
+
+終了時の状態
+既存APIは同じworker PID11595で稼働、待機中。xeon-watch/notifyもactive。
+最後の既存記録はGPU31C/HBM30C、150W/ECC有効、ECCカウンタ0、VRAM8560MiB、継続アラームなし。
+現行server-config.jsonのハッシュはbaselineと一致。ネットワーク、fan、電力設定は変更していない。
+
+証拠
+RESULT.json: 正式28ケースの数値と元結果へのリンク。
+results/*/manifest.json: 測定器binary/source/config SHA256と条件。
+expert-layer-bytes.json: 層別のexpertバイト数。
+profiles/manifest.json: baseline/gpu2候補とハッシュ。
+final-runtime-status.json: 終了時の既存APIと監視状態。

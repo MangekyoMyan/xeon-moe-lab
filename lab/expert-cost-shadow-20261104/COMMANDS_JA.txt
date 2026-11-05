@@ -1,0 +1,48 @@
+今回の予測器は観測専用です。CPU/GPUの実行先は自動変更しません。
+現在のAPIを使い続ける場合、何も実行する必要はありません。
+
+仕組み:
+/home/codex/projects/llm-lab/expert-cost-shadow-20261104/DESIGN_JA.txt
+実測結果:
+/home/codex/projects/llm-lab/expert-cost-shadow-20261104/RESULTS_JA.txt
+
+任意: 次回のモデル起動で実際のexpert入力分布を観測する
+この操作はHDDからのモデル再ロードを伴います。ユーザーが都合のよいときに実行します。
+1. APIを停止する:
+sudo systemctl stop llm-deepseek41-api.service
+
+2. 観測だけ追加する（元設定を保管し、検証したライブラリをroot専用場所へコピー）:
+sudo python3 /home/codex/projects/llm-lab/expert-cost-shadow-20261104/observer_profile.py enable --apply
+
+3. 手順2が成功し、監視表示がGPU解放済みになってから起動:
+sudo python3 /home/codex/projects/llm-lab/deepseek41-bringup-20261101/start.py
+
+読み込み完了後はOpen WebUIから普段どおり使えます。
+モデル、128k context、vision、分担、150W/ECC/ファン設定は維持します。
+記録は最初の対象2048演算または8MiBまで。GPUへ重みを送るコールバックだけが対象。
+CPUで完結する短い入力などでは、操作しても記録されないことがあります。
+本文・言語トークンID・APIキーは記録しません。
+
+最新の観測結果を読む（APIを止める必要なし）:
+sudo python3 /home/codex/projects/llm-lab/expert-cost-shadow-20261104/capture_report.py --latest
+
+これは1起動分の観測設定です。同じファイル名で再起動すると追記せず観測を無効にします。
+新しく記録したい場合は、APIを停止し、下のrestoreをしてからenableをもう一度実行します。
+実モデルの384 expertは今回の小規模校正の範囲外なので、この観測ログから未校正の予測値は出しません。
+ログは次の本番規模の校正で、試すべき入力分布を決める資料になります。
+
+元へ戻す:
+sudo systemctl stop llm-deepseek41-api.service
+sudo python3 /home/codex/projects/llm-lab/expert-cost-shadow-20261104/observer_profile.py restore --apply
+手順が成功しGPUが解放されてから:
+sudo python3 /home/codex/projects/llm-lab/deepseek41-bringup-20261101/start.py
+
+restoreは保存した設定をバイト単位で復元します。途中で別の設定変更があれば上書きを拒否します。
+ログと復元済み記録は/var/lib/xeon-expert-shadowに残ります。
+API保護停止が残っている場合は既存のstart.pyが起動を拒否します。保護停止は自動解除しません。
+
+オフラインで判断式の例を見る（GPUもモデル起動も不要）:
+python3 /home/codex/projects/llm-lab/expert-cost-shadow-20261104/cost_model.py advise --input /home/codex/projects/llm-lab/expert-cost-shadow-20261104/EXAMPLE_EVENT.json
+
+学習済みMODEL.jsonとcost_model.pyは最終評価のため固定しています。
+追加学習・設定変更で再評価する場合は新しい実験ディレクトリと未使用の評価データを用意します。

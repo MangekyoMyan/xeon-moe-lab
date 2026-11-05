@@ -1,0 +1,20 @@
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -579,9 +579,6 @@
+         return;
+     }
+ 
+-#ifdef GGML_USE_OPENMP
+-    #pragma omp barrier
+-#else
+     int n_passed = atomic_load_explicit(&tp->n_barrier_passed, memory_order_relaxed);
+ 
+     // enter barrier (full seq-cst fence)
+@@ -608,7 +605,6 @@
+     #else
+     atomic_thread_fence(memory_order_seq_cst);
+     #endif
+-#endif
+ }
+ 
+ void ggml_threadpool_chunk_set(struct ggml_threadpool * tp, int value) {

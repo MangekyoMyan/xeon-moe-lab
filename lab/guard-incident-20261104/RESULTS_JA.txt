@@ -1,0 +1,58 @@
+DeepSeek読込中の保護停止調査 / 2026-11-04（時刻はAsia/Tokyo）
+
+確認できた直接原因
+API監督プロセスsupervise.pyがGPU監視用nvidia-smiの5秒タイムアウトを検出し、
+自分でモデルプロセスへSIGTERMを送った。child_returncode=-15が記録されている。
+モデルの自発的クラッシュやOOMによる強制終了として記録された事象ではない。
+
+時系列
+09:03:13  systemdがllm-deepseek41-api.serviceを起動。
+09:03:16.957 監督プロセスの開始記録。
+10:03:57.588 最後の成功したGPU取得。GPU29℃、HBM28℃、CPU最大28℃。
+             GPU ECC single/double=0、PCIe replay=0、電力制限150W、fan40%。
+10:04:04.602 journalにTimeoutExpired(nvidia-smi -q -x, 5)を記録。
+10:04:15.743 子プロセス終了・health.json確定。status=stopped_on_error、child_returncode=-15。
+10:04:23.299 常駐監視がAPI保護停止を検知・通知。GPU使用メモリ0。
+
+停止のコード経路
+moe-engine-20261029/watch.py:27 GPU状態取得はsubprocess.check_output(..., timeout=5)。
+deepseek41-bringup-20261101/supervise.pyのmainループは取得失敗を再試行しない。
+同ファイル137～149行で例外を停止理由に記録し、STOP_REQUESTEDを作成してSIGTERMを送信。
+25秒で終了しなければSIGKILLへ進むが、今回は戻り値-15なのでSIGKILL終了ではない。
+
+ハードウェア記録
+最後に保存された30サンプルのGPU/HBM最大温度は29/28℃。
+対象時間09:02:16～10:05:15のカーネルjournalを検索した範囲では、
+NVIDIA Xid/NVRM、OOM、segfault、PCIe AER、EDAC/MCE等の該当ログなし。
+独立常駐監視の停止前後の保存済みサンプルにもセンサー取得エラーやGPU ECC変化なし。
+これは未記録の異常まで否定するものではなく、タイムアウト原因の特定にもならない。
+
+読み込み段階と限界
+追記式server.stderr.logには昨日のキャッシュ40個・DMA登録成功ログが残っている。
+今朝最後の「srv load_model: loading model」以降には開始行とmmap警告の2行のみ。
+現在の起動でIQ cache / expert DMA / model loadedの完了・開始ログは確認できない。
+従って、昨日のDMA登録処理が今回のnvidia-smiを直接詰まらせたと断定しない。
+正確にどのロード関数で待っていたか、なぜGPU監視コマンドが5秒を超えたかは未確定。
+カーネルスタックやGPU driver内の待ちをその時点で取得しておらず、現在からの再構成には限界がある。
+MemAvailableは最後の記録で約497.77GiBだが、読み込んだファイルの回収可能ページキャッシュを含む。
+この値だけでモデルの読込みが進んでいなかったとは判断しない。
+
+改善すべき点
+現在は「温度/ECC等の実際の異常」と「監視値を一度取得できなかった」を同じ即停止として扱う。
+まずこの2つを区別することが適切。
+対策案は、実際の温度/ECC/電力等の異常の即停止を維持しつつ、監視コマンドの一過性失敗には
+明示的な警告、短い上限付き再取得、既存常駐監視の鮮度/異常照合を設けること。
+取得不能が続く場合は保護停止へ進む。単純に保護機能を無効化したり、無期限に待つ案ではない。
+このターンでは調査・証拠保存のみ。上記変更は実装/適用していない。
+
+現在の状態
+APIはfailed、MainPID0。xeon-watch / xeon-watch-notifyはactive。
+STOP_REQUESTEDは残し、解除・再起動・センサーの新規照会・負荷試験は行っていない。
+本番設定はmulti96、sha256=e73c2bd30ac5dc4b31f6d4bf5b3d9e23c8603c7f638114a50cf9541629631240。
+既存のstart.pyはSTOP_REQUESTEDがある限り起動を拒否する。
+
+証拠
+SUMMARY_EVIDENCE.json / health-evidence.json / unit-journal.json / kernel-journal.json
+current-startup.json / history-window.json / server.stderr.log.normalized.json
+元のhealth/ログ/停止マーカーは変更していない。
+収集スクリプトcollect.pyは既存記録とjournalを読むだけで、nvidia-smi自体を再実行しない。

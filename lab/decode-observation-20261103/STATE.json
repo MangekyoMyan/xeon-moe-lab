@@ -1,0 +1,55 @@
+{
+  "status": "complete",
+  "date_JST": "2026-11-03",
+  "scope": "Live decode CPU/transfer/sync diagnosis, short and3072token context",
+  "API": "active; no stop or restart needed",
+  "PID": 21898,
+  "profile": "gpu3-stream1024",
+  "production_changed": false,
+  "KV_mirror_implemented": false,
+  "configuration_sha256": "0051756e1ce5ef563dfd25a16c8a13c275297179007745596974fb1ea4183ec1",
+  "findings": {
+    "CPU_graph_wall_percent": 81.71,
+    "copy_service_wall_percent": 2.44,
+    "CUDA_sync_outside_copy_wall_percent": 11.56,
+    "CPU_graph_ms_per_token": 159.02,
+    "copy_service_ms_per_token": 4.75,
+    "CUDA_sync_outside_copy_ms_per_token": 22.49,
+    "IQ3_XXS_CPU_sample_percent": 43.14,
+    "OpenMP_CPU_sample_percent_untraced": 18.33,
+    "OpenMP_samples_outside_CPU_graph_percent_combined": 72.75,
+    "observed_H2D_D2H_bytes_per_token": 5971004,
+    "sampled_VRAM_peak_MiB": 29552
+  },
+  "checks": [
+    "All same-prompt output hashes match within suites",
+    "Trace overhead2.5..2.8percent",
+    "n_tokens1 confirmed inlong/combinedtrace",
+    "No unmatched spans inROI",
+    "No studyprobes remain",
+    "API/watch/notify active",
+    "No alarms",
+    "Config unchanged"
+  ],
+  "limits": [
+    "Host critical-path spans, not GPUdevice DMA/kernel measurements",
+    "CPUgraph contains localmemory stalls andthreadsync, notpurearithmetic",
+    "OpenMP CPU-time share is not latency share",
+    "3072 context only, not128k",
+    "CUDAgraph internalcopies maynotappear inruntimebytecounts"
+  ],
+  "next_priority": [
+    "IQ3_XXS single-input kernel",
+    "CPUexpert workdistribution andbarriers",
+    "OpenMP idle waiting forpower/latency tradeoff",
+    "Independent GPUwork overlap afterdependencycheck"
+  ],
+  "cache_note": "Single conversation KV replaced by synthetic test;OpenWebUI originalhistory notedited",
+  "artifacts": [
+    "RESULTS_JA.txt",
+    "SUMMARY.json",
+    "runs/",
+    "final-check.json",
+    "openmp-wait.asm"
+  ]
+}

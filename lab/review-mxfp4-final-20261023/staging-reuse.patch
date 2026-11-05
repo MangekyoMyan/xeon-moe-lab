@@ -1,0 +1,48 @@
+--- a/src/llama-model-loader.cpp
++++ b/src/llama-model-loader.cpp
+@@ -11,6 +11,7 @@
+ #include <cinttypes>
+ #include <cstdint>
+ #include <cstring>
++#include <cstdlib>
+ #include <future>
+ #include <regex>
+ 
+@@ -1505,6 +1506,10 @@
+     GGML_ASSERT(size_data != 0 && "call init_mappings() first");
+ 
+     std::vector<std::future<std::pair<ggml_tensor *, bool>>> validation_result;
++    std::vector<no_init<uint8_t>> repack_staging;
++    const char * reuse_env = std::getenv("GGML_CPU_REPACK_REUSE_BUFFER");
++    const bool allow_repack_reuse = reuse_env != nullptr && std::strcmp(reuse_env, "1") == 0;
++
+ 
+     // 4 staging buffers for async uploads, each sized 1MB seems to be a good default for single NVMe drives.
+     // NVMe raid configurations might require more / larger buffers.
+@@ -1637,6 +1642,13 @@
+         size_t n_size = ggml_nbytes(cur);
+ 
+         const bool from_mapping = use_mmap || lazy.has(cur);
++        const bool reuse_repack_staging = allow_repack_reuse && !from_mapping && !upload_backend &&
++            cur->type == GGML_TYPE_MXFP4 && cur->buffer &&
++            std::strcmp(ggml_backend_buft_name(ggml_backend_buffer_get_type(cur->buffer)), "CPU_REPACK") == 0;
++        if (!reuse_repack_staging || repack_staging.size() != n_size) {
++            std::vector<no_init<uint8_t>>().swap(repack_staging);
++        }
++
+ 
+         if (from_mapping) {
+             const auto & mapping = mappings.at(weight->idx);
+@@ -1734,8 +1746,10 @@
+                         buffer_idx %= n_buffers;
+                     }
+                 } else {
+-                    // scoped to one tensor so only one staging buffer is alive at a time
+-                    std::vector<no_init<uint8_t>> read_buf(n_size);
++                    // Keep one CPU repack staging allocation while tensor sizes match.
++                    std::vector<no_init<uint8_t>> local_read_buf;
++                    auto & read_buf = reuse_repack_staging ? repack_staging : local_read_buf;
++                    read_buf.resize(n_size);
+                     file->seek(weight->offs, SEEK_SET);
+                     file->read_raw(read_buf.data(), n_size);
+                     ggml_backend_tensor_set(cur, read_buf.data(), 0, n_size);

@@ -1,0 +1,137 @@
+IPC / perf stat調査結果 / 2026-11-02
+===================================
+
+結論
+測定可能であり、実測した。過去の実モデルprefillにはIPC1.47の記録がある。
+今回追加したMXFP4 CPU graphでは、1threadの現行処理は約2.48、12物理コアでは約2.56。
+最適化候補は12物理コアで約2.40と少し低いが、命令数約26.8%減、サイクル数約22.0%減、
+平均時間約21.2%短縮となった。IPCだけの高低で最適化の良否を判定できない実例である。
+24論理threadでは揺れが大きく、SMTによる合算の性質とOpenMP実行時処理も含むため、
+低いIPCをそのままメモリ待ち・実行ユニット不足・CPU交換の効果へ結び付けない。
+
+1. 過去の実モデルprefill（今回新しく走らせた結果ではない）
+ 元ファイル: ../prefill-diagnosis-20261102/perf-stat.txt
+ 実行中PID44001の3.005025952秒の観測。
+ cycles:           176,887,332,520
+ instructions:     260,412,029,650
+ IPC:              1.47（instructions/cycles）
+ cache-references:     140,591,474
+ cache-misses:         25,331,194
+ 比率:             18.02%
+ 同じ調査のレポートは24thread prefill、CPU38層/GPU末尾2層、batch/ubatch128と記録。
+ 短い実モデルの区間であり、単体MXFP4だけの値ではない。
+ 別途の5秒CPU-clock関数サンプリングと、この3秒カウンターは同時窓ではない。
+ 保存event名はcycles等の無修飾。今回の:user限定ROI測定とscopeも完全同一とはしない。
+
+2. 今回の追加測定
+ APIは再起動されていたが待機中。APIを停止・再起動せず、新しい会話リクエストも送らず、
+ 会話KVを変えないCPU合成試験を行った。APIがCPUを使い始めたら試験自身を止めるguard付き。
+ このguardは本番APIを停止しない。20runすべてAPI稼働開始による中断なし。
+
+ 対象: 同じXeon E5-2630L v2×2、通常CMakeで用意済みstock/MXFP4候補のCPUライブラリ。
+ MXFP4 MUL_MAT_ID、up K5120/M2304、6expert/top6、shared routing。
+ 1/12/24threadの各expert8入力、追加で12threadの1入力/3入力。
+ 各条件stock,candidate,candidate,stockのABBA、合計20run。
+ 1threadは21回、それ以外は101回のgraph compute。先に5回warmup。
+ 全workerを各CPUへ固定し、実際のmaskの一意性と指定CPU集合の一致を全runで確認。
+ メモリはnumactl --interleave=0,1。OpenMP有効。CPU clockは固定していない。
+ 12threadは12物理コア、24threadは同じ12物理コアでSMTを使用する条件。
+
+ perf開始時は -D -1 でcounter無効。
+ 重み生成・量子化・graph確保・warmupの終了後にenable/ACKを交換し、
+ repeated graph computeだけを計測。ループ後disable/ACKを交換してから参照計算等を行う。
+ activation量子化、演算、graph実行とOpenMPの同期/スピンは含まれる。
+ dot関数だけの純粋なIPCや、全モデルのtok/sを測ったものではない。
+
+ event group:
+   {cycles:u,instructions:u,cache-references:u,cache-misses:u}
+ 別software counters:
+   task-clock,context-switches,cpu-migrations,page-faults
+ perf親からworkload/子threadへinherit。no-inheritは指定しない。
+ 全eventが100% runningで、unsupported/not-countedなし。
+ 独立したCLOCK_PROCESS_CPUTIME_IDとperf task-clockの比は0.99185〜1.00588。
+ 多thread分のカウントが抜けていないことを支持する確認になった。
+ 短いACK通信等の差があるため、これは境界の完全一致を証明する値ではない。
+ perf自身が表示する全commandのelapsed/CPUs utilizedは準備時間も含むため採用せず、
+ probeのROI壁時計とtask-clockを組み合わせて評価した。
+
+3. IPC集計
+ 各variantの2runについて、sum(instructions)/sum(cycles)で集計。
+ グラフの出力fingerprintは同じ条件の4runすべてで一致し、数値参照も合格。
+ 今回はfingerprint比較であり、前回の全出力bit直接比較とは検証方法を区別する。
+
+ 条件                         stock IPC    candidate IPC
+ 1thread・8入力                     2.478            2.289
+ 12物理コア・8入力                  2.565            2.405
+ 24論理thread・8入力                1.338            1.177（変動大）
+ 12物理コア・1入力                  1.886            2.056（対照条件）
+ 12物理コア・3入力                  2.261            2.156
+
+12物理コア・8入力の同じ仕事あたり:
+                              stock             candidate
+ 命令数                         503.970百万          368.795百万    26.82%減
+ CPUサイクル合計                196.505百万          153.362百万    21.96%減
+ graph平均時間                    6.444ms              5.078ms    21.20%短縮
+ 各process中央値の中央値          6.440ms              5.063ms
+ 平均時間からの速度比                                   1.269倍
+
+少ない命令で同じ仕事を終えたため、IPCが低下しても全体として速い。
+したがって、IPCが高ければ最適化余地なし、低ければ必ずメモリ待ち、とは言えない。
+SIMD命令1個で何要素を処理したかも、この命令数カウンターだけでは表さない。
+
+4. cache-missesの解釈
+ ユーザー提示のcache-misses単独は件数。比率にはcache-references等の分母が必要。
+ 上記generic eventの比率は、全loadのmiss率、L1/L2のmiss率、メモリ待ち時間率ではない。
+ このIntel向けLinuxのgeneric mappingは0x4f2e/0x412e。正確な解釈はmodelのevent定義に依存。
+ DRAM trafficをcache-misses×64byteと決めて帯域を算出してはいない。
+
+12thread8入力では比率が38.29%→43.10%へ上がった一方、
+ miss event件数/graphは52,629→31,887へ減った。分母も変わるため比率だけで悪化としない。
+ 引用中の「102GB/s中20GB/s」は今回同時に測った値ではない。
+ 今回の実験ではDRAM帯域とport占有/命令供給/依存stallを同時計測していない。
+
+5. SMTと測定の揺れ
+ 24論理threadは24物理コアではない。coreの実行資源を共有し、threadごとのcyclesを
+ 合算したIPCなので、12threadの値や1物理coreの理論上限と単純比較できない。
+ OpenMP待機のuser-space命令もinstructions:uに含まれる。
+
+24thread8入力の各candidate run:
+   median graph 4.943/4.681ms、mean graph 7.728/4.965ms
+   IPC 1.093/1.282、context switches 1695/1901
+ stock側もmeanとmedianが乖離し、context switches438/157。
+ 平均時間での候補速度比は1.032倍、process中央値による速度比は1.209倍と異なる。
+ どちらか都合のよい値だけを全体速度として採用しない。
+ 切替増加や同期を含む変動の存在は分かるが、原因が1つと断定したり、全てを
+ kernel実装の回帰とみなしたりはしない。この結果だけで24threadを遅いと固定しない。
+
+1入力では新pair kernelを通らない。今回の少しの差は新kernelの効果としない。
+以前見つかった12thread・3入力の低下は、このROI用probeでは再現しなかった。
+CPUライブラリは同じでも測定プログラム/状態等が異なるため、原因を修正・解決した
+とは判断しない。前回の回帰記録も維持する。
+
+6. CPU交換かカーネル改善か
+今回、同じCPUで命令数を約27%減らす変更に効果が出た。ソフト最適化の有効性は確認できる。
+以前の6→12物理コアで約1.9倍という測定と合わせ、実コア増加にも検討の根拠がある。
+二者択一とはならず、両方が効く可能性がある。
+ただし、IPCからE5-2697 v2で何倍になるかは算出できない。TDP、持続clock、同期、
+メモリ/NUMA条件等が変わる。電源・冷却を含む検討は前回のCPU_UPGRADE_JA.txtを参照。
+実行portの飽和、フロントエンド、依存待ち、memory latencyの分離は追加測定が必要。
+
+7. 実行と証拠
+ SUMMARY.json: 全条件の集計、CPU時間一致、event稼働率。
+ COUNTERS.csv: 20runのIPC・時間・命令数・サイクル数等。
+ runs/*/perf.csv: perf生カウンター、stdout.jsonl: graph数値/時間、stderr.log:ROIとworker mask。
+ PROVENANCE.json: probe/CPUライブラリhashと測定scope。
+ quant_probe_roi.cpp / run_perf.py: 再現用の小さい計測プログラムとcontroller。
+
+最初のsmokeはperf6.12のACK末尾NULを厳密readが処理できず失敗し、集計から除外。
+Linux sourceのsizeof(ACK_TAG)送信を確認してreaderを修正し、smoke2と本番20runが成功した。
+この修正は計測用コードだけ。カーネル/本番エンジン/権限設定は変更していない。
+CPU最大観測34C。APIは停止・再起動せず、モデル起動/ダウンロードも行っていない。
+
+実装確認に用いた一次資料:
+ local perf6.12.113のperf-stat(1)、perf stat -h
+ Linux v6.12 perf制御/ACK実装:
+ https://github.com/torvalds/linux/blob/v6.12/tools/perf/util/evlist.c
+ Linux v6.12 Intel generic hardware event mapping:
+ https://github.com/torvalds/linux/blob/v6.12/arch/x86/events/intel/core.c

@@ -1,0 +1,45 @@
+KVをRAMへ置き、空いたVRAMへexpertを追加する案 / 2026-11-04
+
+ユーザーのアイディア相談。今回はソース確認のみ。設定変更・モデル起動・性能試験はしていない。
+
+重要な区別:
+これまで測った約6MB/tokenのPCIe通信はAttention/CPU expert間のactivation等。
+GPU内部で読むKVの量を測った値ではない。
+KVをRAMへ置き、AttentionをGPUで計算するなら、参照する過去のKVを別途取得する必要がある。
+全層の予約KVを毎token全量転送する必要はないが、実際の参照範囲の転送は必要。
+CPU側でAttentionを計算して結果だけ送る別方式ならCPU計算負担が増える。
+
+現在のモデル実装:
+source/src/models/deepseek41.cpp:525付近でcomp_allのKVとindexer Kをview。
+同531～630でtop-k選択。選択処理そのものにもindexer Kを読む必要がある。
+同652～716に、小さいquery batchで選択KV行をget_rowsし、直近windowと合わせるgather経路。
+同667付近では(storage, top-k)ごとにgatherを共有。
+source/src/llama-kv-cache-dsv4.cpp:1295～1438にV4.1 compressed KV/index Kの同居とcross-layer sharing。
+従って単純な全KV転送より、選択済みKV行のみをRAMから取得する設計を検討する根拠がある。
+ただし既存gatherが存在することと、CPU KVからの最小転送が既に実装・検証済みであることは別。
+
+有望と考える初期設計（未検証）:
+・履歴KV本体はRAMに保存。
+・小さな直近window、参照先を選ぶindexer用データ、作業用の選択行bufferはGPUに残す。
+・GPUで選択した行IDをCPUへ渡し、RAMで必要行をまとめてGPUへ送る。
+・元のモデルと同じ選択規則を使い、独自に参照先を捨てて品質を落とさない。
+・cross-layer KV/top-k共有を保ち、同じ行の層ごとの再転送を避ける。
+・余ったVRAMをexpertへ割り当てる。現在は層全体の固定配置なので、部分expert配置は追加実装が必要。
+
+判断基準:
+追加expertによるCPU待ち短縮 > 重み配置変更で新しく増えるKV選別/転送/同期待ち（隠せない分）。
+現時点でKVの実VRAM占有、必要行の転送bytes/token、追加expertによる短縮時間を測っていない。
+過去のVRAM総使用量をKV占有量として扱わない。128k近くでの性能はまだ未検証。
+メモリ容量としてcontextを増やせる可能性はあるが、モデル側の対応範囲・索引計算・prefill等の制約は残る。
+
+既存スイッチの注意:
+--no-kv-offloadはキャッシュのCPU配置を指定するが、CPU/GPUどちらで選別/Attentionするかと転送範囲は別途確認が必要。
+llama-graph.cpp:3024のCPU強制は非Flash分岐内。現在はFlash有効なので、flagだけでAttention全体がCPUになるとは断定しない。
+提案通り「CPU KV・GPU Attention・選択行だけ転送」にするには、グラフ配置/転送を確かめる。
+
+一般例の一次資料:
+https://huggingface.co/docs/transformers/en/kv_cache#cache-offloading
+Transformersには層ごとのKVをCPU/GPU間で入れ替える方式がある。これは現在のllama.cppへの導入実績ではない。
+
+次の作業はユーザーが検証を依頼した場合に行う。長い起動はユーザー実行方針を維持。
+まずKV/state別の実際の割当量と参照/転送範囲を調べ、利益の上限を見てから小型fixtureで検証する。

@@ -1,0 +1,94 @@
+{
+  "objective": "Implement and test reviewed MoE optimizations deeply; user permits alternatives and up to200WGPU tests",
+  "started_utc": "2026-10-26T12:36:42.143185+00:00",
+  "phase": "complete",
+  "policy": {
+    "GPU_baseline_W": 150,
+    "GPU_test_max_W": 200,
+    "ECC": true,
+    "fan_PWM_max_percent": 70,
+    "Full_mode": false,
+    "GPU_C_cutoff": 60,
+    "HBM_C_cutoff": 65
+  },
+  "preserve": [
+    "v100-prep baseline",
+    "xeon-volta-engine acceptedruntime",
+    "pre-RAM frozencheckpoint"
+  ],
+  "next": [],
+  "active": [],
+  "operator_correctness": {
+    "cases_per_variant": 102,
+    "cpu_variants": 4,
+    "gpu_variants": 6,
+    "cpu_bitexact": true,
+    "GPU_max_NMSE": 1.493641959781445e-05
+  },
+  "mlp_prototype": {
+    "correctness_variants": 6,
+    "cases_each": 64,
+    "status": "GPU full-MLP tests passed, unsupported operator/broadcast/consumer/output paths bitexact to split"
+  },
+  "preload_completed": true,
+  "initial_warmup_model_wall_s": 431.518,
+  "NUMA": {
+    "passed": "numa-striped-policy.json",
+    "sample_mismatches": 0,
+    "policy": "explicitprocessinterleave required to avoid undo by automaticNUMA; no global sysctl changed",
+    "next_runs": "--interleave ALWAYS"
+  },
+  "MLP": {
+    "stage1_jobs": 0,
+    "reason": "ggml_cpu_plain_tensor rejected CUDA_Host F32/I32activations",
+    "fix": "scoped canonical host F32/I32 guard; quantizedweights guardunchanged",
+    "runtime": "runtime-mlp"
+  },
+  "stage2_means": {
+    "base": 8.819343499999999,
+    "rows-all": 8.2802195,
+    "rows-gate": 8.717432,
+    "mlp": 8.8471485,
+    "pair": 9.169573,
+    "pair-rows": 8.677045
+  },
+  "gateup_result": {
+    "base_ABBA": [
+      8.751466,
+      8.762161
+    ],
+    "gateup_ABBA": [
+      9.016791,
+      9.08768
+    ],
+    "model256_bitexact": true
+  },
+  "hybrid_power_mean_tps": {
+    "150W": 9.127637,
+    "200W": 9.083034
+  },
+  "status": "complete",
+  "completed_utc": "2026-10-26T15:41:28.232226+00:00",
+  "release": "/home/codex/projects/llm-lab/moe-implementation-20261026/release/READY.json",
+  "launcher": "/home/codex/projects/llm-lab/run_xeon_volta_v2.sh",
+  "report": "/home/codex/projects/llm-lab/moe-implementation-20261026/RESULTS_JA.txt",
+  "metrics": {
+    "baseline_tps": 8.7435885,
+    "optimized_tps": 9.126328,
+    "gain_percent": 4.377373203233437,
+    "bitexact_positions": 512,
+    "bitexact_logit_values": 77594624,
+    "hybrid_200W_gain": "none within noise",
+    "GPUonly_200W_gain_percent": 14.89705441304967
+  },
+  "final_health": "/home/codex/projects/llm-lab/moe-implementation-20261026/FINAL_HEALTH.json",
+  "mechanism_report_20261027": {
+    "html": "/home/codex/projects/llm-lab/moe-implementation-20261026/mechanism-report-20261027/CPU_GPU_ALGORITHM_JA.html",
+    "text": "/home/codex/projects/llm-lab/moe-implementation-20261026/mechanism-report-20261027/CPU_GPU_ALGORITHM_JA.txt",
+    "audit": "/home/codex/projects/llm-lab/moe-implementation-20261026/mechanism-report-20261027/AUDIT.json",
+    "plan_recomputed_exact": true,
+    "graph_trace": "dispatch-audit-20261027",
+    "key_result": "FixedVRAMmembershipdecidesexpertmatrixCPU/GPU;activationCPU;weightedreductionGPUwithCPUdownoutputsuploaded",
+    "runtime_unchanged": true
+  }
+}

@@ -1,0 +1,16 @@
+LATEST: User started compact64. Read ACTIVATION_CHECK.json. PID45525/new CPU overlay confirmed; 26 tensors, 61.699 GiB, 32 fallbacks, no reserve failure. User reports a slight speedup; no controlled whole-model A/B yet. No further changes this turn.
+
+Earlier handoff (historical):
+Current task: integrate lossless IQ3_XXS compact CPU layout into production engine.
+Integration and validation complete; user-run full model start pending.
+Read STATE.json, RESULTS_JA.txt, VALIDATION.json, PROFILES.json first.
+Production source/build/config/API have not been changed; existing gpu3-stream1024 remains live.
+New overlays: iq3-cache-20261103/runtime/libggml-cpu.so.0.28.0 and libllama.so.0.8.0.
+The existing gpu-stream libggml-base remains in LD_LIBRARY_PATH after the new directory.
+User command: sudo python3 /home/codex/projects/llm-lab/iq3-cache-20261103/switch_profile.py compact64 --apply
+Rollback: same command with previous --apply. No need to ask permission for API stop; user owns long startup.
+After user starts: check saved monitoring state once, unit/loader logs, cache ready count/bytes and actual mapped CPU/model library paths.
+Expected 26 tensors / 61.699 GiB extra RAM; fallback on reserve/allocation failure is explicitly logged.
+Do not claim whole-model speedup from partial graph results; only a real run can establish that.
+If measuring, use existing bounded guard and synthetic requests, avoid user conversation data. Preserve GPU150W, ECC, Standard/<=70% fan.
+Long starts/downloads are user-run. Keep original GGUF and existing engine/evidence intact.

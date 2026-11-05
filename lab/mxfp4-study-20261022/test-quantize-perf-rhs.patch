@@ -1,0 +1,13 @@
+--- a/tests/test-quantize-perf.cpp
++++ b/tests/test-quantize-perf.cpp
+@@ -336,7 +336,9 @@
+             if (params.op_vec_dot_q) {
+                 printf("  vec_dot_q\n");
+                 qfns_cpu->from_float(test_data1, test_q1, largest);
+-                qfns_cpu->from_float(test_data2, test_q2, largest);
++                const auto * rhs_cpu = ggml_get_type_traits_cpu(qfns_cpu->vec_dot_type);
++                assert(rhs_cpu->from_float != nullptr);
++                rhs_cpu->from_float(test_data2, test_q2, largest);
+                 for (size_t size : params.test_sizes) {
+                     printf("    %zu values (%.2f MB)\n", size, 4*size/(float)(1024*1024));
+                     auto quantize_fn = [&](void) -> float {

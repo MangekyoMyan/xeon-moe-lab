@@ -1,0 +1,78 @@
+--- a/ggml/src/ggml-cpu/repack.cpp
++++ b/ggml/src/ggml-cpu/repack.cpp
+@@ -19,6 +19,9 @@
+ #include "repack.h"
+ #include "quants.h"
+ #include <cstdlib>
++#ifdef GGML_USE_OPENMP
++#include <omp.h>
++#endif
+ 
+ #if defined(__GNUC__)
+ #pragma GCC diagnostic ignored "-Woverlength-strings"
+@@ -4157,34 +4160,40 @@
+ static int repack_mxfp4_to_mxfp4_4_bl(struct ggml_tensor * t, int interleave_block, const void * GGML_RESTRICT data, size_t data_size) {
+     GGML_ASSERT(t->type == GGML_TYPE_MXFP4);
+     GGML_ASSERT(interleave_block == 4 || interleave_block == 16);
+-
+-    const block_mxfp4   * src = (const block_mxfp4   *)data;
+-          block_mxfp4x4 * dst = (      block_mxfp4x4 *)t->data;
+-
+-    block_mxfp4 dst_tmp[4];
+-
+-    int nrow = ggml_nrows(t);
+-    int nrows_interleaved = 4;
+-    int nblocks = t->ne[0] / QK_MXFP4;
+-
++    GGML_ASSERT(ggml_nrows(t) <= INT32_MAX && t->ne[0] >= 0 && t->ne[0] / QK_MXFP4 <= INT32_MAX);
++    const block_mxfp4 * src = (const block_mxfp4 *) data;
++    block_mxfp4x4 * dst = (block_mxfp4x4 *) t->data;
++    const int nrow = ggml_nrows(t);
++    const int nblocks = t->ne[0] / QK_MXFP4;
+     GGML_ASSERT(data_size == (size_t) nrow * nblocks * sizeof(block_mxfp4));
+-
+-    if (t->ne[1] % nrows_interleaved != 0 || t->ne[0] % 8 != 0) {
+-        return -1;
+-    }
+-
+-    for (int b = 0; b < nrow; b += nrows_interleaved) {
+-        for (int64_t x = 0; x < nblocks; x++) {
+-            for (int i = 0; i < nrows_interleaved; i++) {
+-                dst_tmp[i] = src[x + i * nblocks];
+-            }
+-            *dst++ = make_block_mxfp4x4(dst_tmp, interleave_block);
+-        }
+-        src += nrows_interleaved * nblocks;
++    if (t->ne[1] % 4 != 0 || t->ne[0] % QK_MXFP4 != 0) return -1;
++
++#ifdef GGML_USE_OPENMP
++    const char * env = std::getenv("GGML_CPU_MXFP4_PARALLEL_PACK");
++    const bool parallel = interleave_block == 16 && data_size >= 16 * 1024 * 1024 &&
++                          env != nullptr && std::strcmp(env, "1") == 0 && !omp_in_parallel();
++#pragma omp parallel for schedule(static) if(parallel)
++#endif
++    for (int row = 0; row < nrow; row += 4) {
++        const block_mxfp4 * src_group = src + (size_t) row * nblocks;
++        block_mxfp4x4 * dst_group = dst + (size_t) (row / 4) * nblocks;
++        if (interleave_block == 16) {
++            for (int block = 0; block < nblocks; ++block) {
++                for (int r = 0; r < 4; ++r) {
++                    const block_mxfp4 & in = src_group[block + (size_t) r * nblocks];
++                    dst_group[block].e[r] = in.e;
++                    memcpy(dst_group[block].qs + r * 16, in.qs, 16);
++                }
++            }
++        } else {
++            block_mxfp4 tmp[4];
++            for (int block = 0; block < nblocks; ++block) {
++                for (int r = 0; r < 4; ++r) tmp[r] = src_group[block + (size_t) r * nblocks];
++                dst_group[block] = make_block_mxfp4x4(tmp, interleave_block);
++            }
++        }
+     }
+     return 0;
+-
+-    GGML_UNUSED(data_size);
+ }
+ 
+ static block_mxfp4x8 make_block_mxfp4x8(block_mxfp4 * in, unsigned int blck_size_interleave) {

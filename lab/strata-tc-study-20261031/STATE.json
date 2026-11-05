@@ -1,0 +1,412 @@
+{
+  "phase": "complete",
+  "started_unix": 1793400308.3059726,
+  "initial_api_active": false,
+  "runtime_changed": false,
+  "gpu_power_W": 150,
+  "fan_cap_percent": 70,
+  "plan": [
+    "real GLM Q8 weights: exact GPU vs grouped Tensor Core, numerical error and transfer",
+    "if promising, isolated runtime and actual prefill comparison",
+    "record results and preserve baseline"
+  ],
+  "micro_result": "cuBLAS route promising; fused WMMA prototype slower",
+  "operator_cases": 368,
+  "operator_hybrid_max_nrmse": 0.00280351027,
+  "operator_stream_max_nrmse": 0.00333910921,
+  "decode_operator_bitexact": true,
+  "model_probe_ready": true,
+  "tensor_core_verified_kernel": "volta_s884gemm_fp16_128x64_ldg8_tn",
+  "cupti_trace": "results/tensor-kernels.tsv",
+  "routed_large_cases": 42,
+  "routed_large_max_nrmse": 0.000285470386,
+  "final_operator_recheck": "results/operator-final-hybrid/result.json",
+  "final_operator_cases": 368,
+  "final_operator_results": [
+    "results/operator-final-hybrid/result.json",
+    "results/operator-final-stream/result.json"
+  ],
+  "model_screen": [
+    {
+      "label": "screen-baseline128",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 99.76009247,
+          "tps": 20.529251
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 35,
+          "block_in": 11984
+        }
+      ]
+    },
+    {
+      "label": "screen-hybrid-tc128",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 98.398336034,
+          "tps": 20.81336
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "screen-stream-tc512",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 85.550663609,
+          "tps": 23.939031
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "screen-stream-tc1024",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 62.11019819,
+          "tps": 32.973651
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "screen-stream-exact1024",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 72.591671619,
+          "tps": 28.212603
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    }
+  ],
+  "screen_summary": {
+    "baseline128_seconds": 99.76009247,
+    "hybrid_tc128_seconds": 98.398336034,
+    "stream_tc512_seconds": 85.550663609,
+    "stream_tc1024_seconds": 62.11019819,
+    "stream_exact1024_seconds": 72.591671619
+  },
+  "preload_finished": true,
+  "preload_paused": false,
+  "phase_v1_failed_reason": "1.5 GiB VRAM reserve guard while loading 10 GiB cache after prefill; no hardware error",
+  "phase_v2_cache_mib": 9216,
+  "phase_v2_stream_min_tokens": 512,
+  "final_runs": [
+    {
+      "label": "final-b0",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 62.02948148,
+          "tps": 33.016558
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "final-a0",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 99.465571017,
+          "tps": 20.590039
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "final-a1",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 99.470265796,
+          "tps": 20.589067
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "final-b1",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 62.245882775,
+          "tps": 32.901775
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "quality-ja-a",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 512,
+          "threads": 24,
+          "seconds": 21.193799903,
+          "tps": 24.158009
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "quality-ja-b",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 512,
+          "threads": 24,
+          "seconds": 21.913758549,
+          "tps": 23.364317
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "short-a",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 64,
+          "threads": 24,
+          "seconds": 4.473277113,
+          "tps": 14.307184
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "short-b",
+      "success": true,
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 64,
+          "threads": 24,
+          "seconds": 4.482448581,
+          "tps": 14.277911
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    }
+  ],
+  "phase_v2_api_passed": true,
+  "phase_v3_change": "TC only streamed chunks >=1024; short batches use exact kernels; dynamically size cached prefill workspace",
+  "production_api_changed": false,
+  "v3_runs": [
+    {
+      "label": "v3-short",
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 64,
+          "threads": 24,
+          "seconds": 4.493009138,
+          "tps": 14.244351
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "v3-ja512",
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 512,
+          "threads": 24,
+          "seconds": 19.853693946,
+          "tps": 25.788652
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "v3-long",
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 2048,
+          "threads": 24,
+          "seconds": 61.92876746,
+          "tps": 33.070253
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "ja1024-a",
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 1024,
+          "threads": 24,
+          "seconds": 40.828724714,
+          "tps": 25.080382
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    },
+    {
+      "label": "ja1024-b",
+      "prefill": [
+        {
+          "pass": 0,
+          "warm": false,
+          "tokens": 1024,
+          "threads": 24,
+          "seconds": 31.368990074,
+          "tps": 32.643703
+        }
+      ],
+      "io": [
+        {
+          "major_faults": 0,
+          "block_in": 0
+        }
+      ]
+    }
+  ],
+  "completed_unix": 1793404980.9217787,
+  "candidate_release": "/home/codex/projects/llm-lab/strata-tc-study-20261031/release/tc-prefill-v1",
+  "production_api_running": false,
+  "temporary_api_stopped": true,
+  "api_smoke_passed": true,
+  "remaining": [],
+  "result": "RESULT_JA.txt"
+}

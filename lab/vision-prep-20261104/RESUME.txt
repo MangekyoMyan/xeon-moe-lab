@@ -1,0 +1,40 @@
+Vision preparation, 2026-11-04
+
+User asked for a separate vision file and user-run download command, preferably without unloading the current model.
+No model downloads, API edits, stops/restarts, inference requests, or GPU allocations were performed in this investigation.
+
+Use the MATCHING OrcaRouter abliterated F16 projector:
+  repository: orcarouter/DeepSeek-V4.1-Flash-1017-abliterated-GGUF
+  revision: 62168fc534d42dbe85843ef6b71bfb6384e32ba5 (add vision projector commit linked from file tree)
+  filename: mmproj-DeepSeek-V4.1-Flash-1017-abliterated-F16.gguf
+  size: approximately 971 MB (publisher file listing)
+  user command: python3 /home/codex/projects/llm-lab/download_deepseek41_vision.py --download
+  destination: /home/codex/projects/llm-lab/models/deepseek41-vision
+  auth: user supplies HF Read token through hidden input; same gated repository as text model
+The helper queries the pinned root file list for exact size and LFS SHA256, downloads only this file using resumable curl, and verifies SHA256. It does not change the runtime. Syntax and no-download mode checked; authenticated network transfer intentionally left to user.
+
+Important: initial investigation found ISTA-DASLab's original-model projector, but DO NOT use it here. The OrcaRouter model card says its abliterated aligner.w2 and image marker embeddings differ, and explicitly says to use the matching abliterated projector. Its matching BF16 and F16 files are both separately published. F16 selected for Volta deployment.
+  https://huggingface.co/orcarouter/DeepSeek-V4.1-Flash-1017-abliterated-GGUF
+  https://huggingface.co/orcarouter/DeepSeek-V4.1-Flash-1017-abliterated-GGUF/tree/main
+
+Local compatibility evidence:
+- Current source conversion/deepseek41.py has DeepseekV41VisionModel (deepseek41v); mtmd has matching encoder and image processing code.
+- Metadata-only inspection of ALL 7 current GGUF shard headers found 40 blk.N.exp_probs_b_vl.bias tensors, shape384/F32. No weight arrays were read or loaded. Current text model retains the per-layer image routing biases.
+- Existing GGUF chat template includes deepseek_image handling.
+- server-context.cpp:1242ff builds mmproj params during load; 1392 calls mtmd_init_from_file(...,model_tgt,...). Current production command has no --mmproj. No hot-attach projector interface identified. Plan a normal model-process restart to enable --mmproj; OS reboot is unnecessary. Do not imply simply downloading activates vision.
+- This is static compatibility checking; full image inference with this projector has NOT been tested.
+
+Next activation should inspect the downloaded header and existing free VRAM/workspace before changing the production profile. Last prior-task GPU usage was29562MiB of32494MiB, NOT a new live measurement this turn. Image encoder activations require additional VRAM beyond its ~0.97GB weight file; evaluate image token cap and placement. Preserve150W/ECC/fan<=70%. Long model startup remains user-run.
+
+Activation preparation after user reported download complete:
+- Download receipt:971003744 bytes; SHA256539c7aa46c6d63b2a327ed0eabfe566138a7b540a94ba9d6fece232c630ef313.
+- Prepared text-config.json (exact original e73c2bd30ac5dc4b31f6d4bf5b3d9e23c8603c7f638114a50cf9541629631240) and vision-config.json; live config remains unchanged.
+- User command: sudo python3 /home/codex/projects/llm-lab/vision-prep-20261104/switch_vision.py vision --apply
+- Rollback command: same script, text --apply.
+- Adds only --mmproj FILE --mmproj-offload --image-max-tokens256 --mtmd-batch-max-tokens256, preserving multi96 overlays,128k context, GPU3 expert layers and all prior settings. Actual argv separates flag/value correctly.
+- The conservative256-token image limit aligns with this source's max256-token warmup sizing. The built-in mtmd sizing does NOT reserve a1024-token image graph; do not increase the cap while treating this size probe as a worst-case measurement for that larger cap.
+- switch_vision.py checks known config and helper hashes, monitor/protection latch, idle API, projector SHA256, backs up configs, stops only the model API, waits for GPU release, runs the projector-only GPU reservation probe, checks observed text VRAM29562MiB + vision bytes +768MiB margin against device capacity, waits for probe release, atomically writes config, invokes existing start.py. Reverts config only if startup request failed and service is inactive. No automatic retry, no OS reboot.
+- CPU-only metadata/graph reservation probe passed:1073173600 bytes total at256 image tokens. Weight DATA was not read; allocation was released on exit. No image encoder inference was run. CUDA_VISIBLE_DEVICES was empty during this local check.
+- Fresh monitor snapshot during preparation:GPU29562MiB,30C/HBM29C,150W/ECC,no alerts/errors. No repeated polling or GPU workload performed.
+- GPU reservation probe and actual image inference remain deferred to user-run command/next turn. Do not claim GPU or image functionality already tested.
+- PREPARATION_CHECK.json records both dry-run modes and preservation of current config. User has not run activation yet as of this record.

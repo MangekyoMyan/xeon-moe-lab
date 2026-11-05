@@ -1,0 +1,179 @@
+MXFP4 4/2/1入力共有・レジスタ退避削減 実測報告
+2026-11-02 / x9ram
+
+結論
+
+4入力で重み展開を共有し、端数を2入力・1入力で処理する候補を実装した。
+4入力カーネルは演算順序を調整し、主ループ内のYMM accumulatorのスタック退避を除去した。
+12物理コアの反復CPU graph試験で、同一expertあたり4〜8入力時に、
+従来の2入力共有版に対して速度+15.9〜20.5%を測定した。
+ただし、24論理スレッド・up形状・4入力では速度-2.9%の回帰が残る。
+実モデル全体のtok/s改善は未測定。本番APIは元のstock CPUライブラリのまま。
+本番へ一律に採用する前に、実モデルのexpert入力数分布を採る準備まで完了した。
+
+1. 実行環境と比較対象
+
+CPU: Intel Xeon E5-2630L v2 x2、合計12物理/24論理コア。
+AVX・SSSE3・F16C対応、AVX2/FMA非対応。
+RAM: 512GiB、DDR3-1600 LRDIMM、16 x 32GiB、各CPU 4channel / 2DIMM per channel。
+GPU: Tesla PG500-216、32GiB。150W・ECC有効、ファン設定は変更なし。
+
+モデル: DeepSeek-V4.1-Flash-1017-abliterated、Mix-256G、7shards、346,378,296,480 bytes。
+本番構成は40層中CPU routed expertsが0〜37、GPUが38〜39。
+384experts、top6、hidden5120、expert intermediate2304。
+CPU担当MXFP4テンソルはdown14本、gate9本、up9本。
+したがって、up形状での回帰も実モデルと関係する。
+現行スレッド数は生成12、入力24、batch/ubatch128、context131072。
+
+本番ソースcommit: dde879bc4f954b809892fd0d660515f42536394a
+本番設定SHA256: ffec21d7555203eea4331e375b5da5132107eaa9d3edaed427d2dcf4bebb559e
+ソース・設定とも本作業終了時に変更されていないことを確認。
+API、xeon-watch、xeon-watch-notifyはactive。
+
+graph比較のAは「前回の2入力共有候補」、Bは「今回の4/2/1候補」。
+生ログのstock欄は汎用比較ツールのラベルであり、今回のAが本番stockという意味ではない。
+本報告の改善率を、以前のstock→pairの改善率へ単純加算してはならない。
+
+2. 実装
+
+変更は別ディレクトリhybrid/engine内のCPUソース3ファイルに限定した。
+・arch/x86/quants.c: 4入力カーネル追加
+・arch/x86/quants.h: 対応する宣言
+・ggml-cpu.c: workerのchunk内で4/2/1へ分配する処理
+
+AVX有効・AVX2無効、MXFP4、K>=256、非reference経路で適用。
+4入力以上あるchunkでは4入力を優先し、残りを2入力と1入力へ渡す。
+chunkが2〜3入力なら従来のpair経路をそのまま使う。
+workerごとの割当範囲と既存の16入力tile境界を越えない。
+非連続入力・出力のstrideやexpertごとの入力位置をそれぞれ維持した。
+
+重みは4bitコードから小さい整数へ展開し、Q8_0入力との整数積和を行い、
+スケール適用・蓄積を浮動小数点で行う。重み全体をFP32化して保存する方式ではない。
+4入力間で重み展開を共有し、入力0/1の演算後に2/3を処理することで一時レジスタを減らした。
+FP16スケール変換は既存のggml_table_f32_f16参照を維持。F16C化は今回は試していない。
+
+候補はoriginal4、looped4、sequential4の3種類を比較。
+looped4は遅くなったため不採用。sequential4を選択した。
+逆アセンブルではselected主ループにスタックへのアクセスがないことを確認した。
+prologueやtailまで一切スタックを使わないという意味ではない。
+backend-cols4.asmにC backendの証拠を保存。
+
+3. 正しさの検証
+
+・各micro候補: 275,068出力、stockとbit不一致0。
+  K=0/32/64/96/256/288/2304/5120、入力1/2/3/4/5/6/7/8/15/16/17/19等。
+・portable microも同じ出力検証を通過。portable backend全体をビルドしたという意味ではない。
+・CPU graph: 合計384の条件をA/B比較し、全てbit一致。
+  boundary: 96条件 x 1/12/24スレッド。
+  realshape: 20条件 x 1/12/24スレッド。
+  spread: 8条件 x 12/24スレッド。
+  focus: 10条件 x 12/24スレッド。
+  同一条件の反復も含む試験構成数であり、384種類の独立した実モデルではない。
+・事前量子化Q8入力のrouting試験: 640条件、268,800出力、bit不一致0。
+  非連続stride、offset、重複入力、-1の無効slot、K=288の奇数block端数を検証。
+・stock+計数ライブラリ: 元のstockと88条件で全出力bit一致。
+  未使用expertを含むhistogram集計とworker分割境界も検証。
+・プロファイル切替/集計ツール: 9件のfixtureテストを通過。
+  dry run、変更済み設定の保護、library hash検証、起動失敗時の復元、stockへの復帰等。
+
+Q8の直接生成テストは通常の量子化器が出す-127〜127の領域を対象とする。
+手作りQ8=-128の符号処理の既存制約を、今回解決したという主張はしない。
+
+4. 性能測定
+
+生成準備を外したCPU graph計算時間。GPU・PCIe・モデル読込・API時間を含まない。
+各workerをCPU固定し、メモリは2ソケットinterleave。
+12スレッドは0〜11の12物理コア、24スレッドは0〜23でSMTも使用。
+重点再測定は各process warmup5、31反復、順番ABBAABBA。
+集計値は各process中央値の中央値。全点をall-graph-results.csvへ保存した。
+極値からの比率範囲も保存しているが、これは統計的な信頼区間ではない。
+
+重点結果（速度比=pair時間/hybrid時間、1より大きいほど高速）:
+
+threads  shape  inputs   pair_ms -> hybrid_ms   speed_ratio
+12       up       4       2.855 -> 2.438         1.171
+12       up       8       5.073 -> 4.210         1.205
+12       down     4       3.009 -> 2.537         1.186
+12       down     8       5.299 -> 4.572         1.159
+24       up       4       2.537 -> 2.613         0.971
+24       up       8       4.490 -> 3.991         1.125
+24       down     4       2.338 -> 2.084         1.122
+24       down     8       4.566 -> 4.057         1.125
+
+1〜3入力は概ね同等で、新しい4入力カーネルが常に使われるわけではない。
+全focus行の数値はfocus-table.txt、機械可読版はSUMMARY.json。
+24スレッドup4の回帰は再測定でも残る。shape専用の例外で隠さず未解決事項として残した。
+spread-t24のup6(0.769倍)、down14(0.782倍)もCSVに残した。
+こちらは極値範囲が1を含むほど変動が大きく、改善とも回帰確定とも判断していない。
+初期測定で大きく出た倍率を、そのまま実効改善率として採用しなかった。
+
+同一実行ファイル内の1スレッドmicroでは、4〜17入力のselected候補は
+upで約6.7〜13.8%、downで約7.1〜15.1%高速化。全データはmicro/build/*/results.jsonl。
+この局所高速化だけから、実モデルのtok/s、DRAM限界、CPU交換後の倍率は決められない。
+
+5. 実モデルのexpert分布計測
+
+stock-histは本番stockの演算コードに計数だけを足した別CPUライブラリ。
+CUDAの再ビルドは不要。元のllama-serverによるlddおよび--list-devicesを実行し、
+pair/hybrid/stock-histのCPUライブラリと元のbase library、CUDA0の認識を確認した。
+この確認ではモデルをロードしていない。
+
+記録するもの:
+・CPUのMUL_MAT_IDごとのtensor名、型、K/M、batch入力数、top-k、thread数
+・expert入力数の0/1/2/3/4〜7/8〜15/16〜31/32以上の分布
+・4/2/1候補へ割り当て可能な入力行数（worker chunkと16入力tile境界を考慮）
+
+本文、token ID、expert ID、activation値は保存しない。
+GPU担当層は計測対象外。gate/up/downを別演算として数えるので、
+総assigned_rowsは会話の一意なトークン数ではない。
+4/2/1の割合は将来の候補に対する行数の見積りであり、実行済みkernel呼出し数、
+FLOP比率、速度予測ではない。計数ビルド自体の速度を通常版と直接比較しない。
+
+起動warmupを除くため、/healthでreadyを確認した時刻以降だけを集計する。
+batch=1にもprefillの端数があり得るので、無条件にdecodeとは呼ばない。
+ログは最大20,000演算。上限到達は集計画面へ表示する。
+初回の起動warmupも上限には数えるため、上限表示が出た場合は完全な分布と解釈しない。
+
+仮にbatch128が全てtop6で384expertsへ配分されれば、ゼロを含む平均は2入力。
+これは構造からの計算であり、実測分布ではない。
+使用expertのみの平均、偏り、4入力にまとめられる割合は実データが必要。
+今回、実モデルでの分布計測とprefill/decode A/Bはまだ実施していない。
+
+6. 次の操作（長いモデル起動はユーザー実行の既存方針に従う）
+
+まずstock-histで再起動し、いつもの入力を送る。
+
+sudo python3 /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/switch_cpu.py stock-hist --apply
+
+別端末で以下を開くと2秒ごとに記録状況と分布を表示する。
+waiting_for_readyからready_waiting_for_requestsになった後に入力を送る。
+既存の温度・速度ダッシュボードも引き続き利用可能。
+
+python3 /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/analyze_histogram.py --watch 2
+
+元のstock構成へ戻す（これもモデル再起動を伴う）:
+
+sudo python3 /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/switch_cpu.py stock --apply
+
+pair/hybridも選べるが、全モデル性能は未検証。
+まず分布を確認し、24スレッドup4の頻度を把握してからA/B対象を決める。
+起動確認ヘルパーが送るのは/healthへの確認だけで、推論リクエストや会話本文は投入しない。
+起動失敗時は設定を以前のバイト列へ戻す。APIを自動的に再起動し続けることはしない。
+最新の設定が研究開始時/本スクリプトの履歴にない場合は上書きしない。
+
+7. 保存物と再開時の注意
+
+SOURCE.json / BINARY.json / graph-provenance.json: ソース・バイナリの由来とハッシュ。
+vs-stock.patch / vs-pair.patch: 本番stockおよび前回pairからの差分。
+hybrid/engine: ビルド・検証したCPUソース。
+runtime/: 認識確認済みCPUライブラリの固定コピー。
+RUNTIME.json: 読込確認とライブラリのSHA256。
+results/: graphのコマンド、stdout、出力float、A/B集計。
+execution/: 試験の終了コードと既存監視を使ったガード記録。
+extra-validation/RESULT.json: portable、routing、histogramの追加検証。
+SUMMARY.json / all-graph-results.csv / focus-table.txt: 自動生成の結果一覧。
+STATE.json: 再開用メモ。
+
+baseline-server-config.jsonには内部IPやキーのファイル位置がある。
+外部共有用ZIPにこのファイルや、本番設定・会話ログ・秘密鍵・APIキーを含めないこと。
+本実装はこのIvy Bridge環境向け。別環境ではソースから再ビルドし、ISAと数値を再検証する。

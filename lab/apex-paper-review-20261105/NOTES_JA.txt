@@ -1,0 +1,31 @@
+Apex論文と現在のエンジンの適用検討（調査のみ）
+2026-11-05
+対象: Efficient CPU-GPU collaborative MoE inference via Adaptive Expert Assignment
+一次資料: https://arxiv.org/html/2610.23006v1
+PDF: https://arxiv.org/pdf/2610.23006
+
+本サーバーへの設計判断（この調査で新たな性能測定はしていない）:
+・前回expert-cost-shadowはノード全体CPU/GPUの選択を検証したもの。同じMoEブロック内のexpert同時分割とは別の試験。前回の全GPU比0.91%は同時分割の改善上限を示さない。
+・既存のsched_copy_expertsは既に使用expertだけを連続区間ごとにコピーする。不要expert全数転送が主因という誤診を避ける。
+・現在の実行先決定は実ルーティングIDの取得より先。判断式だけ差し替えてもexpert分割は実現しない。
+・候補実装は実ルート取得後に担当expertを分け、同じexpertのgate/up/downを原則同じデバイスで処理し、最後に元の重み付き和へ戻す。中間値往復を増やさないための設計案であり未実装。
+・観測器の入力数ヒストグラムは再利用可能。予測器は量子化/形状/カーネル分岐別の基礎として使えるが、384expert、担当expertの部分集合、CPU演算とDMA同時実行の競合を別途校正する必要がある。
+・予測器のCPU単独時間とGPU単独時間を単純にmaxして実測並列速度と見なしてはいけない。NUMA/DRAM/PCIe/スレッド/同期/結果マージの競合・費用を測る。
+・通常の単一会話1token decodeでは各使用expertの入力数は1になるため、入力数ランキングの効果は限定的と推測。まずprefillの実分布で同時分割の実験が適切。
+・先読みとキャッシュ置換まで一度に変更せず、まず確定ルーティングで実験。次層の予測はDeepSeek構造で命中率と無駄転送を確認してから。
+・誤差帯や校正モデルは既存の最終評価を見て改変しない。次の設計は新しい試験ディレクトリ、学習/校正/未使用評価の分離を保つ。
+・同一operator単独、混合expertブロック、全APIの順に検証。全CPU/全GPU/固定分担/適応分担を同じ入力とGPU条件で比較し、総レイテンシを目的にする。
+
+コード入手:
+論文ページ/本文と公開検索を調べた範囲で、この論文に対応する著者の実装リポジトリは確認できなかった。存在しないと断定しない。同名別研究を取り違えない。
+
+参照したローカル資料:
+expert-cost-shadow-20261104/RESUME.txt, DESIGN_JA.txt, RESULTS_JA.txt
+source/src/llama-context.cpp:2785 sched_copy_experts
+最新の採用済みscheduler: gpu-stream-20261103/ggml-backend.cpp:1329以降
+実際のprefill計測: gpu-prefill-study-20261104/RESULTS_JA.txt
+
+状態:
+API設定・ライブラリ・監視・ファン・電力を変更していない。API再起動/モデル起動/ベンチマーク/インストールなし。
+本番設定SHA256: 11ca8641aee16173e38283407182b6febc264915535df93dc7ce4dd840a2e44b
+今回の結論は採用候補の選定。V100/旧Xeon/混合量子化の性能効果は未測定。

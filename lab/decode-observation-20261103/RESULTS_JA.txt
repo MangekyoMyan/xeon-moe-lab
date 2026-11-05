@@ -1,0 +1,133 @@
+DeepSeek生成時のCPU処理・転送・同期待ち / 2026-11-03
+
+結論
+現在の生成速度の主な制約は、CPU側のrouted expert処理だった。
+約3000tokenの履歴で、生成1tokenの計測時間約194.6msのうちCPU graph実行は159.0ms（81.7%）。
+tensorコピー処理は4.75ms（2.44%）、コピー区間外のCUDA同期待ちは22.49ms（11.56%）。
+同期待ちはGPU計算の完了待ちも含む。無駄だけを測った値ではない。
+PCIe転送を減らすこと自体の効果は限定的で、KVをRAMにも常時複製する優先度は低い。
+
+APIを再起動せずに測定できたため、現在も同じ構成で稼働中。
+本番設定・ソース・バイナリ・GPU150W/ECC・ファン設定を変更していない。
+一時的なuprobeは全て削除済み。監視サービスは稼働、異常なし。
+単一スロットの会話KVは合成テストの内容へ入れ替わっている。Open WebUIの元の履歴は変更していない。
+
+1. 現在の環境
+Xeon E5-2630L v2 x2、12物理/24論理CPU、512GiB DDR3-1600。
+Tesla PG500-216 32GiB、150W、ECC有効。
+gpu3-stream1024、GPU常駐expert37/38/39層、CPUexpert0〜36層。
+生成CPU12threads、入力24threads。IQの任意GPU移行はbatch>=512、MXFP4は>=1024。
+CPUは前回のhybrid4/2/1、context131072、KV f16。
+PID21898の実マッピングを確認し、そのプロセスだけを計測した。
+
+2. 測定方法
+すでに読込み済みのAPIへ合成プロンプトを投入。ユーザーの会話本文/APIキーは記録していない。
+temperature0、seed42、ignore_eos、cache_prompt false、単一slot・投機生成なし。
+
+短い入力26token:
+  96token生成を、baseline→trace→baseline→CPU sampling→baselineの順で比較。
+長い入力3072token:
+  64token生成を、baseline→trace→baselineの順で比較。
+  さらにtraceとCPU samplingを同時に取得して、待ちが発生した時間帯を照合。
+長い入力は繰返しの多い合成データなので、このprefill速度を普通の文章の性能として使わない。
+
+最初の生成tokenを受け取った後にperfを有効化し、prefillを観測区間から外した。
+関数のentry/returnをTIDごとのstackで対応させ、完全なtoken間の区間だけを集計。
+ネストするcopy/synchronize/backendの時間を二重加算していない。
+tracepointはELFの正確なfile offsetへ設置し、元のファイルを書き換えていない。
+終了時にこの研究用のeventだけ削除し、残存0を確認した。
+
+生成境界:
+このserverはllama_decodeではなくllama_processを使用する。
+初期の短いtraceは公開llama_decode関数が呼ばれず、毎token1回現れるCPU先頭層
+ffn_moe_gate-0を境界にした。入力処理が除外されていることはFIFO有効化時刻で確認。
+正式な長い入力と同時計測ではprocess_ubatchを直接測り、n_tokens=1を確認した。
+長い入力は61の完全なtoken間区間、短い入力は93区間を使用。
+区間内のentry/return不整合0。失われたperf記録は検出されなかった。
+
+3. 生成時間の内訳（ホスト側の経過時間）
+                         短い履歴       3072token履歴
+CPU graph実行             156.70ms       159.02ms
+tensorコピー処理             4.69ms         4.75ms
+コピー外のCUDA同期          22.49ms        22.49ms
+GPU backendのその他CPU処理    3.50ms         4.46ms
+コピー準備のその他処理        1.33ms         1.32ms
+その他                      2.27ms         2.57ms
+合計                      190.97ms       194.60ms
+
+CPU graphはexpert内積、量子化展開、CPU側メモリアクセス、workerのバリア等を含む。
+これだけでCPU実行ユニットとCPU側メモリ待ちを完全に分けたことにはならない。
+GPU backend時間はホスト側の準備・投入時間。GPUのkernel実行時間そのものではない。
+CUDA同期には、先行するGPU演算・転送の完了を待つ時間やホストの実行待ちが含まれる。
+
+計測なしの生成:
+短い履歴: 185.73 / 187.40 / 186.24ms/token（約5.34〜5.38tok/s）。
+3072token履歴: 190.98 / 190.28ms/token（約5.24〜5.26tok/s）。
+計測により約2〜3%遅くなったため、表を無計測状態の厳密な百分率とは扱わない。
+各条件のbaseline/trace間では出力hashが全て一致した。
+
+4. PCIeで運んでいたもの
+3072token履歴の生成1tokenあたり、観測したCUDA runtime copy:
+  CPU→GPU: 4,695,236 bytes / 73回
+  GPU→CPU: 1,275,768 bytes / 75回
+  合計: 約5.97MB / 148回
+実際の生成速度に換算すると、平均約31MB/s程度。
+短い履歴でも合計約5.90MBで、履歴の長さに比例してKV全体を往復させる挙動ではなかった。
+
+多いのはCPUで計算したffn_moe_downの結果、CPUへ渡すffn_norm、expert選択ID、最終logits。
+attention mask等の小さな管理データも転送する。
+CPUのexpert計算にKVそのものを渡す処理は、現在のソース構造に存在しない。
+KVを参照するAttentionはGPUで行い、CPUexpertにはその結果を取り込んだactivationを渡す。
+そのためRAMへKVを常時複製しても、ここで観測したactivation/結果のコピーを代替できない。
+
+観測したcopy区間を完全にゼロにしても、他の区間が同じなら改善余地は約2.5%にとどまる。
+小転送の回数や同期の削減には意味があるが、CPUexpert側より先に大改造する根拠は薄い。
+
+5. CPUが実行していた処理
+関数traceを付けない、99HzのCPUサンプリング（全worker合算）:
+  IQ3_XXS内積: 43.14%
+  MXFP4内積:   15.40%
+  IQ2_S内積:   11.38%
+  IQ3_S内積:    8.83%
+  OpenMP:      18.33%
+  その他:       2.92%
+これは実行中CPU時間のサンプル比率であり、token待ち時間の割合ではない。
+
+3072token履歴でtraceと100Hz相当のCPU samplingを同時計測:
+  IQ3_XXS: 42.13%、MXFP4:14.61%、IQ2_S:10.27%、IQ3_S:7.88%、OpenMP:21.85%。
+  OpenMPの3049samples中2218samples（72.75%）は、主スレッドのCPUgraph区間の外側だった。
+  待ちの上位アドレスはlibgompのpause・状態確認ループにあることを逆アセンブルで確認。
+  CPU演算が終わってGPU等を待つ間もworkerがspinしている部分が多い。
+  残る約27%はCPUgraph区間内。負荷の偏りやバリアの影響を含む。
+
+OpenMP待ちを減らすとCPU消費電力を下げられる可能性があるが、
+「OpenMPが18〜22%だから生成もその分速くなる」とは言えない。
+スリープへ切り替えれば起床遅延が増える可能性もあり、別の比較が必要。
+
+6. 次の優先順位
+1) IQ3_XXSの1入力内積。CPUサンプルの約42〜43%を占め、今の生成で最も大きい。
+2) CPUexpert内の仕事分割・バリア。OpenMP内の待ちを演算中/外側に分けて評価する。
+3) GPU依存待ちを隠せる独立処理があるか。22msを全て無駄と見なして同期を削らない。
+4) activation転送のまとめ方。転送量より小転送の回数・準備が対象だが、効果上限は小さい。
+KVのRAM常時複製は今回導入しない。
+
+7. 測定の限界
+GPUの真のkernel/DMA時間を直接測るCUPTIは、現在のプロセスには入っていない。
+既存のtrace.soは起動時preload方式でkernel durationのみ。今回の用途には不足する。
+ここでのコピー時間はホストから見たサービス時間（投入・ステージング・完了待ちを含む）。
+CUDA graph内部のコピーはruntime呼出し数に現れない場合があるので、バイト数は観測範囲の値。
+GPU内のkernelとDMAの時間配分まで断定しない。
+長い方も3072tokenであり、128k近辺のattention/VRAM性能を検証したものではない。
+監視daemonのサンプルで観測したVRAM最大は29,552MiB（約28.86GiB）。瞬間最大の保証ではない。
+
+証拠
+SUMMARY.json: 基準比較・内訳・CPUサンプル・終了確認。
+runs/*/RESULT.json: 合成入力、時刻、server timings、出力hash、監視記録、プローブ追加/削除。
+runs/*trace*/ANALYSIS.json: 重複を除いた時間、コピー元/先tensor別集計、境界の妥当性。
+runs/*trace-sample*/SAMPLE_ANALYSIS.json: CPU演算区間とCPU sampleの同時刻照合。
+runs/*sample*/cpu-report-full.txt: 単独CPUサンプリングの全結果。
+final-check.json: プローブ残存0、本番設定未変更、監視異常なし。
+
+計測器の初期調整で、perfのC++symbol解決/戻りevent自動命名、tracefsへのappend方法を修正した。
+初回に別名で残った3eventも明示削除し、その後はELF file offsetと名前固定の制御に変更。
+失敗した準備試行は実測集計から除外。モデルの再起動や本番バイナリ差替えは行っていない。

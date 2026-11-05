@@ -1,0 +1,61 @@
+{
+  "status": "next_optimization_design_selected_microprototype_validated",
+  "date_JST": "2026-11-03",
+  "recommendation": "IQ3_XXS lossless compact4bit CPU internal layout; initially64GiB static auxiliary RAM budget",
+  "production_integrated": false,
+  "API_changed": false,
+  "full_model_speed_measured": false,
+  "evidence": {
+    "up": {
+      "stock_ms_median": 10.730085,
+      "compact_ms_median": 5.820068,
+      "speed_ratio_median": 1.854092,
+      "paired_ratio_median": 1.8597255828562134,
+      "paired_ratio_min": 1.6898013817173292,
+      "paired_ratio_max": 2.1653974258252626,
+      "paired_comparisons": 21,
+      "preparation_ms_median": 15.487435
+    },
+    "down": {
+      "stock_ms_median": 11.04469,
+      "compact_ms_median": 6.154608,
+      "speed_ratio_median": 1.79454,
+      "paired_ratio_median": 1.7950966582266752,
+      "paired_ratio_min": 1.6713131197505575,
+      "paired_ratio_max": 2.0683941064769975,
+      "paired_comparisons": 21,
+      "preparation_ms_median": 16.216776
+    }
+  },
+  "extra_RAM_all_IQ3_GiB": 137.63671875,
+  "alternatives": {
+    "int8_predecode": "~260GiB additional; speed advantage mostly disappears with large working set at12cores",
+    "compressed_sequential_kernel": "small/noisy improvements; not selected"
+  },
+  "next": [
+    "Implement bounded per-model CPU cache with clear ownership/destruction",
+    "Use only single-input IQ3 path initially, keep originalGPUtransfer weights",
+    "Validate real CPU graph routing/strides/chunks/fallback",
+    "Prepare separate library/profile; user performs longmodelstartup",
+    "Controlled fullmodel A/B and memory/power checks"
+  ],
+  "preserve": [
+    "gpu3-stream1024 currentAPI",
+    "128k f16 GPU KV",
+    "GPU150W/ECC/fan<=70",
+    "immutable originalGGUF and pinnedDMA weights"
+  ],
+  "files": [
+    "RESULTS_JA.txt",
+    "SUMMARY.json",
+    "FOCUS.json",
+    "BUILD.json",
+    "predecode_probe.cpp"
+  ],
+  "notes": [
+    "Finalfocus upusesbroadcastinput, downperexpertinput",
+    "Sourceprobeonly; do not drop standalonebinary into production",
+    "1.8x operator speed is not wholemodeltok/s speed",
+    "Do not count repeated deterministic correctness cases as independent"
+  ]
+}

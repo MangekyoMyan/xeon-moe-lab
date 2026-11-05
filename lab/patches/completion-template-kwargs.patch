@@ -1,0 +1,66 @@
+--- a/common/chat.h
++++ b/common/chat.h
+@@ -329,7 +329,8 @@
+                                       const std::vector<common_chat_msg> & past_msg,
+                                       const common_chat_msg &              new_msg,
+                                       bool                                 add_ass,
+-                                      bool                                 use_jinja);
++                                      bool                                 use_jinja,
++                                      const std::map<std::string, std::string> & chat_template_kwargs = {});
+ 
+ // Returns an example of formatted chat
+ std::string common_chat_format_example(const struct common_chat_templates *       tmpls,
+--- a/common/chat.cpp
++++ b/common/chat.cpp
+@@ -665,11 +665,13 @@
+                                       const std::vector<common_chat_msg> & past_msg,
+                                       const common_chat_msg &              new_msg,
+                                       bool                                 add_ass,
+-                                      bool                                 use_jinja) {
++                                      bool                                 use_jinja,
++                                      const std::map<std::string, std::string> & chat_template_kwargs) {
+     common_chat_templates_inputs inputs;
+     inputs.use_jinja = use_jinja;
+     inputs.add_bos   = tmpls->add_bos;
+     inputs.add_eos   = tmpls->add_eos;
++    inputs.chat_template_kwargs = chat_template_kwargs;
+ 
+     std::string fmt_past_msg;
+     if (!past_msg.empty()) {
+--- a/tools/completion/completion.cpp
++++ b/tools/completion/completion.cpp
+@@ -239,7 +239,7 @@
+         common_chat_msg new_msg;
+         new_msg.role = role;
+         new_msg.content = content;
+-        auto formatted = common_chat_format_single(chat_templates.get(), chat_msgs, new_msg, role == "user", g_params->use_jinja);
++        auto formatted = common_chat_format_single(chat_templates.get(), chat_msgs, new_msg, role == "user", g_params->use_jinja, g_params->default_template_kwargs);
+         chat_msgs.push_back(new_msg);
+         LOG_DBG("formatted: '%s'\n", formatted.c_str());
+         return formatted;
+@@ -266,6 +266,7 @@
+                 inputs.messages = chat_msgs;
+                 inputs.add_generation_prompt = !params.prompt.empty();
+                 inputs.force_pure_content = params.force_pure_content_parser;
++                inputs.chat_template_kwargs = params.default_template_kwargs;
+ 
+                 prompt = common_chat_templates_apply(chat_templates.get(), inputs).prompt;
+             }
+--- a/tests/test-chat.cpp
++++ b/tests/test-chat.cpp
+@@ -7383,6 +7383,15 @@
+     const std::string think_a2      = asst_marker + think_start + "thinking A2" + think_end;
+     const std::string asst_no_think = asst_marker + think_end;
+ 
++    for (const std::string & thinking : { "false", "true" }) {
++        const std::map<std::string, std::string> kwargs = { { "enable_thinking", thinking } };
++        const std::string suffix = asst_marker + (thinking == "true" ? think_start : think_end);
++        for (const std::vector<common_chat_msg> & past : { std::vector<common_chat_msg>{}, { user_q1, asst_a1 } }) {
++            const auto formatted = common_chat_format_single(tmpls.get(), past, user_q2, true, true, kwargs);
++            assert_equals(suffix, formatted.substr(formatted.size() - suffix.size()));
++        }
++    }
++
+     auto render = [&](const std::vector<common_chat_msg> & messages, bool drop_thinking) {
+         common_chat_templates_inputs inputs;
+         inputs.messages = messages;

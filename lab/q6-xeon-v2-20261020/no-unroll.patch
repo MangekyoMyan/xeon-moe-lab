@@ -1,0 +1,10 @@
+--- a/ggml/src/ggml-cpu/arch/x86/quants.c
++++ b/ggml/src/ggml-cpu/arch/x86/quants.c
+@@ -2584,6 +2584,7 @@
+ 
+         int is = 0;
+ 
++        #pragma GCC unroll 1
+         for (int j = 0; j < QK_K/128; ++j) {
+ 
+             const __m128i q4bitsH_0 = _mm_loadu_si128((const __m128i*)qh); qh += 16;

@@ -1,0 +1,103 @@
+--- /home/codex/projects/llm-lab/moe-engine-20261029/variants/hybrid-reuse-v1/source/expert-cache.cpp	2026-10-29 07:24:45.284861883 +0900
++++ /home/codex/projects/llm-lab/prefill-study-20261030/variants/simple-prefill/source/expert-cache.cpp	2026-10-30 11:40:57.663635486 +0900
+@@ -248,6 +248,8 @@
+     std::vector<int> positions;
+     uint64_t calls = 0, hits = 0, misses = 0, prefill_calls = 0;
+     uint64_t decode_hits = 0, decode_misses = 0, prefill_hits = 0, prefill_misses = 0;
++    uint64_t prefill_swaps = 0, prefill_swap_bytes = 0, prefill_extra_hits = 0;
++    double prefill_swap_ms = 0;
+     size_t weight_bytes = 0;
+     double launch_ms = 0, finish_ms = 0, load_ms = 0, worker_ms = 0;
+     std::thread worker;
+@@ -444,6 +446,9 @@
+     bool adaptive_verify=xv_env_one("GGML_XV_ADAPTIVE_VERIFY");
+     bool adaptive_pipeline=xv_env_one("GGML_XV_ADAPTIVE_PIPELINE");
+     int adaptive_interval=xv_env_int("GGML_XV_ADAPTIVE_INTERVAL",32,1,4096);
++    int adaptive_prefill_interval=xv_env_int("GGML_XV_ADAPTIVE_PREFILL_INTERVAL",adaptive_interval,1,4096);
++    bool adaptive_last_prefill=false;
++    int prefill_swap_gain=xv_env_int("GGML_XV_PREFILL_SWAP_GAIN",0,0,1024);
+     int adaptive_initial=xv_env_int("GGML_XV_ADAPTIVE_INITIAL",1,0,16);
+     int adaptive_per_layer=xv_env_int("GGML_XV_ADAPTIVE_PER_LAYER",1,0,16);
+     double adaptive_strength=xv_env_int("GGML_XV_ADAPTIVE_STRENGTH",1024,0,1000000);
+@@ -508,6 +513,7 @@
+         }
+         GGML_ASSERT(!plan.empty() || test_slots > 0);
+         GGML_ASSERT(!share_decode_graphs || exact_q8_enabled());
++        GGML_ASSERT(!prefill_swap_gain || !prefill_pair);
+     }
+ };
+ 
+@@ -519,6 +525,7 @@
+ static void adaptive_observe(const ggml_tensor * weights,const ggml_tensor * ids,int64_t record) {
+     auto & conf=config();if(!conf.adaptive)return;
+     const std::string name=ggml_get_name(weights);if(!xv_gate_name(name))return;
++    conf.adaptive_last_prefill=ids->ne[1]>1;
+     GGML_ASSERT(record>=0 && weights->type==GGML_TYPE_Q8_0 && ids->type==GGML_TYPE_I32);
+     auto & history=conf.histories[name];const size_t experts=weights->ne[2];
+     if(history.counts.empty()) {
+@@ -547,7 +554,8 @@
+         if(!pool.work_done || pool.work_ready)return -2;
+     }
+     conf.last_commit=record;
+-    if(record && record%conf.adaptive_interval)return 0;
++    const int interval=conf.adaptive_last_prefill?conf.adaptive_prefill_interval:conf.adaptive_interval;
++    if(record && record%interval)return 0;
+     const int limit=record?conf.adaptive_per_layer:conf.adaptive_initial;
+     if(!limit)return 0;
+     const auto started=xv_clock::now();
+@@ -801,6 +809,37 @@
+     return *item;
+ }
+ 
++static void prefill_swap(xv_pool & pool, xv_weights & bank, const int64_t * counts) {
++    auto & conf=config();
++    if(!conf.prefill_swap_gain || conf.validate)return;
++    int incoming=-1,victim=-1;
++    for(int e=0;e<bank.experts;++e) {
++        if(bank.slots[e]<0 && counts[e]>0 && (incoming<0 || counts[e]>counts[incoming]))incoming=e;
++        if(bank.slots[e]>=0 && (victim<0 || counts[e]<counts[victim]))victim=e;
++    }
++    if(incoming<0 || victim<0 || counts[incoming]-counts[victim]<conf.prefill_swap_gain)return;
++    // Shared weights cannot change while any pool still has a reader.
++    for(const auto & item:conf.pools) {
++        auto & other=*item.second;
++        if(other.pending || other.mlp_active)return;
++        std::lock_guard<std::mutex> guard(other.work_mutex);
++        if(!other.work_done || other.work_ready)return;
++    }
++    const auto started=xv_clock::now();
++    const int slot=bank.slots[victim];
++    const size_t row=ggml_row_size(GGML_TYPE_Q8_0,bank.k);
++    const size_t source_bytes=row*bank.m,destination_bytes=row*bank.gpu_m;
++    pool.prepare_staging(source_bytes);
++    pool.copy_expert(bank.weights,slot*destination_bytes,
++                     (const char *)bank.source_data+incoming*source_bytes,source_bytes,0);
++    // Publish only after the copy, including for another pool's CUDA stream.
++    ggml_backend_synchronize(pool.backend);
++    bank.slots[victim]=-1;bank.slots[incoming]=slot;
++    ++pool.prefill_swaps;pool.prefill_swap_bytes+=source_bytes;
++    pool.prefill_extra_hits+=counts[incoming]-counts[victim];
++    pool.prefill_swap_ms+=elapsed_ms(started);
++}
++
+ static void begin(void * key, ggml_tensor * dst, int64_t * row_counts) {
+     auto & conf = config();
+     auto & ptr = conf.pools[key];
+@@ -840,6 +879,7 @@
+     xv_bank * entry = get_bank(pool, weights);
+     if (!entry) { account(0); return; }
+     auto * bank = entry->weights.get();
++    if(prefill)prefill_swap(pool,*bank,row_counts);
+     const auto start = xv_clock::now();
+     pool.positions.clear();
+     for (int i = 0; i < selections; ++i) {
+@@ -1067,6 +1107,9 @@
+     const auto & pool = *found->second;
+     GGML_ASSERT(!pool.pending);
+     GGML_ASSERT(!pool.mlp_active);
++    std::fprintf(stderr,"XV_PREFILL_SWAP {\"operations\":%llu,\"weight_h2d_bytes\":%llu,\"extra_gpu_positions\":%llu,\"copy_and_sync_ms\":%.6f}\n",
++        (unsigned long long)pool.prefill_swaps,(unsigned long long)pool.prefill_swap_bytes,
++        (unsigned long long)pool.prefill_extra_hits,pool.prefill_swap_ms);
+     size_t bank_graph_entries=0;for(const auto & bank:pool.banks)bank_graph_entries+=bank.second->graphs.size();
+     std::fprintf(stderr,"XV_GRAPH_REUSE {\"enabled\":%s,\"single_allocations\":%llu,\"pair_allocations\":%llu,\"full_mlp_allocations\":%llu,\"graph_device_bytes\":%zu,\"metadata_context_bytes\":%llu,\"graph_create_ms\":%.6f,\"shared_single_entries\":%zu,\"shared_pair_entries\":%zu,\"shared_single_reuses\":%llu,\"shared_pair_reuses\":%llu,\"weight_rebinds\":%llu,\"per_bank_single_entries\":%zu,\"per_bank_mlp_entries\":%zu,\"prefill_single_entries\":%zu,\"prefill_pair_entries\":%zu}\n",
+         conf.share_decode_graphs?"true":"false",(unsigned long long)pool.single_graph_allocations,(unsigned long long)pool.pair_graph_allocations,

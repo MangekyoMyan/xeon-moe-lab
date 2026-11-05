@@ -1,0 +1,27 @@
+CPU graph probeについて
+========================
+quant_probe.cppはggmlのCPU backendだけを初期化します。
+合成float重みを対象形式へ量子化し、ggml_mul_mat_idで選択したexpertを計算します。
+4 expert/top2、route=(token+slot)%4。up入力はexpert間で共有、down入力は別々です。
+quickはupのみ・token数1/16、通常はup/down・token数1/8/16を調べます。
+
+数値チェック
+ 全出力の有限性を確認。通常の小shapeでは全出力行をFP64参照と比較。
+ --real-shapes時は各出力の8行だけを参照比較し、全要素の有限性は確認します。
+ JSONのsample_reference_nmseという名前は共通ですが、小shapeでは全行が対象です。
+ 参照は重みを逆量子化したfloat値×元のfloat入力をFP64で累積したもの。
+ 実backendはactivationをQ8に量子化するため、その誤差も含みます。
+ NMSE<5e-4は大きな実装誤りの検出用であり、候補と現行のbit一致を保証しません。
+ kernel変更時は、現行との出力差の直接比較も追加してください。
+
+時間はwarmup後3回のgraph compute中央値。重み量子化・メモリ確保・FP64参照は
+この時間から除外。2 threadが既定で、poll0のthreadpoolを再利用します。
+CPUクロック固定、NUMA affinity固定、cold-cache flushは行いません。
+そのため過小な数%差を採用根拠にしないでください。
+
+受け渡し時の実行結果は既存の現行CPU/baseライブラリにリンクしたquick版です。
+CUDA版のモデルサーバーを起動したり、GPU backendを初期化した結果ではありません。
+新規CPU-onlyビルドの完全な完了は未検証です。CMakeの構成のみ両profileで確認済み。
+
+上流test-llama-archs等の小さな合成モデルfixtureも使えますが、今回は作成・起動して
+いません。ライブラリの完全なarchitecture試験と今回の演算単体試験は別物です。

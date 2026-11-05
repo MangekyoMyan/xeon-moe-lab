@@ -1,0 +1,19 @@
+--- a/src/llama-model-loader.cpp
++++ b/src/llama-model-loader.cpp
+@@ -1183,6 +1183,16 @@
+             size_data -= nbytes;
+             n_created++;
+ 
++            // Skipped NVFP4 weights still own optional scale tensors in the file.
++            if (!files.empty() && t_meta->type == GGML_TYPE_NVFP4 && tn.suffix && strcmp(tn.suffix, "weight") == 0) {
++                const int64_t n_scale = info.op == GGML_OP_MUL_MAT_ID ? t_meta->ne[2] : 1;
++                for (const char * suffix : {"scale", "input_scale"}) {
++                    const LLM_TN_IMPL tn_scale(tn.arch, tn.tensor, suffix, tn.bid, tn.xid);
++                    create_tensor(hparams, buft_list_cpu, buft_list_input, buft_list_output, buft_list_layer,
++                            tn_scale, {n_scale}, TENSOR_SKIP | TENSOR_NOT_REQUIRED);
++                }
++            }
++
+             return nullptr;
+         }
+ 

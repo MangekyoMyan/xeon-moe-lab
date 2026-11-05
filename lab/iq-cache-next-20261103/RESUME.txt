@@ -1,0 +1,25 @@
+LATEST 2026-11-04: guard fix applied; read /home/codex/projects/llm-lab/guard-retry-20261104/RESULTS_JA.txt. Exact old timeout STOP_REQUESTED archived, health reviewed, monitor alarm cleared; no model started. Existing multi96 unchanged. User startup: sudo python3 /home/codex/projects/llm-lab/deepseek41-bringup-20261101/start.py.
+
+Earlier notes (historical):
+LATEST 2026-11-04: API stopped during loading. See /home/codex/projects/llm-lab/guard-incident-20261104/RESULTS_JA.txt and evidence. Supervisor single nvidia-smi timeout5s -> SIGTERM, return -15. Last GPU/HBM29/28C and ECC0; scoped kernel journal no Xid/OOM. Query delay underlying cause unknown. Today no cache/DMA start log; appended successful logs are from prior run. STOP_REQUESTED remains; no restart or guard edits this turn.
+
+Earlier notes (historical):
+LATEST: Session ended for user shutdown. Checkpoint: /home/codex/projects/llm-lab/iq-cache-next-20261103/checkpoints/20261103-202020. Read RESTART_JA.txt and CHECKPOINT.json there. As of checkpoint API multi96 was active (PID51493), no tests/builds/probes pending and monitor clear. Assistant did not stop/shut down. After OS boot user starts existing config with sudo python3 /home/codex/projects/llm-lab/deepseek41-bringup-20261101/start.py; no rebuild/profile switch needed. Next optional work: bounded multi96 timing + DRAM bytes/token + CPU sample.
+
+Earlier notes (historical):
+LATEST: User started multi96. Activation verified: PID51493, new CPU/model overlays, 40 tensors/94.922GiB, 40 fallback. No monitor alerts/errors. User reports faster generation and roughly26GB/s DRAM; this is user observation, not a controlled new benchmark. MemAvailable~91.9GiB. Current config SHA e73c2bd30ac5dc4b31f6d4bf5b3d9e23c8603c7f638114a50cf9541629631240. User permits Astra xhigh for hard reasoning; Terra preferred for reviews/log summaries.
+
+Earlier handoff (historical):
+Read STATE.json and RESULTS_JA.txt first. New multi-format cache candidate is ready but NOT applied.
+Production remains compact64 at iq3-cache-20261103/runtime, server PID45525. No API restart or config changes this turn.
+Post-change baseline with same synthetic prompt: 169.719/172.067 ms per token vs historical 186.242; approx 9% improvement, not an interleaved AB. All output hashes match.
+CPU still ~80.6% of traced host time. Uncached XXS24.8%, IQ2_S11.7%, IQ3_S9.1% of CPU samples. OpenMP mostly outside CPU graph.
+New IQ2_S/IQ3_S lossless compact144 kernels preserve output bits. No-RAM direct kernels did not improve and were discarded.
+Final CPU graph speedup: IQ2_S up1.76/down1.48, IQ3_S up2.36/down1.90. Full model candidate speed unknown.
+Candidate priority: IQ3_S then IQ2_S/XXS up+gate tied by layer, then IQ2_S down, then XXS down. Shared cache-policy.h used by loader and selection generator.
+multi96 selects40 tensors: IQ3_S8, IQ2_S12, XXS20, total94.921875GiB. Net +33.22265625GiB over active compact64.
+multi64 retains same61.699GiB but selects8/12/6. Both prepared; default recommendation multi96. Exact previous profile is current compact64, NOT old no-cache configuration.
+768 graph cases and ASan/UBSan pass; mixed-format GPU512 prefill + CPUdecode including partial cache budget pass, bitwise logits equal, owner cleanup zero. Full model startup remains user-run.
+Use start/rollback commands from STATE.json. This candidate's API names/env retain iq3 for compatibility but cover all three IQ formats.
+Keep GPU150W/ECC/Standard fans<=70%, 128k f16KV, GPUstream settings. Monitor via xeon-watch, not chat polling. Never overwrite active original GGUF/source/build/runtime.
+After user starts: read startup summary from deepseek41-bringup-20261101/server.stderr.log (supervisor redirects actual server output there), verify40 tensors94.922GiB unless fallback logged, actual process mappings and saved monitor state.

@@ -1,0 +1,112 @@
+{
+  "passed": true,
+  "unix": 1793701147.3335388,
+  "build_sha256": "7b0b4543bc8d88b27d81b070be904c9c4983102fbca1c3f1fabf05ec5d0df656",
+  "checks": [
+    {
+      "name": "cache-graph-final",
+      "status": "/home/codex/projects/llm-lab/iq3-plan-20261103/execution/cache-graph-final/status.json",
+      "rows": [
+        {
+          "cases": 256,
+          "outputs": 224256,
+          "bit_mismatches": 0,
+          "pass": true
+        }
+      ],
+      "stdout_sha256": "596841fd5f5b3f47c3e53a71aa8d5b4b099b5d0f65f10e72e10ba58c096fca5e"
+    },
+    {
+      "name": "cache-sanitized-final",
+      "status": "/home/codex/projects/llm-lab/iq3-plan-20261103/execution/cache-sanitized-final/status.json",
+      "rows": [
+        {
+          "cases": 256,
+          "outputs": 224256,
+          "bit_mismatches": 0,
+          "pass": true
+        }
+      ],
+      "stdout_sha256": "596841fd5f5b3f47c3e53a71aa8d5b4b099b5d0f65f10e72e10ba58c096fca5e"
+    },
+    {
+      "name": "cache-loader-cpu-01",
+      "status": "/home/codex/projects/llm-lab/iq3-plan-20261103/execution/cache-loader-cpu-01/status.json",
+      "rows": [
+        {
+          "loader": "cpu",
+          "passes": 4,
+          "bit_mismatches": 0,
+          "cache_leaks": 0,
+          "pass": true
+        }
+      ],
+      "stdout_sha256": "bf7a335a80fe34c9652c13d98c19c90d1d3d1772bafb570733ed79847c1ced8b"
+    },
+    {
+      "name": "cache-loader-gpu-01",
+      "status": "/home/codex/projects/llm-lab/iq3-plan-20261103/execution/cache-loader-gpu-01/status.json",
+      "rows": [
+        {
+          "loader": "gpu",
+          "passes": 4,
+          "bit_mismatches": 0,
+          "cache_leaks": 0,
+          "pass": true
+        }
+      ],
+      "stdout_sha256": "21ae1998c6c4dce5aa171544306faba73dc007f51b6f908700467a841a97864e"
+    },
+    {
+      "name": "cache-loader-stream-01",
+      "status": "/home/codex/projects/llm-lab/iq3-plan-20261103/execution/cache-loader-stream-01/status.json",
+      "rows": [
+        {
+          "loader": "gpu-stream",
+          "passes": 4,
+          "bit_mismatches": 0,
+          "cache_leaks": 0,
+          "pass": true
+        }
+      ],
+      "stdout_sha256": "48d048950bd1e828941af2eeba07e159e1b18e4143dd4847263f6fd1a63f2059"
+    },
+    {
+      "name": "cache-loader-discovery-final",
+      "status": "/home/codex/projects/llm-lab/iq3-plan-20261103/execution/cache-loader-discovery-final/status.json",
+      "rows": [
+        {
+          "loader": "gpu-stream",
+          "passes": 4,
+          "bit_mismatches": 0,
+          "cache_leaks": 0,
+          "pass": true
+        }
+      ],
+      "stdout_sha256": "fc2e1bc907edd3a4d0df882778511656e6545b4259249be29471dd05fe20d400"
+    }
+  ],
+  "real_graph": {
+    "up": {
+      "original_ms_median_of_runs": 1.573738,
+      "compact_ms_median_of_runs": 0.960699,
+      "speedup_median_of_runs": 1.737,
+      "speedup_min": 1.6059,
+      "speedup_max": 1.7901
+    },
+    "down": {
+      "original_ms_median_of_runs": 1.553489,
+      "compact_ms_median_of_runs": 1.103763,
+      "speedup_median_of_runs": 1.4064,
+      "speedup_min": 1.362,
+      "speedup_max": 1.4103
+    }
+  },
+  "timing_test_source": "/home/codex/projects/llm-lab/iq3-cache-20261103/test-cache-timing.cpp",
+  "timing_test_source_sha256": "085879aa585b495fa9772e71ce87b52b691dfa1701154d7eeb642162d08abdbd",
+  "scope": "CPU graph + synthetic CPU/GPU model integration; no full DeepSeek startup or full-model speed claim",
+  "sanitized_runtime_sha256": "3ed16db3e41e75a775e99092554339a44e4c70a53e0a6451947e3a4789109755",
+  "sanitized_test_sha256": "bca3c8fbf7ab786d8475c62d974b5516dca3beab54f0238ed1f91937093130b7",
+  "test_source_sha256": "2c27f6606d2be500d9e41f77b65b880d11d613b2a271212369b08d97a40ed900",
+  "loader_source_sha256": "487ccf9bce6620e55d799e82d9ec4181d3b56592fb453c66a8c175a754c268cd"
+}

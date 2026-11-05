@@ -1,0 +1,29 @@
+COMPLETE2026-11-05: user asked testApex-likeexpert CPU/GPU collaborativeexecution forvalue BEFOREproductionintegration. See RESULTS_JA.txt/SUMMARY.json. Noformalgoalcreated.
+Verdict:worthprefill-onlyimplementation,conditional. Real384hostweights,fullgate/up/actualclamp10/down+weightedmerge; syntheticroutes/activations;GPUcompactbanks16/24/32. CurrentproductionAPIgraphnotbaseline; nofullmodel speedup/quality/adaptivepolicyclaim.
+
+Productionunchanged: API PID39141 configSHA11ca8641aee16173e38283407182b6febc264915535df93dc7ce4dd840a2e44b. AdoptedCPU/CUDA/base hashesunchanged. Watch+notifyactive/noalerts/no probes. GPU150W/ECC32C/HBM31C30682MiB. FINAL_STATE.json. NoAPIinference requests,slotsnotreplaced,noAPIstop/restart/startup/download. UserlongoperationspolicyremainslabAGENTS. No subagentsusedthisturnbecausecurrenttaskdidnotexplicitlyrequest them; historicalpreferenceonly.
+
+Implementedindependenttest:
+split_probe.cpp +kernels.cu, build.py,run.py guardsAPIidle/monitor/time240s/counterchanges. SourceweightsO_RDONLY mmap+cudaHostRegister CPUzero-copyfull384; GPUmanualselectedexpertuploadsintoCOMPUTEbank,groupconsecutives. ActualqLayer24allMXFP4;Layer4up/gateIQ3XXS/downIQ2S. Noresidentexpertcacheorlookahead.
+Packedtoken-expertpairs top1,Npairs forpartialCPU/GPU withvalidIDs. IMPORTANT acceptedCUDAfallback assertsIDs>=0 evenheaderdescribes-1skip; don'tuse-1maskwithoutbackendwork. CPU/GPU sameexpertcomplete3ops;customGPUgather/scatter/weightedmerge outputexactslots. PersistentCPUcontrolthread+acceptedggml24threadpool,distinctCUDAstreams; no cross-branchdevice-wide sync. TimedboundaryGPUinput+hostroutesavailable ->GPUmergedoutput, includesD2H/H2D/bounce/gather/ids/weights/compute/merge. ExcludesGraph/buffer/partition preparation, recorded separately. CPU/gpu_actualbranchdurationmeasuredtogether,notmaxsinglebenchpredictions. NohotCPUcachepath:prefillT32..512.
+
+Evidence:
+1smoke+8pilot+8fixedvalidation=17splitcasespass;6nativeCPUcontrolcasespass.1MXC32precheckreject beforeanycomputation, preserved;neededestimated1264.75MiB+300margin vsfree1530.25. OriginalVALIDATION_PLANpreserved;CONTROL_AMENDMENTreplacedMXC32withC24 BEFOREtiming,marginnotreduced,APIloaded. IQC32successful. Allsessionsclosed25251,56890(failedresourceonly),62003,26255.
+Pilot-version preservespriorcode/binary. Fixedvalidation newseeds andshuffledphysicalexpertIDs ensurehotexpertsnotcontiguous. Fractionsfixedfrompilot BEFOREnewtiming,7repeats,bracketGPUcontrols; notautomaticcontroller. native_cpu_probe.cpp includesfrozen split source with renamedmain, separateNATIVE_BUILD; measuresoriginaltop6,T CPUgraph+GPUinputroundtrip forstrongerCPUbaseline.
+
+Importantresults (strongestobservedwhole endpoint=minnativeCPU,packedCPU,compactGPU):
+L24MX128uniform233.97 ->198.42ms=1.179x;withprepare21.40ms=1.064x.
+L24MX512uniform817.03 ->451.52ms=1.809x;withprepare54.23ms=1.615x.
+L24MX512skew719.72 ->212.03ms=3.394x;withprepare27.02ms=3.011x.
+L4IQ128uniform502.21 ->281.26ms=1.786x.
+L4IQ512uniform625.49 ->594.03ms=1.053x;withprepareonly1.017x (weak,doNOTalwayssplit).
+L4IQ512skew515.67 ->294.89ms=1.749x.
+Capacitycontrols:IQC32skew527.94 ->271.63ms=1.944x;MXC24skew703.82 ->213.07ms=3.303x.12physicalthreadswasnotbetterthan24SMTin2pilotzipfcases.
+Samepartitionserialvsconcurrent ratio~1.47..1.84 (C32etc SUMMARY), serial_parallelNMSE0 (notbitcompare).CPUcomputeunderconcurrency4..16%slower; includesDRAM/hostthreadcontention, notisolatedcause. MaxhybridNMSEvsnativeCPU1.908e-4 (threshold2e-3 predefined); allCPUpackedvsnative~1e-15. NoLLMqualityguarantee.
+
+Nextimplementation:
+PrefillONLY, routing-known execution boundary, sameexpertgate/up/downstaydevice. Needrealoverlap (dedicatedworker/streams) andavoidnestedCPUthreadpooldeadlocks ifimplementedinsideGGML op. Poolbuffers/graphs toremove16..54ms prep. Get actualrouting andvalidatefullmodelTTFT/quality; keepfallbackwhenpredictedgain small. Single-tokendecode+96GiBCPUcompactcache remainunchanged:packing top1,Npairs wouldmissT1cachecondition ifnaivelyreused. Attention/sharedexperts/residentlayers/KVandlivequeuesnotincluded. Existingfrozencost_model.py/MODEL/heldoutfrom11-04 untouched; thisisnewstudy, no assumptionits<=96opcalibrationnowapplies384fullblock. Full modelstartupuser-run.
+
+ACTUALBATCH1024EXTENSIONCOMPLETED: After initialstudy, matchedproductionubatch1024 with4morefixedsplitcases. FULL_BATCH_PLAN.json fixedBEFOREtiming,newseeds53101/2, C8forVRAMheadroom.5repeats+7nativeCPUcontrols. L24MXuniformGPU815.72->603.42ms=1.352x;includingprepare66.53ms=1.218x. L24MXskewGPU759.21->363.20=2.090x;withprepare52.14=1.828x. L4IQuniformGPU603.347->603.350=NOIMPROVEMENT;withprepare41.95ms~7%regression. L4IQskewGPU551.93->376.69=1.465x;withprepare34.71=1.342x. NativeCPUallslowerthanGPUhere. Statecomplete12fixedvalidation/21total splitcases/10native controls/1precomputeVRAMrejection. Session92804FINISHED;no moretestsneededforuserfirstvaluecheck. Noadaptivepolicyimplementedorvalidated,notclaimallratiosbadforIQuniformjusttested90%. SummaryandRESULTSupdated. NeedlatestFINAL_STATE afterthisextension,thenfinalJapaneseanswerleadworthconditionalprefill+1024table. Preserveoriginaldecode/compactcache,modelqualityandfullAPI speedA/Bstillneeded.
+
+FINALchecked afterALL1024tests: FINAL_STATE.json updated,PID39141unchanged/configsame/librariesunchanged/API+watch+notifyactive,noalerts,noprobes,GPU32/HBM32/150W/ECC,30682MiB,Mlockedunchanged. Allrequiredworkforthisvalue-investigation complete. Finaluseranswer shouldprefer actual1024results1.35x/2.09x/1.00x/1.47x;prepareincludedimprovedconditions1.22..1.83x. 512input3.39x isreportonly,notfullmodelprediction. No moretestloops/startupsneededwithoutnexttask.

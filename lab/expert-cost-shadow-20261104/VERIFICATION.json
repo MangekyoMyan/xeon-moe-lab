@@ -1,0 +1,97 @@
+{
+  "model_unit_tests": {
+    "passed": 15,
+    "command": "python3 -m unittest -v test_cost_model.py"
+  },
+  "route_feature_checks": {
+    "passed": 64,
+    "command": "./test_routes"
+  },
+  "profile_transaction_tests": {
+    "passed": 5,
+    "command": "sudo python3 -m unittest -v test_profile.py",
+    "scope": "isolated temporary config; production untouched"
+  },
+  "capture_fixtures": {
+    "normal_observations": 6,
+    "strided_ids": true,
+    "refresh_reuse_and_invalid_recovery": true,
+    "excluded_refresh_invalidation": true,
+    "cross_thread_refresh_invalidation": true,
+    "loss_invariants": true,
+    "existing_file_symlink_fifo_and_bad_path_fail_open": true,
+    "file_permissions": "0600",
+    "record_cap": 2048,
+    "no_assignment_changes": true
+  },
+  "tiny_model": {
+    "passes": [
+      {
+        "mode": "original",
+        "elapsed_s": 0.9691288639987761,
+        "logits_sha256": "e0ca4577f2f3de0c2f8d4e70a9b95dff77c3ad354079317e35af003b880bdc84",
+        "bytes": 65920,
+        "mapped_llama_library": "/home/codex/projects/llm-lab/iq-cache-next-20261103/runtime/libllama.so.0.8.0",
+        "mapped_llama_sha256": "e6a3e62970e60cf43c6188e853f4945ad537d867847d32052695e53014d7b7a1"
+      },
+      {
+        "mode": "observer_off",
+        "elapsed_s": 1.0042825780001294,
+        "logits_sha256": "e0ca4577f2f3de0c2f8d4e70a9b95dff77c3ad354079317e35af003b880bdc84",
+        "bytes": 65920,
+        "mapped_llama_library": "/home/codex/projects/llm-lab/expert-cost-shadow-20261104/runtime/libllama.so.0.8.0",
+        "mapped_llama_sha256": "a74bf60281dae7b7062d7418dccb6a8069bf912c6d9c9e5b858a5dfe7d9e0f3e"
+      },
+      {
+        "mode": "observer_on",
+        "elapsed_s": 1.0041878590018314,
+        "logits_sha256": "e0ca4577f2f3de0c2f8d4e70a9b95dff77c3ad354079317e35af003b880bdc84",
+        "bytes": 65920,
+        "mapped_llama_library": "/home/codex/projects/llm-lab/expert-cost-shadow-20261104/runtime/libllama.so.0.8.0",
+        "mapped_llama_sha256": "a74bf60281dae7b7062d7418dccb6a8069bf912c6d9c9e5b858a5dfe7d9e0f3e"
+      }
+    ],
+    "logits_bit_identical": true,
+    "observations": 12,
+    "capture_status": {
+      "schema": 1,
+      "kind": "capture_status",
+      "reason": "shutdown",
+      "final": true,
+      "pid": 91720,
+      "session": 1793778394318623586,
+      "written": 12,
+      "attempted": 12,
+      "accepted": 12,
+      "enqueue_dropped": 0,
+      "write_dropped": 0,
+      "skipped": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "coverage": "eligible callbacks until capture window closes; CPU and GPU-resident operations unobserved; missing final footer means incomplete capture"
+    },
+    "folder": "/home/codex/projects/llm-lab/expert-cost-shadow-20261104/loader-check/1793778391632157418",
+    "observer_library_sha256": "a74bf60281dae7b7062d7418dccb6a8069bf912c6d9c9e5b858a5dfe7d9e0f3e",
+    "loader_source_sha256": "78a1f51b2c885053589d3b37c3c3adb60aa4db656d638b069c3013aebfd023eb",
+    "fixture_sha256": "9573366991d06f5b41fb93434c3f3d4c44bddbf72e458eecedb70a67fd511be3",
+    "scope": "tiny synthetic model; not full DeepSeek speed or quality validation"
+  },
+  "review": {
+    "cost_model": "Astra xhigh: arithmetic, support, provenance, heldout guards reviewed; no remaining actionable findings",
+    "observer": "Terra high: state handling, actual callback, private activation, one-shot capture reviewed; no remaining functional blocker"
+  },
+  "test_source_sha256": {
+    "test_cost_model.py": "05764d1e066470176e9d6f5de18f8d83b035dc9927eb8e17ee99a99b40bc9c7c",
+    "test_routes.cpp": "a94fa594747b48a3d5c79723ac7075692d3e817a0bf9940edc3c36a6fd79b6ff",
+    "test_profile.py": "81de63b1db051215bd00c18cc12c03301510b050530a9f4e36cca6575a94d316",
+    "test_capture.cpp": "91228e24c75ddd969b95b092e9d7d7ef8ada07d8fdda415b4070da61faa76779",
+    "check_capture.py": "58d3a879c6fae133295fed653dbdf7b18a46c8d496ffe677ee298b36fc9453cd",
+    "capture_loader.cpp": "78a1f51b2c885053589d3b37c3c3adb60aa4db656d638b069c3013aebfd023eb",
+    "check_loader.py": "6114257f61b3faae22754c94f61a51d2bb8a2624b35ba07618feeffeec2d5dad"
+  },
+  "production_modified": false
+}

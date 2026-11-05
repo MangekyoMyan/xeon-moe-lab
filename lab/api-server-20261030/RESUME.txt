@@ -1,0 +1,33 @@
+USER TASK COMPLETE: GLM4.5AirQ8 loaded and private OpenAI-compatible API SERVING.
+Keep it running. Do not launch competing GPU/model jobs or stop it just because a turn ends.
+User initially asked256k, explicitly chose native128k instead. Verified131072tokens,1slot.
+BaseURLhttp://10.10.10.2:8000/v1; modelglm-4.5-air-q8; APIkey inapi-key.txt600/client-config.json600.
+Unitllm-openai-api.service ACTIVE (start-only, notbootenabled); supervisorPID/workerPID inhealth.json.
+Root-owned health.json/serverlogs require sudo toread. Mainworker runsasusercodex.
+BackendacceptedR29hybrid-reuse-v1, exactCPU-canonicalexpertkernel/adaptive/deferred/sharedgraphs.
+NativeCUDAattention Q8KV newvsoldFP16, so doNOTclaimfullmodelbitexactwitholdbaseline.
+ModelweightQ8_0,KVQ8_0,context131072,parallel1,threads12/24,batch128.
+Expertcache10GiB basedsamehistoricalroutingprofile; KV~12.22GiB, GPUmem30572MiB aftertests.
+GPU150W/ECC,fan40%. Nativebackend/libsselected explicitly; no frozen files modified.
+Frontendserver/mtmd built separately then packaged inbin/ andfrontend-runtime/.
+Verified runtime paths inrunning-library-paths.txt. No stockbuildCPUlib loaded.
+HDDpreload completed113612251680bytes/1512.35s; NUMAreadinesspassed.
+Service starts withoutautopreload script onsubsequentmanualstart; coldbootmaytake~25min loading.
+APItests allpassed: missing/wrongkey rejected,128k/1slot verified, math5, JapaneseSSE100tokens,
+multiturnFROST-271, repeatmath, cancellation releasedslot0.503s.
+JapaneseSSE firstcontent1.562s, decoder7.890tok/s, total14.109s. Shortpromptonly; NOT full128k speedtest.
+Modelactualstartup~13s aftercachewarm. GPU29C/HBM28C onlastcheck, noECC/PCIe errors.
+R29watch experimentlock is held bysupervisor. NICdisconnect merelyrecorded; thermal/ECC/PCIe/fan
+violations stopservice andwriteSTOP_REQUESTED. Inspectcausebeforeclearing/restarting.
+CurrentconfigprivateIPonly/APIkey, no UI/agent/builtintools. No SSH/firewall/NIC/driver/SMTchanges.
+Artifacts: STATE.json,server-config.json,api-check-results.json,cancellation-check.json,final-health.json,
+RESULT.txt,CONNECT.txt,client-config.json(privatecredentials),server-build-manifest.json.
+No pendinglaunch/testtoolsessions. Preloadcontroller6082 andAPItest56528/cancel57963 completed0.
+
+UPDATE2026-10-30 TTFT FIX: OpenWebUI short/long requests evicted soleKVslot withcache-ram0. Now--cache-ram4096 applied/running; same131072ctx. SyntheticA515tok->B->A TTFT24.0647s->.23735s, reused4->514tokens. Uncachedprefillstill~20-22tps. Uservisibleこんにちは corresponded6155inputtokens/276.8s; usercheckingtool/systeminstructionexpansion. Readttft-study/RESULT.txt. Priorcache-ram0 notes describeoldconfiguration.
+
+LATEST TASK: user authorized practical prefill optimization experiments. API temporarilyPAUSEDafteridle, diagnosticsrunningunderllm-prefill-lab.service. Read../prefill-study-20261030/STATE.json andRESUME; doNOTstartproductionuntildiagnosticcontrollerstopped. RestoreworkingAPIatend. LongABBAcontrollercurrentlyrunning(session82171), baseline/timing4/timing4/baseline.
+
+LATEST2026-10-30: PREFILL STUDY COMPLETE; productionAPI RESTORED/RUNNING. Activeplugin now../prefill-study-20261030/release/prefill-v1/runtime/libxv-experiment.so. Prefixcache4GiB retained; context128k. Prefillupdateeverybatch/max4,decode32/max1,historyper-tokenEMA. Actual6271tokinput301.3->269.1s(~11percent),JAafterlongno regression. ReadstudyRESULT/STATE/PRODUCTION_VERIFIED. Temporarybenchmarkunitremoved, noactivecontrollers. Previouspausednotesarehistorical.
+
+LATEST2026-10-31: User CANCELLED model comparisons due token consumption, requestedAPIonly. Allram-modelcontrollers/preload stopped intentionally. Productionllm-openai-api.service STARTED withunchanged128k/prefill-v1/10GiBcache/150Wconfig. Keep service running. Health status 503 at 1793416360.4776895;503meansmodelstillloadingfromHDD, notyetready. No inference tests authorized inthisstep.

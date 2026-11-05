@@ -1,0 +1,39 @@
+{
+  "status": "completed_analysis_and_bounded_tests",
+  "objective": "Check AVX/legacySSE hypothesis and port/frontend/resource behavior; test useful wider reuse if evidence supports it",
+  "scope": "same known CPU libs and ROI probes, stock/MXFP4, oneand12physicalcores, APIidle-only; no production edits",
+  "source_note": "actual dot loops are VEX-only; vzeroupper present.6vs12priorcorecomparison bothsockets",
+  "pmu_groups": "PMU_GROUPS.json",
+  "pending": [],
+  "results": {
+    "pmu_runs": 36,
+    "all_event_running_percent": 100,
+    "assist_counts_target": "0 AVX-to-SSE, 1 SSE-to-AVX across target assist runs",
+    "positive_control": "legacy200000each, VEX0each",
+    "frontend_slot_proxy_1thread_stock_pair": [
+      0.0088,
+      0.00636
+    ],
+    "four_column_direct_measured_inputs": [
+      4,
+      8,
+      16
+    ],
+    "four_vs_pair_speedup_range": [
+      1.057278,
+      1.1085
+    ],
+    "direct_compared_outputs": 252416,
+    "current_fp16_scale_conversion": "LUT in current actual dot even with F16C enabled",
+    "max_cpu_C": 29
+  },
+  "production_modified": false,
+  "api_changed": false,
+  "next_candidates": [
+    "backend hybrid4+2+1 with fullmatrix/thread/stride tests",
+    "reduce four-column accumulator register spills",
+    "separate LUT/F16C scale conversion experiment"
+  ],
+  "working_style": "Continue hypothesis-driven tests; distinguish measured results, inferences and next changes. Do not stop at reporting counters or require user to invent experiments.",
+  "report": "RESULTS_JA.txt"
+}

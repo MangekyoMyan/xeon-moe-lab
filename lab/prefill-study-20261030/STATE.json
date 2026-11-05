@@ -1,0 +1,61 @@
+{
+  "phase": "complete",
+  "started_utc": "2026-10-30T02:10:26.246361+00:00",
+  "user_request": "Try practical prefill optimizations, favor simple mechanisms over complex predictors",
+  "production_api": "llm-openai-api.service",
+  "must_restore_api": false,
+  "plan": [
+    "measure real prefill CPU/GPU/wait breakdown",
+    "screen existing prefill pairing/token-axis/CPU options and GPU streaming",
+    "add simple isolated change only if measurements support it",
+    "validate correctness and repeated real-model timing",
+    "restore API with accepted setting or original baseline"
+  ],
+  "production_api_running": true,
+  "operator_validation": {
+    "pair": 184,
+    "rows4": 184,
+    "token-axis": 184,
+    "CPU_bitexact": true
+  },
+  "simple_plugin_added_lines": 44,
+  "simple_operator_cases": 736,
+  "all_simple_operator_cases_CPU_bitexact": true,
+  "candidate": "variants/prefill-timing",
+  "candidate_environment": {
+    "GGML_XV_ADAPTIVE_PREFILL_INTERVAL": "1",
+    "GGML_XV_ADAPTIVE_PREFILL_PER_LAYER": "4"
+  },
+  "short_model_outputs_and_top_logprobs_equal": true,
+  "gpu_weight_readback_verified": true,
+  "initial_long_result": {
+    "baseline_english_s": [
+      301.273066,
+      301.432777
+    ],
+    "candidate_english_s": [
+      252.145099,
+      252.303318
+    ],
+    "baseline_japanese_s": [
+      16.271383,
+      16.29144
+    ],
+    "candidate_japanese_s": [
+      17.755999,
+      17.781397
+    ]
+  },
+  "history_partition_test_passed": true,
+  "final_candidate": "variants/token-history",
+  "final_candidate_environment": {
+    "GGML_XV_ADAPTIVE_PREFILL_INTERVAL": "1",
+    "GGML_XV_ADAPTIVE_PREFILL_PER_LAYER": "4"
+  },
+  "prior_strength_unchanged": 1024,
+  "adopted_release": "/home/codex/projects/llm-lab/prefill-study-20261030/release/prefill-v1",
+  "adopted_utc": "2026-10-30T03:56:06.826295+00:00",
+  "completed_utc": "2026-10-30T04:03:58.440049+00:00",
+  "production_api_verified": true,
+  "remaining": []
+}

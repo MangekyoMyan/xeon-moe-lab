@@ -1,0 +1,85 @@
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -1481,6 +1481,8 @@
+ 
+ // ggml_compute_forward_mul_mat_id
+ 
++static bool ggml_cpu_moe_groups = false;
++
+ #define MMID_MATRIX_ROW(row_id, i1) matrix_rows[(row_id)*ids->ne[0]*ids->ne[1] + (i1)]
+ 
+ struct mmid_row_mapping {
+@@ -1677,6 +1679,22 @@
+ 
+     ggml_barrier(params->threadpool);
+ 
++    int groups = 0;
++    if (ggml_cpu_moe_groups && !params->use_ref && type == GGML_TYPE_IQ2_XXS && ids->ne[1] == 1) {
++        for (int cur_a = 0; cur_a < n_as; ++cur_a) {
++            if (matrix_row_counts[cur_a] > 1) {
++                groups = 0;
++                break;
++            }
++            groups += matrix_row_counts[cur_a] != 0;
++        }
++        groups = MIN(groups, nth);
++    }
++    const int group = groups ? ((ith + 1) * groups - 1) / nth : 0;
++    const int group_start = groups ? nth * group / groups : 0;
++    const int group_size = groups ? nth * (group + 1) / groups - group_start : 0;
++    int active_rank = 0;
++
+     for (int cur_a = 0; cur_a < n_as; ++cur_a) {
+         const int64_t cne1 = matrix_row_counts[cur_a];
+ 
+@@ -1684,8 +1702,12 @@
+             continue;
+         }
+ 
++        if (groups && active_rank++ % groups != group) {
++            continue;
++        }
++
+         // tiled takes over if profitable for this expert (see tiled.h)
+-        if (!pair && ggml_compute_forward_mul_mat_id_tiled(params, dst, cur_a, cne1, (const int32_t *) &MMID_MATRIX_ROW(cur_a, 0), tiled_scratch)) {
++        if (!groups && !pair && ggml_compute_forward_mul_mat_id_tiled(params, dst, cur_a, cne1, (const int32_t *) &MMID_MATRIX_ROW(cur_a, 0), tiled_scratch)) {
+             continue;
+         }
+ 
+@@ -1695,6 +1717,24 @@
+ 
+         const int64_t nr0 = ne01;
+         const int64_t nr1 = cne1;
++
++        if (groups) {
++            const int rank = ith - group_start;
++            const int64_t tiles = (nr0 + 15) / 16;
++            const int64_t row_start = 16 * (tiles * rank / group_size);
++            const int64_t row_end = MIN(16 * (tiles * (rank + 1) / group_size), nr0);
++            ggml_compute_forward_mul_mat_id_one_chunk(
++                dst, src0, src1, ids, cur_a, row_start, row_end, 0, nr1,
++                src0_cur, matrix_rows, row_size, src1_cont, wdata);
++            if (pair) {
++                const struct ggml_tensor * weight = pair->src[0];
++                ggml_compute_forward_mul_mat_id_one_chunk(
++                    pair, weight, src1, ids, cur_a, row_start, row_end, 0, nr1,
++                    (const char *) weight->data + cur_a * weight->nb[2],
++                    matrix_rows, row_size, src1_cont, wdata);
++            }
++            continue;
++        }
+ 
+         int chunk_size = 16;
+         if (nr0 == 1 || nr1 == 1) {
+@@ -4013,8 +4053,11 @@
+             ggml_cpu_disable_fusion = (env != NULL && atoi(env) == 1);
+             env = getenv("GGML_CPU_MOE_PAIR");
+             ggml_cpu_moe_pair = (env == NULL || strcmp(env, "0") != 0);
++            env = getenv("GGML_CPU_MOE_GROUPS");
++            ggml_cpu_moe_groups = (env != NULL && strcmp(env, "1") == 0);
+             env = getenv("GGML_CPU_TILED_MM_FORCE");
+             if (env != NULL && atoi(env) != 0) {
++                ggml_cpu_moe_groups = false;
+                 ggml_cpu_moe_pair = false;
+             }
+             env = getenv("GGML_CPU_MOE_PAIR_TRACE");

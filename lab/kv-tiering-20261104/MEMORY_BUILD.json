@@ -1,0 +1,22 @@
+[
+  "g++",
+  "-O2",
+  "-std=c++17",
+  "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/include",
+  "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src",
+  "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+  "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src",
+  "/home/codex/projects/llm-lab/kv-tiering-20261104/memory_probe.cpp",
+  "-L/home/codex/projects/llm-lab/iq-cache-next-20261103/runtime",
+  "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+  "-Wl,-rpath,/home/codex/projects/llm-lab/iq-cache-next-20261103/runtime",
+  "-Wl,-rpath,/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+  "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+  "-lllama",
+  "-lggml-cuda",
+  "-lggml-cpu",
+  "-lggml-base",
+  "-lggml",
+  "-o",
+  "/home/codex/projects/llm-lab/kv-tiering-20261104/memory_probe"
+]

@@ -1,0 +1,28 @@
+PREFILL EXPERIMENT COMPLETE — 2026-10-30 JST. ProductionAPI is RUNNING with accepted improvement.
+Read STATE.json / RESULT.txt / FINAL_COMPARISON.json / PRODUCTION_VERIFIED.json.
+Userauthorized trials andpreferredsimplecode. Testedexistingpair/rows4/tokenaxis,frequentupdates,allGPUstream,
+inlineone-expertswap,phase-onlyupdates,andtoken-basedhistory. Finalrelease release/prefill-v1 only+16/-6lines.
+Accepted: per-tokenEMA .99, prefillcommitinterval1/perlayermax4; decodeinterval32/perlayermax1 unchanged;
+priorstrength1024 unchanged. No newpredictionmodel/scheduler. Existingcopy pipeline reused.
+APIserver-config.json selectsrelease; originalproductionconfig savedproduction-config-backup.json.
+Context131072,Q8KV,10GiBexpertcache,12/24threads,batch128,150W/ECC,4GiBpromptcache unchanged.
+ProductionliveURL/key unchanged. DO NOTstop it orruncompetingGPUjobs withoutnewtaskauthorization.
+Thetemporaryllm-prefill-lab unit was stopped andremoved; copy savedhere forreproduction.
+Allbenchmark/controller sessionsfinished andconsumed, no pendingjobs.
+
+Evidence: finalcontrolA=long-abba3baseline, B0/B1=final-bba0/1token4, A=final-bba2baseline.
+6271-tokeninput mean301.298->269.126s (-10.678percent); JA382afterlong16.274->15.945s(-2.022percent).
+NoHDDreads,majorfaults,orprefixcachehits. Generated16tokens andtop5logprobsidenticalacrossall4runs.
+DecodeEN2.535->2.503s,JA2.193->1.952s; only16generatedtokenspercase,nobroadqualityclaim.
+Actualpluginhistory testedagainstsequentialCPUreference8batchpartition/recordcases, old7fail/newallpass.
+WeightcopyGPUreadbackverifiedinquality-token4, notusedforperformancemeasurements.
+APIpostdeploymentauth/chat/SSE/multiturn/repeattestsallpassed, production-validation/api-check-results.json.
+Originalfrozenruntimehashesverifiedunchanged; CLIoldlauncherNOTupdated (different22GiBcacheconfiguration).
+
+Rejected: allGPUstream~10tpsand648GBprefilltraffic vs21-24baseline; pairing/rows4/tokenaxislittlebenefit.
+InlinebatchswapCPUworkreducedbutcopy/synccostatebenefit, no extra complexityadopted.
+Phase-onlyupdate4 gave~16percentlonggainbut~9percentJAcontextswitchregression; tokenEMAremovedthatbias
+atcostofsomepeakgain. FINALbalancedconfigurationadoptedafterrepeats.
+No claim hardwarelimit reached orothermodels validated. NewRAM/finalmodel requiresnewmeasurement.
+Rollback: stopAPIafteridle, restoreproduction-config-backup.json to../api-server-20261030/server-config.json,
+startAPI, checkhealth andGPU. Preserveallfrozenvariants/evidence.

@@ -1,0 +1,55 @@
+--- /home/codex/projects/llm-lab/moe-engine-20261029/variants/hybrid-reuse-v1/source/expert-cache.cpp	2026-10-29 07:24:45.284861883 +0900
++++ /home/codex/projects/llm-lab/prefill-study-20261030/release/prefill-v1/source/expert-cache.cpp	2026-10-30 12:19:30.184930430 +0900
+@@ -444,8 +444,11 @@
+     bool adaptive_verify=xv_env_one("GGML_XV_ADAPTIVE_VERIFY");
+     bool adaptive_pipeline=xv_env_one("GGML_XV_ADAPTIVE_PIPELINE");
+     int adaptive_interval=xv_env_int("GGML_XV_ADAPTIVE_INTERVAL",32,1,4096);
++    int prefill_interval=xv_env_int("GGML_XV_ADAPTIVE_PREFILL_INTERVAL",adaptive_interval,1,4096);
++    bool last_prefill=false;
+     int adaptive_initial=xv_env_int("GGML_XV_ADAPTIVE_INITIAL",1,0,16);
+     int adaptive_per_layer=xv_env_int("GGML_XV_ADAPTIVE_PER_LAYER",1,0,16);
++    int prefill_per_layer=xv_env_int("GGML_XV_ADAPTIVE_PREFILL_PER_LAYER",adaptive_per_layer,0,16);
+     double adaptive_strength=xv_env_int("GGML_XV_ADAPTIVE_STRENGTH",1024,0,1000000);
+     int64_t last_commit=-1;
+     std::map<std::string,std::vector<double>> priors;
+@@ -519,6 +522,7 @@
+ static void adaptive_observe(const ggml_tensor * weights,const ggml_tensor * ids,int64_t record) {
+     auto & conf=config();if(!conf.adaptive)return;
+     const std::string name=ggml_get_name(weights);if(!xv_gate_name(name))return;
++    conf.last_prefill=ids->ne[1]>1;
+     GGML_ASSERT(record>=0 && weights->type==GGML_TYPE_Q8_0 && ids->type==GGML_TYPE_I32);
+     auto & history=conf.histories[name];const size_t experts=weights->ne[2];
+     if(history.counts.empty()) {
+@@ -527,11 +531,16 @@
+         else {auto p=conf.priors.find(name);GGML_ASSERT(p!=conf.priors.end() && p->second.size()==experts);history.prior=p->second;}
+     }
+     GGML_ASSERT(history.counts.size()==experts && record>=history.last_record);
+-    if(record>0 && record!=history.last_record)for(double & value:history.counts)value*=.99;
++    // Age by observed tokens so prefill and decode have the same time scale.
++    const double decay=std::pow(.99,double(ids->ne[1]));
++    for(double & value:history.counts)value*=decay;
+     history.last_record=record;
+-    for(int64_t t=0;t<ids->ne[1];++t)for(int64_t j=0;j<ids->ne[0];++j) {
+-        int32_t expert;std::memcpy(&expert,(const char *)ids->data+t*ids->nb[1]+j*ids->nb[0],sizeof(expert));
+-        GGML_ASSERT(expert>=0 && size_t(expert)<experts);history.counts[expert]+=1;
++    for(int64_t t=0;t<ids->ne[1];++t) {
++        const double weight=std::pow(.99,double(ids->ne[1]-1-t));
++        for(int64_t j=0;j<ids->ne[0];++j) {
++            int32_t expert;std::memcpy(&expert,(const char *)ids->data+t*ids->nb[1]+j*ids->nb[0],sizeof(expert));
++            GGML_ASSERT(expert>=0 && size_t(expert)<experts);history.counts[expert]+=weight;
++        }
+     }
+ }
+ 
+@@ -547,8 +556,9 @@
+         if(!pool.work_done || pool.work_ready)return -2;
+     }
+     conf.last_commit=record;
+-    if(record && record%conf.adaptive_interval)return 0;
+-    const int limit=record?conf.adaptive_per_layer:conf.adaptive_initial;
++    const int interval=conf.last_prefill?conf.prefill_interval:conf.adaptive_interval;
++    if(record && record%interval)return 0;
++    const int limit=record?(conf.last_prefill?conf.prefill_per_layer:conf.adaptive_per_layer):conf.adaptive_initial;
+     if(!limit)return 0;
+     const auto started=xv_clock::now();
+     xv_pool * owner=nullptr;

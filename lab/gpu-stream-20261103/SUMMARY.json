@@ -1,0 +1,436 @@
+{
+  "tests": 33,
+  "all_operator_tests_passed": true,
+  "readonly_mmap_tests": 30,
+  "full_model_AB_performed": false,
+  "API": "stopped by user authorization",
+  "candidate": "gpu3-stream1024",
+  "GPU_resident_layers": [
+    37,
+    38,
+    39
+  ],
+  "thresholds": {
+    "IQ_types": 512,
+    "MXFP4": 1024
+  },
+  "CPU_kernel": "previous hybrid4/2/1",
+  "max_observed_single_operator_CPU_GPU_NMSE": 2.46664940426e-05,
+  "candidate_registered_host_GiB": 196.5673828125,
+  "candidate_resident_expert_GiB": 15.787353515625,
+  "validation": {
+    "directory": "/home/codex/projects/llm-lab/gpu-stream-20261103/validation-20261103-170232",
+    "passed": true
+  },
+  "validation_result": {
+    "make-fixture": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/make_fixture",
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/tiny-moe.gguf"
+      ]
+    },
+    "list-devices": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin/llama-server",
+        "--list-devices"
+      ]
+    },
+    "loader": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/test-loader",
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/tiny-moe.gguf"
+      ]
+    },
+    "scheduler-compute": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/test-scheduler"
+      ]
+    },
+    "reserve-128": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+        "128"
+      ],
+      "result": {
+        "type": "MXFP4",
+        "tokens": 128,
+        "GPU_scheduler_bytes": 0,
+        "CPU_scheduler_bytes": 25431552,
+        "up_GPU": false,
+        "down_GPU": false,
+        "GET_ROWS_CPU": true,
+        "computed": false
+      }
+    },
+    "reserve-IQ2-128": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+        "128",
+        "IQ2"
+      ],
+      "result": {
+        "type": "IQ2_S",
+        "tokens": 128,
+        "GPU_scheduler_bytes": 0,
+        "CPU_scheduler_bytes": 25431552,
+        "up_GPU": false,
+        "down_GPU": false,
+        "GET_ROWS_CPU": true,
+        "computed": false
+      }
+    },
+    "reserve-512": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+        "512"
+      ],
+      "result": {
+        "type": "MXFP4",
+        "tokens": 512,
+        "GPU_scheduler_bytes": 0,
+        "CPU_scheduler_bytes": 101726208,
+        "up_GPU": false,
+        "down_GPU": false,
+        "GET_ROWS_CPU": true,
+        "computed": false
+      }
+    },
+    "reserve-IQ2-512": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+        "512",
+        "IQ2"
+      ],
+      "result": {
+        "type": "IQ2_S",
+        "tokens": 512,
+        "GPU_scheduler_bytes": 1552691200,
+        "CPU_scheduler_bytes": 10500096,
+        "up_GPU": true,
+        "down_GPU": true,
+        "GET_ROWS_CPU": true,
+        "computed": false
+      }
+    },
+    "reserve-1024": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+        "1024"
+      ],
+      "result": {
+        "type": "MXFP4",
+        "tokens": 1024,
+        "GPU_scheduler_bytes": 2609930240,
+        "CPU_scheduler_bytes": 21000192,
+        "up_GPU": true,
+        "down_GPU": true,
+        "GET_ROWS_CPU": true,
+        "computed": false
+      }
+    },
+    "reserve-IQ2-1024": {
+      "returncode": 0,
+      "command": [
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+        "1024",
+        "IQ2"
+      ],
+      "result": {
+        "type": "IQ2_S",
+        "tokens": 1024,
+        "GPU_scheduler_bytes": 1654415360,
+        "CPU_scheduler_bytes": 21000192,
+        "up_GPU": true,
+        "down_GPU": true,
+        "GET_ROWS_CPU": true,
+        "computed": false
+      }
+    },
+    "registration_disabled": {
+      "returncode": 0,
+      "registration_calls": 0
+    },
+    "stock_cpu_control": {
+      "returncode": 0,
+      "same_reference_errors_as_hybrid": true
+    },
+    "full_deepseek_model_loaded": false
+  },
+  "stock_1024": [
+    {
+      "run": "20261103-163724-sweep-stock",
+      "CPU": "stock",
+      "source_mode": "read_only_mmap",
+      "case": "IQ2_S-up",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 1450967040,
+      "cpu_ms": 994.633348,
+      "gpu_resident_ms": 21.162082,
+      "pageable_upload_compute_ms": 744.231294,
+      "registered_upload_compute_ms": 181.880625,
+      "registered_all_io_compute_ms": 222.343003,
+      "registration_ms": 167.090669,
+      "cpu_gpu_nmse": 2.45553052554e-05,
+      "cpu_ref_nmse": 1.51723416477e-05,
+      "gpu_ref_nmse": 1.37981926904e-05,
+      "registered_nmse": 2.45553052554e-05,
+      "pass": true,
+      "registered_speed_ratio": 5.46860528987076,
+      "all_IO_speed_ratio": 4.473418702544015
+    },
+    {
+      "run": "20261103-163724-sweep-stock",
+      "CPU": "stock",
+      "source_mode": "read_only_mmap",
+      "case": "IQ2_S-down",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 1450967040,
+      "cpu_ms": 888.733562,
+      "gpu_resident_ms": 22.783593,
+      "pageable_upload_compute_ms": 742.811621,
+      "registered_upload_compute_ms": 182.088726,
+      "registered_all_io_compute_ms": 277.680834,
+      "registration_ms": 168.566598,
+      "cpu_gpu_nmse": 2.45484236417e-05,
+      "cpu_ref_nmse": 1.52872765105e-05,
+      "gpu_ref_nmse": 1.40220460413e-05,
+      "registered_nmse": 2.45484236417e-05,
+      "pass": true,
+      "registered_speed_ratio": 4.880772036375277,
+      "all_IO_speed_ratio": 3.200557810194419
+    },
+    {
+      "run": "20261103-163724-sweep-stock",
+      "CPU": "stock",
+      "source_mode": "read_only_mmap",
+      "case": "IQ3_XXS-up",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 1734082560,
+      "cpu_ms": 988.038116,
+      "gpu_resident_ms": 19.99602,
+      "pageable_upload_compute_ms": 887.834632,
+      "registered_upload_compute_ms": 213.563679,
+      "registered_all_io_compute_ms": 254.495379,
+      "registration_ms": 199.734789,
+      "cpu_gpu_nmse": 2.45379761471e-05,
+      "cpu_ref_nmse": 1.52127210826e-05,
+      "gpu_ref_nmse": 1.4089726555e-05,
+      "registered_nmse": 2.45379761471e-05,
+      "pass": true,
+      "registered_speed_ratio": 4.6264332990817225,
+      "all_IO_speed_ratio": 3.8823420679870178
+    },
+    {
+      "run": "20261103-163724-sweep-stock",
+      "CPU": "stock",
+      "source_mode": "read_only_mmap",
+      "case": "IQ3_XXS-down",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 1734082560,
+      "cpu_ms": 887.955181,
+      "gpu_resident_ms": 19.851827,
+      "pageable_upload_compute_ms": 872.94492,
+      "registered_upload_compute_ms": 212.180252,
+      "registered_all_io_compute_ms": 307.882904,
+      "registration_ms": 201.259245,
+      "cpu_gpu_nmse": 2.45583515529e-05,
+      "cpu_ref_nmse": 1.54049164178e-05,
+      "gpu_ref_nmse": 1.4360325426e-05,
+      "registered_nmse": 2.45583515529e-05,
+      "pass": true,
+      "registered_speed_ratio": 4.184909635228448,
+      "all_IO_speed_ratio": 2.8840678370371617
+    },
+    {
+      "run": "20261103-163724-sweep-stock",
+      "CPU": "stock",
+      "source_mode": "read_only_mmap",
+      "case": "IQ3_S-up",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 1946419200,
+      "cpu_ms": 1037.003727,
+      "gpu_resident_ms": 21.315018,
+      "pageable_upload_compute_ms": 986.419369,
+      "registered_upload_compute_ms": 230.87951,
+      "registered_all_io_compute_ms": 271.265103,
+      "registration_ms": 225.565821,
+      "cpu_gpu_nmse": 2.45340271953e-05,
+      "cpu_ref_nmse": 1.53373381126e-05,
+      "gpu_ref_nmse": 1.4146837286e-05,
+      "registered_nmse": 2.45340271953e-05,
+      "pass": true,
+      "registered_speed_ratio": 4.491536416549048,
+      "all_IO_speed_ratio": 3.82284236170253
+    },
+    {
+      "run": "20261103-163724-sweep-stock",
+      "CPU": "stock",
+      "source_mode": "read_only_mmap",
+      "case": "IQ3_S-down",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 1946419200,
+      "cpu_ms": 932.75507,
+      "gpu_resident_ms": 22.336221,
+      "pageable_upload_compute_ms": 989.717551,
+      "registered_upload_compute_ms": 231.707117,
+      "registered_all_io_compute_ms": 327.446646,
+      "registration_ms": 235.12867,
+      "cpu_gpu_nmse": 2.45699997626e-05,
+      "cpu_ref_nmse": 1.53467419309e-05,
+      "gpu_ref_nmse": 1.40663181632e-05,
+      "registered_nmse": 2.45699997626e-05,
+      "pass": true,
+      "registered_speed_ratio": 4.025577988612236,
+      "all_IO_speed_ratio": 2.848571153176509
+    },
+    {
+      "run": "20261103-163724-sweep-stock",
+      "CPU": "stock",
+      "source_mode": "read_only_mmap",
+      "case": "MXFP4-up",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 2406481920,
+      "cpu_ms": 749.680511,
+      "gpu_resident_ms": 19.656013,
+      "pageable_upload_compute_ms": 1208.128044,
+      "registered_upload_compute_ms": 278.318424,
+      "registered_all_io_compute_ms": 319.911612,
+      "registration_ms": 279.7193,
+      "cpu_gpu_nmse": 3.54049163996e-08,
+      "cpu_ref_nmse": 1.40101316153e-05,
+      "gpu_ref_nmse": 1.39779982305e-05,
+      "registered_nmse": 3.54049163996e-08,
+      "pass": true,
+      "registered_speed_ratio": 2.6936072007938647,
+      "all_IO_speed_ratio": 2.343398872936191
+    },
+    {
+      "run": "20261103-163724-sweep-stock",
+      "CPU": "stock",
+      "source_mode": "read_only_mmap",
+      "case": "MXFP4-down",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 2406481920,
+      "cpu_ms": 754.576459,
+      "gpu_resident_ms": 21.338629,
+      "pageable_upload_compute_ms": 1207.134648,
+      "registered_upload_compute_ms": 279.406979,
+      "registered_all_io_compute_ms": 374.969234,
+      "registration_ms": 277.847938,
+      "cpu_gpu_nmse": 3.50438003319e-08,
+      "cpu_ref_nmse": 1.38475274801e-05,
+      "gpu_ref_nmse": 1.38120948381e-05,
+      "registered_nmse": 3.50438003319e-08,
+      "pass": true,
+      "registered_speed_ratio": 2.700635688130038,
+      "all_IO_speed_ratio": 2.012368990784988
+    }
+  ],
+  "hybrid_512_1024": [
+    {
+      "run": "20261103-164908-mxfp4-large-hybrid",
+      "CPU": "hybrid",
+      "source_mode": "read_only_mmap",
+      "case": "MXFP4-up",
+      "tokens": 512,
+      "experts": 384,
+      "weight_bytes": 2406481920,
+      "cpu_ms": 255.584207,
+      "gpu_resident_ms": 13.034241,
+      "pageable_upload_compute_ms": 1205.276651,
+      "registered_upload_compute_ms": 272.362764,
+      "registered_all_io_compute_ms": 292.421355,
+      "registration_ms": 276.689199,
+      "cpu_gpu_nmse": 8.52338215049e-10,
+      "cpu_ref_nmse": 1.42189669801e-05,
+      "gpu_ref_nmse": 1.42180833206e-05,
+      "registered_nmse": 8.52338215049e-10,
+      "pass": true,
+      "registered_speed_ratio": 0.938396289002266,
+      "all_IO_speed_ratio": 0.874027161935557
+    },
+    {
+      "run": "20261103-164908-mxfp4-large-hybrid",
+      "CPU": "hybrid",
+      "source_mode": "read_only_mmap",
+      "case": "MXFP4-up",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 2406481920,
+      "cpu_ms": 510.039041,
+      "gpu_resident_ms": 19.664067,
+      "pageable_upload_compute_ms": 1212.357733,
+      "registered_upload_compute_ms": 268.840063,
+      "registered_all_io_compute_ms": 308.82806,
+      "registration_ms": 277.434671,
+      "cpu_gpu_nmse": 3.54049163996e-08,
+      "cpu_ref_nmse": 1.40101316153e-05,
+      "gpu_ref_nmse": 1.39779982305e-05,
+      "registered_nmse": 3.54049163996e-08,
+      "pass": true,
+      "registered_speed_ratio": 1.8971839067006915,
+      "all_IO_speed_ratio": 1.6515307611620524
+    },
+    {
+      "run": "20261103-164908-mxfp4-large-hybrid",
+      "CPU": "hybrid",
+      "source_mode": "read_only_mmap",
+      "case": "MXFP4-down",
+      "tokens": 512,
+      "experts": 384,
+      "weight_bytes": 2406481920,
+      "cpu_ms": 275.751064,
+      "gpu_resident_ms": 14.052582,
+      "pageable_upload_compute_ms": 1205.952142,
+      "registered_upload_compute_ms": 274.713689,
+      "registered_all_io_compute_ms": 322.948615,
+      "registration_ms": 277.537452,
+      "cpu_gpu_nmse": 6.46314656849e-10,
+      "cpu_ref_nmse": 1.37890855813e-05,
+      "gpu_ref_nmse": 1.37879859189e-05,
+      "registered_nmse": 6.46314656849e-10,
+      "pass": true,
+      "registered_speed_ratio": 1.0037762042502367,
+      "all_IO_speed_ratio": 0.8538543012485128
+    },
+    {
+      "run": "20261103-164908-mxfp4-large-hybrid",
+      "CPU": "hybrid",
+      "source_mode": "read_only_mmap",
+      "case": "MXFP4-down",
+      "tokens": 1024,
+      "experts": 384,
+      "weight_bytes": 2406481920,
+      "cpu_ms": 529.290021,
+      "gpu_resident_ms": 21.341713,
+      "pageable_upload_compute_ms": 1214.209408,
+      "registered_upload_compute_ms": 281.274312,
+      "registered_all_io_compute_ms": 376.556699,
+      "registration_ms": 276.258915,
+      "cpu_gpu_nmse": 3.50438003319e-08,
+      "cpu_ref_nmse": 1.38475274801e-05,
+      "gpu_ref_nmse": 1.38120948381e-05,
+      "registered_nmse": 3.50438003319e-08,
+      "pass": true,
+      "registered_speed_ratio": 1.88175741053808,
+      "all_IO_speed_ratio": 1.4056051118081425
+    }
+  ]
+}

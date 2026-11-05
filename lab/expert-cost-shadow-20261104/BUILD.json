@@ -1,0 +1,24 @@
+{
+  "command": [
+    "g++",
+    "-O2",
+    "-std=c++17",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+    "-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include",
+    "/home/codex/projects/llm-lab/expert-cost-shadow-20261104/calibration_probe.cpp",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-L/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+    "-lggml-cpu",
+    "-lggml-cuda",
+    "-lggml-base",
+    "-lggml",
+    "-lcudart",
+    "-o",
+    "/home/codex/projects/llm-lab/expert-cost-shadow-20261104/calibration_probe"
+  ],
+  "binary_sha256": "72ea5014b9f1ae7ab0b21ddb8754b3a4047553082577ac50fd9f824239ef3805",
+  "source_sha256": "de2d5bcea711b8f66eaa5fe0ccc41fea3b9a87882047cd7422efc84ed6198218",
+  "features_sha256": "30e74fd6700784ae613f5f6f398e357d0e323744dd55ec348c0011f30ab5b303"
+}

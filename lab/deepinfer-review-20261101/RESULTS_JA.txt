@@ -1,0 +1,58 @@
+DeepInferをXeon + V100環境へ活かせるか / 2026-11-01
+
+結論
+エキスパート配置は、会話キャッシュと別に検証する価値がある。
+現行DeepSeek用設定は--cpu-moe / --no-op-offloadで、routed expertの重みをCPU/RAMに置いている。以前GLM用に作った動的CPU/GPU分担プラグインは移植されていない。現在の速度を、GPU上のexpert配置まで最適化済みの限界とは扱わない。
+今回行ったのは公開ソースと現行実装の比較。新しい速度測定、インストール、ビルド、モデル起動、再起動、実行設定の変更は行っていない。
+
+確認したDeepInfer
+URL: https://github.com/deepseek-ai/DeepInfer
+固定revision: 553741557a57df44a46fb3ab72b6aafeaf945337
+関連13ファイル約223KBのみ取得。sources.jsonにURLとSHA256、source/にApache-2.0 LICENSEを含めて保存。
+READMEの対象はNVIDIA SM100 / Ascend950、NVIDIA側CUDA13。V100 SM70 / CUDA12.9.2向けの完成済み実装ではない。現在の混合GGUF入力も対応を確認していない。
+根拠: source/README.md、setup.py、requirements-nvidia.txt。詳細compatibility-review.txt。
+
+参考になる仕組みと、このサーバーでの読み替え
+1. 負荷の偏りを測って配置を決める
+   上流EPLBはlayerごとのexpert負荷履歴から、GPU群への複製と配置を決める。選択先の論理expertを変えてモデルを軽くするものではない。単一GPUではこの分散負荷分散処理は早期returnする。
+   この環境では、GPUへ置けば何ms節約できるかをVRAM消費量・転送時間・同期時間と合わせて評価するのが応用先。利用頻度だけで選ぶと、大きなexpertの転送や配置変更に時間を使い過ぎる場合がある。
+   根拠: source/deepinfer/model_executor/eplb/policy.py、__init__.py、shuffle.py。詳細eplb-review.txt。
+   https://github.com/deepseek-ai/DeepInfer/blob/553741557a57df44a46fb3ab72b6aafeaf945337/deepinfer/model_executor/eplb/policy.py
+
+2. prefillとdecodeを別の仕事として扱う
+   上流の公開資料も両者の負荷特性を分けて設計している。この環境でも、prefillでは一つのexpertを使う複数tokenをまとめて処理し、重みの読み出しや転送を共用できるかが重要。decodeは少数tokenなので、常駐率と小さな処理の待ち時間が重要になる。
+   現行ubatch128、384experts、top6から均等分布なら平均2行/expertという算術になるが、これは実測分布ではない。ルーターの実際の選択と、量子化形式ごとのCPU/GPU演算時間を測ってbatchを選ぶ。512へ増やせば速くなる、と決め付けない。
+   根拠: source/doc/inference_deployment_qa.md。上流の大規模GPU構成の性能倍率をV100へ転用しない。
+
+3. 独立して進められる準備・転送・実行を重ねる
+   上流はCPUの次step準備とGPUの現step実行を重ねる。現在はこちらのCPU自体もexpert演算を担当するため、同じようにCPUの仕事を増やしても隠せるとは限らない。依存しない処理だけを重ね、必須の同期は残す。
+   目標はGPU使用率の数字だけを上げることではなく、入力処理や1tokenの完了までの実時間を縮めること。
+   根拠: source/deepinfer/engine/llm_engine.py:861以降、source/csrc/engine/zos.cpp、公開Q&AのAsynchronous scheduling節。
+   https://github.com/deepseek-ai/DeepInfer/blob/553741557a57df44a46fb3ab72b6aafeaf945337/doc/inference_deployment_qa.md
+
+すぐ近くにある実験候補: llama.cpp標準のexpert cache
+現行固定ソースdde879bc4f954b809892fd0d660515f42536394aには--moe-cache-mibがある。現行設定では指定されず、既定0で無効。
+これはKV会話キャッシュとは別で、expert重みのGPU複製を保持する機能。
+- 同一GPU・同一tensor形式/形状の層をグループ化してVRAMを配分。
+- 最近使われたexpertを残すSLRU。再利用されたものを保護し、不要になった複製を置き換える。RAMの元重みは保持。
+- 選ばれたexpertがなければ重みをGPUへ転送してGPUで計算する。ミス時だけCPUで計算する分担方式ではない。
+- ルーター結果をCPUへ読み戻す同期があり、GPU移動で節約する計算時間を転送・同期が超える可能性がある。
+- cache経由の演算は1〜32token、かつ選択数を収容できる場合。128tokenのprefillは同じ経路を使わない。
+- 大batchは通常GPU転送経路に入った場合だけ既存cacheを読む補助機構がある。現在の--no-op-offloadではCPU実行側に残り得るので、prefillへの効果は別途確認する。
+- 元のGGUF量子化形式でbankを作り、このcache処理自体では再量子化しない。CUDAソースにIQ2_S/IQ3_XXS/IQ3_S/MXFP4の対応分岐はあるが、このモデルとsm70での実動作・精度・速度の確認は未実施。
+- hit/miss/upload量の統計はcache破棄時に出力される。ライブの/metricsに同じ統計があるとは扱わない。
+根拠: ../deepseek41-bringup-20261101/source/src/llama-moe-cache.cpp、llama-graph.cpp、common/arg.cpp:2728。詳細native-moe-cache-review.txt。
+
+最小の次回比較
+準備だけ: candidate-moe-cache-8192.json。現在の設定に--moe-cache-mib 8192のみ追加した8GiBの暫定候補。未適用。8GiBは最適値や動作保証ではない。
+baseline-config.jsonとSTATE.jsonに現在の設定・SHA256を保存した。既存設定、環境変数、fan、GPU150W/ECC、KV形式、context128kは変更していない。
+実験時はまずsm70で混合量子化expert演算が通るか、必要VRAM/一時領域が収まるかを確認する。小さい演算テストで問題が出るなら大型モデルを再起動して試さない。
+その後、ユーザーが起動条件を切り替える機会に、cache0と候補を一つずつ比較する。長い起動はユーザーが実行する方針を維持し、このファイルを自動適用する仕組みは作っていない。
+見る項目: 初回/温まった後のdecode時間、prefill時間、転送量、cache hit、VRAMピーク、出力の数値/機能チェック。CPU/GPUで丸めが違うので、単なる回答文字列不一致だけで正誤を決めない。
+最初から--no-op-offload解除、batch増加、OpenMP設定変更まで同時に行わない。何が効いたか判別できなくなるため。
+prefill改善は別比較として、実際のexpert使用行数・GPU側でまとめた演算と転送コストを測る。その後に必要な範囲だけ既存分担実装へ組み込む。
+
+注意する解釈
+DeepInfer自体はCPU/GPU expert cacheエンジンではない。新しく見つかったcache機能は現在のllama.cppのもの。
+DeepInferのSWA bounded replayも、そのまま汎用キャッシュ修復として採用しない。モデル構造と状態管理に依存し、今回のexpert配置調査とは分ける。
+今回分かったのは具体的な実装候補と適用境界であり、このモデルの生成速度が既に改善したという結果ではない。

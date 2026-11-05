@@ -1,0 +1,173 @@
+DeepSeek GPU転送・分担の改善候補 / 2026-11-03
+
+結論
+GPUへexpertを送る方法は、大きな入力処理では有効だった。
+通常RAMからの転送は遅かったが、既存の読み取り専用GGUFマッピングをCUDAへ登録すると、
+中間コピーを足さずに転送でき、転送込みの処理時間が大きく短縮した。
+ただし、小さい入力までGPUへ送ると遅くなる。CPU最適化後はMXFP4の損益分岐も変わる。
+実測に基づき、IQ系は512入力以上、MXFP4は1024入力以上でGPUへ任せる候補を実装した。
+生成や短い入力ではCPUを維持し、常駐expertはGPU2層から3層へ増やす。
+
+本番DeepSeekの全体tok/s、長文精度、最大VRAM、196GiB規模のホスト登録はまだ未検証。
+現在APIはユーザー許可により停止。元の本番ソース・設定・バイナリは未変更。
+長いモデル起動はユーザー実行の方針なので、反映・復帰コマンドを用意した。
+
+1. これまでGPUが空いていた理由
+
+現在の設定は --n-cpu-moe 38、--no-op-offload、batch/ubatch128。
+40層のうちCPU担当expertが0〜37、GPU常駐が38・39。
+CPU側の重みを必要に応じてGPUへ送る標準経路が無効になっていた。
+GPUの計算性能を使い切った結果の低使用率ではない。
+一方、何でもGPUへ送れば速くなるわけではなく、128入力では転送込みGPUがCPUに負けた例もある。
+
+今の固定ソースにはcudaHostRegisterを呼ぶ関数と環境変数はあるが、
+モデルローダーからその関数を呼ぶ経路がなかった。
+したがって、GGML_CUDA_REGISTER_HOST=1を設定するだけでは有効にならない。
+OSのmlockとCUDAのホストメモリ登録は別の処理。
+
+2. 実測方法
+
+実際の7分割GGUFから、IQ2_S / IQ3_XXS / IQ3_S / MXFP4のexpert重みを読む。
+up/gate形状5120x2304、down形状2304x5120、top6。
+入力activationとroutingは固定seedの合成データ。実ユーザーの会話や実ルーター分布ではない。
+大きな試験では384expertへ循環割当し、128/512/1024tokenを比較。
+平均expert入力数は2/8/16になる。実モデルの偏りを再現したものではない。
+
+CPUは現行stockと前回作成したhybrid4/2/1を比較。24thread、strict CPU固定、2ソケットinterleave。
+GPUはPG500-216 / Volta、150W、ECC有効。ファン設定は変更なし。
+計測範囲は準備完了後の単体行列演算。GPUは同期完了まで含める。
+CPU・転送・転送+計算は各3回中央値、GPU常駐計算は7回中央値。
+登録費用は一度だけ別計測し、毎回の転送時間へ混ぜていない。
+
+最初の3ケースはvectorへ読込んだ予備試験。
+正式24ケースは本番と同じPROT_READ/MAP_SHAREDの実ファイルマッピング。
+さらにhybrid CPUとの比較6ケースを追加した。計33ケース。
+全ケースで非有限値なし、CPU/GPU比較と独立FP64サンプル参照を通過。
+CPU/GPUのbit一致を要求する試験ではない。
+
+3. 主な速度結果
+
+1024token、384expert、元のstock CPUとの比較（ms）:
+型・方向          CPU計算    登録RAMから重み転送+GPU計算   activation/出力もRAM往復
+IQ2_S up          994.6       181.9                         222.3
+IQ2_S down        888.7       182.1                         277.7
+IQ3_XXS up        988.0       213.6                         254.5
+IQ3_XXS down       888.0       212.2                         307.9
+IQ3_S up         1037.0       230.9                         271.3
+IQ3_S down        932.8       231.7                         327.4
+MXFP4 up          749.7       278.3                         319.9
+MXFP4 down        754.6       279.4                         375.0
+
+例えばIQ3_XXS upでは通常RAM転送+GPUが887.8ms、登録後213.6ms。
+単体GPU計算自体は約20msなので、登録後も転送待ちが多い。
+GPU使用率の数字が非常に高くならなくても、CPU待ちを減らせば全体が速くなる余地がある。
+これらはモデル全体のtok/s倍率ではない。
+
+最適化済みMXFP4 CPUとの比較:
+512token up   CPU255.6ms / 登録転送+GPU272.4ms
+512token down CPU275.8ms / 登録転送+GPU274.7ms
+1024token up  CPU510.0ms / 登録転送+GPU268.8ms
+1024token down CPU529.3ms / 登録転送+GPU281.3ms
+
+この結果からMXFP4だけGPU移行のしきい値を1024へ上げた。
+ただし実グラフでは隣接演算とのactivation転送もあるため、512tokenでのCPU優先が
+モデル全体でも最適かは未確定。まず測定に基づく固定しきい値を入れた段階。
+全点・登録時間・誤差・I/O込み結果はmeasurements.csvとSUMMARY.json。
+
+4. 変更した処理
+
+別ライブラリlibllama:
+・モデル読込完了後、CPUに残ったrouted expertだけをCUDAへ登録する。
+・同一GGUF内でpageを共有する範囲はまとめ、未使用の間隙は跨がない。
+・EngramやGPU常駐expertは対象外。重みの第2コピーをRAMへ作らない。
+・GPUは登録した元RAMからDMA転送する。読み取り専用の元重みは変更しない。
+・解放はモデルのmmap/CPU buffer解放より先に行う。
+・登録に失敗したら起動エラーとして明示し、通常転送へ無言で切り替えない。
+・本番候補では約196.57GiBのCPU expertを登録する予定。全量登録はユーザー起動で初確認。
+
+別ライブラリlibggml-base:
+・GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH=1024でMXFP4の任意GPU移行を制限する。
+・通常のGGML_OP_OFFLOAD_MIN_BATCH=512と組み合わせる。
+・既にGPU常駐のexpertは、この制限でCPUへ戻さない。
+・未設定なら元の判定を維持。--no-op-offloadも引き続き有効。
+
+CPUライブラリ:
+・前回検証したhybrid4/2/1を使用。新しいCPU演算変更は加えていない。
+
+起動設定:
+・GPU常駐expertを37/38/39の3層へ増やす。
+・batch/ubatch1024、任意GPU移行を有効にする。
+・128k context、f16 KV、GPU150W、ECC、ファン上限70%、API接続先を維持する。
+・旧histogram計数は外す。会話キャッシュの仕組みは変更しない。
+
+今回の判定はbatchサイズと量子化形式による固定ルール。
+expertごとの実際の負荷やcache hitを見て毎回分担する動的アルゴリズムではない。
+native --moe-cache-mibは有効にしていない。GPU作業領域は再利用し、RAMへ重みを書き戻さない。
+
+5. 数値・寿命・配置の検証
+
+・範囲の整列/併合、file終端、size_t境界、部分失敗時の解放、先行解除をASan/UBSan付き試験で確認。
+・1MB未満の合成MoE GGUFを作り、本物のモデルローダーで登録→解放を3回成功。
+・登録無効時は追加処理なしで同じfixtureを読み込める。
+・元のllama-serverで候補3ライブラリを解決し、CUDA0を列挙できる。
+・実際のschedulerで合成MoEブロックを計算し、IQ512/1024はGPU、MX128/512はCPU、MX1024はGPUとなることを確認。
+・CPU経路は参照CPU計算とbit一致。GPU経路は独立FP64の全FFN計算をサンプルしてNMSE<5e-4。
+・切替ツール7件のfixtureテストで、復元、並行設定変更の保護、保護停止/監視異常時の中止を確認。
+
+数値試験で見つかった注意点:
+初期の入力振幅0.02という小さな合成データでは、MXFP4のCPU/GPU比較が閾値を超えた。
+独立FP64で調べると、1024入力時CPUのNMSEは約0.0223、GPUは約0.0000122だった。
+入力振幅0.5ではCPU約0.0000859、GPU約0.0000000824。
+stock CPUを対照に再実行してもhybrid CPUと全数値が一致した。
+したがって、この試験の差は今回のCPUカーネル変更によるものではない。
+小さい値でのCPU Q8_0のFP16スケール精度が原因候補だが、詳細な原因追跡は本作業の対象外。
+GPU側が独立参照に近いことを確認し、単純なCPUとの差だけで正誤を決めない判定にした。
+元のCPU/GPU比較値も記録し、独立参照の許容誤差5e-4は引き上げていない。
+
+6. VRAMと長い入力
+
+3層の常駐expertは15.787GiB。従来2層との差は約5.471GiB。
+元の使用量18.66GiBを起点にすれば、この差だけで約24.13GiB相当になる。
+さらに転送用のGPU作業領域・大きなbatchのactivation・attention・SWAが必要。
+384expertの合成FFNをschedulerへ渡した予約量は別JSONへ保存。
+1024入力・MXFP4のFFNで約2.43GiBのGPU graph arenaを確認（実割当/全モデルピークではない）。
+CUDAの内部一時領域等はこの予約量に含まれない。
+
+ソース上、DeepSeek4.1のSWA窓128はubatchの上限ではない。
+raw SWAはwindow+ubatchを256単位に丸めるため、ubatch1024では1280cellへ増える。
+対応する経路はあるが、実モデルで長文を通して数値と最大VRAMを確認する必要がある。
+OOMが出た場合はgpu3-stream512またはbaselineへ戻す。保護停止記録を勝手に解除しない。
+
+7. ユーザー実行コマンド
+
+推奨する最初の候補（API起動を伴う）:
+sudo python3 /home/codex/projects/llm-lab/gpu-stream-20261103/switch_profile.py gpu3-stream1024 --apply
+
+表示:
+sudo python3 /home/codex/projects/llm-lab/xeon_dashboard.py
+
+通常のgpu2/stock/batch128へ戻す:
+sudo python3 /home/codex/projects/llm-lab/gpu-stream-20261103/switch_profile.py baseline --apply
+
+baselineは計算上の元の構成で、旧stock-histの記録機能は外してある。
+開始前の本番設定の完全なバイト列はbefore-server-config.jsonに保存（非公開扱い）。
+候補の設定は別ファイルに用意済みだが、現時点では本番設定へ反映していない。
+CPU/GPUの変更は同時に含まれるので、本番での最終比較は改善全体の評価となる。
+機構別の切り分けは今回の単体試験を根拠とする。
+
+次回の本番確認:
+・expert DMA登録完了のログ、登録サイズ、CUDA/メモリのエラー。
+・最初は短い応答、その後512/1024以上の合成長文、同じ会話の継続cache。
+・prompt処理時間、生成速度、初文字までの時間、出力の破綻、VRAMピーク。
+・最初のモデル読込時間は推論時間から除外する。
+
+前回stock-histの状態確認メモ:
+20261103の起動は60分29秒かかり、30分制限の記録用ready監視が先にタイムアウトした。
+モデル自体はその後readyとなり、応答していた。ログだけでHDDが全時間の原因とは断定しない。
+古い有効captureはbatch1/9/11の先頭部分のみで、batch128の実分布は得られていない。
+今回の大batch評価を実ルーター分布の再現と解釈しない。
+
+証拠: SUMMARY.json / measurements.csv / results/* / VALIDATION_LATEST.json / validation-*/RESULT.json
+差分: libllama.patch / scheduler.patch / expert-host-register.h
+再ビルド: build_overlay.py / build_scheduler.py（C++だけ、元のCUDAオブジェクトを再利用）
+本番は原本を保持し、LD_LIBRARY_PATHで別ライブラリを選ぶ。APIキーや会話本文は新規記録していない。

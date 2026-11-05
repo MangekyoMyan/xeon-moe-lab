@@ -1,0 +1,102 @@
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -1,4 +1,6 @@
+ #include "llama-context.h"
++#include "shadow_capture.h"
++#include <optional>
+ 
+ #include "ggml.h"
+ #include "llama-arch.h"
+@@ -726,6 +728,7 @@
+             backend_ptrs.data(), backend_buft.data(), backend_ptrs.size(), max_nodes, parallel, cparams.op_offload));
+ 
+     ggml_backend_sched_set_copy_callback(sched.get(), sched_copy_experts, this);
++    xeon_shadow::initialize();
+     ggml_backend_sched_set_realloc_callback(sched.get(), sched_graph_realloc, this);
+ }
+ 
+@@ -2784,9 +2787,14 @@
+ 
+ bool llama_context::sched_copy_experts(ggml_backend_t backend, const ggml_tensor * src, ggml_tensor * dst, ggml_cgraph * graph, void * user_data) {
+     auto * lctx = static_cast<llama_context *>(user_data);
++    const bool shadow_enabled = xeon_shadow::enabled();
++    const uint64_t shadow_start = shadow_enabled ? xeon_shadow::ns() : 0;
++    std::optional<xeon_shadow::capture> shadow;
++    if (shadow_enabled) { shadow.emplace(); }
+ 
+     // the slot maps of the MoE cache
+     if (lctx->moe_cache && lctx->moe_cache->copy(backend, src, dst, graph)) {
++        if (shadow_enabled) { xeon_shadow::skipped(xeon_shadow::native_cache); }
+         return true;
+     }
+ 
+@@ -2794,25 +2802,33 @@
+ 
+     // the ids must be computed before the split starts, so only the first node of the split is considered
+     if (ggml_graph_n_nodes(graph) == 0) {
++        if (shadow_enabled) { xeon_shadow::skipped(xeon_shadow::empty_graph); }
+         return false;
+     }
+     const ggml_tensor * node = ggml_graph_node(graph, 0);
+     if (node->op != GGML_OP_MUL_MAT_ID || node->src[0] != dst) {
++        if (shadow_enabled) { xeon_shadow::skipped(xeon_shadow::other_node); }
+         return false;
+     }
+ 
+     const ggml_tensor * ids = node->src[2];
+     if (ggml_nelements(ids) == 0) {
++        if (shadow_enabled) { xeon_shadow::skipped(xeon_shadow::empty_ids); }
+         return true;
+     }
+ 
+     const int64_t n_expert    = src->ne[2];
+     const size_t  expert_size = src->nb[2];
+ 
+-    if (ids != st.ids || (int64_t) st.used.size() != n_expert) {
++    const bool shadow_refreshed = ids != st.ids || (int64_t) st.used.size() != n_expert;
++    uint64_t shadow_fetch_ns = 0;
++    if (shadow_refreshed) {
++        const uint64_t shadow_fetch_start = shadow_enabled ? xeon_shadow::ns() : 0;
++        if (shadow_enabled) { xeon_shadow::invalidate_route(); }
+         st.ids_data.resize(ggml_nbytes(ids)/sizeof(int32_t));
+         ggml_backend_tensor_get_async(backend, ids, st.ids_data.data(), 0, ggml_nbytes(ids));
+         ggml_backend_synchronize(backend);
++        if (shadow_enabled) { shadow_fetch_ns = xeon_shadow::ns() - shadow_fetch_start; }
+ 
+         st.used.assign(n_expert, false);
+         for (int64_t i1 = 0; i1 < ids->ne[1]; i1++) {
+@@ -2824,6 +2840,12 @@
+         }
+ 
+         st.ids = ids;
++    }
++
++    if (shadow_enabled && !lctx->moe_cache && ggml_backend_dev_type(ggml_backend_get_device(backend)) == GGML_BACKEND_DEVICE_TYPE_GPU) {
++        shadow->begin(&st, ids, st.ids_data.data(), ggml_nbytes(ids), src, shadow_refreshed, shadow_fetch_ns, shadow_start);
++    } else if (shadow_enabled) {
++        xeon_shadow::skipped(lctx->moe_cache ? xeon_shadow::native_cache : xeon_shadow::unsupported_route);
+     }
+ 
+     // group consecutive experts and copy them together
+@@ -2847,6 +2869,7 @@
+             }
+             if (next < e) {
+                 ggml_backend_tensor_set_async(backend, dst, (const uint8_t *) src->data + next*expert_size, next*expert_size, (e - next)*expert_size);
++                if (shadow) { shadow->submitted((e - next)*expert_size); }
+             }
+             e   += n;
+             next = e;
+@@ -2858,11 +2881,13 @@
+         const size_t size    = (last + 1 - next)*expert_size + padding;
+         if (size > 0) {
+             ggml_backend_tensor_set_async(backend, dst, (const uint8_t *) src->data + offset, offset, size);
++            if (shadow) { shadow->submitted(size); }
+         }
+ 
+         first = last + 1;
+     }
+ 
++    if (shadow) { shadow->finish(); }
+     return true;
+ }
+ 

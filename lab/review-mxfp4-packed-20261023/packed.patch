@@ -1,0 +1,264 @@
+--- a/ggml/src/ggml-cpu/arch/x86/quants.c
++++ b/ggml/src/ggml-cpu/arch/x86/quants.c
+@@ -4313,3 +4313,57 @@
+     ggml_vec_dot_iq4_xs_q8_K_generic(n, s, bs, vx, bx, vy, by, nrc);
+ #endif
+ }
++
++#if defined(__AVX__) && !defined(__AVX2__) && !defined(__FMA__)
++
++void ggml_vec_dot_mxfp4_q8_0_rows4_packed(int n, float * s, const void * vx, const void * vy) {
++    assert(n >= 0 && n % 32 == 0);
++    const int nb = n / 32;
++    const uint8_t * packed = vx;
++    const block_q8_0 * y = vy;
++    __m256 acc[4];
++    for (int r = 0; r < 4; ++r) {
++        acc[r] = _mm256_setzero_ps();
++    }
++    const __m128i mask = _mm_set1_epi8(15);
++    const __m128i ones = _mm_set1_epi16(1);
++    const __m128i values = _mm_setr_epi8(12,13,14,15,16,18,20,24,12,11,10,9,8,6,4,0);
++    int ib = 0;
++    for (; ib + 1 < nb; ib += 2) {
++        const __m128i y00 = _mm_loadu_si128((const __m128i *) y[ib].qs);
++        const __m128i y01 = _mm_loadu_si128((const __m128i *) (y[ib].qs + 16));
++        const __m128i y10 = _mm_loadu_si128((const __m128i *) y[ib + 1].qs);
++        const __m128i y11 = _mm_loadu_si128((const __m128i *) (y[ib + 1].qs + 16));
++        const float yd0 = GGML_CPU_FP16_TO_FP32(y[ib].d);
++        const float yd1 = GGML_CPU_FP16_TO_FP32(y[ib + 1].d);
++        const __m128i offset = _mm_set1_epi8(12);
++        const __m128i corr0 = _mm_add_epi16(_mm_maddubs_epi16(offset, y00), _mm_maddubs_epi16(offset, y01));
++        const __m128i corr1 = _mm_add_epi16(_mm_maddubs_epi16(offset, y10), _mm_maddubs_epi16(offset, y11));
++        for (int r = 0; r < 4; ++r) {
++            const __m128i bits0 = _mm_loadu_si128((const __m128i *) (packed + (size_t) ib * 68 + 4 + r * 16));
++            const __m128i bits1 = _mm_loadu_si128((const __m128i *) (packed + (size_t) (ib + 1) * 68 + 4 + r * 16));
++            const __m128i q00 = _mm_shuffle_epi8(values, _mm_and_si128(bits0, mask));
++            const __m128i q01 = _mm_shuffle_epi8(values, _mm_and_si128(_mm_srli_epi16(bits0, 4), mask));
++            const __m128i q10 = _mm_shuffle_epi8(values, _mm_and_si128(bits1, mask));
++            const __m128i q11 = _mm_shuffle_epi8(values, _mm_and_si128(_mm_srli_epi16(bits1, 4), mask));
++            const __m128i p0 = _mm_madd_epi16(_mm_sub_epi16(_mm_add_epi16(_mm_maddubs_epi16(q00, y00), _mm_maddubs_epi16(q01, y01)), corr0), ones);
++            const __m128i p1 = _mm_madd_epi16(_mm_sub_epi16(_mm_add_epi16(_mm_maddubs_epi16(q10, y10), _mm_maddubs_epi16(q11, y11)), corr1), ones);
++            const __m256 p = _mm256_cvtepi32_ps(MM256_SET_M128I(p1, p0));
++            const __m256 d = _mm256_set_m128(_mm_set1_ps(GGML_CPU_E8M0_TO_FP32_HALF(packed[(size_t) (ib + 1) * 68 + r]) * yd1), _mm_set1_ps(GGML_CPU_E8M0_TO_FP32_HALF(packed[(size_t) ib * 68 + r]) * yd0));
++            acc[r] = _mm256_add_ps(_mm256_mul_ps(d, p), acc[r]);
++        }
++    }
++    for (int r = 0; r < 4; ++r) {
++        float sum = hsum_float_8(acc[r]);
++        if (ib < nb) {
++            int a = 0, b = 0;
++            for (int j = 0; j < 16; ++j) {
++                a += y[ib].qs[j] * kvalues_fp4[(packed + (size_t) ib * 68 + 4 + r * 16)[j] & 15];
++                b += y[ib].qs[j + 16] * kvalues_fp4[(packed + (size_t) ib * 68 + 4 + r * 16)[j] >> 4];
++            }
++            sum += (GGML_CPU_FP16_TO_FP32(y[ib].d) * GGML_CPU_E8M0_TO_FP32_HALF(packed[(size_t) ib * 68 + r])) * (a + b);
++        }
++        s[r] = sum;
++    }
++}
++#endif
+--- a/ggml/src/ggml-cpu/quants.h
++++ b/ggml/src/ggml-cpu/quants.h
+@@ -50,6 +50,7 @@
+ void ggml_vec_dot_q8_0_q8_0_rows4(int n, float * GGML_RESTRICT s, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy);
+ void ggml_vec_dot_mxfp4_q8_0_rows2(int n, float * s, const void * vx, size_t bx, const void * vy);
+ void ggml_vec_dot_mxfp4_q8_0_rows4(int n, float * s, const void * vx, size_t bx, const void * vy);
++void ggml_vec_dot_mxfp4_q8_0_rows4_packed(int n, float * s, const void * vx, const void * vy);
+ void ggml_vec_dot_q8_0_q8_0_cols4(int n, float * GGML_RESTRICT s, const void * vx, const void * const vy[4]);
+ #endif
+ 
+--- a/ggml/src/ggml-cpu/repack.cpp
++++ b/ggml/src/ggml-cpu/repack.cpp
+@@ -17,6 +17,8 @@
+ #include <cstdio>  // for GGML_ASSERT
+ 
+ #include "repack.h"
++#include "quants.h"
++#include <cstdlib>
+ 
+ #if defined(__GNUC__)
+ #pragma GCC diagnostic ignored "-Woverlength-strings"
+@@ -320,6 +322,16 @@
+     UNUSED(nrow);
+     ggml_quantize_mat_q8_0_4x4(x, vy, n_per_row);
+ }
++
++#if defined(__AVX__) && !defined(__AVX2__) && !defined(__FMA__)
++template <> void ggml_quantize_mat_t<16, GGML_TYPE_Q8_0>(const float * GGML_RESTRICT x, void * GGML_RESTRICT vy, int64_t nrow, int64_t n_per_row) {
++    const size_t stride = ggml_row_size(GGML_TYPE_Q8_0, n_per_row);
++    const ggml_from_float_t from_float = ggml_get_type_traits_cpu(GGML_TYPE_Q8_0)->from_float;
++    for (int64_t r = 0; r < nrow; ++r) {
++        from_float(x + r * n_per_row, (char *) vy + r * stride, n_per_row);
++    }
++}
++#endif
+ 
+ template <> void ggml_quantize_mat_t<8, GGML_TYPE_Q8_0>(const float * GGML_RESTRICT x, void * GGML_RESTRICT vy, int64_t nrow, int64_t n_per_row) {
+     assert(nrow == 4);
+@@ -4127,13 +4139,13 @@
+ 
+     const int end = QK_MXFP4 * 2 / blck_size_interleave;
+ 
+-    if (blck_size_interleave == 4) {
++    if (blck_size_interleave == 4 || blck_size_interleave == 16) {
+         for (int i = 0; i < end; ++i) {
+             int src_id = i % 4;
+             int src_offset = (i / 4) * blck_size_interleave;
+             int dst_offset = i * blck_size_interleave;
+ 
+-            memcpy(&out.qs[dst_offset], &in[src_id].qs[src_offset], sizeof(uint32_t));
++            memcpy(&out.qs[dst_offset], &in[src_id].qs[src_offset], blck_size_interleave);
+         }
+     } else {
+         GGML_ASSERT(false);
+@@ -4144,7 +4156,7 @@
+ 
+ static int repack_mxfp4_to_mxfp4_4_bl(struct ggml_tensor * t, int interleave_block, const void * GGML_RESTRICT data, size_t data_size) {
+     GGML_ASSERT(t->type == GGML_TYPE_MXFP4);
+-    GGML_ASSERT(interleave_block == 4);
++    GGML_ASSERT(interleave_block == 4 || interleave_block == 16);
+ 
+     const block_mxfp4   * src = (const block_mxfp4   *)data;
+           block_mxfp4x4 * dst = (      block_mxfp4x4 *)t->data;
+@@ -4155,7 +4167,7 @@
+     int nrows_interleaved = 4;
+     int nblocks = t->ne[0] / QK_MXFP4;
+ 
+-    GGML_ASSERT(data_size == nrow * nblocks * sizeof(block_mxfp4));
++    GGML_ASSERT(data_size == (size_t) nrow * nblocks * sizeof(block_mxfp4));
+ 
+     if (t->ne[1] % nrows_interleaved != 0 || t->ne[0] % 8 != 0) {
+         return -1;
+@@ -4302,6 +4314,12 @@
+ template <> int repack<block_mxfp4, 4, 4>(struct ggml_tensor * t, const void * data, size_t data_size) {
+     return repack_mxfp4_to_mxfp4_4_bl(t, 4, data, data_size);
+ }
++
++#if defined(__AVX__) && !defined(__AVX2__) && !defined(__FMA__)
++template <> int repack<block_mxfp4, 16, 4>(struct ggml_tensor * t, const void * data, size_t data_size) {
++    return repack_mxfp4_to_mxfp4_4_bl(t, 16, data, data_size);
++}
++#endif
+ 
+ template <> int repack<block_mxfp4, 8, 8>(struct ggml_tensor * t, const void * data, size_t data_size) {
+     return repack_mxfp4_to_mxfp4_8_bl(t, 8, data, data_size);
+@@ -4408,6 +4426,17 @@
+     ggml_gemv_mxfp4_4x4_q8_0(n, s, bs, vx, vy, nr, nc);
+ }
+ 
++#if defined(__AVX__) && !defined(__AVX2__) && !defined(__FMA__)
++template <> void gemv<block_mxfp4, 16, 4, GGML_TYPE_Q8_0>(int n, float * s, size_t bs, const void * vx, const void * vy, int nr, int nc) {
++    GGML_ASSERT(nr == 1 && n >= 0 && n % QK_MXFP4 == 0 && nc % 4 == 0);
++    const size_t stride = ggml_row_size(GGML_TYPE_MXFP4, n);
++    for (int r = 0; r < nc; r += 4) {
++        ggml_vec_dot_mxfp4_q8_0_rows4_packed(n, s + r, (const char *) vx + r * stride, vy);
++    }
++    GGML_UNUSED(bs);
++}
++#endif
++
+ template <> void gemv<block_mxfp4, 8, 8, GGML_TYPE_Q8_0>(int n, float * s, size_t bs, const void * vx, const void * vy, int nr, int nc) {
+     ggml_gemv_mxfp4_8x8_q8_0(n, s, bs, vx, vy, nr, nc);
+ }
+@@ -4513,6 +4542,15 @@
+     ggml_gemm_mxfp4_4x4_q8_0(n, s, bs, vx, vy, nr, nc);
+ }
+ 
++#if defined(__AVX__) && !defined(__AVX2__) && !defined(__FMA__)
++template <> void gemm<block_mxfp4, 16, 4, GGML_TYPE_Q8_0>(int n, float * s, size_t bs, const void * vx, const void * vy, int nr, int nc) {
++    const size_t stride = ggml_row_size(GGML_TYPE_Q8_0, n);
++    for (int r = 0; r < nr; ++r) {
++        gemv<block_mxfp4, 16, 4, GGML_TYPE_Q8_0>(n, s + r * bs, bs, vx, (const char *) vy + r * stride, 1, nc);
++    }
++}
++#endif
++
+ template <> void gemm<block_mxfp4, 8, 8, GGML_TYPE_Q8_0>(int n, float * s, size_t bs, const void * vx, const void * vy, int nr, int nc) {
+     ggml_gemm_mxfp4_8x8_q8_0(n, s, bs, vx, vy, nr, nc);
+ }
+@@ -4572,7 +4610,10 @@
+ 
+                     const size_t sizeof_mmid_row_mapping = sizeof(int64_t);
+ 
+-                    size += sizeof_mmid_row_mapping*ne02*(ne12 + 1);
++                    const int64_t n_ids = op->src[2]->ne[0];
++                    GGML_ASSERT(n_ids > 0 && ne12 >= 0 && ne12 <= INT64_MAX / n_ids);
++                    const int64_t rows_per_expert = INTER_SIZE == 16 ? ne12 * n_ids : ne12;
++                    size += sizeof_mmid_row_mapping * ne02 * (rows_per_expert + 1);
+ 
+                     return true;
+                 }
+@@ -4812,6 +4853,8 @@
+         // row groups
+         const int n_ids = ids->ne[0]; // n_expert_used
+         const int n_as  = ne02;       // n_expert
++        GGML_ASSERT(n_ids > 0 && ne12 >= 0 && ne12 <= INT64_MAX / n_ids);
++        const int64_t rows_per_expert = INTER_SIZE == 16 ? ne12 * n_ids : ne12;
+ 
+         const size_t nbw1 = ggml_row_size(PARAM_TYPE, ne10);
+         const size_t nbw2 = nbw1*ne11;
+@@ -4824,15 +4867,15 @@
+ 
+         GGML_ASSERT(params->wsize >=
+                 (GGML_PAD(nbw3, sizeof(int64_t)) +
+-                 n_as*(ne12 + 1)*sizeof(mmid_row_mapping))
++                 n_as * (rows_per_expert + 1) * sizeof(mmid_row_mapping))
+                 );
+ 
+         auto * wdata          = (char *)params->wdata;
+         auto * wdata_src1_end = (char *)wdata + GGML_PAD(nbw3, sizeof(int64_t));
+ 
+-        // total of [n_as][ne12 + 1] elements of type mmid_row_mapping (2*int32_t = int64_t)
++        // total of [n_as][rows_per_expert + 1] elements of type mmid_row_mapping (2*int32_t = int64_t)
+         auto * matrix_row_counts = (int64_t *) (wdata_src1_end);                                        // [n_as]
+-        struct mmid_row_mapping * matrix_rows = (struct mmid_row_mapping *) (matrix_row_counts + n_as); // [n_as][ne12]
++        struct mmid_row_mapping * matrix_rows = (struct mmid_row_mapping *) (matrix_row_counts + n_as); // [n_as][rows_per_expert]
+ 
+         // src1: float32 => param type
+         for (int64_t i12 = 0; i12 < ne12; ++i12) {
+@@ -4843,7 +4886,7 @@
+             }
+         }
+ 
+-#define MMID_MATRIX_ROW(row_id, i1) matrix_rows[(row_id) * ne12 + (i1)]
++#define MMID_MATRIX_ROW(row_id, i1) matrix_rows[(row_id) * rows_per_expert + (i1)]
+ 
+         if (ith == 0) {
+             // initialize matrix_row_counts
+@@ -4857,6 +4900,7 @@
+ 
+                     GGML_ASSERT(i02 >= 0 && i02 < n_as);
+ 
++                    GGML_ASSERT(matrix_row_counts[i02] < rows_per_expert);
+                     MMID_MATRIX_ROW(i02, matrix_row_counts[i02]) = { id, iid1 };
+                     matrix_row_counts[i02] += 1;
+                 }
+@@ -4954,6 +4998,9 @@
+     // instance for MXFP4
+     static const ggml::cpu::repack::tensor_traits<block_mxfp4, 4, 4, GGML_TYPE_Q8_0> mxfp4_4x4_q8_0;
+     static const ggml::cpu::repack::tensor_traits<block_mxfp4, 8, 8, GGML_TYPE_Q8_0> mxfp4_8x8_q8_0;
++#if defined(__AVX__) && !defined(__AVX2__) && !defined(__FMA__)
++    static const ggml::cpu::repack::tensor_traits<block_mxfp4, 16, 4, GGML_TYPE_Q8_0> mxfp4_4x16_q8_0;
++#endif
+ 
+     // instance for Q8_0
+     static const ggml::cpu::repack::tensor_traits<block_q8_0, 4, 4, GGML_TYPE_Q8_0> q8_0_4x4_q8_0;
+@@ -5092,6 +5139,17 @@
+             #endif
+         }
+     } else if (cur->type == GGML_TYPE_MXFP4) {
++#if defined(__AVX__) && !defined(__AVX2__) && !defined(__FMA__)
++        static const bool avx_packed = [] {
++            const char * env = std::getenv("GGML_CPU_MXFP4_PACKED");
++            return env != nullptr && std::strcmp(env, "1") == 0;
++        }();
++        if (avx_packed && ggml_cpu_has_avx() && ggml_n_dims(cur) == 3 &&
++            cur->ne[0] > 0 && cur->ne[0] <= INT32_MAX && cur->ne[0] % QK_MXFP4 == 0 &&
++            cur->ne[1] > 0 && cur->ne[1] % 4 == 0 && cur->ne[2] > 0 && cur->ne[1] <= INT32_MAX / cur->ne[2]) {
++            return &mxfp4_4x16_q8_0;
++        }
++#endif
+         if (ggml_cpu_has_avx2()) {
+             if (cur->ne[1] % 8 == 0) {
+                 return &mxfp4_8x8_q8_0;

@@ -1,0 +1,11 @@
+COMPLETE: 2026-10-31 RAM upgrade synthetic CPU/RAM study. No benchmark jobs remain.
+512GiB=16x32, configured1600MT/s,256GiBperNUMA,4channels/socket verified by IMC.
+CPU E5-2630L v2x2,12physical/24SMT. Same binary/library SHA256 as128GB baseline.
+Read local49.22->81.68GB/s, interleaved1GiB46.67->65.07.
+24thread synthetic Q8 6.153->4.297ms(1.432x),Q6 4.612->3.257,Q4 3.192->2.389,Q3 3.882->4.009.
+With512GB localalloc Q8 3.658ms(1.175x vsnewinterleave),Q4 2.307,Q3 3.962.
+CachehotQ8/Q4 unchanged. Q8 IMC47.25->68.45GB/s, L2stall.614->.478. Q3 IMC30.78->30.86,stall.012->.011.
+CPU max51C, ECC0/throttle0, BMCSELempty. Fan modeStandard unchanged, dutyauto57%after. GPU150W/ECC,VRAM0,APIinactive before/after.
+Q8 still memory/NUMA constrained; Q3 CPUkernel-bound. No modeltokens/s measured, no engine/settings changes.
+Raw/results/report: /home/codex/projects/llm-lab/results/ram-upgrade-20261031
+Report: REPORT_JA.txt; comparison.json; COMPLETE.json; MANIFEST.json.

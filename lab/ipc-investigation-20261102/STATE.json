@@ -1,0 +1,39 @@
+{
+  "status": "completed",
+  "api": "not stopped or restarted; remained idle throughout completed measurements",
+  "controller": "run_perf.py",
+  "process_scope": "root perf with trusted synthetic probe only, no sysctl changes",
+  "scope": "1/12/24threads MXFP4 plus12thread1/3input controls; ABBA",
+  "failed_smoke": "smoke-stock-t1-n8 failed ACK framing; excluded; fixed and smoke2 passed",
+  "pending": [],
+  "original_model_start": "none",
+  "completed_runs": 20,
+  "all_event_running_percent": 100,
+  "key_results": {
+    "old_actual_prefill_ipc": 1.47,
+    "MXFP4_1thread_8inputs_ipc_stock_candidate": [
+      2.47786,
+      2.28869
+    ],
+    "MXFP4_12physical_8inputs_ipc_stock_candidate": [
+      2.56467,
+      2.40474
+    ],
+    "12physical_instruction_reduction_percent": 26.822,
+    "12physical_cycle_reduction_percent": 21.955,
+    "12physical_mean_time_reduction_percent": 21.203,
+    "24logical_ipc_variable": [
+      1.33778,
+      1.17731
+    ]
+  },
+  "full_model_started": false,
+  "notes": [
+    "ROI CPU-time agrees with perf task-clock within0.82%",
+    "all masks and grouped PMU running100% validated",
+    "do not interpret 24logical aggregate IPC as perphysical-core throughput",
+    "previous12thread3input regression not reproduced here but not considered fixed",
+    "no sysctl/fan/power/model configuration changes"
+  ],
+  "report": "RESULTS_JA.txt"
+}

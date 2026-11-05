@@ -1,0 +1,122 @@
+MXFP4 2入力共有候補のXeon実機評価 / 2026-11-02
+==============================================
+
+結論
+同じexpertを複数入力で使う場合の高速化は、このXeonでも再現した。
+現在のprefillに合わせた24スレッド・各worker固定では、2入力が1.075〜1.162倍、
+8入力が1.269〜1.305倍、17入力が1.279〜1.281倍。1入力はほぼ同等。
+ただし12スレッド・6expert・up・3入力に限って速度低下が反復して再現した。
+数値試験は合格。候補は実モデルA/Bへ進める価値があるが、無条件に高速としない。
+本番には未適用。今回の結果はCPUのMoE行列演算であり、DeepSeek全体のtok/sではない。
+
+測定対象
+ Xeon E5-2630L v2×2、12物理コア/24論理スレッド、512GiB DDR3-1600。
+ 現行commit dde879bc4f954b809892fd0d660515f42536394aのstockと、
+ GPT Pro返却のmxfp4-cols2-avx.patchだけを加えた候補。IQ patchは含めない。
+ 元コード/本番設定を保持し、stock/とmxfp4/に隔離したソースを用意した。
+ GCC14.2、通常CMake、Release O3、AVX/F16C、AVX2/FMAなし、OpenMPあり、repackなし。
+ ビルドは両方約46秒。既存監視に連動するguarded_run.pyの下で実施。
+ 本番と同じ通常CMakeのllamafile ON。相手の直接ビルドはOFFだった点を区別する。
+
+比較の実体確認
+ バイナリだけでなく、解決されたCPU/base共有ライブラリの絶対パスとhashを記録。
+ 候補側だけに新paired kernelのsymbolが存在することを確認。
+ 後から短い計時外の呼出カウンターで、1入力=0回、2入力=66回、3入力=66回、
+ use_ref=0回と期待どおりに分岐したことも確認した。
+ この計数用LD_PRELOADは速度試験では使わず、本番にも読み込ませていない。
+
+条件
+ 実寸: up K5120/M2304、down K2304/M5120。
+ shared: 6expert/top6。各expertに同数の1/2/3/8/17入力。
+ spread: 12expert/top6。1/2/3/6/8/17 tokenを分散。
+ 外側numactlでメモリをnode0/1へinterleave。ggml独自NUMA strategyは未初期化。
+ poll=0。ただしOpenMPの待機動作はggmlのpollとは別。OMP待機ポリシーは変更しない。
+ CPU affinity:
+   1 thread: CPU0
+   6 physical: CPU0,1,2,6,7,8（各socket3コア）
+  12 physical: CPU0〜11（各socket6コア）
+  24 logical: CPU0〜23（12物理コアのSMTを使用）
+
+初回はprocess単位のmaskのみ。ばらつきと回帰を見つけたため、両probeに同じ
+--strict-cpuオプションを追加し、workerを1個ずつCPUに固定して再測定した。
+36個のstrict実行すべてで、実際のworker maskと指定CPU集合が一致。
+変更は試験probeの制御だけで、エンジンの最適化内容は同じ。
+旧probe実行物とpro-original.cpp、初回結果も保持している。
+
+以下の主表はstrict worker固定、ABBAABBAの8 process、各process内21回計時/5回warmup。
+表は各variant4 processの中央値。倍率=stock時間/candidate時間。
+CPUクロック固定はしていない。観測最小最大による倍率範囲は信頼区間ではない。
+重み生成・重み量子化・参照計算・dumpは計時外。activation量子化・演算・同期は計時内。
+
+主な結果: 24論理スレッド、6expert shared
+ 方向   expert当たり入力   stock ms   candidate ms   速度倍率
+ up                   1       0.863          0.886      0.975
+ up                   2       2.129          1.980      1.075
+ up                   3       2.422          2.069      1.170
+ up                   8       5.967          4.700      1.269
+ up                  17      12.298          9.603      1.281
+ down                 1       0.817          0.820      0.997
+ down                 2       1.904          1.638      1.162
+ down                 3       2.548          2.370      1.075
+ down                 8       5.946          4.557      1.305
+ down                17      12.498          9.774      1.279
+1入力はpaired経路を通らない。数%程度の差を改善/悪化の確証にしない。
+
+重要な回帰
+ 12物理コア（12 thread）・6expert shared・up・3入力:
+   初回: 3.377→4.027ms、0.839倍
+   CPU固定/反復増加後: 3.224→3.675ms、0.877倍
+   固定後の観測極値による倍率範囲: 0.854〜0.925
+ 速度で約12.3%低下、時間では約14.0%増加。単発の外れ値として捨てない。
+ 同じ12スレッドでもdown3入力は1.153倍、up8入力は1.242倍。
+ 同じexpert当たり3入力でも、12expertへ分散したupは1.163倍だった。
+ よって「3入力なら必ず遅い」「すべて同期のせい」のどちらとも結論しない。
+ 入力の間隔・作業集合・cache挙動等を含む原因は未分離。条件を記録して次へ持ち越す。
+ この結果だけから、特定のshapeだけを避ける分岐を本番へ追加してはいない。
+
+expertへの分散
+ 12expert/top6の2 tokenでは、全expertが1入力ずつとなり、新処理を使えない。
+ 24スレッドupは1.833→1.834ms（0.999倍）。入力token総数だけでは効果を判断できない。
+ 同じ分散条件で8 tokenなら各expert4入力となり、up1.303倍/down1.239倍。
+ 17 tokenなら各expert8〜9入力となり、up1.284倍/down1.231倍。
+ 384expert/top6も小shapeで出力を検証したが、実寸384expertのモデル再現ではない。
+
+CPUコア数を増やす余地
+ candidate、各expert8/17入力で6→12物理コアを使うと、約1.91〜1.97倍。
+ 12物理コア→24論理スレッドのSMT追加では約1.07〜1.12倍。
+ この複数入力の条件では実コア増加がよく効き、SMTの上積みは小さい。
+ 1入力等の他条件にはこの比率を一般化しない。24論理スレッドは24物理コアではない。
+ コア数の増加が有望という根拠にはなるが、2697 v2の速度や全モデルの倍速予測ではない。
+
+正しさと試験件数
+ graph条件定義は延べ228件。候補対stockの反復を含む照合516件、35,362,584 FP32要素。
+ 全て有限・bit一致、mismatch0。stock自身の照合を候補照合件数に水増ししていない。
+ 独立FP64参照は小shape全行、大shape各8行。大shape全出力はstockとの直接比較。
+ 事前量子化Q8_0の非連続stride/offset、奇数末尾、重複slot、無効expert=-1を別試験:
+   64ケース/24,800出力、bit差0、参照誤差合格。
+ MXFP4単体137,894出力の前ターン合格と区別する。
+ 初回の計数用launcherはLD_PRELOADを外側numactlにも適用して起動失敗した。
+ 対象probeだけに限定して修正し再実行成功。ルート数値試験自体は初回から合格。
+ 失敗ログはdiagnostics-initial-preload-launch-error/に保存。エンジンの計算失敗ではない。
+
+運用
+ ユーザー許可に基づきAPIを停止してから試験した。
+ 既存のxeon-watch/通知サービスは継続。ファン/電力/ネットワークを変更していない。
+ ソフトが既存監視記録を監視し、CPU60C、既存alert、stale sensor、ECC/throttle変化等で
+ 試験自身を止める構成。観測CPU最大34C、保護停止0。
+ 本番のGPU設定や重み配置、本番ソースは変更していない。
+ APIは停止状態。長いモデル起動はユーザー実行という方針を維持。
+
+次に行うなら
+ 現行の24thread prefill設定では候補は有望。通常GPU構成の候補を隔離ビルドし、
+ 同じ実モデル/同じ入力のprefill・生成・回答と、実際のexpert別入力数を比較する。
+ 長いビルド/モデル起動はユーザーへコマンドを渡す。CPU合成試験の結果だけで
+ 本番の速度を改善済みと表現しない。IQ patchは引き続き独立実験用。
+
+ファイル
+ SUMMARY.json: 件数、配置検証、温度上限、実コア/SMT比較。
+ TIMINGS.csv: 初回・strict・分散を含む全228条件。遅い条件も収録。
+ results/: ABBAログ、全出力dump、比較、条件・binary hash。
+ binary-provenance*.json: 実際に解決されるDSOパス/hash。
+ diagnostics/: 最終route/dispatch試験。execution/: 自動保護と実行ログ。
+ CPU_UPGRADE_JA.txt: E5-2697 v2検討の事実と限界。

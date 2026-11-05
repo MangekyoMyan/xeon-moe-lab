@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "reason": "Check actual production1024 input batch; useC8 for existingVRAMheadroom. CountsfixedBEFOREthese timings, extrapolated hypotheses fromsmallerpilots. Noadaptivepolicyvalidationclaim.",
+  "build": {
+    "commands": [
+      [
+        "/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/bin/nvcc",
+        "-O2",
+        "-std=c++17",
+        "-arch=sm_70",
+        "-Xcompiler",
+        "-fPIC",
+        "-c",
+        "/home/codex/projects/llm-lab/apex-split-20261105/kernels.cu",
+        "-o",
+        "/home/codex/projects/llm-lab/apex-split-20261105/kernels.o"
+      ],
+      [
+        "g++",
+        "-O2",
+        "-std=c++17",
+        "-pthread",
+        "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+        "-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include",
+        "/home/codex/projects/llm-lab/apex-split-20261105/split_probe.cpp",
+        "/home/codex/projects/llm-lab/apex-split-20261105/kernels.o",
+        "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+        "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+        "-L/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+        "-Wl,-rpath,/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+        "-lggml-cpu",
+        "-lggml-cuda",
+        "-lggml-base",
+        "-lggml",
+        "-lcudart",
+        "-o",
+        "/home/codex/projects/llm-lab/apex-split-20261105/split_probe"
+      ]
+    ],
+    "sha256": {
+      "split_probe.cpp": "5e03d554565ba253677e75e00d0990e4be4fc272867452432dfd356a751850ef",
+      "kernels.cu": "597b56a2fc4d35ce59b60d1a1c16e93b5f18938b57cc753d30120cbce466f210",
+      "split_probe": "79c17b622849a8e4dcc9a46213cab32203f981ab3cef0845ad1d08b695693350"
+    }
+  },
+  "jobs": [
+    {
+      "layer": 24,
+      "workload": "vbalanced1024",
+      "chunk": 8,
+      "threads": 24,
+      "repeats": 5,
+      "gpu_experts": 288,
+      "fraction": 0.75,
+      "active": 384,
+      "route_sha256": "e6ccfdd418a9a174a44a01087b93a9113a3e2f876945678ab6562332b80d14f9"
+    },
+    {
+      "layer": 24,
+      "workload": "vzipf1024",
+      "chunk": 8,
+      "threads": 24,
+      "repeats": 5,
+      "gpu_experts": 93,
+      "fraction": 0.25,
+      "active": 373,
+      "route_sha256": "53d43169634e426fd9495c7e0c4e9e10485515fe1ad57126b8041f0a1486576e"
+    },
+    {
+      "layer": 4,
+      "workload": "vbalanced1024",
+      "chunk": 8,
+      "threads": 24,
+      "repeats": 5,
+      "gpu_experts": 345,
+      "fraction": 0.9,
+      "active": 384,
+      "route_sha256": "e6ccfdd418a9a174a44a01087b93a9113a3e2f876945678ab6562332b80d14f9"
+    },
+    {
+      "layer": 4,
+      "workload": "vzipf1024",
+      "chunk": 8,
+      "threads": 24,
+      "repeats": 5,
+      "gpu_experts": 186,
+      "fraction": 0.5,
+      "active": 373,
+      "route_sha256": "53d43169634e426fd9495c7e0c4e9e10485515fe1ad57126b8041f0a1486576e"
+    }
+  ]
+}

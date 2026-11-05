@@ -1,0 +1,160 @@
+DeepSeek prefill / PG500-216 GPU内部・転送の調査と探索
+2026-11-04
+
+結論
+今回の2048token入力では、電力上限やHBM帯域の使い切りが主因という証拠は得られなかった。
+大量のexpert重み転送と、その完了を含む待ち合わせの影響が大きい。
+GPU内部にも実測で改善できる部分がある。VoltaのMoE処理幅をexpertあたりの入力数に合わせる候補を作り、40件の単体比較を実施した。
+ただし偏ったroutingで約5%の悪化を再現し、計算経路の変更による数値差もある。候補は実験用に留め、本番に反映していない。
+
+1. 本番モデルをロードしたまま測った結果
+構成:Xeon E5-2630L v2 x2、512GiB、PG500-216、GPU150W/ECC、ファン上限70%。
+DeepSeek Mix-256G、Vision F16追加済み、128k context、batch/ubatch1024、gpu3-stream1024、CPU compact96GiB。
+PID39141の同じAPIを使用。CPU/GPU設定・ライブラリ・モデルファイルを変更せず、再起動もしなかった。
+自然文を含む固定の合成入力2048token、cache_prompt=false、生成1token。
+実ユーザーの会話本文・APIキーは記録していない。単一slotのKVは合成入力へ入れ替わったため、次の実会話では履歴の再処理が起こる。
+
+通常→trace→通常→詳細trace（秒）:
+ 34.443966 /34.537628 /34.506177 /34.384457
+ 約59.3〜59.6tok/s。cache_n=0、2回の1024token ubatchを確認。
+同じ1tokenの出力hashは一致。回答品質試験ではない。
+最初のtraceは通常2回の平均より約0.18%遅い。詳細traceも通常の近傍で、計測による大きな速度崩れは見られなかった。
+前ターンで確認した実会話prefill約50.8〜51.4tok/sとは入力が違うので速度改善と解釈しない。
+
+この区間に記録したCUDA runtime転送要求:
+ CPU→GPU:261,876,629,556bytes（261.88GB /243.89GiB）、19,398呼出し。
+ GPU→CPU:493,404,528bytes、314呼出し。
+ GPU→GPU:578,289,664bytes（CUDA graph内部など、runtime APIに出ない転送は対象外）。
+PCIe RXの非idleサンプル中央値は約10.7〜11.0GB/s、最大約12.8GB/s。
+GPU使用時間率の中央値97%。HBMクロック1107MHzを全非idleサンプルで維持。
+SMクロックの中央値1372〜1380MHz（報告上の最大1380MHz）。
+電力のサンプル中央値48.5〜49.5W、瞬時最大173W。
+power violationはサンプル最大1%、thermal violationは0。
+瞬時に150Wを超えても、この区間が常時電力制限で遅くなっているとはいえない。
+GPU利用率/メモリ利用率の%をGB/sや演算器使用率に換算していない。
+
+詳細traceでホスト側の待ちを重複なく分けた結果:
+ cudaMemcpyAsync API内:25.288秒、73.59%
+ cudaStreamSynchronize（copy関数区間外）:5.616秒、16.34%
+ CUDA kernel launch API内:1.161秒、3.38%
+ GPU backendホスト処理の残り:2.062秒、6.00%
+ CPU graph:0.118秒、0.34%
+ その他:約0.12秒。
+これらはCPUから見たAPI所要時間。GPUの純粋なDMA時間/カーネル時間ではない。
+コピーAPI内のうち、H2Dは0.121秒、D2Hは25.166秒。
+少量のGPU→CPUコピーが、先に投入した重み転送やGPU演算の完了待ちを表面化させていると考えられる。
+「493MBのD2H自体に25秒必要」「この25秒を全部消せる」とは解釈しない。
+CPUでexpertを並べ替える境界の実測は240回で合計0.824秒（約2.4%）。
+本番GPUのCUPTI timelineは未取得なので、GPU内演算/DMAの完全な重なりと内訳は今後の課題。
+
+2. GPU内部のハードウェアカウンタ
+既存のCUPTI12.9.79をstrata-tc-study-20261031配下で発見し、流用した。
+前ターンの「確認した配置先にCUPTIなし」は探索範囲が不十分だった。新規ダウンロードは不要だった。
+稼働APIとは別の小さなプロセスで、実モデルの重みを使うMUL_MAT_IDを計測。
+APIがbusyになれば試験を中断。VRAM余力を確認し、expert数を最大96へ制限した。
+最大384expertの実モデル全体を再現した計測ではない。
+K/Mは本物と同じ(up5120x2304、down2304x5120)、top6、256入力/96expertの均等routingなら平均16入力/expert。
+3回の演算を1rangeとし、7passのuser replayで集計。計測用replayの時間は通常の速度値へ混ぜていない。
+
+IQ3_XXS upの代表値（現行→平均幅候補）:
+ 実HBM read+write /range時間:約109→210GB/s
+ DRAM throughput:9.68→18.74% of peak sustained elapsed
+ SM throughput:30.96→50.64% of peak sustained elapsed
+ active warp occupancy:13.68→24.48%
+ Tensor pipe active:両方0%
+ long-scoreboard待ち:19.69→12.46% per active warp
+ wait待ち:17.93→13.40%
+ math pipe待ち:6.74→11.31%
+ MIO待ち:6.41→10.89%
+割合が増えた待ち理由があっても総時間は短縮。各割合を足してモデル全体の時間割合にしない。
+これらは複数kernelとホストの隙間を含むoperator range。単一kernelだけの飽和率ではない。
+現在の量子化演算はこの条件ではTensor Coreを使わない。Tensor Coreの有無だけで速さを判断しない。
+
+同個体の過去のVRAMコピー実測は150W/ECCで943.66GB/s（読み+書き）。
+今回の代表operatorはHBM帯域を使い切る状態ではなく、並列度・処理幅・命令依存などの改善対象が残る。
+過去のコピー試験を現在の全prefillの帯域値として扱わない。
+
+3. 最初の候補が失敗した理由と修正
+mode1:大きなMoEを単純にGPU内grouped MMQへ移す。
+ IQ3_XXS up/T256/E96:5.091→10.702ms、約2.1倍遅くなった。
+ CUPTIで現行は3回分870kernel、groupedは9kernelへ減ったが、主kernelの幅Jが128だった。
+ expertあたり16入力しかないのに128幅を選ぶため、余分な演算が大きい。
+ SM throughputは73.1%へ上がったが遅い。高使用率自体が目的ではないことを実測で確認。
+
+mode2:grouped MMQ + expertあたり平均入力数で幅を選ぶ。
+ CUDA mmq.cuにはRDNA向けに同じ考え方の選択式があった。
+ これをVoltaの実験用モードへ限定して適用した。主kernelの幅は16へ変わる。
+ 元の大量のdevice kernelは再利用し、dispatcher1個だけ18.8秒で再コンパイルして別runtimeへリンク。
+ 元のソース・CUDAライブラリは不変。
+ mode0/1/2を同じ実行ファイル内で切り替え、ABBAを5round、各測定8回平均、各腕10サンプルの中央値で比較。
+ 両腕ともCUDA graphs無効。将来の本番graph captureへの効果は未測定。
+
+4. 実際の作業バッファ条件を再現すると見つかった別の問題
+以前のstream_probeのGPU bufferは通常のANY扱いだった。
+本番でCPUから送った重みはCOMPUTE bufferなので、これも再現して比較した。
+downのK=2304は512単位のpaddingが必要。
+現行fallbackではexpertスライスがviewになり、その末尾paddingを安全にゼロクリアできないため、dequant+cuBLASへ退避する条件に入る。
+GPU常駐重みなど別のbuffer属性では経路が変わるので、単に同じ行列形状だけで比較してはいけない。
+
+T256/E96/均等routing、COMPUTE buffer（ms）:
+ 型         方向   現行       候補      倍率
+ IQ2_S      up      5.504      3.429     1.605
+ IQ2_S      down   22.495      3.743     6.009
+ IQ3_XXS    up      5.171      3.130     1.652
+ IQ3_XXS    down   22.532      3.423     6.583
+ IQ3_S      up      5.454      3.467     1.573
+ IQ3_S      down   22.797      3.593     6.344
+ MXFP4      up      5.120      2.922     1.752
+ MXFP4      down   15.934      3.287     4.848
+
+IQ3_XXS downのCUPTI、3回の合計:
+ 現行:read8.029GB + write12.902GB =20.930GB、range69.120ms。
+ 候補:read1.946GB + write0.111GB =2.057GB、range9.708ms。
+ 展開等で生じるGPU内部の読み書きが大幅に減ったことを確認。
+ 実効帯域は現行約303GB/s→候補約212GB/sへ下がるが、転送すべき量が減ったため速い。
+ 「より高いGB/s/使用率が常に良い」という比較ではない。
+
+5. 偏り・入力数・数値誤差
+40件の速度比較、6件のPMU測定、3件のGPU activity測定を実施。
+40件の速度比較はすべて非有限値なし、全出力の現行比較と独立FP64サンプル参照が規定NMSE<5e-4を通過。
+GPU activityのdropped recordsは0。
+入力数1/32/128/256/512/1024、均等と偏りのあるroutingを確認した。
+偏り条件は4tokenに1回だけ全expertへ広く振り、残りは先頭6expertへ集中させた合成条件。
+MXFP4 down/T1024/偏り条件は約7.13→7.50msで約5.2%遅くなり、再現した。
+MXFP4 up/T256/偏り条件もほぼ同等〜約3%遅い。
+生成相当のT1/E6は経路が変わらず、4ケースとも出力bit一致、速度もほぼ同じ。
+
+重要な精度上の限界:
+ 現行は形状・分布に応じてF16展開+cuBLASへ切り替える。
+ 候補grouped MMQはQ8_1 activation経路を使うため、一部条件で中間計算の精度が変わる。
+ 均等T256のup比較は現行とのNMSE約5.8e-14と非常に近いが、downや大きい/偏ったupではNMSE約1.4e-5。
+ FP64参照に対して現行F16経路が約1e-8〜1e-7だった条件では、候補の誤差が増えている。
+ 単体数値チェック合格は文章品質の同等性を保証しない。up側が常にbit一致とも言えない。
+ 重みのGGUFは変更していない。中間の演算経路の問題である。
+
+6. 今後の優先順位と採用判断
+・主な課題は、1tokenあたりにCPU→GPUへ送る重み量の削減/重複転送の抑制。
+  batch拡大やVRAM内の再利用は候補だが、空きVRAMとdecodeへの影響を含めた別検証が必要。
+・GPU内部は、平均入力数に応じた処理幅の選択と、不要な展開/読み書き削減に実測の効果がある。
+・GPU内へ移すだけの一律FORCE_MMQは不採用。処理幅を調整しても偏りで悪化するので一律有効化しない。
+・本番適用前には、実routing・全モデルの速度と回答品質をA/B比較する。
+  長いモデル起動はユーザー実行の方針を維持。今回はその起動も設定切替もしていない。
+・本番GPUの正確なkernel/DMA timelineには、次回起動時のCUPTI導入などが別途必要。
+  この調査のhostコピーAPI73.6%を「GPU転送をなくせば73.6%短縮」とは扱わない。
+
+7. 終了時の確認
+API /xeon-watch /通知serviceはすべてactive、/health=ok、slot idle。
+同じllama-server PID39141が継続、設定SHA256は開始時と一致。
+実験ライブラリは本番process mapsに存在しない。自作uprobe残存0。
+GPUの計算プロセスは本番APIだけ。150W/ECC、GPU30℃/HBM29℃、VRAM30646MiB。
+監視のアラーム・センサーエラーなし。
+
+再現用ファイル
+ live_prefill.py / analyze_live.py / live/* :本番prefillの限定計測。
+ operator_probe.cpp / grouped_dispatch.cpp / activity_trace.cpp :単体計算とCUPTI。
+ mmq-average.patch / build_average_tile.py / CUDA_BUILD.json :独立したVolta候補。
+ build_probes.py / BUILD.json / before-average-tile/ :ビルド条件と初版保管。
+ run_operator.py :API idle/温度/VRAM余力を確認する独立試験runner。
+ operator-results.csv / SUMMARY.json / operators/* :全数値と元ログ。
+ LIVE_SUMMARY.json / LIVE_DEEP_SUMMARY.json / FINAL_STATE.json :結論の根拠と終了確認。
+ 実験用runtimeをそのまま本番へコピーしない。現在は同一プロセス内の試験用mode setterで経路を選択する設計。

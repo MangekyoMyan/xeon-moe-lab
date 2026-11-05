@@ -1,0 +1,53 @@
+--- a/ggml/src/ggml-cpu/arch/x86/quants.c
++++ b/ggml/src/ggml-cpu/arch/x86/quants.c
+@@ -2563,6 +2563,12 @@
+     __m256 acc = _mm256_setzero_ps();
+ 
+     for (int i = 0; i < nb; ++i) {
++        if (i + 2 < nb) {
++            _mm_prefetch((const char *) &x[i + 2] + 0, _MM_HINT_T0);
++            _mm_prefetch((const char *) &x[i + 2] + 64, _MM_HINT_T0);
++            _mm_prefetch((const char *) &x[i + 2] + 128, _MM_HINT_T0);
++            _mm_prefetch((const char *) &x[i + 2] + 192, _MM_HINT_T0);
++        }
+ 
+         const float d = y[i].d * GGML_CPU_FP16_TO_FP32(x[i].d);
+ 
+@@ -2582,7 +2588,6 @@
+         __m128i sumi_0 = _mm_setzero_si128();
+         __m128i sumi_1 = _mm_setzero_si128();
+ 
+-        int is = 0;
+ 
+         for (int j = 0; j < QK_K/128; ++j) {
+ 
+@@ -2630,20 +2635,15 @@
+             __m128i p16_6 = _mm_maddubs_epi16(q4_6, q8_6);
+             __m128i p16_7 = _mm_maddubs_epi16(q4_7, q8_7);
+ 
+-            const __m128i scale_0 = _mm_shuffle_epi8(scales, get_scale_shuffle(is + 0));
+-            const __m128i scale_1 = _mm_shuffle_epi8(scales, get_scale_shuffle(is + 1));
+-            const __m128i scale_2 = _mm_shuffle_epi8(scales, get_scale_shuffle(is + 2));
+-            const __m128i scale_3 = _mm_shuffle_epi8(scales, get_scale_shuffle(is + 3));
+-            is += 4;
+-
+-            p16_0 = _mm_madd_epi16(_mm_cvtepi8_epi16(scale_0), p16_0);
+-            p16_1 = _mm_madd_epi16(_mm_cvtepi8_epi16(_mm_bsrli_si128(scale_0, 8)), p16_1);
+-            p16_2 = _mm_madd_epi16(_mm_cvtepi8_epi16(scale_1), p16_2);
+-            p16_3 = _mm_madd_epi16(_mm_cvtepi8_epi16(_mm_bsrli_si128(scale_1, 8)), p16_3);
+-            p16_4 = _mm_madd_epi16(_mm_cvtepi8_epi16(scale_2), p16_4);
+-            p16_5 = _mm_madd_epi16(_mm_cvtepi8_epi16(_mm_bsrli_si128(scale_2, 8)), p16_5);
+-            p16_6 = _mm_madd_epi16(_mm_cvtepi8_epi16(scale_3), p16_6);
+-            p16_7 = _mm_madd_epi16(_mm_cvtepi8_epi16(_mm_bsrli_si128(scale_3, 8)), p16_7);
++            const __m128i scales16 = j == 0 ? scales_16_0 : scales_16_1;
++            p16_0 = _mm_madd_epi16(_mm_shuffle_epi8(scales16, _mm_set1_epi16(0x0100)), p16_0);
++            p16_1 = _mm_madd_epi16(_mm_shuffle_epi8(scales16, _mm_set1_epi16(0x0302)), p16_1);
++            p16_2 = _mm_madd_epi16(_mm_shuffle_epi8(scales16, _mm_set1_epi16(0x0504)), p16_2);
++            p16_3 = _mm_madd_epi16(_mm_shuffle_epi8(scales16, _mm_set1_epi16(0x0706)), p16_3);
++            p16_4 = _mm_madd_epi16(_mm_shuffle_epi8(scales16, _mm_set1_epi16(0x0908)), p16_4);
++            p16_5 = _mm_madd_epi16(_mm_shuffle_epi8(scales16, _mm_set1_epi16(0x0b0a)), p16_5);
++            p16_6 = _mm_madd_epi16(_mm_shuffle_epi8(scales16, _mm_set1_epi16(0x0d0c)), p16_6);
++            p16_7 = _mm_madd_epi16(_mm_shuffle_epi8(scales16, _mm_set1_epi16(0x0f0e)), p16_7);
+ 
+             sumi_0 = _mm_add_epi32(sumi_0, _mm_add_epi32(p16_0, p16_2));
+             sumi_1 = _mm_add_epi32(sumi_1, _mm_add_epi32(p16_1, p16_3));

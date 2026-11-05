@@ -1,0 +1,72 @@
+{
+  "goal_status": "complete",
+  "started_utc": "2026-10-26T17:04:49.945652+00:00",
+  "baseline": "/home/codex/projects/llm-lab/moe-implementation-20261026/release/READY.json",
+  "phase": "Closed at user-permitted practical stopping point; model-specific work deferred",
+  "active_processes": [],
+  "iteration": 6,
+  "hypotheses": [
+    {
+      "id": "I001",
+      "claim": "Broadcast shared decode input rather than duplicate per GPU-hit expert; reduces transfers/quantization work without model-specific shapes",
+      "status": "measured; input bytes -39.64%, decode -0.13%; not adopted as default"
+    },
+    {
+      "id": "I002",
+      "claim": "Replace GLM-specific plan assumptions with validated metadata/shape-driven planning and model identity",
+      "status": "completed iteration: metadata + bound planning + first-model calibration + validated general launcher; alternate model runtime performance not yet validated"
+    },
+    {
+      "id": "I003",
+      "claim": "Prefill dispatch should depend on measured per-expert reuse, not compact-hitcount alone",
+      "status": "prefill24 validated on frozen backend+6.19%, longerinput+6.97%, Japanese+5.82%; applied in model-bound launcher"
+    },
+    {
+      "id": "I004",
+      "claim": "Pair prefill gate/up GPU jobs and CPU input preparation with bounded reusable graph buffers",
+      "status": "actual strided path verified and bitexact; combined -1.24..-1.41%,GPU-only -3.05%; neither adopted"
+    },
+    {
+      "id": "I005",
+      "claim": "Bounded online promotions with triplet-atomic publication and measured transfer cost may improve changing workloads",
+      "status": "implemented and tested; not adopted: +0.51% in firstpairedscreen but outputNMSE0.00149/top1changes3of128; GPUreadbackcorrect andCPUshadow64positionsbitexact; model-specific tuning deferred"
+    },
+    {
+      "id": "I006",
+      "claim": "Distinguish OpenMP wait costs and memory saturation during expert math",
+      "status": "cycles69.51%Q8dot/25.45%gomp; shortspin-3.4..4.1%; CPUwindow40.4GB/s,compute-denominator43.3 vsreadreference46.2..46.7GB/s; outputbitexact"
+    },
+    {
+      "id": "I007",
+      "claim": "CPU-order Q8 CUDA arithmetic can remove placement-dependent numerical differences",
+      "status": "standalone finalv2 508cases136088values bitexact; archivedkernels/q8-exact-v2; not integrated or performancevalidated"
+    }
+  ],
+  "safety": {
+    "GPU_W_default": 150,
+    "GPU_W_max": 200,
+    "GPU_C_stop": 60,
+    "HBM_C_stop": 65,
+    "fan_percent_max": 70,
+    "Full_mode": false,
+    "ECC": true
+  },
+  "generality_requirements": [
+    "explicit model path and metadata-derived shape/quant/expert inventory",
+    "no fixed128experts or45layers in new planning",
+    "quantized type support gated by realCPU/CUDA correctness",
+    "model identity prevents wrong plan reuse",
+    "prefill/decode benchmark matrix across shapes and models",
+    "acceptedv2 remains runnable as comparison"
+  ],
+  "next": [],
+  "updated_utc": "2026-10-26T21:04:58.856353+00:00",
+  "latest_report": "/home/codex/projects/llm-lab/moe-engine-20261027/reports/cpu-gpu-dispatch/CPU_GPU_ALGORITHM_JA.html",
+  "best_entrypoint": "/home/codex/projects/llm-lab/run_xeon_volta_model.sh",
+  "scope_update": "User permits stopping at practical limit and defers model-specific optimization; do not continue GLM residency tuning",
+  "deferred": [
+    "Model-specific placement/hyperparameter tuning (explicitly deferred byuser)",
+    "Optional integration and performance evaluation of CPU-order Q8 GPU kernel; not a validated production acceleration",
+    "Rebenchmark after512GBmemoryupgrade; measuredprofileautomaticallyinvalidatedonMemTotalchange"
+  ]
+}

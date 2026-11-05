@@ -1,0 +1,41 @@
+2026-10-25〜26 Xeon/Volta 専用推論エンジン 実測記録
+
+Llama.cppを土台に、GLM-4.5-Air Q8_0向けのCPU/GPU協調バックエンドを実装した。従来の起動コマンドと基準ソースは保持。新しい入口は /home/codex/projects/llm-lab/run_xeon_volta.sh 。
+
+実際の回答生成（tok/s、各質問は従来版と同じ条件。RAMのファイルキャッシュが温まった状態）
+  日本語の計算＋GPU説明: 7.01 -> 9.62 (+37.2%)、生成時cache命中 54.4%
+  説明付きPython回答（双方256token上限）: 7.02 -> 7.85 (+11.8%)、生成時cache命中 36.2%
+  英語の説明: 7.09 -> 7.78 (+9.7%)、生成時cache命中 36.1%
+  短いPythonコードのみ: 7.07 -> 6.85 (-3.1%)、生成時cache命中 23.0%
+
+モデル読み込み時間は平均 21.51秒 -> 12.65秒。約22GiBのexpertキャッシュ構築そのものは11.97秒 ->2.96秒。これはHDDからの冷たい初回読込の数字ではない。再起動後などのHDD読込時間は別にかかる。
+
+短いコードでは生成速度が約3%低下したが、起動から回答終了までは35.27秒 ->26.65秒だった。説明付きコードの速度測定は両方とも256tokenで途中終了したため、その回答を完成したコードとは評価していない。別のコードのみの質問では両方が最後まで生成し、構文と4種類の入力に対する動作を確認した。日本語の計算は両方42、英語の索引説明も内容を確認した。
+
+固定トークンの反復測定では、配置作成に使っていない256tokenの文章で従来7.234 ->専用スレッド版8.827 tok/s（+22.0%、各2回）。ランダムtokenのllama-benchでは、入力19.208 ->19.274 tok/s、生成7.111 ->6.862 tok/s（約3.5%低下、各4サンプル）。キャッシュの命中率が低い入力では分担の手間を回収できない。全入力で速いという結果ではない。
+
+実装は、実際のroutingから選んだ1285組のexpertを約22GiBへ固定配置し、GPUの担当とCPUの担当を並行して処理する方式。Q8の重みとtop8を維持する。入力処理も分担し、作業バッファを再利用する。入力用・生成用プールはGPU重みを共有する。GPUへの仕事の依頼と結果受取は専用スレッド、初回の重みコピーはCPU0/1/6/7の4コアと二つの固定メモリバッファで処理する。コピー用スレッドは初期化後に待機する。
+
+初回構築の観察では、約12秒のうち11.71秒が一つのCPUスレッドのmemcpyだった。GPU割当63.5ms、イベント待ち20.3ms、major fault0だった。4コア化後はCPUコピー1.45秒、PCIeイベント待ち1.21秒となり、構築全体2.96秒になった。転送を速くする前にCPU側の準備が足かせだったことを実測で分離できた。
+
+採用しなかった方法: 最初の入力63tokenだけで配置を選ぶ方法は、話題が変わる評価文で命中率31%・7.28 tok/sへ低下したため標準には採用しなかった。GPUの処理依頼をCPUスレッド0から直接行う最初の版も待ち合わせの費用が大きく、専用スレッド方式へ変更した。失敗や中間版はEXPERIMENTS.jsonlと各結果フォルダに保存してある。
+
+数値検証: 採用版の単体検証216ケースで、全GPU/一部GPU/全CPU、expert ID重複、複数token、128token、行数4097、重みの切替、二つのプールの共有、一方を解放した後の継続を確認した。GPU計算とCPU計算の最大NMSEは約9.8e-9。実モデルの入力と生成でも約5919万個の値を直接照合し最大NMSE約2.23e-8。GPU計算を観察だけにしてCPU出力を使う場合は基準のモデル出力と完全一致した。並行処理と並列コピーへの変更は、検証済みGPU分担版の18地点の全語彙出力と完全一致した。
+
+CPUとGPUでは丸め・加算順の差があり、モデル全体の出力はCPU基準とビット一致ではない。別文256地点で最有力token252/256一致、全語彙平均KL0.00216、PPL比0.99412。これは広範なモデル品質の同等性を証明する評価ではない。初期の生logit NMSEチェック失敗も保存し、その後に各expertの直接照合と確率分布の比較で差を調べた。
+
+動作条件: 2x Xeon E5-2630L v2、128GB RAM、PG500-216 32GiB、CUDA12.9.2/SM70、GPU150W、ECC有効。12 CPU計算スレッド、poll0、NUMA interleave、no-op-offload、context4096。512GB増設はまだ行われていない。現状はこのQ8モデルと構成に限定した試作で、DeepSeek-V4系や他の量子化形式をそのまま保証するものではない。
+
+静音監視下の主要検証ではGPU最大37℃、HBM最大39℃、CPU最大46℃。FAN1最大2625rpm、FAN3最大3075rpm、FAN5最大2700rpm、FANB最大975rpm。ファンの設定変更やFull modeは行っていない。監視したECC/PCIe/LANのエラーカウンタ増加なし。終了時は実験プロセスなし、VRAM使用0MiB、GPU31℃、HBM30℃。ネットワーク設定は変更していない。
+
+起動例:
+  /home/codex/projects/llm-lab/run_xeon_volta.sh --prompt '17+25はいくつですか。'
+  /home/codex/projects/llm-lab/run_xeon_volta.sh --max-tokens 512 --prompt-file /path/to/prompt.txt
+従来版は /home/codex/projects/llm-lab/run_glm_air_v100.sh 。
+
+再開用メモは notes/CURRENT.json と notes/RESUME.txt。判断履歴は notes/DECISIONS.txt、全実験の履歴は notes/EXPERIMENTS.jsonl。生ログは results/ と ../results/v100-performance-20261025/xv-*。再現用ハッシュは results/FINAL_MANIFEST.json、集計は results/FINAL_METRICS.json、CPU変更は results/cpu-overlay.patch。
+
+参考にした一次資料:
+  Strata: https://github.com/Niko1221/Strata/tree/41cf05a06a25dd29103b7b27a2279a3f60c21876
+  FreeToken: https://github.com/FlashML-org/FreeToken/tree/0bf7dbbf23156dc87b8e8bc43a4b2e718b27d5d5
+配置、CPU/GPU並行処理、転送費用とバッファ管理の考え方を参考にした。参照版とライセンス、取得ファイルのハッシュはreferences/に保存。実装は既存ggml APIを利用して独立に作成した。

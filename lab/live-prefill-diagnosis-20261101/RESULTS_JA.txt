@@ -1,0 +1,73 @@
+DeepSeek-V4.1-Flash-1017: 初動遅延とキャッシュの実測 / 2026-11-01
+
+実測で分かったこと
+現在のエンジンでも、直前の会話へ追加する形ならキャッシュは働く。
+518トークンの同じ入力では、510トークンを再利用して8トークンだけ計算した場合、回答完了まで1.743秒。キャッシュを無効にして全部計算した場合は57.800秒。返答は両方8426。
+これはキャッシュ条件の比較であり、エンジンを改修して常時33倍にしたという結果ではない。
+
+測定方法
+稼働済みAPIへ合成会話だけを送信。合計19リクエスト、並列送信なし。
+同一比較内はcache_prompt以外の入力・パラメータが一致。temperature0/seed42、各条件1回。
+元のユーザー会話、APIキーは測定成果物へ保存していない。
+起動、ダウンロード、ビルド、サービス再起動、ランタイム設定変更は行っていない。
+
+主要比較（秒）
+条件                         再利用/入力  新規計算  prefill    初文字    回答完了
+日本語stream継続・cacheあり     85/98         13       1.983     1.997     8.106
+同じ日本語入力・cacheなし       0/98         98      10.869    10.885    17.047
+約500token継続・cacheあり      510/518         8       1.278      未計測      1.743
+同じ約500token入力・cacheなし    0/518       518      57.347      未計測     57.800
+
+日本語stream比較は出力全文、終了理由、出力token数32が一致。
+英語短文は30/38再利用、nativeの厳密token ID継続は17/18再利用。参照と出力一致。
+native継続では返却された生成token ID列も参照と一致。ただしlogits全比較ではない。
+約500token試験はモデルのrawSWA窓128tokenをまたぐ。128k全体やcheckpoint復元の正しさは未検証。
+
+再prefillの再現
+1. 普通の日本語会話は41token再利用できた。
+2. 別の短いタイトル生成を模した質問を送った。
+3. 元の会話の続きを送ると、98tokenが全再計算となった（prefill10.829秒、cache0）。
+別要求が一つのslotを置き換えると再計算になることは実測済み。
+同じ質問をそのまま再送した場合も、38token全再計算を確認。
+ただし、実ユーザーの通信で何が割り込んだか、どの指示が書き換わったかは未特定。
+Open WebUI自動タイトルが今回の原因だった、と断定しない。
+
+現在の仕組みと設定
+同時slot1、cache-prompt有効、cacheRAM0、ctx-checkpoints0、no-cont-batching。
+現在の会話の状態は保持するが、別会話の状態をRAMへ退避する設定ではない。
+DeepSeekの圧縮状態は任意地点へ巻き戻せない。前の状態より前へ戻る必要があり、使えるcheckpointがなければ全prefillに戻る。
+正確なtoken列の追加なら、今回の実測のとおり再利用できる。
+会話履歴全体をAPIへ再送することと、それを全部再計算することは別。履歴送信は省略しない。
+
+既存の遅延とハードウェア
+実ユーザーのログではprefill約8.3〜9.1tok/s、生成約5tok/s。約500tokenの全prefillで約1分になる。
+今回のcache比較でも生成速度自体は概ね5tok/sのまま。初動改善と生成速度の改善を区別する。
+初期観察では処理済み2871tokenに対しcache累積0だったが、合成試験では再利用できた。
+稼働中57.4秒の観察でプロセスのHDDread_bytesは増えず、約322GiBがmlock済み、swap0。
+したがって、その区間の遅さをHDD再読込で説明する証拠はない。
+現行配置はrouted expertsとEngramがCPU/RAM、attention等がGPU。CPU計算とDRAM帯域のどちらが支配的かは今回の試験で分離していない。
+既存daemon履歴の1区間ではGPU最大32C/HBM31C/CPU42C、fan最大約50%。GPU電力最大48W。粗いサンプルであり全瞬間のピーク保証ではない。
+GPU150W/ECC有効、fan70%上限を維持。
+
+まず行う小さな運用改善
+Open WebUIの不要なタイトル・タグ・フォローアップ・入力補完をOFF、またはこのDeepSeek endpoint以外へ分ける。
+手順はopen-webui-background-tasks-ja.txt。MainPC側の設定はここから変更していない。
+現在の公式資料でも、背景タスクは既定で会話モデルを使うと説明されている:
+ https://docs.openwebui.com/features/administration/task-models/
+背景タスクを止めても続く場合は、固定のsystem指示・固定のtools・添付なしの新規会話で2往復して切り分ける。
+時刻変数、メモリ挿入、検索/引用の再挿入などが前方を書き換えないかを確認する:
+ https://docs.openwebui.com/features/chat-conversations/prompt-caching/
+実際のOpen WebUI設定を確認するまでは、原因候補として扱う。
+
+今回追加・修正したもの
+- probe_cache.py: chat/native/flow/stream/longの小規模比較。起動中・idleなAPIのみ使用。
+- observe_cache.py: metrics-only応答で本文を取れない場合に、空文字の一致・不一致と誤判定しないよう修正。本文は保存しない。
+- RESULTS_JA.txt、RESULT.json、Open WebUI手順、bringup側README/STATE/RESUMEを更新。
+エンジンソース、バイナリ、実行設定、電力、ファン、ネットワークは変更していない。
+
+次段階
+Open WebUI実通信でcache_nが増えるかを確認する。自動観察スクリプトはここでは常駐させていない。
+現在のGET/slotsは本文・requestのcache_prompt・正確な不一致位置を返さないため、これだけで発生源を断定できない。
+OpenMP待機方式やubatch増加は、別条件で起動する比較が必要。重い再起動はユーザー実行の方針を維持。
+checkpoint復元は別の正確性試験が必要。未検証のguard解除や状態復元の有効化はしていない。
+APIとxeon-watch/notifyは最後にactive、API health ok、slot idleを確認した。

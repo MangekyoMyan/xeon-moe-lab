@@ -1,0 +1,133 @@
+KVをRAMへ置き、空いたVRAMをexpertへ使う案の検証 / 2026-11-04
+
+判断
+現在の128k設定では採用を見送る。
+必要KV行だけのRAM取得・GPU転送・Attentionは試作で動き、GPU常駐版と出力がbit一致した。
+しかし、現モデルのKVは層間共有により非常に小さく、GPUに索引と直近windowを残して回収できるのは約320MiB。
+現在の層単位expert配置（1層4.32～6.72GiB）を増やすには足りない。
+既存の部分expertキャッシュに320MiBだけを割り当てると、全groupが最低slot数を満たさず初期化に失敗した。
+この容量のためにprefill/状態保存/巻き戻しまで含む本番エンジンを大きく変更する利益は確認できなかった。
+
+ユーザーから「効果が薄ければ却下でよい」と追加指示あり。
+本番コード・設定は変更せず、APIを維持。試験コードと測定値を将来の長文設定用に残す。
+この結論は、独自の部分expert配置や既存の空きVRAM併用も全て不可能だという意味ではない。
+それらは別の配置方式・cache miss時の処理・実際のhit率の検証が必要で、今回高速化したとは主張しない。
+
+1. 実モデルのKV構造
+
+DeepSeek-V4.1-Flash-1017 Mix-256G、128k=131072、f16、1slot、ubatch1024、recurrent snapshots0。
+メタデータ: 40層、Attention head64、KV head1、head dim512、index dim128、top-k512、window128。
+KV源は層2/8/14/20の4組。index/top-k源は2/8/14/20/24/28/32/36の8組。
+圧縮比は3組が2、最後の1組が1。後段ではKVを共有し、別のindex/top-kで参照する。
+
+今のライブラリを使い、モデル重みをno_alloc + load_mode NONEで読み飛ばしてメタデータだけを構築した。
+モデルのmemory生成コードから、KV/stateのbuffer単位のサイズを取得した。
+さらに128kのKV/stateだけをGPUへ実確保して解放し、推定サイズと一致することを確認した。
+346GBのモデル重みを再ロードしたり、別APIを起動したりした試験ではない。
+
+128k、同設定のKV/state割当:
+  raw/SWA領域       50.000MiB（40層、バッファはubatch分を含め1280行）
+  CSA共有KV        240.000MiB
+  HCA共有KV        160.000MiB
+  独立LID領域        0.000MiB（V4.1はindexを共有KVに同居）
+  compressor state   0.027MiB
+  合計             450.027MiB
+
+圧縮KV400MiBのうち、512次元の本体が320MiB、128次元の索引が80MiB。
+本体だけRAMへ置き、索引/raw/stateをGPUに残せば、追加転送用scratchを引く前の回収上限は320MiB。
+この450MiBは構築したKV/state bufferのサイズで、稼働APIのGPU使用量全体ではない。
+CUDA context、重み、Attention/FFNの作業領域、allocatorの管理分などは含まない。
+
+同一設定でcontextだけを変えたallocator計算（128k以外は実確保なし）:
+  context     KV/state合計MiB   GPUから回収可能なKV本体MiB
+     8192          75.027                  20
+    32768         150.027                  80
+   131072         450.027                 320
+   262144         850.027                 640
+   524288        1650.027                1280
+  1048576        3250.027                2560
+
+回収量は「同じcontextの全GPU配置との比較」。現在128kから長文へ伸ばしたときの空き容量増加ではない。
+大きなcontextでの全モデルVRAM適合、prefill速度、長文品質は未検証。
+
+2. 選択行だけを送る試験
+
+本モデルのsource/top-k組は8組で、選択済みKVのgatherを層間で再利用する構造。
+top-k512に達した後、f16本体は1組512*512*2=524288 bytes。
+8組ならKV本体4MiB/token、IDは512*4*8=16KiB/token。
+新しいKV行の保存、索引データ更新等の通信は別。これらの値を全PCIe通信量と扱わない。
+
+試した方法:
+  0 GPU常駐のcombined KVからGPUで選択行を集め、GPU Attention。
+  1 GPU IDsをCPUへ取得し、既存CPU get_rows + f16 castで選択、固定RAM bufferからGPUへ転送、Attention。
+  2 同じ転送経路で、CPU1threadがf16をbyte copyして選択。
+  3 同じ転送経路で、CPU12物理threadがf16をbyte copyして選択。
+
+RAM側の全履歴は通常RAM、選択済み出力・ID受信領域はpinned RAM。
+rawはGPUへ残す。FAはD512/H64、raw128有効 +128 masked padding +選択512行。
+CPU/PCIe処理を含む時間を測り、GPUは同期完了まで待つ。
+indexerでIDを選ぶ時間、測定用IDの事前GPU投入、KV更新、他の層、モデル全体は計測外。
+
+履歴4096/65536/131072/524288/1048576行、散在/連続寄りの2パターン。
+3プロセス、各8組の往復順比較。先頭になる方式を順番に変え、固定順序の偏りを抑えた。
+選択IDは合成データで、実モデルの参照分布を測ったものではない。
+複数方式を同じIDで比較するためウォームキャッシュ効果は残る。
+
+128kで必要な3回のCSA/5回のHCAアクセスとして、個別の中央値を加重加算した結果:
+  GPU常駐                    約0.52ms
+  CPU既存get_rows+cast        約1.52ms（追加約1.00～1.02ms）
+  CPU1thread byte copy        約1.60～1.79ms（追加約1.09～1.27ms）
+  CPU12thread byte copy       約1.15～1.19ms（追加約0.64～0.67ms）
+
+これは個別測定からの直列換算値。8組を本モデル中で連続実行した実測でも、生成1token全体の遅延でもない。
+本番で隠せる転送/CPU作業、同期待ち、cache hit分布により変わる。
+各時間成分の中央値を足しても、合計時間の中央値と一致するとは限らない。
+
+3. 正しさの確認
+
+各行の最初の2要素へ行IDを表現し、データの周期性で誤った行取得が見逃されないようにした。
+境界行、複数の索引配置、timingに使ったすべてのID集合について:
+・RAMから選んで転送したKV bytesが対応する元の行と一致。
+・Attention出力がGPU常駐版とbit一致。
+・全Attention出力が有限値。
+各ケース67組のID集合、5履歴長・2配置・3プロセスで検証した。
+
+最初の試作はキー数640で、D512のCUDA FAが要求するpadding条件を満たさず試験プロセスがabortした。
+本体の条件に合わせて768へ修正し、backend supports_opチェックも追加した後、全試験を通過。
+これは試験グラフの寸法エラーで、本番モデルやGPUドライバーの障害ではない。
+
+試作で検証したのは選択行の取得・転送とAttention段階。
+モデル全体への組込み、index shadowの更新、複数token prefill、prefix cache、状態復元/巻き戻しは未実装・未検証。
+
+4. expertへ容量を振り替える効果
+
+現在のCPU expert1層の重みは4.318～6.724GiB。
+320MiBでは、今の固定配置でGPU常駐層を1層増やせない。
+
+既存のllama_moe_cacheを実モデルのメタデータとCPU/GPU配置で生成し、no_allocでslot配分を確認した:
+  320MiB: 全groupが無効、最低必要量不足の例外。
+  640MiB: 24層が有効だが、代表groupは6層共有6slots / 10層共有11slots / 8層共有8slots。
+          各層6expertを使うので、1tokenの全利用分36/60/48slotsに対して小さい。
+  より大きなbudgetの配置も保存したが、実際のcache hitや速度は測っていない。
+
+この実装はlayoutの合う層群ごとに容量を比例配分し、最低6slot+paddingを必要とする。
+有効にした層ではmiss分もGPUへ転送して計算する。hitはGPU/missはCPUという分担にはならない。
+従って単に320MiBを指定して、増えた分だけCPU処理が減るとは扱えない。
+既存の余裕VRAMとの併用や独自の部分配置なら別の余地はあるが、今回その利益を実測したわけではない。
+
+5. 結論と再開条件
+
+選択KV転送の仕組み自体は小さな試作で動作し、転送量も抑えられた。
+今回は元のKVが小さいため、expert側で得る利益を確認できず、128k本番への採用を見送る。
+長文設定やKVが大きい別モデルで、回収量がGiB単位になった場合は再検討する価値がある。
+その際はindex選択・更新・prefill・状態保存も含めた実装と、追加expertの実際のhit率/全体tok/sを比較する。
+
+資料:
+  SUMMARY.json / TRANSFER_RUNS.json / MODEL_METADATA.json
+  execution/memory-layout/ : metadataモデル +実KV確保の内訳
+  execution/selected-kv-transfer-v2*/ : 出力一致・転送計算の試験
+  execution/moe-budget-layout/ : 実装そのものによるexpert slot配分（no_alloc）
+  memory_probe.cpp / tiering_probe.cpp / moe_budget_probe.cpp : 再実行できる試験コード
+
+Astra極高にはアーキテクチャと安全な容量取得経路を確認してもらい、Terraには測定の解釈・正しさをレビューしてもらった。
+親エージェントが試作の編集・実行を担当。全試験は既存監視ガード付きで実施した。

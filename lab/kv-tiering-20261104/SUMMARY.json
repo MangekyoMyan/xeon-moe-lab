@@ -1,0 +1,633 @@
+{
+  "status": "prototype_tests_complete_production_adoption_deferred",
+  "real_128k_memory": {
+    "context": 131072,
+    "real_KV_allocation": true,
+    "model_weights_allocated": false,
+    "raw_bytes": 52428800,
+    "CSA_bytes": 251658240,
+    "HCA_bytes": 167772160,
+    "LID_bytes": 0,
+    "CSA_state_bytes": 24576,
+    "HCA_state_bytes": 4096,
+    "LID_state_bytes": 0,
+    "total_bytes": 471887872
+  },
+  "capacity_table": [
+    {
+      "context": 8192,
+      "total_KV_state_MiB": 75.02734375,
+      "compressed_KV_MiB": 25.0,
+      "index_kept_on_GPU_MiB": 5.0,
+      "payload_reclaim_upper_MiB": 20.0
+    },
+    {
+      "context": 32768,
+      "total_KV_state_MiB": 150.02734375,
+      "compressed_KV_MiB": 100.0,
+      "index_kept_on_GPU_MiB": 20.0,
+      "payload_reclaim_upper_MiB": 80.0
+    },
+    {
+      "context": 131072,
+      "total_KV_state_MiB": 450.02734375,
+      "compressed_KV_MiB": 400.0,
+      "index_kept_on_GPU_MiB": 80.0,
+      "payload_reclaim_upper_MiB": 320.0
+    },
+    {
+      "context": 262144,
+      "total_KV_state_MiB": 850.02734375,
+      "compressed_KV_MiB": 800.0,
+      "index_kept_on_GPU_MiB": 160.0,
+      "payload_reclaim_upper_MiB": 640.0
+    },
+    {
+      "context": 524288,
+      "total_KV_state_MiB": 1650.02734375,
+      "compressed_KV_MiB": 1600.0,
+      "index_kept_on_GPU_MiB": 320.0,
+      "payload_reclaim_upper_MiB": 1280.0
+    },
+    {
+      "context": 1048576,
+      "total_KV_state_MiB": 3250.02734375,
+      "compressed_KV_MiB": 3200.0,
+      "index_kept_on_GPU_MiB": 640.0,
+      "payload_reclaim_upper_MiB": 2560.0
+    }
+  ],
+  "selected_payload_bytes_per_8_pairs": 4194304,
+  "selected_ids_bytes_per_8_pairs": 16384,
+  "timing_scope": "3 CSA bank pair medians + 5 HCA bank pair medians; serial extrapolation, not measured full token time; 3 separate runs",
+  "timings": {
+    "spread": {
+      "0": {
+        "runs": [
+          {
+            "weighted_eight_pairs_ms": 0.521779,
+            "extra_vs_resident_ms": 0.0
+          },
+          {
+            "weighted_eight_pairs_ms": 0.520365,
+            "extra_vs_resident_ms": 0.0
+          },
+          {
+            "weighted_eight_pairs_ms": 0.48669699999999994,
+            "extra_vs_resident_ms": 0.0
+          }
+        ],
+        "median_extra_ms": 0.0,
+        "extra_ms_range": [
+          0.0,
+          0.0
+        ]
+      },
+      "1": {
+        "runs": [
+          {
+            "weighted_eight_pairs_ms": 1.5893359999999999,
+            "extra_vs_resident_ms": 1.0675569999999999
+          },
+          {
+            "weighted_eight_pairs_ms": 1.521563,
+            "extra_vs_resident_ms": 1.001198
+          },
+          {
+            "weighted_eight_pairs_ms": 1.5035859999999999,
+            "extra_vs_resident_ms": 1.016889
+          }
+        ],
+        "median_extra_ms": 1.016889,
+        "extra_ms_range": [
+          1.001198,
+          1.0675569999999999
+        ]
+      },
+      "2": {
+        "runs": [
+          {
+            "weighted_eight_pairs_ms": 1.793315,
+            "extra_vs_resident_ms": 1.271536
+          },
+          {
+            "weighted_eight_pairs_ms": 1.786076,
+            "extra_vs_resident_ms": 1.265711
+          },
+          {
+            "weighted_eight_pairs_ms": 1.7648609999999998,
+            "extra_vs_resident_ms": 1.2781639999999999
+          }
+        ],
+        "median_extra_ms": 1.271536,
+        "extra_ms_range": [
+          1.265711,
+          1.2781639999999999
+        ]
+      },
+      "3": {
+        "runs": [
+          {
+            "weighted_eight_pairs_ms": 1.185925,
+            "extra_vs_resident_ms": 0.6641459999999999
+          },
+          {
+            "weighted_eight_pairs_ms": 1.1859579999999998,
+            "extra_vs_resident_ms": 0.6655929999999999
+          },
+          {
+            "weighted_eight_pairs_ms": 1.164287,
+            "extra_vs_resident_ms": 0.6775900000000001
+          }
+        ],
+        "median_extra_ms": 0.6655929999999999,
+        "extra_ms_range": [
+          0.6641459999999999,
+          0.6775900000000001
+        ]
+      }
+    },
+    "clustered": {
+      "0": {
+        "runs": [
+          {
+            "weighted_eight_pairs_ms": 0.519011,
+            "extra_vs_resident_ms": 0.0
+          },
+          {
+            "weighted_eight_pairs_ms": 0.518062,
+            "extra_vs_resident_ms": 0.0
+          },
+          {
+            "weighted_eight_pairs_ms": 0.485292,
+            "extra_vs_resident_ms": 0.0
+          }
+        ],
+        "median_extra_ms": 0.0,
+        "extra_ms_range": [
+          0.0,
+          0.0
+        ]
+      },
+      "1": {
+        "runs": [
+          {
+            "weighted_eight_pairs_ms": 1.533483,
+            "extra_vs_resident_ms": 1.014472
+          },
+          {
+            "weighted_eight_pairs_ms": 1.513147,
+            "extra_vs_resident_ms": 0.995085
+          },
+          {
+            "weighted_eight_pairs_ms": 1.4907030000000001,
+            "extra_vs_resident_ms": 1.005411
+          }
+        ],
+        "median_extra_ms": 1.005411,
+        "extra_ms_range": [
+          0.995085,
+          1.014472
+        ]
+      },
+      "2": {
+        "runs": [
+          {
+            "weighted_eight_pairs_ms": 1.609744,
+            "extra_vs_resident_ms": 1.0907330000000002
+          },
+          {
+            "weighted_eight_pairs_ms": 1.600127,
+            "extra_vs_resident_ms": 1.082065
+          },
+          {
+            "weighted_eight_pairs_ms": 1.571446,
+            "extra_vs_resident_ms": 1.0861539999999998
+          }
+        ],
+        "median_extra_ms": 1.0861539999999998,
+        "extra_ms_range": [
+          1.082065,
+          1.0907330000000002
+        ]
+      },
+      "3": {
+        "runs": [
+          {
+            "weighted_eight_pairs_ms": 1.1517920000000001,
+            "extra_vs_resident_ms": 0.6327810000000001
+          },
+          {
+            "weighted_eight_pairs_ms": 1.155961,
+            "extra_vs_resident_ms": 0.637899
+          },
+          {
+            "weighted_eight_pairs_ms": 1.130834,
+            "extra_vs_resident_ms": 0.6455419999999998
+          }
+        ],
+        "median_extra_ms": 0.637899,
+        "extra_ms_range": [
+          0.6327810000000001,
+          0.6455419999999998
+        ]
+      }
+    }
+  },
+  "methods": {
+    "0": "GPU resident gather + Attention",
+    "1": "CPU GGML get_rows + f16 cast + H2D + Attention",
+    "2": "CPU serial byte gather + H2D + Attention",
+    "3": "CPU 12-thread byte gather + H2D + Attention"
+  },
+  "expert_layer_GiB_range": [
+    4.317626953125,
+    6.7236328125
+  ],
+  "moe_budget_allocations": [
+    {
+      "budget_MiB": 320,
+      "no_alloc": true,
+      "enabled_layers": 0,
+      "error": "MoE cache is too small to hold the experts of one token"
+    },
+    {
+      "budget_MiB": 640,
+      "no_alloc": true,
+      "GPU_bytes": 416286720,
+      "host_bytes": 36864,
+      "enabled_layers": 24,
+      "groups": [
+        {
+          "slots": 6,
+          "minimum_distinct_slots_per_token": 36,
+          "layers": [
+            0,
+            1,
+            2,
+            3,
+            6,
+            7
+          ]
+        },
+        {
+          "slots": 11,
+          "minimum_distinct_slots_per_token": 60,
+          "layers": [
+            5,
+            9,
+            10,
+            11,
+            12,
+            14,
+            16,
+            18,
+            19,
+            35
+          ]
+        },
+        {
+          "slots": 8,
+          "minimum_distinct_slots_per_token": 48,
+          "layers": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            32
+          ]
+        }
+      ]
+    },
+    {
+      "budget_MiB": 1280,
+      "no_alloc": true,
+      "GPU_bytes": 1158266880,
+      "host_bytes": 50688,
+      "enabled_layers": 33,
+      "groups": [
+        {
+          "slots": 13,
+          "minimum_distinct_slots_per_token": 36,
+          "layers": [
+            0,
+            1,
+            2,
+            3,
+            6,
+            7
+          ]
+        },
+        {
+          "slots": 23,
+          "minimum_distinct_slots_per_token": 60,
+          "layers": [
+            5,
+            9,
+            10,
+            11,
+            12,
+            14,
+            16,
+            18,
+            19,
+            35
+          ]
+        },
+        {
+          "slots": 11,
+          "minimum_distinct_slots_per_token": 30,
+          "layers": [
+            13,
+            17,
+            21,
+            22,
+            36
+          ]
+        },
+        {
+          "slots": 8,
+          "minimum_distinct_slots_per_token": 24,
+          "layers": [
+            15,
+            20,
+            31,
+            33
+          ]
+        },
+        {
+          "slots": 18,
+          "minimum_distinct_slots_per_token": 48,
+          "layers": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            32
+          ]
+        }
+      ]
+    },
+    {
+      "budget_MiB": 2560,
+      "no_alloc": true,
+      "GPU_bytes": 2477998080,
+      "host_bytes": 53760,
+      "enabled_layers": 35,
+      "groups": [
+        {
+          "slots": 28,
+          "minimum_distinct_slots_per_token": 36,
+          "layers": [
+            0,
+            1,
+            2,
+            3,
+            6,
+            7
+          ]
+        },
+        {
+          "slots": 8,
+          "minimum_distinct_slots_per_token": 12,
+          "layers": [
+            4,
+            8
+          ]
+        },
+        {
+          "slots": 47,
+          "minimum_distinct_slots_per_token": 60,
+          "layers": [
+            5,
+            9,
+            10,
+            11,
+            12,
+            14,
+            16,
+            18,
+            19,
+            35
+          ]
+        },
+        {
+          "slots": 23,
+          "minimum_distinct_slots_per_token": 30,
+          "layers": [
+            13,
+            17,
+            21,
+            22,
+            36
+          ]
+        },
+        {
+          "slots": 18,
+          "minimum_distinct_slots_per_token": 24,
+          "layers": [
+            15,
+            20,
+            31,
+            33
+          ]
+        },
+        {
+          "slots": 38,
+          "minimum_distinct_slots_per_token": 48,
+          "layers": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            32
+          ]
+        }
+      ]
+    },
+    {
+      "budget_MiB": 2880,
+      "no_alloc": true,
+      "GPU_bytes": 2756413440,
+      "host_bytes": 53760,
+      "enabled_layers": 35,
+      "groups": [
+        {
+          "slots": 31,
+          "minimum_distinct_slots_per_token": 36,
+          "layers": [
+            0,
+            1,
+            2,
+            3,
+            6,
+            7
+          ]
+        },
+        {
+          "slots": 9,
+          "minimum_distinct_slots_per_token": 12,
+          "layers": [
+            4,
+            8
+          ]
+        },
+        {
+          "slots": 53,
+          "minimum_distinct_slots_per_token": 60,
+          "layers": [
+            5,
+            9,
+            10,
+            11,
+            12,
+            14,
+            16,
+            18,
+            19,
+            35
+          ]
+        },
+        {
+          "slots": 26,
+          "minimum_distinct_slots_per_token": 30,
+          "layers": [
+            13,
+            17,
+            21,
+            22,
+            36
+          ]
+        },
+        {
+          "slots": 20,
+          "minimum_distinct_slots_per_token": 24,
+          "layers": [
+            15,
+            20,
+            31,
+            33
+          ]
+        },
+        {
+          "slots": 42,
+          "minimum_distinct_slots_per_token": 48,
+          "layers": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            32
+          ]
+        }
+      ]
+    },
+    {
+      "budget_MiB": 3200,
+      "no_alloc": true,
+      "GPU_bytes": 3107358720,
+      "host_bytes": 53760,
+      "enabled_layers": 35,
+      "groups": [
+        {
+          "slots": 35,
+          "minimum_distinct_slots_per_token": 36,
+          "layers": [
+            0,
+            1,
+            2,
+            3,
+            6,
+            7
+          ]
+        },
+        {
+          "slots": 11,
+          "minimum_distinct_slots_per_token": 12,
+          "layers": [
+            4,
+            8
+          ]
+        },
+        {
+          "slots": 60,
+          "minimum_distinct_slots_per_token": 60,
+          "layers": [
+            5,
+            9,
+            10,
+            11,
+            12,
+            14,
+            16,
+            18,
+            19,
+            35
+          ]
+        },
+        {
+          "slots": 29,
+          "minimum_distinct_slots_per_token": 30,
+          "layers": [
+            13,
+            17,
+            21,
+            22,
+            36
+          ]
+        },
+        {
+          "slots": 23,
+          "minimum_distinct_slots_per_token": 24,
+          "layers": [
+            15,
+            20,
+            31,
+            33
+          ]
+        },
+        {
+          "slots": 47,
+          "minimum_distinct_slots_per_token": 48,
+          "layers": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            32
+          ]
+        }
+      ]
+    }
+  ],
+  "source_reviewers": [
+    "Astra xhigh architecture",
+    "Terra measurement review"
+  ],
+  "production_changed": false,
+  "full_model_started": false,
+  "full_model_tiering_speed_measured": false,
+  "important_limits": [
+    "Synthetic selected indices, not measured model routing",
+    "Indexer and KV updates excluded",
+    "No prefill/state restore integration",
+    "No assumption about actual expert cache hit rate",
+    "320MiB alone cannot initialize this built-in expert cache; combining with other free VRAM is a distinct untested option"
+  ],
+  "initial_fixture_failure": "First fixture used640 keys, violating CUDA FA D512 padding. Corrected to768 (128 visible raw +128 masked padding +512 selected), supports_op checked; only the fixture process aborted."
+}

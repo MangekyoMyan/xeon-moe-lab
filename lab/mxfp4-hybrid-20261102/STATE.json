@@ -1,0 +1,41 @@
+{
+  "status": "CPU_implementation_validated_waiting_for_user_model_start",
+  "scope": "hybrid4/2/1 chunk path, spill reduction, isolated CPU validation; production unchanged",
+  "variants": [
+    "original4",
+    "looped4",
+    "sequential4"
+  ],
+  "policy": "API idle-only guarded CPU work, long GPU build/start user-run",
+  "pending": [
+    "User runs: sudo python3 /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/switch_cpu.py stock-hist --apply",
+    "Wait for READY via analyze_histogram.py --watch 2; send normal prompts",
+    "Analyze real expert input-count distribution after READY boundary",
+    "Decide full-model A/B; keep 24thread up4 regression visible"
+  ],
+  "selected": "sequential4 (no main-loop accumulator spill in micro or C backend)",
+  "completed": [
+    "3 micro variants275068outputs each",
+    "normal C backend build",
+    "384 CPU graph A/B configurations bitwise passed; comparator is previous pair, not production stock",
+    "640 noncontiguous Q8 route cases /268800 outputs bitwise passed",
+    "portable micro passed",
+    "stock histogram build vs stock: 88 graphs bitwise passed; chunk planning checked",
+    "original llama-server loads pair/hybrid/stock-hist libraries and enumerates CUDA0; no model loaded",
+    "9 fixture tests passed for user-run switch/rollback and histogram analyzer",
+    "source clean / config hash unchanged / API and both monitoring services active",
+    "RESULTS_JA.txt and machine-readable summaries ready"
+  ],
+  "current": "waiting for user-run model startup; report ready",
+  "production_modified": false,
+  "api": "active; original stock CPU math",
+  "production_config_sha256": "ffec21d7555203eea4331e375b5da5132107eaa9d3edaed427d2dcf4bebb559e",
+  "12physical_4or8_speed_gain_percent_vs_pair": "15.9..20.5",
+  "24logical_8inputs_speed_gain_percent_vs_pair": "about12.5",
+  "remaining_regression": "24logical/up/4inputs speed ratio0.97095; time about3% worse",
+  "noisy_unresolved": "spread-t24 up6 and down14, ratio extremes include parity",
+  "full_model_AB_performed": false,
+  "real_expert_histogram_captured": false,
+  "auto_review": "prepare_runtime rejected due to confusion with switch_cpu, then same command approved after full source audit and completed; no remaining approval blocker",
+  "privacy": "Do not share baseline-server-config.json, actual API keys or conversation logs. Histogram has aggregate counts/tensor names, no token/expert IDs."
+}

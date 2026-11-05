@@ -1,0 +1,117 @@
+2026-10-26 NVFP4 / PG500-216 実機評価
+
+128GB RAMのまま、PG500-216 32GBでNVFP4系モデル2本を推論できた。
+GPU電力制限150W、ECC有効、室温20℃（ユーザー申告）。MTPによる投機生成は使用していない。
+モデルは16～17GB級でGPUへ重みをオフロードしている。512GB級の大型モデルでCPUにexpertを残す場合の速度ではない。
+
+本日の代表値（速度はtokens/s。pp=入力処理、tg=生成）
+  GLM-4.7-Flash NVFP4: pp512 756.75±4.77、tg128 73.32±0.49、3回。
+  Qwen3.6-27B 混合NVFP4: pp512 214.21±1.93、tg128 30.47±0.19、3回。
+  GPU側に近いNUMA node1、CPU6スレッド、batch/ubatch512、標準CUDA設定。
+  実際の日本語回答: GLM 71.76、Qwen 30.90。掛け算391・メモリ説明・Python sum関数を確認。
+  同じGLMのtg32: CPU12スレッド7.932（2回）、GPU72.434（3回）、約9.13倍。
+  上記CPU/GPUのtg32はbatch/ubatch512、両socket interleave、12スレッドで比較。
+  CPU/GPUともpromptとgenerationを別々に測るllama-bench値。モデルの読み込み時間は除く。
+
+長めの入力と連続負荷
+  Qwen: prompt2048+generation128の合計処理速度157.28、2回。
+  GLM: prompt4096+generation128の合計処理速度520.07、3回。
+  この2値は入力＋生成の合計token/合計時間であり、生成単独速度ではない。
+  GLM: 512token生成×20回=10,240token、73.088±0.051、全試験153.92秒。
+  連続負荷中GPU最高49℃、HBM最高52℃。GPU高使用率サンプルの電力中央値104.96W。
+  全GPU試験で観測した最高温度はGPU49℃、HBM57℃、CPU40℃。
+  約2分半の試験であり、数時間～数日の耐久性を確認したものではない。
+
+冷却と電力
+  Fullファンモードは一度も設定していない。BMCはStandard=00を維持。
+  X9用の読み出しコマンドでPWMレジスタ0x10～0x13を確認できた。試験中は全て102/255=40%。
+  watch.pyが70%上限（178/255=69.8%）、GPU60℃/HBM65℃/CPU60℃などで負荷を停止する。
+  70%固定で制御できたという意味ではない。Standard時は接続ファンのPWM書き込みをBMCが上書きする。
+  50%への可逆的な試験後は全レジスタを40%へ戻した。ファンRPMからPWM%を推定してはいない。
+  FANA/FANBの物理端子とセンサー表示の対応は未確定。
+  電力制限は150W設定。瞬時電力の記録には約177.5Wまでの上振れがあり、瞬時消費150W以下の保証ではない。
+  Qwenでは電力制限によるクロック抑制を観測。GLMの連続生成では同理由の抑制を観測しなかった。
+  終了時GPU/HBM32℃、VRAM使用0MiB、GPU計算プロセスなし、Standard/40%、150W/ECC有効。
+  GPU ECC、PCIe replay、監視したhost/NICエラーカウンタの増加なし。調査期間のカーネルログにも対象エラーなし。
+
+NVFP4の処理負荷の切り分け
+  test-backend-ops perf、同じ4096×14336重み行列、GPU150W設定、時間us（小さいほど速い）。
+                     Q8_0       Q4_K      MXFP4      NVFP4
+  入力1token          91.64      66.36      72.57      65.61
+  入力8token         183.52     122.21     145.82     211.50
+  入力512token      1579.05    1777.76    1626.20    2350.45
+  NVFP4は1token条件ではQ8より約1.40倍速いが、8tokenでは約15%遅く、512tokenでは約49%遅い。
+  一つの行列形状での結果。モデル全体・全形状・同品質の優劣を示す値ではない。
+  このGPUにはネイティブFP4 Tensor Core命令がない。短い量子化演算は展開＋DP4A等、
+  大きい行列演算では一時的な展開＋FP16 Tensor Core/FP32蓄積など、既存CUDAの経路を利用する。
+  NVFP4の展開コストとbatchサイズに応じたカーネル選択は、今後の有力な改善対象。
+  GPU memcpy参考値943.0GB/sはread+write合算。FP32 SGEMM12.11TFLOPS、FP16 Tensor/FP32蓄積76.15TFLOPS。
+  いずれも4096行列等の専用テスト値で、LLMでその演算量を常時使い切るという意味ではない。
+
+今回のボトルネックについて言える範囲
+  2モデルともVRAMへ収まるため、重みの毎token PCIe転送は必要ない。
+  GPU高使用率のサンプルでPCIe通信は数十MB/s程度。出力logit等の転送も含む。
+  メモリ容量不足・PCIe帯域不足がこの2モデルの主要な制約という証拠は得られなかった。
+  NUMA1/6スレッドと両socket interleave/12スレッド: GLM73.32 vs73.15、Qwen30.47 vs30.25。
+  NUMAとスレッド数を同時に変えた運用設定比較なので、個別要因の因果を分離した試験ではない。
+  CUDA Graph無効: GLM75.29、Qwen30.47。GRAPH_OPT有効: GLM73.33、Qwen30.45。
+  大幅な改善は確認できず、GLMの無効化による小差は長時間・実文で未追試。標準設定を継続。
+  Qwenは電力制限も寄与。GLMは約105Wで生成でき、150W制限が生成を抑えている様子はなかった。
+  GPU使用率やmemory_utilは物理HBM帯域の測定値ではない。帯域/演算/命令発行の厳密な割合は未確定。
+  旧GLM-4.5-Air Q8 expert-cacheのボトルネック結果と混同しない。
+
+互換性の修正と正しさ
+  Qwenの最初のロードはexpected1254/got1238で停止。MTPを読み込まないとき、
+  未使用NVFP4重み8個のscale/input_scale計16個が未処理になっていた。
+  スキップするNVFP4 weightに属する任意のscale tensorも既存のスキップ経路で扱うよう修正。
+  tensor数の検査は維持。未知tensorを全て無視する修正ではない。元のソース/共有ライブラリは変更していない。
+  patch/llama-model-loader.cpp、nvfp4-mtp-skip.patch、build_loader.py、runtime/libllama.so.0.5.0。
+  元のMTP読込あり、修正版MTP読込なし、修正版MTP読込ありの3条件で、
+  最初の248,320logitがbit単位で一致、32token分の選択と選択logitも一致。
+  小規模NVFP4 CPU参照/CUDA演算テストはdense/MoE合計9/9通過。
+  GLMのCPU/GPU比較は15万4880logitが有限で、32token分のgreedy選択が一致。
+  ただし数値はbit一致ではない。KL(CPU||GPU)=0.03459、共通シフト除去後RMSE0.21177、top10は9個一致。
+  広範な品質評価や元BF16モデルとの品質比較は行っていない。
+
+失敗・除外した試験
+  gpu-roofline-initial: 冷えたHDDライブラリ読み込みとダウンロード競合中に90秒timeout。
+  カーネル数値は出たが終了しなかったため採用せず。後のgpu-roofline-warmは正常終了し検算も通過。
+  qwen-nvfp4-first: 上記loader不具合。GPU割り当て前のソフトウェア原因。修正後の回帰テストを採用。
+  rawログとSTOP_REQUESTEDの履歴は残した。未解決の実行中STOPはない。
+
+保存したモデル（両方SHA256検証済み）
+  michaelw9999/Qwen3.6-27B-NVFP4-MTP-GGUF
+  revision287d5c2d1722799c09d82c6122b376a02e80316e、16,193,685,568bytes。
+  パラメータ要素数の約65.45%がNVFP4。残りはQ4_K/Q5_K/Q6_K/Q8_0/BF16/F32等の混合。
+  FreedomAISVR/GLM-4.7-Flash-NVFP4-GGUF
+  revisionbd99cc2312a1bf0eaa9db1f22e796774e65c7176、16,956,022,368bytes。
+  約98.92%のパラメータ要素がNVFP4。tensor562個がNVFP4、281個F32、1個Q6_K。
+  パラメータ割合はファイル容量割合ではない。詳細・SHAはdownload-state.jsonと*-header.json。
+  GLM配布ページのFP4/E4M3説明は不正確なので採用していない。重み値E2M1、block scale E4M3を基準にした。
+
+既存技術の調査
+  dnv2003/v100-skinny commit5b589c0dc81223e0ba65bcb3e755874723f8b515
+  gilby/volta-nvfp4 commitb1a2181702e609dc92591343e46c63d1324ade43
+  前者のSM70向けQPN2は、NVFP4の事前配置変換とカーネル内展開を使いFP16 Tensor Coreへ渡す。
+  後者はMoE expertへの拡張。将来の候補として記録したが、このエンジンにはまだ移植していない。
+  4GPU/MTPあり等の他者のtok/sを、この1GPU/150W/MTPなしの結果へ換算してはいない。
+  ソースを固定したREADME・ライセンス・NOTICEとprovenanceはresearch/以下。
+  https://github.com/dnv2003/v100-skinny
+  https://github.com/gilby/volta-nvfp4
+  https://docs.nvidia.com/deeplearning/transformer-engine/features/low_precision_training/nvfp4/nvfp4.html
+  https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md
+  ファン手順はSupermicro FAQ32846とsmfcのgenericx9.pyを確認。外部インストーラは実行していない。
+
+再実行
+  python3 /home/codex/projects/llm-lab/gpu-nvfp4-20261026/run_model.py qwen '12×13の答えを数字だけで書いてください。' --tokens 16
+  実行済み、回答156。glmを指定しても使える。温度/PWM/ECC監視と共有実験ロック付き。
+  sudo -nが必要。モデルSHAはダウンロード時に検証し、起動時はファイルサイズとruntimeのhashを確認。
+  チャットサーバーではなく1回の回答用。context2048、最大生成512、MTP/思考出力なし。
+  既存のrun_xeon_volta.sh、run_glm_air_v100.sh、凍結したpre-RAM checkpointは維持。
+  RAMはまだ128GB。ネットワーク設定・ファームウェア・ドライバは変更していない。
+  再起動直後なので旧113GB GLMのpagecacheが温まっているとは扱わない。
+
+生データと再現情報
+  ../results/gpu-nvfp4-20261026/*/{run.json,stdout.txt,stderr.txt}
+  results-summary.json、kernel-summary.json、loader-regression-comparison.json、glm-cpu-gpu-logits-comparison.json
+  *-commands.json、loader-build.json、experiment-history.jsonl、boot-preflight.json、final-health.json。

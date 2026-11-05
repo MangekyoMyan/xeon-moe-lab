@@ -1,0 +1,62 @@
+{
+  "source_sha256": "b8f989a9c33a5157b2e0b13e5e48544f66e84c9d1fc7e423c60d3a689952087c",
+  "native_CPU_library_sha256": "ff0b0f685bc469d82bf30de0644334bd3db94c596c0e633a35ef18d7890204ce",
+  "builds": [
+    {
+      "name": "predecode_probe",
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-fopenmp",
+        "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "/home/codex/projects/llm-lab/iq3-plan-20261103/predecode_probe.cpp",
+        "-L/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+        "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+        "-Wl,-rpath,/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+        "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+        "-lggml-cpu",
+        "-lggml-base",
+        "-O3",
+        "-o",
+        "/home/codex/projects/llm-lab/iq3-plan-20261103/predecode_probe"
+      ],
+      "binary_sha256": "f3edc06e62821b5eb0fc40624105dbd2516f2aaa5419682a53e2ebc29cd19edb"
+    },
+    {
+      "name": "check-sanitized",
+      "command": [
+        "g++",
+        "-std=c++17",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-fopenmp",
+        "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "/home/codex/projects/llm-lab/iq3-plan-20261103/predecode_probe.cpp",
+        "-L/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+        "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+        "-Wl,-rpath,/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+        "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+        "-lggml-cpu",
+        "-lggml-base",
+        "-O1",
+        "-g",
+        "-fsanitize=address,undefined",
+        "-o",
+        "/home/codex/projects/llm-lab/iq3-plan-20261103/check-sanitized"
+      ],
+      "binary_sha256": "d6f439bdfb60008e26aca38400b764e06bfb70aeb75115cb93165ca3c9791462"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+COMPLETED2026-10-31: Strata-inspired Q8 Tensor Core measured, candidate frozen.
+ReadRESULT_JA.txt,FINAL_SUMMARY.json,CANDIDATE_READY.json.
+ProductionAPI wasinactive atstart andremainsinactive/unmodified. TemporaryloopbackAPI stopped;GPUidle150W/ECC/fans40.
+Preloadfinished; no pausedprocess orpendingGPUjob.
+Candidate release/tc-prefill-v1 isvalidatedexperimental, notdeployed. ModelGLM4.5AirQ8,ctx131072,Q8KV,cache9GiB,batch1024,150W.
+Largechunks>=1024: selectedexpertweightstream256MiBarena+GPUQ8dequantFP16/cublasFP32accum.
+Shortchunksanddecode:acceptedCPU/GPUhybrid withexactexpertkernels;cachedworkspacegrowsasneeded.
+Matched9GiBcacheBAABv2: A99.465571/99.470266s B62.029481/62.245883s per2048input;37.5299percenttimegain.
+Finalv3long61.928767s andall32fullvocablogitsbit-identicaltoV2B0. Decode~5.7-5.9tpsaftercoldtransition(~1.46s).
+JA1024A40.828725s/B31.368990s;32positions2argmaxdiff,KL.002559,NLLdelta-.02586;notgeneralqualityproof.
+V3short64all16logitvectorsCPUbaselineexact. JA512faster19.85vs21.19;batchingroundingdifferencesremain.
+232finaloperatorcasespassed;42largegather/weightreusecasespassed. CUPTIprovedvolta_s884gemm_fp16_128x64_ldg8_tn.
+PureallGPUstreamdecode~1.1tpsrejected;hybridGPUkernelonlynooverallgain. CustomfusedWMMAprototype slowerthancublas.
+PhaseV1firstdecodeaborted1.5GiBVRAMreservewith10GiBcache;reserveunchanged,9GiBmatchedplanresolvedit. NoGPUfault.
+APIv3small22first1.53s,long2094first66.11s,returnsmall23first1.81s/answer42;noHDDread.
+Remainingperformancecosts:weightstaging/H2D~23s,pack8.6s/scatter6.6s,CPUquant~11.5s(inworker)per2048.
+Future:avoidduplicatedactivationcopies,parallelizeCPUquant/packing,retainGPUintermediates,reuseexistingresidentweights.
+Cost-modeldispatch/elasticKVnotimplemented;noextrapolationtofutureDeepSeek/512GiBRAM.
+Do notstartallcomparisoncontrollersagainjustbecausecontextwascompacted. Newuserrequestneededfornewwork.

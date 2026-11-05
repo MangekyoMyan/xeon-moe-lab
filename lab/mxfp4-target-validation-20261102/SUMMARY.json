@@ -1,0 +1,335 @@
+{
+  "date": "2026-11-02",
+  "status": "synthetic_target_tests_complete",
+  "suites": [
+    {
+      "suite": "boundary-t1",
+      "cases": 64,
+      "processes": 4,
+      "strict_cpu": false,
+      "passed": true
+    },
+    {
+      "suite": "boundary-t24",
+      "cases": 64,
+      "processes": 4,
+      "strict_cpu": false,
+      "passed": true
+    },
+    {
+      "suite": "pinned-t12-physical",
+      "cases": 10,
+      "processes": 8,
+      "strict_cpu": true,
+      "passed": true
+    },
+    {
+      "suite": "pinned-t24-smt",
+      "cases": 10,
+      "processes": 8,
+      "strict_cpu": true,
+      "passed": true
+    },
+    {
+      "suite": "pinned-t6-balanced",
+      "cases": 10,
+      "processes": 8,
+      "strict_cpu": true,
+      "passed": true
+    },
+    {
+      "suite": "real-t1",
+      "cases": 10,
+      "processes": 4,
+      "strict_cpu": false,
+      "passed": true
+    },
+    {
+      "suite": "real-t12-physical",
+      "cases": 10,
+      "processes": 4,
+      "strict_cpu": false,
+      "passed": true
+    },
+    {
+      "suite": "real-t24-smt",
+      "cases": 10,
+      "processes": 4,
+      "strict_cpu": false,
+      "passed": true
+    },
+    {
+      "suite": "real-t6-balanced",
+      "cases": 10,
+      "processes": 4,
+      "strict_cpu": false,
+      "passed": true
+    },
+    {
+      "suite": "spread-real-t12",
+      "cases": 12,
+      "processes": 4,
+      "strict_cpu": true,
+      "passed": true
+    },
+    {
+      "suite": "spread-real-t24",
+      "cases": 12,
+      "processes": 4,
+      "strict_cpu": true,
+      "passed": true
+    },
+    {
+      "suite": "spread384-small-t24",
+      "cases": 6,
+      "processes": 4,
+      "strict_cpu": true,
+      "passed": true
+    }
+  ],
+  "case_definitions_total": 228,
+  "candidate_to_stock_comparisons": 516,
+  "candidate_to_stock_fp32_elements": 35362584,
+  "candidate_mismatches": 0,
+  "strict_worker_snapshots_verified": 36,
+  "route_and_dispatch": {
+    "route": {
+      "cases": 64,
+      "outputs": 24800,
+      "bit_mismatches": 0,
+      "pass": true
+    },
+    "dispatch": [
+      {
+        "tokens": 1,
+        "use_ref": false,
+        "expected_calls": 0,
+        "observed_calls": 0
+      },
+      {
+        "tokens": 2,
+        "use_ref": false,
+        "expected_calls": 66,
+        "observed_calls": 66
+      },
+      {
+        "tokens": 3,
+        "use_ref": false,
+        "expected_calls": 66,
+        "observed_calls": 66
+      },
+      {
+        "tokens": 2,
+        "use_ref": true,
+        "expected_calls": 0,
+        "observed_calls": 0
+      }
+    ],
+    "performance_timing": false,
+    "CPU_library_sha256": "4923a76c229fef787016713bcc8f413f36ac59cfd6ef2710e7e8d47509473c64",
+    "commands": [
+      [
+        "g++",
+        "-std=c++17",
+        "-O3",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-I/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/mxfp4/engine/ggml/include",
+        "/home/codex/projects/llm-lab/pro-review-received-20261102/deepseek-cpu-review-result/route_test/test.cpp",
+        "-L/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/mxfp4/build-cpu-ivybridge/bin",
+        "-Wl,-rpath,/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/mxfp4/build-cpu-ivybridge/bin",
+        "-lggml-cpu",
+        "-lggml-base",
+        "-o",
+        "/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/diagnostics/route-test"
+      ],
+      [
+        "/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/diagnostics/route-test"
+      ],
+      [
+        "gcc",
+        "-std=c11",
+        "-O2",
+        "-shared",
+        "-fPIC",
+        "/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/count_pair_calls.c",
+        "-ldl",
+        "-o",
+        "/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/diagnostics/count-pair-calls.so"
+      ],
+      [
+        "numactl",
+        "--interleave=0,1",
+        "taskset",
+        "-c",
+        "0",
+        "env",
+        "LD_PRELOAD=/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/diagnostics/count-pair-calls.so",
+        "/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/mxfp4/build-cpu-ivybridge/bin/cpu-quant-probe",
+        "--type",
+        "mxfp4",
+        "--threads",
+        "1",
+        "--strict-cpu",
+        "--mode",
+        "up",
+        "--k",
+        "512",
+        "--m",
+        "33",
+        "--experts",
+        "2",
+        "--topk",
+        "2",
+        "--routing",
+        "shared",
+        "--warmups",
+        "0",
+        "--repeats",
+        "1",
+        "--tokens",
+        "1"
+      ],
+      [
+        "numactl",
+        "--interleave=0,1",
+        "taskset",
+        "-c",
+        "0",
+        "env",
+        "LD_PRELOAD=/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/diagnostics/count-pair-calls.so",
+        "/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/mxfp4/build-cpu-ivybridge/bin/cpu-quant-probe",
+        "--type",
+        "mxfp4",
+        "--threads",
+        "1",
+        "--strict-cpu",
+        "--mode",
+        "up",
+        "--k",
+        "512",
+        "--m",
+        "33",
+        "--experts",
+        "2",
+        "--topk",
+        "2",
+        "--routing",
+        "shared",
+        "--warmups",
+        "0",
+        "--repeats",
+        "1",
+        "--tokens",
+        "2"
+      ],
+      [
+        "numactl",
+        "--interleave=0,1",
+        "taskset",
+        "-c",
+        "0",
+        "env",
+        "LD_PRELOAD=/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/diagnostics/count-pair-calls.so",
+        "/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/mxfp4/build-cpu-ivybridge/bin/cpu-quant-probe",
+        "--type",
+        "mxfp4",
+        "--threads",
+        "1",
+        "--strict-cpu",
+        "--mode",
+        "up",
+        "--k",
+        "512",
+        "--m",
+        "33",
+        "--experts",
+        "2",
+        "--topk",
+        "2",
+        "--routing",
+        "shared",
+        "--warmups",
+        "0",
+        "--repeats",
+        "1",
+        "--tokens",
+        "3"
+      ],
+      [
+        "numactl",
+        "--interleave=0,1",
+        "taskset",
+        "-c",
+        "0",
+        "env",
+        "LD_PRELOAD=/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/diagnostics/count-pair-calls.so",
+        "/home/codex/projects/llm-lab/mxfp4-target-validation-20261102/mxfp4/build-cpu-ivybridge/bin/cpu-quant-probe",
+        "--type",
+        "mxfp4",
+        "--threads",
+        "1",
+        "--strict-cpu",
+        "--mode",
+        "up",
+        "--k",
+        "512",
+        "--m",
+        "33",
+        "--experts",
+        "2",
+        "--topk",
+        "2",
+        "--routing",
+        "shared",
+        "--warmups",
+        "0",
+        "--repeats",
+        "1",
+        "--tokens",
+        "2",
+        "--use-ref"
+      ]
+    ]
+  },
+  "max_observed_cpu_C": 34.0,
+  "thermal_guard_stops": 0,
+  "candidate_prefill_scaling": [
+    {
+      "direction": "up",
+      "inputs_per_expert": 8,
+      "candidate_6physical_to12physical_speedup": 1.9142139193140768,
+      "candidate_12physical_to24logical_speedup": 1.0693169730235723
+    },
+    {
+      "direction": "up",
+      "inputs_per_expert": 17,
+      "candidate_6physical_to12physical_speedup": 1.9684283376151266,
+      "candidate_12physical_to24logical_speedup": 1.1189141834506884
+    },
+    {
+      "direction": "down",
+      "inputs_per_expert": 8,
+      "candidate_6physical_to12physical_speedup": 1.9407423936570145,
+      "candidate_12physical_to24logical_speedup": 1.0926445470088997
+    },
+    {
+      "direction": "down",
+      "inputs_per_expert": 17,
+      "candidate_6physical_to12physical_speedup": 1.9603460004573918,
+      "candidate_12physical_to24logical_speedup": 1.1069944734904282
+    }
+  ],
+  "limitations": [
+    "synthetic CPU MUL_MAT_ID; no complete DeepSeek model test",
+    "not model tokens/sec",
+    "clock not fixed",
+    "repeated weights; no full384-expert real-shape workload",
+    "one reproducible 12-thread6-expert3-row up regression remains",
+    "new CPU cannot be predicted by existing CPU SMT scaling"
+  ],
+  "production_modified": false,
+  "api_restart": "not performed; user-run long startups policy"
+}

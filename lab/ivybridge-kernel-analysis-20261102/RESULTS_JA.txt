@@ -1,0 +1,153 @@
+Ivy Bridge MXFP4: アセンブリ・PMU・4入力共有の調査 / 2026-11-02
+==========================================================
+
+結論と優先順位
+実測した範囲では、AVX/レガシーSSE切替ペナルティを直すことは優先課題ではない。
+命令供給不足が主因という証拠も弱い。重み展開・積和・scale処理の命令量、依存関係、
+レジスタの使い方を改善する方向を優先する。
+4入力共有は、このXeonの単体試験で既存2入力共有より約5.7〜10.9%速かった。
+ただし測定した入力数は4/8/16。未測定の全ての入力数に一般化しない。
+4入力版には実際にvector accumulatorのstack退避がある。退避削減は次の実装候補。
+本番への組込みとfull-model速度の確認はまだ行っていない。
+
+前回のコア数比較についての補足
+6コアはCPU0,1,2,6,7,8（各socket3コア）、12コアはCPU0〜11（各socket6コア）。
+両条件とも2socket、メモリinterleave0,1。同じNUMA構成の中で実コアを増やした比較で、
+1socket→2socketの帯域増加だけを測っていたわけではない。
+それでも12→24物理コアの速度保証や、E5-2697 v2の実測にはならない。
+
+1. 実際の生成命令を確認
+以前の通常CMake buildのstock/候補CPU共有ライブラリをobjdumpで調べた。
+現在のMXFP4 main loopはどちらもVEX形式。vpshufb/vpsignb/vpmaddubsw/vpmaddwd等を使用。
+対象ループ内にはレガシーSSE命令を見つけていない。戻りや必要なcall境界にvzeroupperあり。
+128bit整数SIMDを使うこと自体がレガシーSSEとの切替を意味するわけではない。
+
+同じ2入力、2 weight blockを処理する場合の静的命令site数:
+                          元single-dotを2回    2入力共有を1回
+ vpshufb                                  8                4
+ vpsignb                                 16               12
+ vpmaddubsw                               8                8
+ vpmaddwd                                 8                4
+ vmulss                                  4                4
+ vmulps                                  2                2
+ vaddps                                  2                2
+この数は静的なループ内命令siteであり、PMUの動的µop数や処理全体の命令数とは区別する。
+重みlookupと整数の部分和集約が減ることは、生成コードでも確認できた。
+stockと2入力版の対象main loopにはvectorのstack spillはなかった。
+ASSEMBLY_PROVENANCE.jsonとstock-/mxfp4-*.asmにsourceと実行物の対応を記録した。
+
+2. PMUの測定方法
+前回のROI専用probeをそのまま使用。重み準備/warmup/参照計算を除き、graph computeを測る。
+MXFP4 MUL_MAT_ID up K5120/M2304、6expert/top6、各expert8入力、合成重み。
+1threadおよび12物理コア、strict worker固定、NUMA interleave0,1。
+stock/candidate/candidate/stockのABBA。取得eventは少数のgroupへ分割した。
+4groupに加え、資源内訳/関連load-stallの2groupを追加。計36run。
+全event100% running、unsupported/not-countedなし。CPU時間との照合、worker mask確認も合格。
+各groupは別runなので、別groupの比率を足して100%の内訳としたり、同一時刻と扱ったりしない。
+CPU clock未固定。group間の壁時計時間の差を最適化効果としない。
+user-spaceのOpenMP等も含み、dotだけの計測ではない。全DeepSeekのprefillでもない。
+
+3. AVX/SSE仮説を検証
+1threadのstock/candidate: AVX_TO_SSE、SSE_TO_AVXとも測定合計0。
+12threadの4run: 合計AVX_TO_SSE=0、SSE_TO_AVX=1。
+8入力のgraphを多数回計測しているため、これが大きな遅さを説明する状態ではない。
+
+カウンターのゼロ値を鵜呑みにしないため、意図的な対照も測った:
+ 20万回、256bit AVXとレガシーaddpsを混在: 両方向のassist各200,000回。
+ 同じ構造で128bit命令をVEX化: 両方向とも0回。
+カウンターがこのマシンで切替を検出することを確認できた。
+対照はevent動作確認用であり、モデル速度やペナルティ1回の時間を測ったものではない。
+測った区間以外の全ライブラリ/処理に切替がないと保証する結果でもない。
+
+4. 命令供給と実行側の指標
+以下は1thread条件を各variant2runで合算し、同groupのcyclesで正規化した参考値。
+
+                                           stock        2入力候補
+ IDQ不足 / (4 × cycles)                      0.88%          0.64%
+ RESOURCE_STALLS.ANY / cycles                34.54%         39.28%
+ port0 dispatch event / cycles              0.668          0.623
+ port1 dispatch event / cycles              0.623          0.581
+ port5 dispatch event / cycles              0.656          0.601
+ port2 dispatch event / cycles              0.320          0.317
+ port3 dispatch event / cycles              0.321          0.317
+ port4 dispatch event / cycles              0.0046         0.0056
+
+IDQはbackend stallでない時に供給されなかったslotの指標。平均的な命令供給不足を
+今回の主要原因とする根拠は薄い。ただし全モデルや全ての局所区間まで否定しない。
+IntelのIvyTown定義ではport eventはそのportへµopがdispatchされたcycleを数える。
+上記比率はCPU利用率や完了した命令の構成比ではない。port2/3にはload/store-address、
+port4にはstore-dataが関わる。どれか1本のportが常時100%という結果ではない。
+瞬間的な偏り、latency、命令依存等の限界が消えるわけでもない。
+
+追加した内訳（別group、重なりを含む）:
+ RESOURCE_STALLS.RS / cycles                 13.66%         16.62%
+ RESOURCE_STALLS.ROB / cycles                 0.031%         0.010%
+ RESOURCE_STALLS.SB / cycles                  0.00018%       0.0060%
+ CYCLES_NO_EXECUTE / cycles                   9.00%         10.41%
+ STALLS_L1D_MISS / cycles                     5.02%          6.07%
+ STALLS_L2_MISS / cycles                      4.98%          6.09%
+
+RSは実行待ちキューの空き不足に関連する指標。ROB/SBが大半という結果ではない。
+L1/L2の指標はmiss loadが未完了の間に実行が停止したcycleで、必ずそのmissが停止を
+起こしたという因果まで示さない。相互に重なるので足し合わせない。
+部分的なload制約やDRAM trafficを網羅しているわけでもない。
+
+候補の割合が増えていても総時間は短い。例えばRSのcycle数/graphは約26.9M→26.2M。
+割合だけで「RS待ちが悪化」としない。RESOURCE_ANYも全ての遅さを一意に分類する値ではない。
+この範囲では、命令供給やAVX/SSE切替の修正より、実行側の命令量と依存関係・同時に
+保持する値の数を工夫する方向が有望、と判断する。単一のボトルネックを断定はしない。
+
+5. 4入力共有をこのXeonで試した
+返却資料の4列candidate.cppと、現行候補に対応するpairlanesを隔離したmicroで実行。
+2入力版: 137,894出力、4入力版: 265,540出力、どちらも元実装とbit一致・数値検証合格。
+別実行ファイルの数字を単純に比較しないため、次に両候補を同じ実行ファイルへリンク。
+同じ重み/入力でpair-vs-fourのABBA/BAABを9組、CPU0固定で比較した。
+全12条件の252,416出力を両候補で直接比較し、bit差0。
+
+4入力版の速度 / 2入力版の速度（直接比較のpaired比率中央値）:
+                 1入力   2入力   3入力   4入力   8入力  16入力
+ up実寸           1.002   0.792   0.846   1.062   1.062   1.057
+ down実寸         1.015   0.769   0.844   1.090   1.106   1.109
+
+4/8/16入力では約5.7〜10.9%の上積み。2/3入力ではこの4入力版がsingle-dotへ戻るので遅い。
+4入力共有が本質的に少数入力へ不向きというより、このfallback選択を改善する必要がある。
+今後は4入力未満や4入力処理後の残り2入力に、既存2入力版を使う候補が自然。
+ただしそのhybridのbackend実装/速度は今回まだ検証していない。
+
+4入力版の実アセンブリでは、2blockごとに4本のYMM accumulatorをstackから読み、
+stackへ書き戻すコードがあった。2入力版はregister保持で、同様の退避はない。
+この退避はstack/cache trafficであり、そのままDRAM通信とは言わない。
+退避を減らせば必ず速くなるという証明でもないが、改善対象が具体的に見つかった。
+
+このmicroは1thread・繰り返し重みの単体関数比較。graphのrouting/同期やfull modelを
+含まない。入力の端数、thread chunk、NUMA、1/12/24threadをbackendでも検証してから採否を決める。
+
+6. もう一つ見つかった確認事項
+今回のstock/2入力候補の実際のFP16 scale変換は、ggml_table_f32_f16の表引きだった。
+対象ループにvcvtph2psはなく、simd-mappings.h:148〜172がF16C対応時もLUTを選んでいる。
+E8M0もx86ではtableを使用している。F16CのCPU対応/compile flagだけでは実際の変換経路は決まらない。
+従って「このmicroはtableだが、現行のこのdotはF16Cだから別」という説明は当てはまらない。
+他の演算・別版までtableと一般化しない。tableとF16Cのどちらが速いかは未測定。
+scaleの変換/再利用も独立実験の候補だが、4入力共有/退避の検証より後の優先度とする。
+
+次の具体的な作業候補
+ A. 4列を使えるchunkでは4入力、残りは2入力/1入力へ戻すbackend候補。
+    1/2/3/4/5/6/7/8/16/17入力、up/down、stride、thread chunk、1/12/24threadを確認。
+ B. 4列のaccumulatorをregisterに残すため、block処理順序と一時変数の生存期間を変更。
+    spill/命令数/出力一致/速度を別々に確認し、命令数だけで採用しない。
+ C. FP16 scaleのLUT/F16C変換方式を別候補として比較。既存macroの全形式への一括変更はしない。
+ これらの前後比較は今回の既存候補と分け、成功したものだけ実モデルA/Bへ進める。
+
+運用とファイル
+APIを止めず、会話リクエストも送らず、モデルcacheや本番ソースを変更していない。
+APIがCPUを使い始めたら試験自身を停止するguard下で実行。全試験完了、CPU最大29C。
+ファン、電力、ネットワーク、kernel/perf権限設定は変更していない。
+SUMMARY.json / PMU.csv:全カウンター、分母、検証、単体比較。
+runs/:各PMU runのcommand/RAWカウンター/ROI/数値結果。
+positive-controls/:VEXとlegacyの意図的対照。
+micro/direct-pair-vs-four/:同じ実行ファイルでの直接比較、全sampleとcompile条件。
+*.asm / ASSEMBLY_PROVENANCE.json:実際の命令列と出典。
+
+イベント定義の一次資料（意味・counter制約を照合した）:
+https://perfmon-events.intel.com/platforms/ivytown/core-events/core/
+同一event名でも世代により意味が異なり得るため、今回はIvyTown向け定義を使用。

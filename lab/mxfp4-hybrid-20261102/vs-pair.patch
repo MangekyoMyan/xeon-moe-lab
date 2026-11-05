@@ -1,0 +1,186 @@
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -1623,6 +1623,63 @@
+         }
+     }
+ }
++#if defined(_MSC_VER)
++__declspec(noinline)
++#elif defined(__GNUC__) || defined(__clang__)
++__attribute__((__noinline__))
++#endif
++static void ggml_compute_forward_mul_mat_id_mxfp4_cols421_chunk(
++    struct ggml_tensor * dst,
++    const struct ggml_tensor * src0,
++    const struct ggml_tensor * src1,
++    const struct ggml_tensor * ids,
++    const int64_t cur_a,
++    const int64_t ir0_start, const int64_t ir0_end,
++    const int64_t ir1_start, const int64_t ir1_end,
++    const char * src0_cur, const struct mmid_row_mapping * matrix_rows,
++    const size_t row_size, const bool src1_cont, const void * wdata) {
++
++    GGML_TENSOR_BINARY_OP_LOCALS
++    const enum ggml_type type = src0->type;
++    ggml_vec_dot_t const vec_dot = type_traits_cpu[type].vec_dot;
++    const enum ggml_type vec_dot_type = type_traits_cpu[type].vec_dot_type;
++    float tmp[4][16];
++    for (int64_t iir1=ir1_start;iir1<ir1_end;iir1+=16) {
++        const int64_t row_end=MIN(iir1+16,ir1_end);
++        for (int64_t iir0=ir0_start;iir0<ir0_end;iir0+=16) {
++            const int64_t col_end=MIN(iir0+16,ir0_end);
++            for (int64_t ir1=iir1;ir1<row_end;) {
++                const int64_t remaining=row_end-ir1;
++                const int nc=remaining>=4 ? 4 : remaining>=2 ? 2 : 1;
++                const char * input[4];
++                float * output[4];
++                for (int c=0;c<nc;++c) {
++                    const struct mmid_row_mapping mapping=MMID_MATRIX_ROW(cur_a,ir1+c);
++                    const int64_t i11=mapping.i1%ne11, i12=mapping.i2;
++                    input[c]=(const char *)wdata+
++                        (src1_cont || src1->type!=vec_dot_type
++                         ? (i11+i12*ne11)*row_size : i11*nb11+i12*nb12);
++                    output[c]=(float *)((char *)dst->data+mapping.i1*nb1+i12*nb2);
++                }
++                for (int64_t ir0=iir0;ir0<col_end;++ir0) {
++                    float sums[4];
++                    const char * weight=src0_cur+ir0*nb01;
++                    if(nc==4) {
++                        ggml_vec_dot_mxfp4_q8_0_cols4(ne00,sums,weight,input[0],input[1],input[2],input[3]);
++                    } else if(nc==2) {
++                        ggml_vec_dot_mxfp4_q8_0_cols2(ne00,sums,weight,input[0],input[1]);
++                    } else {
++                        vec_dot(ne00,sums,0,weight,0,input[0],0,1);
++                    }
++                    for(int c=0;c<nc;++c)tmp[c][ir0-iir0]=sums[c];
++                }
++                for(int c=0;c<nc;++c)memcpy(output[c]+iir0,tmp[c],(col_end-iir0)*sizeof(float));
++                ir1+=nc;
++            }
++        }
++    }
++}
++
+ #endif
+ 
+ static void * incr_ptr_aligned(void ** p, size_t size, size_t align) {
+@@ -1809,11 +1866,19 @@
+ 
+ #if defined(__AVX__) && !defined(__AVX2__)
+             if (!params->use_ref && type == GGML_TYPE_MXFP4 && ne00 >= 256 && ir1_end - ir1_start >= 2) {
++                if (ir1_end - ir1_start >= 4) {
++                    ggml_compute_forward_mul_mat_id_mxfp4_cols421_chunk(
++                        dst, src0, src1, ids, cur_a,
++                        ir0_start, ir0_end, ir1_start, ir1_end,
++                        src0_cur, matrix_rows, row_size, src1_cont, wdata
++                    );
++                } else {
+                 ggml_compute_forward_mul_mat_id_mxfp4_cols2_chunk(
+                     dst, src0, src1, ids, cur_a,
+                     ir0_start, ir0_end, ir1_start, ir1_end,
+                     src0_cur, matrix_rows, row_size, src1_cont, wdata
+                 );
++                }
+             } else
+ #endif
+             {
+--- a/ggml/src/ggml-cpu/quants.h
++++ b/ggml/src/ggml-cpu/quants.h
+@@ -51,6 +51,7 @@
+ void ggml_vec_dot_mxfp4_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ #if defined(__AVX__) && !defined(__AVX2__)
+ void ggml_vec_dot_mxfp4_q8_0_cols2(int n, float * s, const void * vx, const void * vy0, const void * vy1);
++void ggml_vec_dot_mxfp4_q8_0_cols4(int n, float * s, const void * vx, const void * vy0, const void * vy1, const void * vy2, const void * vy3);
+ #endif
+ void ggml_vec_dot_nvfp4_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ 
+--- a/ggml/src/ggml-cpu/arch/x86/quants.c
++++ b/ggml/src/ggml-cpu/arch/x86/quants.c
+@@ -1120,6 +1120,87 @@
+         }
+     }
+ }
++// One decoded weight block at a time; retain even/odd sums for two input pairs.
++#if defined(__GNUC__) || defined(__clang__)
++#define MX4_INLINE static inline __attribute__((always_inline))
++#else
++#define MX4_INLINE static inline
++#endif
++MX4_INLINE __m256 ggml_mx4_pair_partial(
++        __m128i q0, __m128i q1, __m128i a0, __m128i a1, float dw,
++        const block_q8_0 * x0, const block_q8_0 * x1) {
++    const __m128i ones = _mm_set1_epi16(1);
++    const __m128i y00 = _mm_sign_epi8(_mm_loadu_si128((const __m128i *)x0->qs), q0);
++    const __m128i lo0 = _mm_maddubs_epi16(a0, y00);
++    const __m128i y01 = _mm_sign_epi8(_mm_loadu_si128((const __m128i *)(x0->qs + 16)), q1);
++    const __m128i p0 = _mm_madd_epi16(_mm_add_epi16(lo0, _mm_maddubs_epi16(a1, y01)), ones);
++    const __m128i y10 = _mm_sign_epi8(_mm_loadu_si128((const __m128i *)x1->qs), q0);
++    const __m128i lo1 = _mm_maddubs_epi16(a0, y10);
++    const __m128i y11 = _mm_sign_epi8(_mm_loadu_si128((const __m128i *)(x1->qs + 16)), q1);
++    const __m128i p1 = _mm_madd_epi16(_mm_add_epi16(lo1, _mm_maddubs_epi16(a1, y11)), ones);
++    const __m256 values = _mm256_cvtepi32_ps(MM256_SET_M128I(p1, p0));
++    const __m256 scale = _mm256_set_m128(
++        _mm_set1_ps(dw * GGML_CPU_FP16_TO_FP32(x1->d)),
++        _mm_set1_ps(dw * GGML_CPU_FP16_TO_FP32(x0->d)));
++    return _mm256_mul_ps(scale, values);
++}
++
++MX4_INLINE void ggml_mx4_accumulate_block(
++        const block_mxfp4 * w,
++        const block_q8_0 * x0, const block_q8_0 * x1,
++        const block_q8_0 * x2, const block_q8_0 * x3,
++        __m256 * sum01, __m256 * sum23) {
++    const __m128i lookup = _mm_setr_epi8(0,1,2,3,4,6,8,12,0,-1,-2,-3,-4,-6,-8,-12);
++    const __m128i mask = _mm_set1_epi8(15);
++    const __m128i bits = _mm_loadu_si128((const __m128i *)w->qs);
++    const __m128i q0 = _mm_shuffle_epi8(lookup, _mm_and_si128(bits, mask));
++    const __m128i q1 = _mm_shuffle_epi8(lookup, _mm_and_si128(_mm_srli_epi16(bits,4), mask));
++    const __m128i a0 = _mm_sign_epi8(q0,q0), a1 = _mm_sign_epi8(q1,q1);
++    const float dw = GGML_CPU_E8M0_TO_FP32_HALF(w->e);
++    *sum01 = _mm256_add_ps(*sum01, ggml_mx4_pair_partial(q0,q1,a0,a1,dw,x0,x1));
++    *sum23 = _mm256_add_ps(*sum23, ggml_mx4_pair_partial(q0,q1,a0,a1,dw,x2,x3));
++}
++
++MX4_INLINE float ggml_mx4_hsum4(__m128 x) {
++    x = _mm_add_ps(x,_mm_movehl_ps(x,x));
++    x = _mm_add_ss(x,_mm_movehdup_ps(x));
++    return _mm_cvtss_f32(x);
++}
++
++void ggml_vec_dot_mxfp4_q8_0_cols4(int n, float * s, const void * vw,
++        const void * vx0, const void * vx1, const void * vx2, const void * vx3) {
++    const block_mxfp4 * w = (const block_mxfp4 *)vw;
++    const block_q8_0 * x0 = (const block_q8_0 *)vx0;
++    const block_q8_0 * x1 = (const block_q8_0 *)vx1;
++    const block_q8_0 * x2 = (const block_q8_0 *)vx2;
++    const block_q8_0 * x3 = (const block_q8_0 *)vx3;
++    assert(n >= 0 && n % QK_MXFP4 == 0);
++    static_assert(QK_MXFP4 == QK8_0, "matching MXFP4 and Q8 block sizes");
++    __m256 even01 = _mm256_setzero_ps(), odd01 = _mm256_setzero_ps();
++    __m256 even23 = _mm256_setzero_ps(), odd23 = _mm256_setzero_ps();
++    const int blocks = n / QK_MXFP4;
++    int ib = 0;
++    for (; ib + 1 < blocks; ib += 2) {
++        ggml_mx4_accumulate_block(w+ib,x0+ib,x1+ib,x2+ib,x3+ib,&even01,&even23);
++        ggml_mx4_accumulate_block(w+ib+1,x0+ib+1,x1+ib+1,x2+ib+1,x3+ib+1,&odd01,&odd23);
++    }
++    const __m256 out01 = _mm256_add_ps(odd01,even01);
++    const __m256 out23 = _mm256_add_ps(odd23,even23);
++    s[0] = ggml_mx4_hsum4(_mm256_castps256_ps128(out01));
++    s[1] = ggml_mx4_hsum4(_mm256_extractf128_ps(out01,1));
++    s[2] = ggml_mx4_hsum4(_mm256_castps256_ps128(out23));
++    s[3] = ggml_mx4_hsum4(_mm256_extractf128_ps(out23,1));
++    if (ib < blocks) {
++        const block_q8_0 * x[4] = {x0,x1,x2,x3};
++        for (int c=0;c<4;++c) {
++            float tail;
++            ggml_vec_dot_mxfp4_q8_0(QK_MXFP4,&tail,0,w+ib,0,x[c]+ib,0,1);
++            s[c] += tail;
++        }
++    }
++}
++#undef MX4_INLINE
++
+ #endif
+ 
+ void ggml_vec_dot_nvfp4_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
