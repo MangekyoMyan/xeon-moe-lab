@@ -20,10 +20,10 @@ Xeon MoE Labは、**llama.cpp / ggmlを土台に、旧XeonとVoltaに合わせ�
 
 | プロジェクト・貢献者 | 参考にした点 | 実際の利用・採用範囲 |
 |---|---|---|
-| [Strata](https://github.com/Niko1221/Strata) / Niko1221 and Strata contributors | expertの配置、CPU/GPUの並行実行、転送費用を含めた分担、作業バッファの管理。 | FreeTokenとともに、過去のGLM向け協調バックエンドの設計を参考にしました。記録では、既存ggml API上で独立に実装したものです。[当時の実測・出典](lab/xeon-volta-engine/RESULTS_JA.txt)。 |
-| [FreeToken](https://github.com/FlashML-org/FreeToken) / FlashML-org and FreeToken contributors | RAMとVRAMを使うMoE処理の配置・分担・転送設計。 | Strataと合わせて参考にしたため、各変更の着想を片方だけに帰属させてはいません。実装と検証の範囲は同じ[当時の記録](lab/xeon-volta-engine/RESULTS_JA.txt)にあります。 |
-| [Strata-V100](https://github.com/jmnargi/Strata-V100) / jmnargi (Jonathan Nargi) and contributors、元となったStrata contributors | Volta向けの実装、prefillでのexpert単位の処理の集約、FP16 Tensor Coreを使う構成。 | これを参考に、GPUでQ8をFP16へ展開して行列積を行うGLM用の独立した試作を測定しました。このQ8経路は当プロジェクト側の適応であり、参照版の対応形式を示すものではありません。試作は現在のDeepSeek用APIに採用していません。[調査版の記録](lab/strata-v100-review-20261031/STATE.json)、[実験の完了記録](lab/strata-tc-study-20261031/RESUME.txt)。 |
-| [DeepInfer](https://github.com/deepseek-ai/DeepInfer) / DeepSeek-AI and contributors | expert負荷に基づく配置、prefill/decodeの特性の区別、依存しない準備と実行の重ね合わせ。 | 公開ソースを読み、適用できる考え方と適用範囲を調査しました。DeepInferのコードや分散EPLBを、この保存版へ組み込んだという記録はありません。[調査結果](lab/deepinfer-review-20261101/RESULTS_JA.txt)。 |
+| [Strata](https://github.com/Niko1221/Strata) / Niko1221 and Strata contributors | expertの配置、CPU/GPUの並行実行、転送費用を含めた分担、作業バッファの管理。 | FreeTokenとともに、過去のGLM向け協調バックエンドの設計を参考にしました。記録では、既存ggml API上で独立に実装したものです。[当時の実測・出典](archive/development-history-not-for-readers/lab/xeon-volta-engine/RESULTS_JA.txt)。 |
+| [FreeToken](https://github.com/FlashML-org/FreeToken) / FlashML-org and FreeToken contributors | RAMとVRAMを使うMoE処理の配置・分担・転送設計。 | Strataと合わせて参考にしたため、各変更の着想を片方だけに帰属させてはいません。実装と検証の範囲は同じ[当時の記録](archive/development-history-not-for-readers/lab/xeon-volta-engine/RESULTS_JA.txt)にあります。 |
+| [Strata-V100](https://github.com/jmnargi/Strata-V100) / jmnargi (Jonathan Nargi) and contributors、元となったStrata contributors | Volta向けの実装、prefillでのexpert単位の処理の集約、FP16 Tensor Coreを使う構成。 | これを参考に、GPUでQ8をFP16へ展開して行列積を行うGLM用の独立した試作を測定しました。このQ8経路は当プロジェクト側の適応であり、参照版の対応形式を示すものではありません。試作は現在のDeepSeek用APIに採用していません。[調査版の記録](archive/development-history-not-for-readers/lab/strata-v100-review-20261031/STATE.json)、[実験の完了記録](archive/development-history-not-for-readers/lab/strata-tc-study-20261031/RESUME.txt)。 |
+| [DeepInfer](https://github.com/deepseek-ai/DeepInfer) / DeepSeek-AI and contributors | expert負荷に基づく配置、prefill/decodeの特性の区別、依存しない準備と実行の重ね合わせ。 | 公開ソースを読み、適用できる考え方と適用範囲を調査しました。DeepInferのコードや分散EPLBを、この保存版へ組み込んだという記録はありません。[調査結果](archive/development-history-not-for-readers/lab/deepinfer-review-20261101/RESULTS_JA.txt)。 |
 
 過去のGLM用協調バックエンドで実装した機能が、すべて現在のDeepSeek用経路へ移植されたわけではありません。また、調査時に確認したllama.cppのexpert cacheはllama.cpp自身の機能であり、DeepInferから移植した機能ではありません。
 
@@ -44,7 +44,7 @@ Xeon MoE Labは、**llama.cpp / ggmlを土台に、旧XeonとVoltaに合わせ�
 
 論文中のシステム名はApexです。expertごとの入力負荷に応じてCPU演算とGPUへの転送・演算を割り当て、両経路の終了時間を近づける考え方を参考にしました。ここでは、著者らの公開実装を取り込んだOSS依存とは区別して、研究への謝辞として記載します。
 
-このプロジェクトでは、既存ggmlを使った単一FFN層の独立したCPU/GPU分担試作を測定しました。論文のシステム全体の再現ではなく、自動制御・先読み・全モデルへの統合も未採用です。[論文の調査メモ](lab/apex-paper-review-20261105/NOTES_JA.txt)と[試作の測定結果](lab/apex-split-20261105/RESULTS_JA.txt)を保存しています。論文で使われるKTransformersやSGLangを、このプロジェクトの採用済み依存として扱ってはいません。
+このプロジェクトでは、既存ggmlを使った単一FFN層の独立したCPU/GPU分担試作を測定しました。論文のシステム全体の再現ではなく、自動制御・先読み・全モデルへの統合も未採用です。[論文の調査メモ](archive/development-history-not-for-readers/lab/apex-paper-review-20261105/NOTES_JA.txt)と[試作の測定結果](archive/development-history-not-for-readers/lab/apex-split-20261105/RESULTS_JA.txt)を保存しています。論文で使われるKTransformersやSGLangを、このプロジェクトの採用済み依存として扱ってはいません。
 
 ## 上流に含まれるライブラリ
 
