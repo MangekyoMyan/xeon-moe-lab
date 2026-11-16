@@ -1,0 +1,88 @@
+{
+  "scope": "Static code generation from the successful GCC14.2 Ivy Bridge build, not cycle counts or performance prediction. Auto-unrolled group loop. PSHUFB remaining in offset4_fast broadcasts the extracted scale; it is not a weight lookup.",
+  "functions": {
+    "current_iq3s": {
+      "header": "0000000000002f30 <float iq_compact_dot<false>(int, iq_compact_block const*, block_q8_K const*)>:",
+      "static_opcode_counts": {
+        "vpshufb": 24,
+        "vpsignb": 16,
+        "vpabsb": 16,
+        "vpmaddubsw": 16,
+        "vpaddw": 0,
+        "vpsubw": 0
+      },
+      "vector_stack_operand_instructions": [
+        "2f70:\tc5 fc 29 7c 24 e8    \tvmovaps %ymm7,-0x18(%rsp)",
+        "302e:\tc5 f9 7f 74 24 d8    \tvmovdqa %xmm6,-0x28(%rsp)",
+        "30a9:\tc5 f9 7f 64 24 a8    \tvmovdqa %xmm4,-0x58(%rsp)",
+        "3110:\tc5 f9 7f 5c 24 98    \tvmovdqa %xmm3,-0x68(%rsp)",
+        "3144:\tc5 f9 7f 6c 24 c8    \tvmovdqa %xmm5,-0x38(%rsp)",
+        "3182:\tc5 f9 7f 54 24 88    \tvmovdqa %xmm2,-0x78(%rsp)",
+        "31ee:\tc5 79 7f 5c 24 b8    \tvmovdqa %xmm11,-0x48(%rsp)",
+        "3309:\tc5 79 6f 5c 24 b8    \tvmovdqa -0x48(%rsp),%xmm11",
+        "330f:\tc5 a1 fe 7c 24 d8    \tvpaddd -0x28(%rsp),%xmm11,%xmm7",
+        "331e:\tc5 f9 6f 7c 24 88    \tvmovdqa -0x78(%rsp),%xmm7",
+        "3328:\tc5 f9 6f 74 24 a8    \tvmovdqa -0x58(%rsp),%xmm6",
+        "3332:\tc5 c9 fe 6c 24 c8    \tvpaddd -0x38(%rsp),%xmm6,%xmm5",
+        "3340:\tc5 c1 fe 64 24 98    \tvpaddd -0x68(%rsp),%xmm7,%xmm4",
+        "3378:\tc5 fc 58 74 24 e8    \tvaddps -0x18(%rsp),%ymm0,%ymm6",
+        "337e:\tc5 fc 29 74 24 e8    \tvmovaps %ymm6,-0x18(%rsp)",
+        "33b4:\tc5 fc 29 7c 24 e8    \tvmovaps %ymm7,-0x18(%rsp)"
+      ],
+      "assembly_sha256": "20b382516a2dee870fdfb820872462699db90ea041bed16d12903928f8e4648e"
+    },
+    "offset4_fast": {
+      "header": "00000000000033c0 <offset4_fast_dot(int, offset4_iq3s_block const*, block_q8_K const*, offset4_rhs_block const*)>:",
+      "static_opcode_counts": {
+        "vpshufb": 8,
+        "vpsignb": 0,
+        "vpabsb": 0,
+        "vpmaddubsw": 16,
+        "vpaddw": 16,
+        "vpsubw": 16
+      },
+      "vector_stack_operand_instructions": [
+        "33f6:\tc5 fc 29 74 24 e0    \tvmovaps %ymm6,-0x20(%rsp)",
+        "3505:\tc5 f9 7f 6c 24 d0    \tvmovdqa %xmm5,-0x30(%rsp)",
+        "3660:\tc5 f9 7f 7c 24 c0    \tvmovdqa %xmm7,-0x40(%rsp)",
+        "36f0:\tc5 e1 fe 5c 24 d0    \tvpaddd -0x30(%rsp),%xmm3,%xmm3",
+        "36fb:\tc5 e1 fe 5c 24 c0    \tvpaddd -0x40(%rsp),%xmm3,%xmm3",
+        "3772:\tc5 fc 58 74 24 e0    \tvaddps -0x20(%rsp),%ymm0,%ymm6",
+        "3778:\tc5 fc 29 74 24 e0    \tvmovaps %ymm6,-0x20(%rsp)",
+        "37aa:\tc5 fc 29 74 24 e0    \tvmovaps %ymm6,-0x20(%rsp)"
+      ],
+      "assembly_sha256": "b157fda6ee971be9190fe1691d3815b3daadb71beab429b1c72d6fa1dcec3254"
+    },
+    "offset4_compat": {
+      "header": "00000000000037c0 <offset4_compat_dot(int, offset4_iq3s_block const*, block_q8_K const*)>:",
+      "static_opcode_counts": {
+        "vpshufb": 24,
+        "vpsignb": 16,
+        "vpabsb": 16,
+        "vpmaddubsw": 16,
+        "vpaddw": 0,
+        "vpsubw": 0
+      },
+      "vector_stack_operand_instructions": [
+        "3800:\tc5 fc 29 7c 24 e8    \tvmovaps %ymm7,-0x18(%rsp)",
+        "38be:\tc5 f9 7f 74 24 d8    \tvmovdqa %xmm6,-0x28(%rsp)",
+        "3939:\tc5 f9 7f 64 24 a8    \tvmovdqa %xmm4,-0x58(%rsp)",
+        "39a0:\tc5 f9 7f 5c 24 98    \tvmovdqa %xmm3,-0x68(%rsp)",
+        "39d4:\tc5 f9 7f 6c 24 c8    \tvmovdqa %xmm5,-0x38(%rsp)",
+        "3a12:\tc5 f9 7f 54 24 88    \tvmovdqa %xmm2,-0x78(%rsp)",
+        "3a7e:\tc5 79 7f 5c 24 b8    \tvmovdqa %xmm11,-0x48(%rsp)",
+        "3b99:\tc5 79 6f 5c 24 b8    \tvmovdqa -0x48(%rsp),%xmm11",
+        "3b9f:\tc5 a1 fe 7c 24 d8    \tvpaddd -0x28(%rsp),%xmm11,%xmm7",
+        "3bae:\tc5 f9 6f 7c 24 88    \tvmovdqa -0x78(%rsp),%xmm7",
+        "3bb8:\tc5 f9 6f 74 24 a8    \tvmovdqa -0x58(%rsp),%xmm6",
+        "3bc2:\tc5 c9 fe 6c 24 c8    \tvpaddd -0x38(%rsp),%xmm6,%xmm5",
+        "3bd0:\tc5 c1 fe 64 24 98    \tvpaddd -0x68(%rsp),%xmm7,%xmm4",
+        "3c08:\tc5 fc 58 74 24 e8    \tvaddps -0x18(%rsp),%ymm0,%ymm6",
+        "3c0e:\tc5 fc 29 74 24 e8    \tvmovaps %ymm6,-0x18(%rsp)",
+        "3c44:\tc5 fc 29 7c 24 e8    \tvmovaps %ymm7,-0x18(%rsp)"
+      ],
+      "assembly_sha256": "7a776ef0e600d5b31f0364f358bc4f1562321bd95a022ae5c954b6e9b29c56a5"
+    }
+  },
+  "performance_measured": false
+}

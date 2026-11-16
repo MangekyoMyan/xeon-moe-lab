@@ -1,0 +1,127 @@
+--- final/ggml-cpu.c
++++ experimental/ggml-cpu.c
+@@ -5,6 +5,7 @@
+ #include "ggml-backend.h"
+ #include "iq3-cache.h"
+ #include "mx-rhs.h"
++#include "iq-abs.h"
+ #ifndef XEON_MX_PREPACK
+ #define XEON_MX_PREPACK 1
+ #endif
+@@ -1512,7 +1513,8 @@
+     const void * compact_data,
+     const void * mx_rhs,
+     const size_t mx_stride,
+-    const uint64_t mx_safe_mask) {
++    const uint64_t mx_safe_mask,
++    struct xeon_iq_abs_state * abs_state) {
+ 
+     GGML_TENSOR_BINARY_OP_LOCALS
+ 
+@@ -1555,7 +1557,25 @@
+ 
+                 const void * prepared = mx_rhs && ((mx_safe_mask >> i11) & 1)
+                     ? (const char *)mx_rhs + i11*mx_stride : NULL;
+-                if (prepared) {
++                const void * abs_prepared = NULL;
++                if (compact_data && abs_state->mode) {
++                    if (abs_state->mode == 1) {
++                        if ((abs_state->safe_mask >> i11) & 1) abs_prepared = abs_state->data + i11*abs_state->stride;
++                    } else {
++                        if (abs_state->last_input != i11) {
++                            abs_state->safe = xeon_iq_abs_prepare(ne00, src1_col, 0, ne00/256, abs_state->data);
++                            abs_state->last_input = i11;
++                            if (abs_state->diagnostic) { abs_state->prepared_blocks += ne00/256; abs_state->unsafe_ranges += !abs_state->safe; }
++                        }
++                        if (abs_state->safe) abs_prepared = abs_state->data;
++                    }
++                }
++                if (abs_prepared) {
++                    void (*fn)(int,float *,const void *,const void *,const void *) = type == GGML_TYPE_IQ2_S ? xeon_iq2_abs_dot : xeon_iq3s_abs_dot;
++                    const int64_t end = MIN(iir0+blck_0, ir0_end);
++                    if (abs_state->diagnostic) abs_state->rows += end-iir0;
++                    for (int64_t ir0=iir0; ir0<end; ++ir0) fn(ne00,&tmp[ir0-iir0],weight_data+ir0*weight_stride,src1_col,abs_prepared);
++                } else if (prepared) {
+                     for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir0_end; ++ir0) {
+                         xeon_mxfp4_rhs_dot_v1(ne00, &tmp[ir0-iir0], weight_data+ir0*weight_stride, src1_col, prepared);
+                     }
+@@ -1768,6 +1788,17 @@
+     void * mx_rhs = mx_shape ? incr_ptr_aligned(&wdata_cur, mx_stride*ne11, 64) : NULL;
+     uint8_t * mx_flags = mx_shape ? incr_ptr_aligned(&wdata_cur, ne11*nth, sizeof(int64_t)) : NULL;
+ 
++    const bool abs_shape = xeon_iq_abs_shape(src0, src1, ids);
++    struct xeon_iq_abs_state abs_state = {0};
++    abs_state.last_input = -1;
++    abs_state.mode = abs_shape && !params->use_ref ? xeon_iq_abs_get_mode() : 0;
++    abs_state.diagnostic = abs_state.mode ? xeon_iq_abs_diagnostics() : 0;
++    abs_state.stride = (size_t) ne10;
++    char * abs_data = abs_shape ? incr_ptr_aligned(&wdata_cur, xeon_iq_abs_bytes(ne10, ne11, nth), 64) : NULL;
++    uint64_t * abs_masks = abs_shape ? (uint64_t *)(abs_data + (size_t)ne10*MAX(ne11,nth)) : NULL;
++    abs_state.data = abs_state.mode == 2 ? abs_data + ith*abs_state.stride : abs_data;
++
++
+     GGML_ASSERT(params->wsize >= (size_t)((char *) wdata_cur - (char *) params->wdata));
+ 
+     if (src1->type != vec_dot_type) {
+@@ -1822,6 +1853,20 @@
+         }
+     }
+ 
++    if (abs_state.mode == 1) {
++        const int first = (ith*(ne10/256))/nth;
++        const int end = ((ith+1)*(ne10/256))/nth;
++        const size_t qrow = ggml_row_size(vec_dot_type, ne10);
++        uint64_t mask = 0;
++        for (int64_t input=0; input<ne11; ++input) {
++            const char * rhs = src1->type == vec_dot_type ? (const char *)src1->data+input*nb11 : (const char *)params->wdata+input*qrow;
++            const int safe = xeon_iq_abs_prepare(ne10, rhs, first, end, abs_data+input*abs_state.stride);
++            if (safe) mask |= UINT64_C(1)<<input;
++            if (abs_state.diagnostic) { abs_state.prepared_blocks += end-first; abs_state.unsafe_ranges += !safe; }
++        }
++        abs_masks[ith] = mask;
++    }
++
+     if (ith == 0) {
+         // initialize matrix_row_counts
+         memset(matrix_row_counts, 0, n_as*sizeof(int64_t));
+@@ -1851,6 +1896,11 @@
+     }
+ 
+     ggml_barrier(params->threadpool);
++
++    if (abs_state.mode == 1) {
++        abs_state.safe_mask = UINT64_MAX;
++        for (int worker=0; worker<nth; ++worker) abs_state.safe_mask &= abs_masks[worker];
++    }
+ 
+     uint64_t mx_safe_mask = 0;
+     if (mx_enabled) {
+@@ -1940,7 +1990,7 @@
+                     dst, src0, src1, ids, cur_a,
+                     ir0_start, ir0_end, ir1_start, ir1_end,
+                     src0_cur, matrix_rows, row_size, src1_cont, wdata,
+-                    compact_data, mx_enabled ? mx_rhs : NULL, mx_stride, mx_safe_mask
++                    compact_data, mx_enabled ? mx_rhs : NULL, mx_stride, mx_safe_mask, &abs_state
+                 );
+             }
+ 
+@@ -1951,6 +2001,7 @@
+             current_chunk = atomic_fetch_add_explicit(current_chunk_ctr, 1, memory_order_relaxed);
+         }
+     }
++    if (abs_state.diagnostic) xeon_iq_abs_report(abs_state.prepared_blocks, abs_state.rows, abs_state.unsafe_ranges);
+ }
+ 
+ /////////////////////////////////
+@@ -3140,6 +3191,11 @@
+                             cur = GGML_PAD(cur, sizeof(int64_t));
+                             cur += src1->ne[1]*n_tasks;
+                         }
++                        if (xeon_iq_abs_shape(src0, src1, ids)) {
++                            const size_t extra = xeon_iq_abs_bytes(src1->ne[0], src1->ne[1], n_tasks);
++                            GGML_ASSERT(cur <= SIZE_MAX-extra-63);
++                            cur += extra+63;
++                        }
+                     } break;
+                 case GGML_OP_OUT_PROD:
+                     {

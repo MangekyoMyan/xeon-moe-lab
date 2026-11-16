@@ -1,0 +1,304 @@
+{
+  "schema_version": 1,
+  "synthetic_only": true,
+  "manifest": {
+    "complete": true,
+    "dropped_records": 0,
+    "layers": 40,
+    "top_k": 6,
+    "experts": 384,
+    "host_clock": "CLOCK_MONOTONIC_RAW",
+    "clock_domain": "synthetic-process",
+    "config_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "expected_passes": [
+      {
+        "request": "synthetic",
+        "pass": 10,
+        "phase": "decode"
+      },
+      {
+        "request": "synthetic",
+        "pass": 17,
+        "phase": "decode"
+      }
+    ],
+    "trace_kind": "hot_latency",
+    "expected_layers": [
+      0,
+      1,
+      2
+    ]
+  },
+  "records": [
+    {
+      "request": "synthetic",
+      "pass": 10,
+      "phase": "decode",
+      "layer": 0,
+      "n_tokens": 1,
+      "clock_domain": "synthetic-process",
+      "route": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "backend": "hot",
+      "gpu_hit_mask": 0,
+      "host_ns": {
+        "wall": [
+          0,
+          15000000
+        ],
+        "cpu_setup": [
+          1000000,
+          2000000
+        ],
+        "cpu_compute": [
+          2000000,
+          12000000
+        ],
+        "cpu_output_copy": [
+          12000000,
+          13000000
+        ]
+      },
+      "gpu_stream_ms": null
+    },
+    {
+      "request": "synthetic",
+      "pass": 10,
+      "phase": "decode",
+      "layer": 1,
+      "n_tokens": 1,
+      "clock_domain": "synthetic-process",
+      "route": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "backend": "hot",
+      "gpu_hit_mask": 3,
+      "host_ns": {
+        "wall": [
+          0,
+          16000000
+        ],
+        "cpu_setup": [
+          1000000,
+          2000000
+        ],
+        "gpu_submit_host": [
+          2000000,
+          3000000
+        ],
+        "cpu_compute": [
+          3000000,
+          9000000
+        ],
+        "cpu_output_copy": [
+          9000000,
+          10000000
+        ],
+        "gpu_join": [
+          10000000,
+          14000000
+        ],
+        "scatter": [
+          14000000,
+          15000000
+        ]
+      },
+      "gpu_stream_ms": {
+        "h2d": 0.2,
+        "graph": 5,
+        "d2h": 0.3
+      },
+      "gpu_done_query": "not_ready",
+      "gpu_done_query_host_ns": 10000000,
+      "gpu_events_completed": true
+    },
+    {
+      "request": "synthetic",
+      "pass": 10,
+      "phase": "decode",
+      "layer": 2,
+      "n_tokens": 1,
+      "clock_domain": "synthetic-process",
+      "route": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "backend": "hot",
+      "gpu_hit_mask": 63,
+      "host_ns": {
+        "wall": [
+          0,
+          10000000
+        ],
+        "gpu_submit_host": [
+          1000000,
+          2000000
+        ],
+        "gpu_join": [
+          2000000,
+          8000000
+        ],
+        "scatter": [
+          8000000,
+          9000000
+        ]
+      },
+      "gpu_stream_ms": {
+        "h2d": 0.2,
+        "graph": 5,
+        "d2h": 0.3
+      },
+      "gpu_events_completed": true
+    },
+    {
+      "request": "synthetic",
+      "pass": 17,
+      "phase": "decode",
+      "layer": 0,
+      "n_tokens": 1,
+      "clock_domain": "synthetic-process",
+      "route": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "backend": "hot",
+      "gpu_hit_mask": 0,
+      "host_ns": {
+        "wall": [
+          0,
+          15000000
+        ],
+        "cpu_setup": [
+          1000000,
+          2000000
+        ],
+        "cpu_compute": [
+          2000000,
+          12000000
+        ],
+        "cpu_output_copy": [
+          12000000,
+          13000000
+        ]
+      },
+      "gpu_stream_ms": null
+    },
+    {
+      "request": "synthetic",
+      "pass": 17,
+      "phase": "decode",
+      "layer": 1,
+      "n_tokens": 1,
+      "clock_domain": "synthetic-process",
+      "route": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "backend": "hot",
+      "gpu_hit_mask": 3,
+      "host_ns": {
+        "wall": [
+          0,
+          16000000
+        ],
+        "cpu_setup": [
+          1000000,
+          2000000
+        ],
+        "gpu_submit_host": [
+          2000000,
+          3000000
+        ],
+        "cpu_compute": [
+          3000000,
+          9000000
+        ],
+        "cpu_output_copy": [
+          9000000,
+          10000000
+        ],
+        "gpu_join": [
+          10000000,
+          14000000
+        ],
+        "scatter": [
+          14000000,
+          15000000
+        ]
+      },
+      "gpu_stream_ms": {
+        "h2d": 0.2,
+        "graph": 5,
+        "d2h": 0.3
+      },
+      "gpu_done_query": "not_ready",
+      "gpu_done_query_host_ns": 10000000,
+      "gpu_events_completed": true
+    },
+    {
+      "request": "synthetic",
+      "pass": 17,
+      "phase": "decode",
+      "layer": 2,
+      "n_tokens": 1,
+      "clock_domain": "synthetic-process",
+      "route": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "backend": "hot",
+      "gpu_hit_mask": 63,
+      "host_ns": {
+        "wall": [
+          0,
+          10000000
+        ],
+        "gpu_submit_host": [
+          1000000,
+          2000000
+        ],
+        "gpu_join": [
+          2000000,
+          8000000
+        ],
+        "scatter": [
+          8000000,
+          9000000
+        ]
+      },
+      "gpu_stream_ms": {
+        "h2d": 0.2,
+        "graph": 5,
+        "d2h": 0.3
+      },
+      "gpu_events_completed": true
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+凍結版 cross-library 直接比較 — 独立ログ再集計
+
+根拠: FIXED_PLAN.txt、FIXED_RECEIPT.json、execution/fixed-{iq2,iq3s}-*/{STATUS.json,
+stdout.log,stderr.log}、ANALYSIS.json の cross_library。既存ログと成果物の読み取りのみ。
+「frozen」は保存された production final CPUライブラリ、off は新ライブラリ mode0、
+shared は同 mode1。これは実重み使用の局所 operator 試験であり、全モデル tok/s、GPU
+との重なりや対話遅延は未測定。本体・設定変更、追加測定、コード変更は行っていない。
+
+固定設計と完全性
+各型6プロセスを frozen,off,shared,shared,off,frozen の順で実行、各プロセスで
+hit6とmiss0の32 block、合計12 process×2条件×32=768測定値。各値は32 graph calls
+の平均で、32 blockを独立プロセスとみなさない。全 process STATUSの時刻は指定順に
+非重複、exit 0、error null、stderr 0 bytes、各stdout末尾 passed=true。全行で
+block 0..31が各1件、欠損・重複なし、msは有限かつ正、route_group=block mod 8。
+全24条件行が bit_mismatches=0 と報告。threads 12、pins 0..11、ggml_numa=false。
+
+再計算: 各blockの比 = (frozen0 + frozen5)/(candidate前半 + candidate後半) の
+同番号blockの測定ms。offは1,4、sharedは2,3を分母に使用。32 block 比の中央値等を
+報告し、ANALYSIS.json の全8行×32比と一致（最大差0）。32比は2 process/armを元に
+した反復値であり、32独立試行のconfidence intervalや勝率ではない。
+
+型 / cache / candidate     比median  min       max       比>1/32  時間変化 (1/median-1)
+IQ2 / hit  / off           1.013748  0.819881  1.534869  21       -1.356%
+IQ2 / hit  / shared        1.066752  0.947154  1.413365  29       -6.258%
+IQ2 / miss / off           1.048217  0.956596  1.308702  29       -4.600%
+IQ2 / miss / shared        1.048733  0.936795  1.307355  28       -4.647%
+IQ3 / hit  / off           1.003977  0.988841  1.023819  24       -0.396%
+IQ3 / hit  / shared        1.015101  0.987942  1.039036  27       -1.488%
+IQ3 / miss / off           0.996734  0.972743  1.007549   6       +0.328%
+IQ3 / miss / shared        0.993338  0.944772  1.006511   1       +0.671%
+
+事前規則は shared hit比>=1.02 と miss時間悪化<=1%。IQ2 は数値上両条件を通過、
+IQ3 は missを通過するが hit 1.015101 で未達。offはoverheadを独立に報告する条件で、
+hit 2%をoffに適用して shared実装の採否としてはいけない。IQ2 missではsharedもoffも
+frozenに対し約1.049倍で同方向に動いており、missの差をsidecar自体の改善として扱えない。
+IQ3 miss は offもsharedもfrozenより中央値で遅く、sharedの差+0.671%は基準内だが、
+変動を含む2プロセス/armの結果。比較失敗は前段のsame-library screenを無効にせず、
+FIXED_PLANでは noisy cross-libraryで未達ならproduction採用に進まない。
+
+process毎の中央値 ms（各行は実行順 frozen0,off1,shared2,shared3,off4,frozen5）:
+IQ2 hit   0.878195 0.838293 0.794937 0.809653 0.835210 0.851161
+IQ2 miss  1.435692 1.395961 1.398488 1.397496 1.397160 1.495805
+IQ3 hit   0.894107 0.893748 0.879836 0.894024 0.891978 0.895309
+IQ3 miss  1.966613 1.973296 1.965503 1.982949 1.971543 1.963488
+
+対称位置の process中央値比 frozen0/shared2、frozen5/shared3 は IQ2 hit 1.104736、
+1.051266、IQ3 hit 1.016220、1.001437。IQ2 miss frozen両端中央値は1.435692と
+1.495805msに対しoffは1.395961/1.397160ms。IQ2 frozen0 hitにはblock最大1.454894ms、
+miss最大2.163899msがあり、比も大きく揺れる。外れ値は全て保持。交互配置は順序・
+driftの緩和を意図するが2 process/armで要因や有意性を特定できない。
+
+入力・出力同定
+FIXED_RECEIPT の12行×3ファイル、計36実ファイルを別途再hashし、サイズとSHA256は
+全てreceiptに一致。各型の inputs.bin hashは6 process間で一致。各型のhit6出力は
+全6 process間で一致、miss0出力も6 process間で一致。実際は各型でhit6とmiss0の
+hashも一致しているが、設計は両経路の一致を前提にしていない。各stdoutの48 route IDs
+も一致し、tensor名と該当GGUF pathをSTATUS argvが記録。
+出力hashの一致は当該保存出力のbyte一致の強い証拠だが、実入力の分布や全出力・全型、
+すべてのunsafeケースや全モデル品質を保証しない。input hashは同じ保存入力を示し、
+同時刻のweight file内容の独立hash、算術経路の同一性、典型的な実利用を単独では証明しない。
+
+測定環境について: STATUSのsensor timestampは大部分が繰返しで、試験時間内に独立
+sensor時刻があるのはIQ2のfrozen0/shared3とIQ3のshared2/frozen5のみ（各1時刻）。
+記録された温度は27〜38°C、全EDAC/thermal throttle countersは0。温度/カウンタの
+連続観測や瞬間最大の証拠ではない。API coresの記録は0〜0.019962、他processや短時間の
+干渉が無かったことを保証しない。MemAvailableの記録範囲は71,063,036〜71,521,824 KiB、
+process peak RSSや瞬間最低値ではない。rawログ、出力、分析JSONは変更していない。

@@ -1,0 +1,82 @@
+実 ggml operator 測定ログ再集計 — 2026-11-16、r1 のみ
+
+対象: execution/real-iq2-r1 と execution/real-iq3s-r1 の STATUS.json、stdout.log。
+性能判定規則: 同ディレクトリの PERFORMANCE_PLAN.txt。ソースコード判定・試験実行は行わず、
+既存データの読み取りと本ファイル作成のみ。すべての値を集計し、外れ値を除外していない。
+
+結果の読み方: 各 block の比は mean(currentの2測定ms) / mean(candidateの2測定ms)。
+表の中央値/min/max は16 block比、勝ち数は比が厳密に1超のblock数。各 ms は各 graph
+compute 8回の平均で、128サンプルは独立した128 requestではない。whole-model gainや
+tokens/sへの換算はしない。単位の明記がない比は全て current/candidate。
+
+完全性
+* 両 process とも STATUS exit_code=0、error=null、stderr.log は0 bytes、stdout の
+  最後は {"passed":true}。各 stdout に all-hit (cached_of_six=6、cache_bytes=318504960)
+  と all-miss (cached_of_six=0、cache_bytes=0) が一つずつ、各128 timed samples。
+* 2型×2 cache×2 candidate×16 blocks×4 order=512 records を確認。各条件で
+  block 0..15 × candidate 1,2 × order 0..3 は重複・欠損なし、全 ms は有限かつ正。
+  128件/conditionは2 candidateそれぞれ64件（current 32、candidate 32）。
+* route_group は block modulo 8。group 0..7 は2回出現し、前後で候補順序と
+  ABBA/BAABが反転。各 block 内の order 0..3 に current 2回・該当 candidate 2回。
+  該当しないmodeの混入はない。threads=12、ggml_numa=false をstdoutが報告。
+* テスト計画は warm compute後に各 timed chunkの出力を現行modeとbyte比較し、
+  correctness・prepare/row dispatch countを timing前に確認すると規定。ログは最終
+  passed=trueのみを結果として出すため、個別出力byte・比較件数・dispatch countの
+  実測値はここから独立検証できない。全有限入力の証明でもない。
+
+型 / cache / candidate          paired ratio median   min       max       勝ち / 16
+IQ2_S / hit  / 1 shared         1.049978             0.777872  1.057246  13
+IQ2_S / hit  / 2 private        1.046637             0.962648  1.129998  15
+IQ2_S / miss / 1 shared         0.999072             0.683000  1.312734   5
+IQ2_S / miss / 2 private        1.000101             0.858817  1.006433   8
+IQ3_S / hit  / 1 shared         1.024160             0.947020  1.050192  15
+IQ3_S / hit  / 2 private        1.017370             1.005833  1.030121  16
+IQ3_S / miss / 1 shared         1.000100             0.993278  1.016669   8
+IQ3_S / miss / 2 private        0.999122             0.981560  1.015342   6
+
+各モードの比較に用いた current の絶対時間と偏り
+各行の control median は16 block内 current2測定の平均の中央値（ms）。右端比は同じ
+route_group/blockにおける shared側 control / private側 control の中央値と範囲。
+同じ route でも時間的に別測定で、差は制御値の偏りの指標、候補同士の直接比較ではない。
+
+型 / cache      shared control ms   private control ms   shared/private control 比 median [min,max]
+IQ2_S / hit     0.835344            0.833076             1.005533 [0.919565, 1.135523]
+IQ2_S / miss    1.397143            1.397633             0.999653 [0.994550, 1.314296]
+IQ3_S / hit     0.912059            0.893951             1.005404 [0.982164, 1.054457]
+IQ3_S / miss    1.969651            1.969402             1.001002 [0.974821, 1.037748]
+
+IQ2 hit の shared control 1.172571ms、private control 1.054498ms など大きい block が
+あり、IQ2 miss shared の比幅 0.683〜1.313 も広い。IQ3 hit は shared の control中央値が
+private より高いが、上記対応block比の中央値とは別の集計であり、この差をそのまま候補
+性能差へ割り当てられない。最初の区間や長い観測も勝手に除外していない。
+
+固定 gate との照合（r1 単独のスクリーニング）
+規則: all-hit median比 >=1.02 かつ >1 が12/16以上、さらに all-miss median の
+時間悪化 <=1%。miss時間悪化は 1/median比 - 1 として表記。速度比自体の中央値を先に計算。
+
+型 / candidate      hit比     勝ち   hit gate   miss時間変化     miss gate    総合
+IQ2_S / shared     1.049978  13     pass       +0.0929%          pass         pass
+IQ2_S / private    1.046637  15     pass       -0.0101%          pass         pass
+IQ3_S / shared     1.024160  15     pass       -0.0100%          pass         pass
+IQ3_S / private    1.017370  16     fail       +0.0879%          pass         fail（2%未満）
+
+記号 + は median比から換算した時間増加、- は時間減少。これらは固定gateの計算上の
+通過であり信頼区間でも統合採用の根拠でもない。特に IQ2 shared の hit と miss に大きな
+振れがある。計画は通過候補または判定を変えうる未解決の変動に限り反復を認める。
+all-miss の中央値が条件を満たしても個々の worst block が1%以内とは意味しない。
+
+監視記録と範囲
+* IQ2: STATUS開始 1794824158.737、終了 1794824161.745、3.007秒。6 sampleは
+  すべて sensor unix 1794824151.652（開始約7.09秒前）、CPU max 27°Cを再使用。
+  API cores は6回とも0.0。available_kib は71,303,000〜71,603,984。
+* IQ3: 開始1794824403.383、終了1794824407.392、4.009秒。8 sample中3つは
+  sensor unix 1794824394.450（開始約8.93秒前、26°C）、残り5つは1794824404.567
+  （試験中、30°C）の再使用。API cores は0.0〜0.0199601、available_kib は
+  71,323,860〜71,627,988。API cores と MemAvailable は sample欄の値で、sensor unix
+  の反復のみからそれらの取得時刻や独立性を確定しない。
+* 両STATUS の initialと全sampleに保存されたEDAC・thermal throttle countersは全0。
+  温度は独立した連続観測ではないため、上記値を試験中の最高温度とみなせない。
+  API CPU欄は限定的な監視値であり、他process、core衝突、短時間の干渉が無かった証明
+  ではない。MemAvailable はsystem-wideの断片的記録で、process peak RSSや瞬間最低値
+  の保証ではない。現在 mode0も新ライブラリの追加 workspaceを確保するため、現行配布
+  binary との overhead比較は未実施。ソース生データ・失敗記録は変更していない。

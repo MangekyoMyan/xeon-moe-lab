@@ -1,0 +1,152 @@
+IQ3_Sの4bit表現を変えてweight lookupを省く限定試作
+2026-11-16（JST）/ 0c9eb472d2460048fb44cca949ad3722ed27b93b
+
+結論
+====
+新しい候補として、IQ3_Sのweight payloadを144B/blockのまま保ち、内積中の
+weight lookupとsign/abs処理を別の整数式へ置き換えるprobeを作った。
+新形式用のfast readerと、現行演算を再現するcompatibility readerのbit一致を確認した。
+これは性能未測定・backend未統合の候補である。abs144に優ると主張しない。
+
+実装負担の小さいabsの実形状screenと、GPUの最小trace設計を先に進める。
+この候補は同じharnessへ追加できる比較対象として渡す。新形式を識別する設計なしに
+現在のcacheへ混ぜてはいけない。新形式から旧compact readerへのfallbackも不可。
+
+参照元
+======
+H = 対象repoの archive/review-handoffs-not-for-readers/2026-11-16-current
+E = H/snapshot/llm-lab/exploration-20261112
+N = 対象repoの archive/review-handoffs-not-for-readers/2026-11-16-next-optimization
+
+E/row-local/iq-small-kernels.inc
+  IQ3_Sのsigned gridは +/-1,3,5,7,9,11,13,15。
+  現compactのnibbleはmagnitude index 3bitとsign 1bit。
+  scaleは32要素groupごとに共通の奇数1..31。
+E/iq-rhs/iq-rhs.cpp と iq-math.inc
+  既存IQ3_XXS bias62は別案。nibbleからbiased gridへのlookupを残している。
+H/snapshot/llm-lab/optimization-20261112/cpu-bias/biased-iq3.inc
+  以前のweight correction/unsigned activation案もIQ3_XXS向けで、160Bとlookupを使う。
+
+上の既試行を照合した範囲で、IQ3_Sをoffset-binaryのnibbleへrecodeしてweight lookupを
+省く方式は見つからなかった。共有されていない過去の全実験に非存在を証明した意味ではない。
+
+1. 整数式
+=========
+
+元のsigned grid値を w とする。すべて奇数なので、
+
+  k = (w + 15) / 2  は 0..15 の整数
+  w*y = 2*k*y - 15*y
+
+が成り立つ。kは4bitに収まる。既存のnibble位置・block sizeを保ちながら、nibbleの意味だけを
+変える。元のGGUFを改変する案ではなく、派生compact cacheの別formatである。
+
+旧code c=0..15 から新codeへのmap:
+  [8,9,10,11,12,13,14,15,7,6,5,4,3,2,1,0]
+
+input sidecarには、隣接2要素ごとの 15*(y0+y1) をint16で保存する。
+各16要素につき8個、256要素につき256B。旧bias62やabs144と同じsidecar byte数。
+
+内積ではnibbleをmask/shiftで直接0..15へ取り出す。
+  p = maddubs(k, y)
+  signed_pairs = 2*p - correction
+  integer_lanes += madd_epi16(signed_pairs, group_scale)
+
+この後のlow/highの4laneずつ、block単位FP32化、weight.d*input.d、8laneの累積順、
+水平和は現IQ3_S compact dotと同じにする。全inputを一つのscalar sumへ縮約して
+後から補正する方式ではない。laneごとの整数を一致させることがbit互換性の要点。
+
+範囲（abs(y)<=127）:
+  abs(p) <= 2*15*127 = 3,810
+  abs(2*p) <= 7,620
+  abs(correction) <= 3,810
+  独立上界で見ても差は11,430以下でint16内。
+  実際の差は元signed pairであり、その絶対値は3,810以下。
+  4入力・最大scale31の32bit積和は236,220以下。
+  8groupを同laneへ加えた整数は1,889,760以下でint32内。
+
+2. unsafeと形式の識別
+=====================
+
+現行compactはsigned inputへPSIGNBを掛けるため、input=-128を単純な数学的な符号反転と
+同一視できない。候補fast式をそのまま使うと、元演算との互換性が崩れる入力がある。
+したがってprepareで-128と非有限Q8 scaleをunsafeとし、専用compat readerへ戻す。
+
+compat readerは新nibbleへ [-15,-13,...,13,15] のsigned LUTを適用し、その後は
+現行と同じPSIGNB/PABSB、整数lane、FP32順で計算する。これにより、weightを旧形式へ
+再packしたり、旧cacheを二重保持したりせず、旧算術を再現できる。
+
+この設計の禁止事項:
+  ・sizeofが144であることだけを根拠に旧compact dotへ渡す。
+  ・IQ3_SというGGML typeだけでold/new nibble形式を識別する。
+  ・unsafe時にraw GGUF readerへ新compact pointerを渡す。
+  ・同じ既存registryの意味を無表示で変えて旧API consumerにも返す。
+
+prototypeは別struct offset4_iq3s_blockとschema名IQ3S_OFFSET4_V1_144を使う。
+これはruntime format検査を実装済みという意味ではない。実機統合ならloader/descriptor/
+reader/compatibility readerのversion handshakeを明示し、新processのload時に直接packする。
+registry/planの選択とbytesは維持できるが、format identityは新たに管理する必要がある。
+
+3. この端末で確認したこと
+========================
+
+実行CPUはAMD EPYC 9V74、Linux。Xeon性能の測定ではない。
+GCC14.2、-O3 -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma
+-fno-fast-math -ffp-contract=offでcompile。
+参照はN/incomingに入った元probeと、現行E/row-localのkernel原文。
+入力はprequantized Q8_K。F32 quantizer、backend threadpool、モデル、GPUは使用していない。
+
+結果:
+  256 packed byte全値から512 nibbleのrecodeを確認。
+  2code x 2inputのscalar整数式とint16範囲は16,646,400組をharnessで列挙。
+  fast readerは10,240出力で現compactとbit一致。
+  compat readerは正常10,240 + unsafe3,200 =13,440出力でbit一致。
+  unsafe3,200件はprepareが拒否し、compatで元演算を再現。
+  K256/512/768/2304/5120、FTZ/DAZ off/on、rounding4種、正負/小さいscaleを含む。
+
+1664万件はscalar identityの検査で、1664万回のSIMD内積や独立なmodel入力ではない。
+normal/unsafe/compat件数の重複を加えて独立fixture数とも呼ばない。
+この結果を全IEEE例外payload、全compiler、全backend並列動作の保証へ拡張しない。
+
+4. assemblyの観測
+=================
+
+同じbinaryの自動unrollされた256要素block loopに含まれる静的opcode数:
+
+                  現IQ3_S     offset fast     offset compat
+  VPSHUFB              24              8                24
+  VPSIGNB              16              0                16
+  VPABSB               16              0                16
+  VPMADDUBSW           16             16                16
+  VPADDW                0             16                 0
+  VPSUBW                0             16                 0
+
+fastに残る8個のVPSHUFBはscaleのbroadcast用。weight lookupは省けているが、
+『PSHUFB命令が一切なくなった』とは言わない。
+関数全体のvector stack operand付き命令は現16、fast8、compat16だった。
+prologue/epilogue等も含む静的数で、実行回数・spill cycle・速度比ではない。
+fastにもstack退避は残る。追加のsidecar readとADD/SUBへの置換が本当に有利かは未測定。
+
+命令数の減少からtok/sや何%のgainを推測しない。まず現Xeonの同じharnessで
+current / abs144 / offset4-fast+prepareを比較し、次にprivate/shared準備を比較する。
+cache formatを変える実装費用に見合う便益がなければ、この案は採用しない。
+
+5. 再現と配布物
+===============
+
+  python3 run_iq3s_offset4_probe.py --repo /ABS/PINNED_REPO --output /ABS/NEW_DIR
+
+repoは0c9eb472...のcheckout、outputは新規directory。
+compileしたstandalone probeだけを実行する。配布ELF、model、APIは使わない。
+出力RESULT.jsonにsource hash/compile command/結果、ASMに実際のcodegenを残す。
+このrunnerに性能benchmark modeはない。実機側の次harnessへcandidateを組み込むための素材。
+
+主なfiles:
+  iq3s_offset4.inc             新format、prepare、fast/compat reader
+  iq3s_offset4_probe.cpp       原kernelとのbit試験
+  run_iq3s_offset4_probe.py    compile/実行/objdump
+  offset4_run/RESULT.json      実行receipt
+  offset4_run/ASSEMBLY_SUMMARY.json と *.asm  静的codegen記録
+
+実装優先度は、versioningを伴わないabsの限定実形状screenより下。
+採用済みとの混同を避けるため、通常libraryへ当てるpatchは作成していない。

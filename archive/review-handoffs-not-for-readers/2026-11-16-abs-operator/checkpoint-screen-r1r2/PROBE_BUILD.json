@@ -1,0 +1,32 @@
+{
+  "argv": [
+    "g++",
+    "-O3",
+    "-std=c++17",
+    "-march=ivybridge",
+    "-mtune=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-fopenmp",
+    "-Wall",
+    "-Wextra",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+    "-I/home/codex/projects/llm-lab/exploration-20261112/row-local",
+    "/home/codex/projects/llm-lab/optimization-20261116/abs-operator/probe.cpp",
+    "-L/home/codex/projects/llm-lab/optimization-20261116/abs-operator/runtime",
+    "-L/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/optimization-20261116/abs-operator/runtime:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-lggml",
+    "-ldl",
+    "-o",
+    "/home/codex/projects/llm-lab/optimization-20261116/abs-operator/probe"
+  ],
+  "source_sha256": "f6678622b7ce34a83942117d4129bb50aa39204ddde3505bef2845ebd7f4c769",
+  "probe_sha256": "5b2a7fa535355f73caad1cb4bf047fa9f8e2f3ca5737c7d488b2ebbdbcb60a7c"
+}

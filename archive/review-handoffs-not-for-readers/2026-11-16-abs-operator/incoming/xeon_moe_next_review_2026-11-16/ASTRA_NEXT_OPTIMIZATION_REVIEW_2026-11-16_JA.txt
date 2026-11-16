@@ -1,0 +1,508 @@
+xeon-moe-lab 次の最適化に対する独立レビュー・実装担当向け返却
+2026-11-16（JST）
+対象 commit: 0c9eb472d2460048fb44cca949ad3722ed27b93b
+
+相談票:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/0c9eb472d2460048fb44cca949ad3722ed27b93b/archive/review-handoffs-not-for-readers/2026-11-16-next-optimization/CONSULT_PRO_JA.txt
+
+0. 三つの質問への回答
+=====================
+
+1) IQ2_S / IQ3_S のmultiworker評価には進む価値がある。
+   最初は実形状の二条件、6 distinct experts、12 workers、現行interleaveで十分。
+   IQ2_S gate/up: K5120 / M2304、入力1本共有。
+   IQ3_S down:    K2304 / M5120、入力6本。
+   単コアの数%を全体の改善率には換算しない。準備・同期・lookup・dispatch込みの
+   operator時間で改善が残るかを見る。これが確認できるまでは全面統合を採用しない。
+
+2) shared workspace / 既存barrier / worker safe mask方式は成立する。
+   新しい同期は不要にできる。ただしplannerと実行時の容量契約、空worker、64bit shift、
+   prequantized row stride、no-hit省略時の読み取り順、compact fallbackを明文化する。
+   より単純な直接対照として「worker-privateの1入力lazy prepare」を提案する。
+   同じinputをworker間で重複prepareする費用と、共有mask等を省く利益を実測で比較する。
+
+3) GPU配置の時間目的への転換は支持する。ただしCPUの評価作業を止めてGPU最適化だけに
+   集中する根拠はまだない。CPUの小試験と、GPUの最小trace設計を並行して進めるのがよい。
+   route-only census（全40層）→hotのhost時間→必要なら4 CUDA timing events、の順。
+   既存cb_evalはgraph分割・同期を加えるので、通常の性能測定へそのまま使わない。
+   既存joinとmutexを維持し、pinned bufferとgraph/allocatorの寿命を変えない。
+
+新しいCPU算術候補も一つ作成した。IQ3_Sの4bit codeをoffset-binaryへ並べ替えることで、
+144 B/blockを保ったまま内積中のweight lookupを省く。限定probeで現compactとのbit一致を
+確認したが、性能は未測定。cache format識別と専用compat readerが必要なので、absの
+実形状screenより優先度は下。実装担当が同じharnessで比較できる素材として添付する。
+
+今回の最も大きい前進は、局所kernelの勝ちを認めたうえで、次に何を測れば実装判断が
+変わるかを具体化できたことにある。現在のfinalが新probeの分だけ速くなったとは扱わない。
+
+1. 証拠と実行の範囲
+===================
+
+新commitを独立worktreeへ取得し、相談票、全raw、incoming、現在のsource、以前の不採用
+実験を照合した。旧7d8b077とのdiffは今回handoffの59 filesの追加だけで、Hは不変。
+今回manifestの58記載files、incomingの44記載filesを全照合し、incomingは前回返却物と
+byte一致した。各manifest自身を含めるとそれぞれ59 / 45 filesである。
+
+略称（すべて上記commit固定）:
+  N = archive/review-handoffs-not-for-readers/2026-11-16-next-optimization
+  H = archive/review-handoffs-not-for-readers/2026-11-16-current
+  E = H/snapshot/llm-lab/exploration-20261112
+  O = H/snapshot/llm-lab/optimization-20261112
+  C = E/mx-prepack/release-candidate-a/sources/ggml-cpu.c
+  B = H/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp
+  HB = E/hot-ffn/hot-backend.cpp
+
+証拠は次の三種類に分ける。
+  実機で実行済み: ユーザー提供のXeon単worker screenと過去実験。こちらはraw再集計。
+  こちらで新規実行: EPYC上の限定C++ correctness、静的assembly照合、offline JSON解析。
+  提案のみ: 実ggml abs統合、12worker性能、GPU collector/timing adapter、配置変更。
+
+こちらのhostはAMD EPYC 9V74 / Linux / GCC14.2。C++はIvy Bridge向けにcompileし、
+-mno-avx2 -mno-fma -fno-fast-math -ffp-contract=offを使用した。
+ISAを限定しても、Xeonのcache・帯域・実行port・NUMA性能を再現したことにはならない。
+今回、新しい性能benchmarkは行っていない。通常API、モデル、GPU、配布ELFも実行していない。
+repoのsource、service、配置、config、hardware設定への変更はない。
+
+資料中の実機制約は引き続き基準とする:
+E5-2630L v2 ×2、12 physical cores、PG500-216 32GB、GPU150W/ECC/fan<=70%、
+128k f16 KV、IQ compact payload約118.652 GiB / configured120 GiB、reserve64 GiB。
+通常APIのconfig SHA256は資料記載の
+963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43。
+これは今回こちらから実機へ接続して再観測した値ではない。
+
+2. Xeonの結果をどう評価するか
+============================
+
+2.1 結果は次段階を正当化する。ただし独立性と測定範囲を保つ
+
+CPU3/node0、CPU9/node1の全16条件ずつについて、raw stdout、parsed arrays、expected
+inventory、source hashes、各armから作ったpaired ratiosを独立照合した。
+absの保持wall比96個はすべて1を超え、事前screenを両socketで通る条件は11/12。
+ここで96は独立な入力・独立runが96個あるという意味ではない。
+
+wall paired medianの速度増加率（%、左CPU3 / 右CPU9）:
+
+型          K2304/M256   K2304/M8192   K5120/M256   K5120/M8192
+IQ3_XXS     4.19 / 3.54   4.89 / 3.53   4.01 / 3.13   2.86 / 2.79
+IQ2_S       5.06 / 4.42   3.57 / 3.70   4.18 / 4.42   3.99 / 4.19
+IQ3_S       5.72 / 5.40   5.80 / 5.75   4.69 / 4.89   4.64 / 5.10
+
+準備はmatrix traversal内で計測済み、F32→Q8_Kは双方とも除外。
+M256では同じbankを128 traversals、M8192では4 traversals反復する。
+1入力・人工weights・1workerの結果で、実FFNの6 expertsや12workersの結果ではない。
+node1 IQ2_S K2304/M8192の保持比は約1.0113〜1.0860。中央値だけで安定性を断定しない。
+同梱図はmin–maxを表示する。これは信頼区間ではない。
+
+correctnessの一意な件数はabs bit一致61,440、unsafe拒否4,800、旧bias62 bit一致20,480。
+node1へコピーしたreceiptは重複加算していない。8 control設定はFTZ/DAZ同時off/onと
+4 rounding modesであり、FTZとDAZを独立に全組合せ探索したものではない。
+
+両実機receiptは同じbinary SHAを記録するが、そのELF bytes自体は未提供。
+こちらで実機ELFを再hashしたと書かない。前後API idle/config不変の記録も、連続idle・
+温度peak・clock安定・OS隔離の証明とは分けて扱う。
+
+2.2 旧bias62との直接性は、相談票の注意をさらに数値で裏付けられる
+
+相談票の通り、absとbias62は別々のABBA/BAAB blockである。今回の再集計では、
+K2304/M8192のcurrent対照そのものに次の差が見つかった。
+
+          abs block current中央値   bias62 block current中央値   比
+CPU3             278.938 ns                  235.602 ns          1.18394
+CPU9             258.419 ns                  221.973 ns          1.16419
+
+同じcurrent kernelでも16〜18%違う条件がある。原因はclock、cache、code context、順序等
+未分離で、「経時drift」とも確定していない。各候補の改善率を割って直接優劣を決めない。
+各block内でabsがcurrentを上回る証拠が消えるわけではないが、候補間の直接比較は別である。
+
+IQ3_XXSを低優先度にする判断には賛成。ただし相談票の「実形状の大きな条件もscreen未達」
+は訂正が必要。未達だったK5120/M8192は合成形状で、実gate/upはK5120/M2304。
+実形状での不合格を既に観測したことにはならない。
+
+2.3 weight bankの規模と入力再利用を実装に合わせる
+
+今回のcompact weight payloadは、K2304/M8192で10.125 MiB、K5120/M8192で22.5 MiB。
+保存lscpuのL3は15 MiB/socketなので、同じ「大きいcase」でもcache条件が異なる。
+L3未満なら全residentを保証するという意味でもない。
+実gate/up・downはいずれも1 expert / 1 projectionが6.328125 MiB、異なる6 expertsで
+37.96875 MiB。単一bankを繰り返す試験と同じreuse distanceにはならない。
+
+downはQ8_K 2,628 B + abs2,304 B =4,932 B/input。6本で28.8984375 KiBという計算は正しい。
+ただしC:1867–1953はexpert外側のloopで、T=1・unique IDsなら、各workerは通常1入力を
+多数rowへ再利用する。6本を各private L1へ常時合算する前提は置けない。
+相談票が懸念する他working set・prepare直後の占有・切替は測る価値があるが、割当量だけで
+L1 cliffを理由に採否を決めない。人工harnessでrowごとに6入力を巡回させると別の負荷になる。
+
+現Cでの12worker chunkingも保持する。ggml_is_numa()==falseの場合は:
+  gate/up M2304: 初期36個の64-row chunksが48未満なので12分割、各192rows。
+  down M5120:   80個の64-row chunksをdynamicに取得。
+ggml_is_numa()==trueならdownも12分割になる。外側のnumactl --interleaveとは別の設定で、
+現finalのruntime値がfalseだと今回観測したわけではない。実行条件を明示する。
+全row round-robinや1 expert / workerへ置き換えた試験を現backend相当とは呼ばない。
+
+3. CPUの次段階を小さく設計する
+=============================
+
+初回の性能caseは冒頭の二条件を推奨する。保存trainingのCPU111 projection recordsで、
+IQ2_Sはgate/up12・down2、IQ3_Sはgate/up2・down6であり、主用途を先に覆える。
+22/111という件数比を時間比や改善率へ変換しない。
+
+基準armは現在のcompact144。candidateも同じcache、同じplan、同じinput/routesを使い、
+absの有無だけを変える。all-hitに加えall-missの退行を必ず見る。利益が残る場合だけ、
+mixed hit、1/6 workers、逆のprojection型、異なるinput/route groupへ段階的に広げる。
+正しさ側の境界coverageは、この小さい性能matrixとは別に維持する。
+
+E/sparse-cache/cost-probe.cppを土台にできる。実shape、6 experts、1/6inputs、8 route
+groups、48 expertsだけをpackする仕組みが既にある。48 expertのcompactは303.75 MiB /
+projectionで、全384 expertの2.373 GiBをpackせずに済む。
+ただし旧A/Bはuse_ref=trueのraw対falseのcompact（91–97行）。その切替を流用すると、
+cacheの利益をabsの利益と誤認する。新しい両armはcompact有効にする。bit互換性の基準は
+current compactで、use_refは現raw分岐を保つ別対照として測定外へ置く。
+
+性能区間はF32→Q8_K、prepare、row-map、mask、barrier、lookup、dispatch、dot、output
+書込を含むoperator wall時間。timed armだけにlog/hash/counter取得を足さない。
+dot-onlyや分解traceは診断用に分ける。CPU time総和はCPU使用量であり、barrier込みwallの
+代わりにはならない。workerのactual pinning、現interleave、入力/route hashも残す。
+
+warmup、sample数、実務閾値、case inventory、ABBA/BAAB順を事前固定する。
+失敗・欠測・重複・nonfiniteを除外してmedianを改善しない。同じ行の反復を独立標本と
+数えず、request/run/block単位の散らばりを見る。単コアの3%screenは統合採用の閾値ではない。
+
+4. shared統合の具体的な注意点
+============================
+
+4.1 workspaceの予約条件と実行条件を分ける
+
+backendはggml_graph_plan後にcplan.use_refを設定する。予約を!use_ref、opt-in状態、
+cache hitへ依存させず、対応shapeなら十分な容量を予約する設計にする。
+plannerとcomputeで同じshape/size helperを使用し、積・align加算のoverflowを確認する。
+n_tasksと実nthを合わせ、thread数変更後は再planして容量を検証する。
+
+shared追加領域の概念形はalign64(K)*n_inputs + nth*sizeof(uint64_t)。
+対象Kは256倍数なのでalign64(K)=Kだが、workspaceのbaseは64-byte alignedとは限らない。
+現backendのnew uint8_t[]とincr_ptr_alignedの契約に合わせ、絶対pointerを整列させる。
+relative offsetだけのalignではaligned SIMD load/storeを保証できない。
+既存の末尾alignment余裕を「余っている」とみなして削らない。
+
+4.2 自分が量子化したcomplete blockだけをprepareする
+
+C:1799–1800のQ8_K範囲はfirst=floor(ith*(K/256)/nth)、end=floor((ith+1)*(K/256)/nth)。
+K2304 / 9blocks / 12workersでは空workerは0,4,8。ceil固定chunkの9,10,11とは違う。
+同workerが自分の完成blockだけをprepareし、既存1853行barrierで公開する。
+量子化とprepareの間の追加barrierは不要。
+prequantized入力は元nb11、F32から作った連続Q8 workspaceはqrowを使う。dotが読むrowと
+prepareするrowを一致させる。n_inputs1..64、T=1、x.ne2/ne3、K、nb0の条件を明示する。
+
+4.3 maskは公開の単位と単位元を守る
+
+空rangeは必要なinput bitについてtrueを公開する。0を公開すると全inputがunsafeになる。
+64入力では1ULL<<64を作らず特別扱いする。各workerは自分のmaskを毎operator上書きする。
+既存barrier後に全workerが各maskをローカルANDすれば、mask atomicも追加barrierも不要。
+worker0だけに合成させ、他workerへ未同期で読ませる形へ変更しない。
+8B maskを最初から64Bにpaddingする必要もない。1回のwrite sharingとread footprintの
+交換なので、必要な証拠が出てから比較する。
+
+4.4 no-hit省略は共有row-map公開前の早読みを避ける
+
+matrix_rows/countsはworker0が1825–1844行で作り、1853barrierで公開する。
+それより前のprepare判定に使えない。省略するなら確定済みidsとimmutable compact entry
+から必要input maskを作る。slot%ne11、idsのnb[0]、-1、ID範囲を守る。
+現lookupはbarrier後で、mutexとcounter更新を伴う。前へ移すなら元を消し、二重lookupしない。
+初版で全input prepareを対照にする方法もある。複雑な省略判定が節約を上回るなら不要。
+
+4.5 fallbackはpointer・layout・readerの組を保つ
+
+compact hit + safe -> abs dot。
+compact hit + unsafe -> 現compact dot、同じcompact pointerとstride。
+miss / use_ref / 非対象型 / T>1 -> 現在の分岐。
+unsafe時にraw用dotへcompact pointerを渡してはいけない。
+相談票の「144 B row stride」は「144 B block stride」へ訂正する。row strideは(K/256)*144。
+Q8_Kのscale/sign/bsums、cache owner、registry lifetime、packing、選択planを維持する。
+
+4.6 既存graph試験は再利用できるが、counter期待を修正する
+
+E/iq-rhs/test-graph.cppにstrided F32/Q8_K、64/65 inputs、T>1、duplicate/-1、unsafe、
+use_ref、thread12→1→24、MX混在、実shapeの素材がある。
+ただし53–55行はselectionが非空ならactual hitゼロでもprepareされる旧方針をassertする。
+no-hit省略/private lazyでは、actual hit/非空chunk/採用方式に沿った期待へ変更する。
+「正しく準備を省略したため旧counter testが失敗」を新kernelの誤りと混同しない。
+
+5. 単純な対照としてworker-private lazy prepare
+============================================
+
+現在の量子化・row-map・barrier・lookupの位置を保つ。workerごとにK bytesのscratchを
+予約し、operator開始時に{last_input=-1,safe=false}を作る。compact hitで非空chunkに
+到達した時、そのinputが変わっていれば全Kをprepareする。同じinputの次row/chunkで再利用。
+unsafeなら現compactへ戻す。all-miss/use_refはprepareゼロになる。
+
+stateをchunk helperのたびに初期化しない。worker-local変数をoperatorが持ちhelperへ渡す。
+逆に次operatorへstateを持ち越さない。T=1ではinput identityはi11で足りるが、T>1へ
+拡張するならi12等を含める必要がある。
+
+共有方式に比べた利点は、shared mask、early route scan、early lookup変更が不要なこと。
+初回の1入力共有／6 distinct入力・unique expert条件では、同じinputを最大nth回prepareする。
+duplicate expertや入力の再訪では、それ以上のprepareが発生するが正しさは保たれる。
+12workersのscratch合計はgate/up60 KiB、
+down27 KiB。通常のexpert順なら各workerは1入力を多くのrowへ再利用できる。
+interleaveを保つ以上、worker-privateという名だけでNUMA localになるわけではない。
+
+これはshared案を退ける提案ではない。実装差の小さい対照を用意し、同じharnessで
+「共有準備の最小仕事量」と「private準備の小さい制御費用」の収支を比較する提案である。
+
+6. 新候補: IQ3_S offset4（算術確認済み、性能未測定）
+==================================================
+
+IQ3_Sのsigned grid値wは±1,±3,...,±15。したがって
+  k=(w+15)/2 は0..15、w*y=2*k*y-15*y
+とできる。kが4bitに収まることが、この型を選ぶ理由である。
+IQ2_Sの±8,±25,±43には同じ単一affine式をそのまま適用できない。
+
+旧code0..15を [8,9,10,11,12,13,14,15,7,6,5,4,3,2,1,0] へrecodeし、同じnibble位置へ保存。
+block size144Bは維持する。input sidecarには15*(y0+y1)をint16で保存し、256B/block。
+内側ではweight LUTを引かず、0..15を直接maddubsへ渡す。
+  p = maddubs(k,y)
+  signed_pair = 2*p - correction
+  lanes += madd_epi16(signed_pair, group_scale)
+元の8整数laneとblockごとのFP32化、scale乗算、累積・水平和の順を維持する。
+
+|y|<=127では|p|<=3810、|2p|<=7620、|correction|<=3810、signed pairの実値も±3810内。
+16bit飽和・wrapを避けられ、最大group scale31を含む32bit lane上界も十分小さい。
+scalar式だけで済ませず、現kernelを含めたSIMD出力をbit比較した。
+
+注意: input=-128では現PSIGNBのwrapが単純な数学的符号反転と違う。fastは-128および
+非finiteなinput scale dを拒否し、
+新nibble用の専用compat readerで現PSIGNB/PABSB算術を再現する。
+新payloadを現compact readerやabs readerへ渡せない。sizeof144・GGML_TYPE_IQ3_Sだけで
+旧/newを識別してはいけない。format tag、loader/descriptor/dispatchのversion契約が必要。
+新processで派生cacheへ直接packする案で、元GGUFの変更や二重weight cacheを要求しない。
+
+限定probe結果:
+  fast出力のbit一致          10,240
+  compat出力のbit一致        13,440（正常10,240 + unsafe3,200）
+  unsafe拒否                 3,200
+  nibble mapping               512（256 packed byteから）
+  scalar identity/bounds 16,646,400組
+K256/512/768/2304/5120、FTZ/DAZ同時off/on、rounding4種、正負・小さいscaleを含む。
+1664万組はscalar式の検査で、1664万回のモデル試験やSIMD内積ではない。
+
+GCC14.2 / Ivy Bridge向けの静的assembly観測:
+                      現IQ3_S    offset fast    offset compat
+VPSHUFB                    24             8               24
+VPSIGNB                    16             0               16
+VPABSB                     16             0               16
+VPMADDUBSW                 16            16               16
+VPADDW                      0            16                0
+VPSUBW                      0            16                0
+
+残る8 VPSHUFBはscale broadcast用。weight lookupの除去は確認できたが、命令全廃ではない。
+fastにもstack退避は残る。sidecar readとADD/SUBの費用が加わるため、命令数から速度を予測しない。
+この案はabsより統合負担が大きい。現Xeonでcurrent/abs/offset4を準備込みで直接比較し、
+十分な便益がないなら採用しない。CPU/CUDA算術差やモデル品質を改善した主張でもない。
+
+7. 既試行を重ねない
+==================
+
+O/cpu-pair/とO/cpu-pair-unrolled/には、2出力rowでQ8入力loadを共有する試作が既にある。
+通常版の保存12条件はspeedup0.67758〜0.82133、unroll版も0.78649〜0.84156で全条件遅い。
+両方correctness receiptは886,560 outputs。K/M、1/12threads等の古い人工条件である。
+全row-pair方式の不可能性ではないが、「2行で入力を共有」を新規低リスク案として繰り返さない。
+再挑戦するなら旧版のaccumulator数、register生存期間、spillと何が違うかを先に示す。
+
+O/cpu-bias/のIQ3_XXS 160B weight補正版、E/iq-rhs/の144B bias62、今回abs、offset4は別案。
+offset4は読んだ範囲では既試行を見つけていないが、未共有の全履歴で新規性を証明したわけではない。
+旧NUMAやunroll探索を、原因を限定する新証拠なしに大きなmatrixで繰り返す優先度は低い。
+
+8. 全体改善の予算を先に置く
+==========================
+
+旧IQ3_XXS bias62の全モデル比較をheldout rawから再集計すると、従来のpredicted_n-1の
+decode step定義でcontrol7.43116、candidate7.46907 steps/s、約+0.5101%だった。
+同じ192-token generation、8casesのoutput/token hashは4runsで一致する。
+これは今回absの全体改善ではない。局所数%と全体数%が別である経験的根拠である。
+
+新対象のbaseline critical-path時間割合をp、局所speedupをr、未包含の追加費用を
+全体時間で割った値をhとすると、単純化した条件付きモデルは
+  S_total = 1 / (1-p+p/r+h)
+となる。CPU/GPUが重なるなら、CPU worker timeの総和をpにしない。
+CPU短縮でGPUが遅い側へ入れ替わる場合はmax(C/r,G)の切替で改善が頭打ちになる。
+表は重なりとcritical pathの構造が変わらない範囲の感度計算である。
+operator全体のrにprepare等が既に入っている場合、同じ費用をhへ二重加算しない。
+
+h=0での全体速度増加率（%）:
+局所r        p10%      p25%      p50%
+1.03         0.292     0.733     1.478
+1.04         0.386     0.971     1.961
+1.05         0.478     1.205     2.439
+1.06         0.569     1.435     2.913
+
+現在のpは保存資料から確定できない。TRAINING_COUNTSは件数のみ。旧ANALYSISは旧配置の
+CPU graph集約で、finalの対象compact dotを分離しない。FINAL_ABBAは全体時間。
+この不足を22/111やpayload比で埋めない。
+
+追加費用のbreak-evenは h < p*(1-1/r)。全体+gを守る予算は
+  h <= p*(1-1/r) - g/(1+g)
+で、右辺が負なら費用ゼロでも目標へ届かない。
+例: p25%、r1.05で全体+1%を守る追加費用は全体の0.200377%まで。
+仮に100ms/stepなら約200.38us/stepという単位換算になる。100msを実測した意味ではない。
+局所の数%では、lookupやbarrierが無条件に無料だとは置けない。
+
+9. GPU計測を三段階に分ける
+==========================
+
+9.1 A: 全40層のroute-only census
+
+現finalと同じ配置・算術の診断構成で、ffn_moe_topk-N（N=0..39）を採る。
+ordered global expert IDs[6]を保存すれば、unordered set・pair co-occurrenceは後から作れる。
+CPU mul_mat_idだけのhookでは旧GPU層37–39を落とすおそれがある。
+T=1でも生成tokenとは限らないので、request/sequence/input position/phase/model-pass IDを
+実入力metadataから付ける。API表示chunk番号や平均perfから逆算しない。
+
+既存cb_evalはcollectorとして小さいが、B:2177–2207がgraphを分割し2200行でbackendを
+synchronizeする。通常のlayer latencyを測ったことにはならない。
+graph分割に伴いfusionや算術が変わる場合、routing自体も変わり得る。trace-offとのoutput/
+routing対照を行い、同一性が確認できなければ「診断構成のroute」と明記する。
+無計測側にrouteを取得する手段がない場合、出力token/hash一致だけで全層route同一を証明
+したとは扱わない。低撹乱collectorによる照合が残る限界として明示する。
+
+1 passのID payloadは40*6*4=960B。header/metadata等は別。
+事前expected manifestで各passの全40層を要求し、missing/duplicate/drop/invalidを拒否する。
+観測されたlayer集合からexpectedを作ると、全passで同じ層が落ちる欠陥を見逃す。
+
+reserve不足時でもschema/collector設計は進められる。ただし第2finalモデルを無料で
+載せられるわけではない。既存APIへ外からhookを後付けできる前提も置かず、モデルを扱える
+合意済みの機会に実測する。private guardを緩める理由はない。
+
+9.2 B: hot dispatcherのhost時計だけで始める
+
+HB:168–175の既存処理順を保ち、次の各区間へ同じhost clockの時刻を置く。
+CLOCK_MONOTONIC_RAW等のmonotonic clockをrun全体で固定し、run/process/clock-domain IDも保存する。
+  cpu_setup:       CPU input/ID set
+  gpu_submit_host: pinned input copy、H2D、private graph、D2Hのenqueue
+  cpu_compute:     CPU graphの同期実行
+  cpu_output_copy: CPU結果をmerge可能にするcopy
+  gpu_join:        既存private_gpu synchronizeの直前〜戻り
+  scatter:         元slotへのcopy
+routeは163–167行でglobal IDsとhit mask/Hを確定できる。
+
+GPU workはCPU区間と重なる。gpu_joinはCPU出力準備後に露出した残り待ちであり、GPUの
+総演算時間でも、取り除けるoverheadの確定値でもない。
+layer wallは非重複host区間と未割当host時間で説明する。GPU event durationをその和へ足さない。
+H=0のGPU、H=6のCPUなど存在しないbranchはnull。未測定と0msを区別する。
+execution_mutex待ちも必要ならbackend-call単位で記録し、同じ待ちを複数layerへ配賦しない。
+
+9.3 C: 不明点が残る場合だけ4 timing events
+
+標準ggml CUDA eventはcudaEventDisableTiming付きなのでelapsed用に使えない。
+timing-enabled eventを用意し、固定版の内部ggml_backend_event wrapperで既存の
+ggml_backend_event_record(event, private_gpu)へ渡す小さなadapter案を添付した。
+公開stream getterの追加は必須ではない。内部ABI、device、実loaded libraryの同定は必要。
+stack/member wrapperを、wrapperをdeleteする通常event_freeへ渡してはいけない。
+
+E0=H2D前、E1=H2D後/graph前、E2=graph call後/D2H前、E3=D2H後。
+private graph callの外にrecordし、capture内部のnodeを増やさずreplay時も毎回記録する案。
+既存join後にelapsedを回収し、追加sync・poll loop・host completion callbackを入れない。
+4eventsの再利用は前generationの回収後。回収を遅らせるなら未回収のlayer/pass数でpoolを
+予約する。GPU完了と計測値の回収済みを別に管理する。
+query・elapsed回収自体のhost費用も別記録し、実際のtoken wallから消さない。
+
+混合HではCPU output copy後、既存join前にE3を1回queryしてよい。
+readyはそのquery時点でGPU出力が完了、not_readyはその時点で未完了。GPU終了の厳密な
+host timestampではない。未record eventでもquery成功になり得るため、generation/pass/Hを照合。
+CUDA errorをready/not_readyへ丸めない。stream elapsedは純粋なkernel active timeでもない。
+
+NVIDIA公式仕様:
+https://docs.nvidia.com/cuda/cuda-runtime-api/cuda_runtime_api/group__CUDART__EVENT.html
+https://docs.nvidia.com/cuda/archive/13.4.2/cuda-programming-guide/03-advanced/advanced-host-programming.html
+APIの標準仕様と、当該実機driver/runtimeが何かの同定は別である。
+adapterは設計sketchで、CUDA compileも実行もしていない。
+
+10. 計測が壊しやすいものと、結果の読み方
+======================================
+
+HBの既存joinはpinned input/output/IDs、private graphを次callで使ってよい境界でもある。
+execution_mutex、正常join、例外drain、destructor同期を維持する。
+Bのbackend切替や再allocation前の待ちもallocator lifetimeを守る。見かけの待ち時間だけを
+根拠に削除するpatchを、今回の計測patchへ混ぜない。
+
+低撹乱の全40層readbackを後で作るなら、topkのVIEWとbacking source両方の寿命が問題になる。
+CUDAにはVIEW skip、topk fusion、Graph replayがある。通常node loopの名前検索だけでは
+capture時だけ記録してreplayを落とす可能性がある。viewだけOUTPUTにしてもallocatorの
+view最終使用処理でbackingがfreeされ得る。寿命保持だけ/保持+readbackの対照が必要。
+これは第2案であり、最小traceに最初から入れない。
+
+collectorは固定長recordと事前確保bufferを使い、hot pathでJSON化、malloc、file I/Oしない。
+dropは失敗として残す。dropした遅いpassを除外すると速い側へ偏る可能性がある。
+sampleはwhole model-pass単位。2/16tokenおきの固定周期は2token表示現象とaliasし得るので、
+seed固定で事前に散らした位置を使う。H=2/4/5を狙う診断sampleと自然頻度は別集計する。
+
+同一candidate binaryのOFF / HOST / EVENTを対照し、最終採否はtrace-offで行う。
+trace-onの差が候補差と同程度なら、sampleや回収頻度を減らす。普遍的な許容1%を置かない。
+hostとGPUの時計を直接引き算せず、GPU spanをCPU spanへ加算しない。
+
+解釈の例:
+  query readyが多くjoinが小さい -> CPU出力準備時にはGPU出力も揃っている。
+    長いhost submit中にGPUが終わる場合もある。CPUとの実際の重なりはsubmit/event区間と
+    併読する。GPUだけ短縮して全体が同率で速くなるとは期待しない。ただし追加offloadでCPU側を
+    短縮する余地まで否定しない。
+  join大/query not_ready -> GPU branch側の残りが露出。
+    event spanとhost submitから転送・graph・enqueue gapを切り分ける。
+  hit率高いのに遅い -> 残ったCPU expert、H別shape、setup/scatter、競合を同じ6-IDと照合。
+  H=1/3/6しか検査していない -> H=2/4/5やIQ3_S非ゼロを補完する。未観測を補間で埋めない。
+
+配置目的はhit数/bytesの単純加算から、重なりを含む完了時間へ変える。
+しかし最初からsolverを複雑化しない。6 expert共起と同時実行時のCPU/GPU時間がない状態で
+単expert頻度×bytesの重みだけをtimeへ読み替えるのは不十分。
+旧GPU層37–39のCPU移動と新hot追加の交絡も、同配置対照で分離する。
+同じtoken列でも配置・算術が変わればhidden/KV/routesが変わるので、別runのrouteと時間を
+同一passの因果観測として接合しない。比較可能なfixtureと同構成の実測を分けて扱う。
+
+2tokenずつのOpen WebUI表示について、このtraceは内部pass時間を調べる部品にとどまる。
+SSE送信/受信/表示flushと内部完了を対応させるまで、kernel周期や通信bufferへ断定しない。
+今回のCPU screenから表示現象の原因は分からない。
+
+11. 新規検証と残る境界
+======================
+
+shared/privateの限定C++契約fixture:
+  692 cases、295,392 bit一致出力（abs153,408 / raw140,352 / unsafe compact1,632）、
+  empty worker1,564、mask2,316、layout8,640、shape guard10、すべてpass。
+実quantizerと現raw/compact/abs kernelを使い、F32/gapped Q8、1/6/64 inputs、1/6/12
+workers、K256/2304/5120、hit/miss/use_ref、-128/Inf/NaNを覆う。
+std::threadとCV barrierのfixtureであり、実ggml/OpenMP/backend/allocator統合ではない。
+row割当も機能確認用。実chunk schedulerの性能、workspace reuse、MX/tiled分岐は未検証。
+
+offset4は第6節の件数でpass。別担当がnibble map、lane順、整数上界、unsafe compatを
+独立read-only確認した。現CPU算術の再現性を調べたもので、回答品質試験ではない。
+
+offline trace analyzerは10 synthetic testsをpass。
+全40層censusとhot対象subsetのlatencyを別scopeで検証し、missing/duplicate/drop、時計混同、
+非finite/uncompleted event、branch区間不整合を拒否する。
+親レビューでhot_latencyの全host_ns欠落を受理する穴を見つけ、拒否と回帰testを追加済み。
+producerのhook実装・実測値はまだない。SYNTHETICのJSONを実機の速度と解釈しない。
+
+12. 実装担当へ渡す順序
+=====================
+
+第一段階:
+  主用途二条件のcurrent compact基準harnessを作り、実chunk/6banks/12workersを保つ。
+  shared absとprivate lazyを独立armにして、operator correctnessとprepare込みwallを見る。
+  all-miss退行が大きい、改善が測定揺れ以下、Amdahl予算が小さい場合はそこで止める。
+
+並行作業:
+  全40層route schema/censusと、既存hot境界のhost traceを準備する。
+  H=2/4/5・IQ3_S coverageを補い、old37–39の交絡を分離する。
+  実行機会が来るまでguardを維持し、通常APIを動かすための変更とは分ける。
+
+第二段階:
+  absが通れば実ggml graph/workspaceの境界を確認してopt-in libraryへ進む。
+  同じbackend/work_dataで同Kの入力変更、safe→unsafe→safe、hit→miss→hit、
+  nth12→1→24と再planを反復し、workspace canaryとdispatch期待を確認する。
+  必要ならoffset4を同じharnessへ加えるが、format識別を導入する価値がある時だけ統合する。
+  GPUのhost traceだけで曖昧ならtiming eventsを追加する。
+
+その後:
+  trace-offの全体比較、同入力/同配置対照、output/token hash、runtime library identityを保存。
+  数値経路を変えるGPU配置ではCPU bit一致だけを品質の正解にせず、既存参照誤差と品質評価を
+  別途保つ。算術・配置・性能を一度に変えて因果が不明になる比較を避ける。
+
+この返却は実装前の判断資料と検証素材である。現在の通常APIへ当てるpatchではない。
+README.txtに再現コマンド、各sub-reportにsource:lineとhash、RESULTに実行のrawをまとめた。

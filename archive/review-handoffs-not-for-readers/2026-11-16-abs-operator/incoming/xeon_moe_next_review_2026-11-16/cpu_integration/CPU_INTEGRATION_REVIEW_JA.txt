@@ -1,0 +1,294 @@
+IQ2_S / IQ3_S abs-input 統合設計のレビュー
+2026-11-16 / commit 0c9eb472d2460048fb44cca949ad3722ed27b93b
+
+対象
+  H = archive/review-handoffs-not-for-readers/2026-11-16-current
+  E = H/snapshot/llm-lab/exploration-20261112
+  N = archive/review-handoffs-not-for-readers/2026-11-16-next-optimization
+  C = E/mx-prepack/release-candidate-a/sources/ggml-cpu.c
+  U = H/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src
+
+本書は、まだ存在しない本体patchへの設計レビューである。相談票の記述がそのまま
+実装されたと仮定して現行バグを主張しない。通常API・モデル・配布ELFは実行していない。
+今回作ったstandaloneは実kernelとquantizerを新規compileした限定契約試験であり、
+ggml allocator/threadpool/backend全体への統合、実Xeon性能の測定ではない。
+
+1. 判断
+
+相談票のshared方式は、重要な同期原則を押さえており、設計として成立する。
+同workerが自分のQ8_K complete blockを量子化し、直後にそのblockだけabsを作り、
+既存barrierの後で各worker maskをANDするなら、準備のための追加barrierは不要である。
+64入力、empty range、unsafe入力、use_refを考慮している点も妥当。
+
+ただし、実測の局所gainは数%であり、統合費用が小さくないと相殺する。
+最初からroute別prepare省略、shared publishの集約、registry変更まで同時に足さない。
+独立した簡素な対照として、既存barrierの後にworker-private scratchへ必要な1入力だけ
+遅延prepareする案も比較するとよい。shared maskも追加barrierも不要になる代わりに、
+同じ入力を複数workerがprepareする。その収支は実形状のharnessで測る。
+
+新しい確定バグを現行CPUで見つけたという報告ではない。以下は統合時に守るべき具体条件。
+
+2. plannerと実行時の分岐は、別の役割を持つ
+
+根拠:
+  C:1746–1771       compute側workspaceのpointer進行
+  C:3116–3142       MUL_MAT_IDのplan側予約
+  C:2584–2588       MUL_MAT_IDはn_tasks=n_threads
+  C:3276–3285       全node最大workspace、末尾alignment余裕、cplan threads
+  U/ggml-cpu/ggml-cpu.cpp:135–148,173–188
+
+backendはggml_graph_planを呼んだ後にcplan.use_refを設定する。そのため、plannerの
+予約を実行時の!use_refやcache lookup結果に依存させない。候補featureのon/offを
+同一shapeの比較で動かす場合も、予約量が足りることを独立に保証する。
+
+次の2条件を分ける:
+  reserve_shape:
+    target type、K、input数、T/shape/strideが対応しており、予約可能。
+  enabled:
+    opt-in、reserve_shape、!use_ref、適切なcompact entry等を満たし、実際に使う。
+
+shared方式の追加領域は概念的に:
+  abs_stride = align_up(K,64)
+  abs_bytes = abs_stride * n_inputs
+  worker_masks = nth * sizeof(uint64_t)
+である。対象Kは256の倍数なのでabs_strideはKそのものになる。
+plannerとcomputeで同じshape helperとstride計算を使う。size_t変換・乗算・align加算を
+明示し、plannerで小さく予約してcomputeで大きく進むケースを作らない。
+thread設定を変えた場合はplanを再計算し、plannerのn_tasksと実computeのnthに対して
+必要容量を再検証する。古いplanのworker mask/private scratch容量を、新しいnthで使わない。
+
+workspaceのbase addressが64-byte alignedだとは仮定しない。上記backendはnew uint8_t[]を使う。
+現行incr_ptr_alignedは絶対pointerを丸めており、plannerにはalignmentの余裕がある。
+新領域もこの契約へ合わせる。相対offsetだけ丸めて実pointerの整列を省くと、
+abs_dotのaligned loadやprepareのaligned storeに対する保証がなくなる。
+既存の末尾CACHE_LINE_SIZE*n_threadsを、見かけ上余っているという理由で削らない。
+
+試験ではbase offset0〜63、prefix5種、K3種、inputs1/6/64、workers1/6/12を列挙し、
+64/8-byteの整列とsidecar/mask非重複を8,640条件で確認した。
+これは提案するappend-layoutの数学的検査であり、実ggml allocatorのテストではない。
+
+3. 量子化→prepareのworker区間
+
+C:1795–1803の量子化範囲は、Q8_Kなら
+  first = floor(ith * (K/256) / nth)
+  end   = floor((ith+1) * (K/256) / nth)
+となる。Kが256の倍数なので、相談票のprepare区間と一致する。
+同workerがこの区間だけをprepareするなら、他workerの未完成Q8を読まない。
+
+prequantized Q8_Kの場合は量子化を飛ばし、元のrow strideを使ってprepareする。
+C:1815–1821のMX例に対応して、F32から量子化した場合はcontiguous workspaceのqrow、
+Q8_Kを受けた場合はsrc1->data + input*nb11を使う。
+C:1549–1552のdot入力と同じrowを指すことを確認する。常にinput*qrowにすると、
+gapped/noncontiguous prequantized rowsを取り違える。
+
+現在のggml_mul_mat_idのconstructorは、w.K==x.K、x.ne3==1、idsが2D、ids.ne1==x.ne2、
+top-kがx.ne1へbroadcast可能、という条件をGGML_ASSERTで検査する。
+根拠: U/ggml.c:3453–3466。
+新shape guardはT=1だけでなくx.ne2==1、x.ne3==1、n_inputs1..64、K>0/INT_MAX以内/256整列を
+明示する。F32/Q8_K以外を新prepareへ入れず、nb0とK内のblock連続性も現契約へ合わせる。
+重みのcontiguity/host所有権は現cache lookupのeligible検査を通す。
+
+既存barrierはC:1853。採用OpenMPではC:596–597のomp barrierになる。
+native pool側にも公開fenceがあるが、今回の通常profileはOpenMPである。
+新しいbarrierを量子化とprepareの間に入れる必要はない。
+
+4. safe maskとempty worker
+
+K2304はQ8_K9blocksなので12workerのうち3workerはempty rangeを持つ。
+empty workerがmask0を書けば、全入力をunsafeにしてしまう。
+相談票の通り、empty rangeのprepareはtrueを返し、必要な各inputのbitを立てる。
+
+有効bitの生成は、例えば:
+  valid = n_inputs==64 ? UINT64_MAX : (UINT64_C(1)<<n_inputs)-1;
+またはinput=0..n_inputs-1で1ULL<<inputをORする。
+1ULL<<64や符号付き1<<63は作らない。
+
+maskは1workerが1要素だけ書き、既存barrier後に読むので、要素自体をatomicにする必要はない。
+各workerは実際の呼出しのnth全要素を必ず上書きする。前graphのmaskを引き継がない。
+各workerがbarrier後にローカル変数へANDすれば、追加のpublish barrierは不要。
+worker0だけがshared safe_maskを作って直後に他workerへ読ませる場合は、別の公開同期が必要に
+なってしまう。12個程度のANDを重複しても、初版は単純な方式の方が扱いやすい。
+
+packedな8-byte maskは隣接workerと同じcache lineへ書くが、1回/operatorの書込みである。
+最初から64-byte paddingを必須にしない。paddingはwrite sharingを減らす一方、全workerが
+ANDするread footprintを増やす。制御区間が実測上有意な場合だけ別因子として比較する。
+
+5. no-hit prepare省略を追加するときの読み取り順
+
+C:1825–1844では、worker0がmatrix_row_countsとmatrix_rowsを作る。
+これらは1853barrier前には公開されていない。prepare前に共有row mapを読んで
+「このinputにcompact hitがあるか」を判定してはいけない。
+
+現cache lookupはC:1864–1865で、barrier後に1回/worker/operator。
+E/prepare_iq_rhs_backend.py:22–23は旧bias案のため、それを量子化前へ移していた。
+この接続例を使うなら、元のlookupを残して二度呼ばない。
+lookupはregistry mutexとhit counter更新を含む(E/row-local/iq3-cache.cpp:183–191)。
+hit counterはexpert hit数そのものではないので、準備判定に再呼出しを増やすと指標も変わる。
+
+先に省略しない単純版を測る選択もある。省略するなら、各workerが確定済みidsと
+immutableなcompact_expertsを直接読む。T=1ならslotを走査し、
+  expert = ids[slot] （ids->nb[0]で読む）
+  input = slot % ne11
+  expert>=0 && compact_experts[expert]!=nullptr のとき input bitをOR
+で、入力単位の必要maskを各workerのローカル変数に作れる。
+gate/upのne11=1なら、選ばれたexpertの一つでもhitすればinput0を準備する。
+downのne11=6なら、slot別の必要inputに対応する。
+
+ids==-1はmasked slotなので除外する。負の値や範囲外IDをpointer添字に使わない。
+現行のtop-k/shape契約を維持し、必ず正しいstrideでIDを読む。
+同じmaskを各workerが計算すれば、共有maskの事前公開や追加barrierは要らない。
+この最適化でlookup/scanの費用がprepare節約を上回らないかをharnessで測る。
+
+registryのownerが全graphより長生きする契約は維持する。
+online eviction/pointer差替えを今回追加する理由はない。
+
+6. unsafe時のfallbackは、今のcompact dotへ戻す
+
+C:1521–1524は、compact_dataの有無に応じてvec_dot、weight_data、weight_strideを決める。
+この選択を残し、absが使えるときだけ別のdotを選ぶのが単純である。
+
+  compact hit + safe input + target type + enabled -> abs dot
+  compact hit + unsafe input                    -> 現compact dot
+  cache miss / use_ref                          -> 現raw/tiled経路
+  MXFP4 / 非対象型 / T>1                         -> 現経路
+
+unsafe inputだからといって、raw用vec_dotへcompact pointerを渡すとlayoutが違う。
+raw pointerへ戻して演算する変更も、現在のcompact算術との互換性を別途変えてしまう。
+fallbackは現在選ばれていたvec_dot/weight pointer/strideをそのまま使う。
+
+相談票の「144B row stride」は用語上の訂正が必要。144Bはblock strideで、
+実row strideは(K/256)*144Bである(C:1523)。cache planとweight packingは変えない。
+
+Q8_Kの元データはscaleと符号に必要で、書き換えない。bsumsも作り直さない。
+-128/非finite scale検査は、現在のcompact演算を保つための条件として明示する。
+safe maskを共有できても、各inputのsidecarの元となるxが同一呼出し中に変わらないことが必要。
+Kだけ一致している別inputや、前graphのsidecarを再利用しない。
+
+7. 簡素な対照候補: worker-privateの遅延prepare
+
+shared方式の複雑さと、実測数%の便益が釣り合うか調べるための新しい比較案。
+旧row-localはweightのNUMA配置で、この案とは違う。読んだ過去資料に同じ統合の試験記録はない。
+
+概要:
+  ・量子化、row-map作成、現在のbarrier、cache lookupの位置を保つ。
+  ・workerごとにalign64(K)bytesのscratchを予約する。
+  ・worker-localな {last_i11=-1, safe=false} をoperator開始時に作る。
+  ・compact hitかつ非空chunkで、inputがlast_i11と異なるときだけそのinput全Kをprepareする。
+  ・safeならabs、unsafeなら現compact dot。次のrow/chunkでは状態を再利用する。
+
+重要: stateはone_chunk呼出しのたびでなく、ggml_compute_forward_mul_mat_idのworker-local
+変数として作り、chunk helperへ渡す。毎chunkでlast_i11を初期化すると、downの64row chunk
+ごとにprepareを繰り返し、不要な費用を増やす。全operator呼出しでは必ずresetする。
+T=1条件によりi12は0なのでlast_i11でinputを識別できる。T>1へ拡張するならidentityを見直す。
+
+利点:
+  shared safe masksなし、追加barrierなし、事前route-hit maskなし。
+  all-miss/use_refではprepareゼロ。現cache lookupを前へ移さずに済む。
+  unsafeの判定とfallbackが同じworkerの同じ状態で完結する。
+
+費用:
+  初回の1入力共有/6 distinct入力・unique expert条件では同じinputを最大nth回prepareする。
+  duplicate expertやbroadcastでinputを再訪する場合、この回数を超える。共有方式のK分担より
+  入力read/abs作業は多い。
+  scratchはnth*K。K5120/12workersで60KiB、K2304/12で27KiBを全worker合計で予約する。
+  interleave方針は保つため、物理pageのNUMA localityが自動改善するとは主張しない。
+  input切替や重複IDで再訪すれば、1-entry状態では再prepareが発生する。ただし正しさは保つ。
+
+実形状のshared/privateを、準備費用込みで直接比較して選ぶ。単一threadの数%から、
+private方式が速いとも遅いとも決めない。shared方式の代わりに必ず採用すべき案ではない。
+
+row-pairについては別担当が既試行のcpu-pair/cpu-pair-unrolledを確認したため、
+今回は新規の優先候補へ重ねて推薦しない。既試行の定量評価はevidence担当の報告へ委ねる。
+親が別途作成したIQ3_S offset4はweight encodingを変える別案で、性能は未測定。
+abs-inputの統合と混ぜず、独立した算術prototypeとして扱う。
+
+8. down6入力のL1解釈を修正する
+
+Q8_Kは292B/256values。K2304ではQ8_K2,628B + abs2,304B =4,932B/input。
+6本合計29,592B=28.8984375KiBという計算は正しい。
+ただし、これはallocation footprintであり、通常のdot loopの同時active input量ではない。
+
+現C:1867–1953はexpertを外側に走査する。T=1でtop-kに重複がなければ、そのexpertの
+cne1は1。C:1531–1565でi11=slot%ne11の1入力を、そのexpertの多数rowへ繰り返し使う。
+workerはexpertが変わるとinputを切り替える。各workerのdotに同時に必要な入力は通常1本。
+workerごとの進み方が異なっても、別coreのprivate L1へ6本を合算しない。
+
+準備直後の6本の占有、weight stream、row-map/counter、入力切替時の再読込の影響は残る。
+しかし「28.9KiBなので32KiB L1をほぼ使い切り必ずcliffになる」とは言えない。
+実harnessはcurrent expert/chunk順を保ち、6入力のallocationだけでなく再利用距離を再現する。
+
+実形状でのchunkの違いも残す（ggml_is_numa()==falseの場合）:
+  gate/up M2304,cne1=1,nth12 -> 初期64row chunks36個 <48なので12分割、各192row。
+  down M5120,cne1=1,nth12 -> 64row chunks80個、atomicで追加取得する。
+ggml_is_numa()==trueならdownも12分割になる。今回、現finalのruntime値は未観測。
+単純な全row round-robinやexpert1個/workerでは、この制御費用と入力再利用を再現しない。
+numactl --interleaveとggml_is_numa()は別設定であり、後者を勝手にtrueと仮定しない。
+
+9. 今回の限定契約試験
+
+files:
+  abs_integration_contract.cpp
+  run_abs_integration_contract.py
+  contract_run/RESULT.json
+
+固定incomingのabs probeを原文include（元mainは呼ばない）、現行raw/compact kernelと
+quantize_row_q8_K、quantize_row_q8_K_refを新規compileした。
+compileは-O2、-march=ivybridge/-mtune=ivybridge、-mno-avx2/-mno-fma、
+-fno-fast-math/-ffp-contract=off。機能試験であり-O3の性能比較ではない。
+実行hostは親と同じAMD EPYC Linux。配布ELFやモデルは使用していない。
+
+合成ケース:
+  IQ2_S/IQ3_S、K256/2304/5120、inputs1/6/64、workers1/6/12。
+  F32からの実quantizer、gapped prequantized rows、all/mixed/no compact hit、use_ref。
+  -128/+Inf/NaNを一つのinputへ入れたunsafe fallback。
+  非自明なexpert/slot順、empty worker、shared maskとprivate lazyを比較。
+
+結果:
+  operator契約case              692
+  bit一致出力                  295,392
+    abs fast                   153,408
+    raw                        140,352
+    unsafe compact fallback      1,632
+  empty worker区間               1,564
+  worker safe mask照合           2,316
+  layout数学的確認               8,640
+  shape guard確認                  10
+  全項目pass。
+
+同じinputを全K一括量子化した結果と、worker block分割量子化のbytesも照合した。
+shared方式では全blockのabs bytesと合成maskを一括prepareと照合した。
+all-miss/use_refでprepare/abs出力がゼロになることも確認した。
+
+限界:
+  std::threadと条件変数barrierで公開契約を実装したfixtureであり、実ggml/OpenMPを動かしていない。
+  row割当は機能確認用で、現行の64/192row chunk schedulerの性能は再現しない。
+  実graph workspaceのreuse、既存tiled/MX分岐、backendのfailure/abortは検証していない。
+  input64は境界契約の合成条件。モデルが64expertを選ぶという主張ではない。
+  速度値は取得していない。295,392を回答品質の評価件数と解釈しない。
+
+再実行:
+  python3 run_abs_integration_contract.py --repository /ABS/PINNED_REPO --output /ABS/NEW_DIR
+出力dirは新規。source hashとcompile/run argv、stdoutをRESULTへ残す。
+
+10. 実統合harnessでなお必要な確認
+
+E/iq-rhs/test-graph.cppには既に、strided F32/Q8_K、input64/65、T>1、duplicateと-1、
+unsafe、use_ref、thread12→1→24、MX混在、実FFN形状のgraph試験がある(18–76行)。
+これをIQ2_S/IQ3_Sへ拡張して再利用できる。ただし53–55行は、selection非空ならactual hitが
+ゼロでもprepare回数が増えるという旧方針をassertする。no-hit省略/private lazy方式には
+その期待を適用しない。actual hit/非空chunk/対象input/採用方式に対応するdispatch期待へ直す。
+旧counter期待を保ったままだと、正しい省略を誤って不合格にする。
+
+今の契約試験に加えて、実際のggml graph/workspaceを使う段階では次を確認する。
+  ・plannerと実pointer進行の対応、work_data再利用時のcanary、入力row stride。
+  ・同じbackendでgraph/input/nthを変える反復、safe→unsafe→safe、cache hit→miss→hit。
+  ・feature off/use_ref/T>1/MX/非対象型で旧分岐を保つ。
+  ・masked ID=-1、実際の64/192row chunkとdynamic取得、slotの出力位置。
+  ・runtime library hash、feature設定、dispatch数（検証runだけ）を記録。
+
+速度runの区間はquantize/prepare/row-map/barrier/lookup/dispatch/dotを含むoperator全体。
+分解traceは診断用に別取得し、計測あり/なしの費用も見る。
+同じbit演算でも、thread/threadpool/NUMA/cache mixの違いで速度は変わる。
+shared/private等を何でも同時統合せず、最小の候補で現実形状の収支を確認する。
+
+主要sourceのpathとSHAはSOURCE_MANIFEST.json。今回の限定試験のrawはcontract_run/RESULT.json。

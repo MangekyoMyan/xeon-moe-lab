@@ -1,0 +1,112 @@
+Offline trace prototypeの使い方
+2026-11-16 / xeon-moe-lab commit 0c9eb472d2460048fb44cca949ad3722ed27b93b
+
+このdirectoryの役割
+
+GPU_TRACE_DESIGN_JA.txt:
+  調査したsource行、最小hook、時刻の意味、buffer lifetime、段階計測、反証条件。
+TIMING_EVENT_ADAPTER_SKETCH.txt:
+  固定版の内部ggml_backend_eventを使う設計断片。未コンパイル・未実行。
+GPU_TRACE_SOURCE_MANIFEST.json:
+  実読sourceのpathとSHA256、CUDA公式仕様URL。
+analyze_moe_trace.py:
+  JSONを読み、geometry/inventory/時刻整合性を検証して要約するstdlibのみのprototype。
+test_analyze_moe_trace.py:
+  実機を使わない合成fixture test。
+SYNTHETIC_TRACE_INPUT.json / SYNTHETIC_TRACE_ANALYSIS.json:
+  人工的な全40層×2passのschema例。時刻は作者が入力した数字。
+SYNTHETIC_HOT_TRACE_INPUT.json / SYNTHETIC_HOT_TRACE_ANALYSIS.json:
+  人工的なhot対象3層×2passのschema例。全層routeの観測ではない。
+TRACE_ANALYZER_TEST_RESULTS.json:
+  offline test実行結果と実行対象scriptのSHA256。
+
+モデル・CUDA・API・networkアクセス・外部packageはanalyzerに不要。
+この成果物に実engineの計測patchや実測性能値は含まれていない。
+
+実行例（出力pathは存在しない名前を選ぶ）
+
+python3 -B /workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/gpu_trace/analyze_moe_trace.py --input /workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/gpu_trace/SYNTHETIC_TRACE_INPUT.json --output /tmp/moe_trace_analysis_new.json
+
+python3 -B -m unittest discover -s /workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/gpu_trace -p test_analyze_moe_trace.py -v
+
+入力形式
+
+schema_version: 1
+manifest:
+  trace_kind: route_census または hot_latency（省略時route_census）
+  layers: 40 / top_k: 6 / experts: 384
+  complete: true
+  dropped_records: 0
+  host_clock: CLOCK_MONOTONIC_RAW または CLOCK_MONOTONIC
+  clock_domain: このrun/process/clockを識別する空でない文字列
+  config_sha256: 64桁小文字hex。fixtureの0埋めは架空値。
+  expected_passes: [{request: string, pass: nonnegative integer, phase: string}, ...]
+  expected_layers:
+    route_censusなら[0,1,...,39]のみ（省略可）。
+    hot_latencyなら事前に決めたhot対象層の非空・昇順・重複なしlistが必須。
+
+recordsのidentityは(request, pass, phase, layer)。
+全expected pass×全expected layerについて各1件を必須とし、欠落/重複を拒否する。
+expectedを観測recordsから逆生成してはいけない。
+manifest自体が正直に作られたことやhookの正しさまでは、このvalidatorでは証明できない。
+
+各record:
+  request/pass/phase/layer/clock_domain: manifestと対応
+  n_tokens: 1
+  route: 0..383の重複しないglobal expert ID 6個、選択slot順
+  backend: cpu / gpu / hot
+  gpu_hit_mask: original slotに対応する6bit mask
+    cpuなら0、native whole-layer gpuなら63、hotなら0..63。
+    native GPU層のmask63とhot dispatcher H=6を区別して集計する。
+  host_ns:
+    route_censusではnullを許可（未実測を表す）。
+    hot_latencyでは各recordに時刻dictを必須とする。
+    詳細host計測を許すのはbackend=hotのみ。
+  gpu_stream_ms: null または {h2d, graph, d2h}
+  gpu_events_completed: event durationがある場合はtrueが必須
+  gpu_done_query: ready / not_ready / not_measured / not_applicable
+  gpu_done_query_host_ns: ready/not_readyの場合、query観測時刻
+
+host_nsはns単位の同一host時計の[start,end]ペアを持つ。
+wallは常に必須。
+H<6: cpu_setup / cpu_compute / cpu_output_copyが必須。
+H>0: gpu_submit_host / gpu_join / scatterが必須。
+存在しないbranchはfield省略またはnull。0時間を入れて未実測扱いにしない。
+branch区間はwall内、非重複、現在のdispatcher順でなければ拒否する。
+未割当時間=wall−branch区間合計も出す。無理にGPU eventを足して帳尻を合わせない。
+
+ready/not_ready queryは混合H=1..5だけを対象とし、CPU出力copy終了～既存join開始の
+間に採った時刻を要求する。queryはGPUの正確なhost終了時刻を作るものではない。
+GPU elapsedはfinite/nonnegative、完了eventのみ。host時間とは別tableへ集計する。
+
+outputの読み方
+
+validated=true:
+  宣言されたscopeと整合するという意味。engine動作・品質・配置効果の保証ではない。
+is_complete_40_layer_census:
+  route_censusだけtrue。hot_latencyで40層を指定しても用途を区別するためfalse。
+current_gpu_slot_H_histogram:
+  native GPUを含め、その時の配置でGPUへ行ったslot数の分布。
+hot_dispatcher_H_histogram:
+  hot backendのrecordだけ。これをnative GPU層H=6の件数で水増ししない。
+hot_host_interval_ms:
+  記録された区間のn/mean/p50/p95/max。異なるlayer/Hの混合集計なので説明用概要。
+  配置の判断にはrawをlayer/H/型/入力位置ごとに分けて見る。
+gpu_stream_elapsed_ms:
+  CUDA eventのstream elapsed。純kernel時間やPCIe wire timeとは同一ではない。
+exposed_join_fraction_of_observed_hot_wall:
+  観測されたhot wallに占めるjoinの比率。達成可能な速度改善上限ではない。
+
+prototypeの省略
+
+実collectorにはsequence/input position、model/source/binary/library/placement hashes、
+warmupとsampling、CPU affinity、CUDA Graph状態、event generation等を追加する。
+このprototypeはそれらの全項目を検証していない。
+phaseは空でない文字列を要求するだけで、callerのdecode/prefill判定を検証できない。
+quant geometryは今回の40-layer/384-expert/6-slot/T=1専用。
+H別時間curveの外挿、配置solver、CPUとGPUの絶対時計同期は行わない。
+現finalで得たrouteと別hot構成で得たtimingを、同じ実行のrecordへ結合してはいけない。
+
+testには、全40層欠落、duplicate、drop、全hot時刻欠落、clock混同、route重複、
+H別branch不整合、host区間重複、GPU非finite/未完了、queryの窓外等を含む。
+合成testの合格で本番instrumentationを検証できたことにはならない。

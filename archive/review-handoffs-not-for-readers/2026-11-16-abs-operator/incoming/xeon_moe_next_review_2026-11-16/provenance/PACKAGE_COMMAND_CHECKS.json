@@ -1,0 +1,20 @@
+{
+  "scope": "Re-ran packaged offline Python analysis/tests and static ASM parsing; no C++ recompile, model, API, GPU, or new performance measurement.",
+  "checks": [
+    {
+      "label": "Xeon saved data reanalysis",
+      "exit_code": 0,
+      "stdout": "{\"output\": \"/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/package_checks/SCREEN_REANALYSIS.json\", \"abs_pass_both\": 11, \"all_abs_wall_pairs_above_one\": true, \"old_bias_gain_percent\": 0.5101247430073563, \"sources\": 52}\n"
+    },
+    {
+      "label": "Packaged offline trace tests",
+      "exit_code": 0,
+      "stdout": "test_bad_route_clock_and_shape_rejected (test_analyze_moe_trace.TraceTests.test_bad_route_clock_and_shape_rejected) ... ok\ntest_complete_and_separate_time_domains (test_analyze_moe_trace.TraceTests.test_complete_and_separate_time_domains) ... ok\ntest_duplicate_replacing_missing_rejected (test_analyze_moe_trace.TraceTests.test_duplicate_replacing_missing_rejected) ... ok\ntest_empty_expected_or_dropped_rejected (test_analyze_moe_trace.TraceTests.test_empty_expected_or_dropped_rejected) ... ok\ntest_gpu_nonfinite_or_uncompleted_rejected (test_analyze_moe_trace.TraceTests.test_gpu_nonfinite_or_uncompleted_rejected) ... ok\ntest_hot_latency_cannot_omit_all_host_times (test_analyze_moe_trace.TraceTests.test_hot_latency_cannot_omit_all_host_times) ... ok\ntest_hot_only_scope_is_not_a_40_layer_census (test_analyze_moe_trace.TraceTests.test_hot_only_scope_is_not_a_40_layer_census) ... ok\ntest_missing_same_layer_every_pass_rejected (test_analyze_moe_trace.TraceTests.test_missing_same_layer_every_pass_rejected) ... ok\ntest_overlap_missing_branch_and_reversal_rejected (test_analyze_moe_trace.TraceTests.test_overlap_missing_branch_and_reversal_rejected) ... ok\ntest_route_only_does_not_manufacture_zero_timings (test_analyze_moe_trace.TraceTests.test_route_only_does_not_manufacture_zero_timings) ... ok\n\n----------------------------------------------------------------------\nRan 10 tests in 0.164s\n\nOK\n"
+    },
+    {
+      "label": "Packaged static assembly reproduction",
+      "exit_code": 0,
+      "stdout": "{\"passed\": true, \"output\": \"/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/package_checks/assembly\", \"function_sha256\": {\"current_iq3s\": \"20b382516a2dee870fdfb820872462699db90ea041bed16d12903928f8e4648e\", \"offset4_fast\": \"b157fda6ee971be9190fe1691d3815b3daadb71beab429b1c72d6fa1dcec3254\", \"offset4_compat\": \"7a776ef0e600d5b31f0364f358bc4f1562321bd95a022ae5c954b6e9b29c56a5\"}, \"expected_summary_checked\": true}\n"
+    }
+  ]
+}

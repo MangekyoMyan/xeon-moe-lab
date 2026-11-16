@@ -1,0 +1,27 @@
+{
+  "scope": "Parser rejection checks on in-memory synthetic edits of existing disassembly; no ELF execution.",
+  "analyzer_sha256": "232ba0c0c4442a1c7f34fe52c362dabd021a96148f83dd01e7ec01c160ef6948",
+  "checks": {
+    "missing_header": {
+      "rejected": true,
+      "message": "offset4_fast: expected exactly one function header, found 0"
+    },
+    "duplicate_exact_header": {
+      "rejected": true,
+      "message": "offset4_fast: expected exactly one function header, found 2"
+    },
+    "clone_only_header": {
+      "rejected": true,
+      "message": "offset4_fast: unsupported signature/clone: 'offset4_fast_dot(int, offset4_iq3s_block const*, block_q8_K const*, offset4_rhs_block const*) [clone .constprop.0]'"
+    },
+    "exact_plus_clone_header": {
+      "rejected": true,
+      "message": "offset4_fast: expected exactly one function header, found 2"
+    },
+    "changed_signature": {
+      "rejected": true,
+      "message": "offset4_fast: unsupported signature/clone: 'offset4_fast_dot(long, offset4_iq3s_block const*, block_q8_K const*, offset4_rhs_block const*)'"
+    }
+  },
+  "passed": true
+}

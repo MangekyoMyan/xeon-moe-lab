@@ -1,0 +1,115 @@
+IQ入力abs共有の実ggml統合・Xeon実測結果（2026-11-16）
+===================================================
+
+結論
+----
+Proの返却案を実際のggml CPU演算へ試験実装した。通常APIは変更していない。
+IQ2_Sの共有方式は次段階に残す。IQ3_Sは同一ライブラリ内では改善したが、凍結版との
+直接比較では事前の2%基準に届かなかったため、本番採用を保留する。
+private方式を含む試作・生データを保存し、現在の通常APIはfinalのまま維持する。
+
+型・実形状              同一library shared/無効 r1,r2   凍結版/shared    直接比較の時間変化
+IQ2_S K5120 M2304,input1  1.04998,1.05399                 1.06675         -6.258%
+IQ3_S K2304 M5120,input6  1.02416,1.02680                 1.01510         -1.488%
+
+比率は「対照時間/候補時間」。速度+6.675%と時間-6.258%は同じ結果の別表現である。
+これは6 expert・12物理コアの単一projection演算。全モデルのtok/sやprefill改善率ではない。
+CPUで処理するexpert、型、cache hit率、GPUとの重なりにより全体への寄与は変わる。
+
+実装の内容
+----------
+元のcompact重み144 B/blockを維持し、Q8_K入力の絶対値を先に計算して複数行へ再利用する。
+mode0=既存compact算術、mode1=全入力の共有前処理、mode2=worker-private lazy前処理。
+試験ライブラリの既定はmode0。ハーネスが公開テスト関数で切り替える。通常API用の
+環境変数や起動profileには組み込んでいない。単にLD_LIBRARY_PATHを変えても有効化しない。
+
+対象はIQ2_S/IQ3_S、T=1、入力1..64、F32/Q8_K、Kが256倍数の経路に限定。
+sharedは各workerが量子化済みの完全blockだけを前処理し、既存barrierで公開する。
+worker別safe maskをbarrier後にANDし、新しいbarrierを足していない。
+privateは必要なcache hitを担当した時に1入力だけ準備し、chunkをまたいで再利用する。
+-128/非有限scaleは現在のcompact readerへfallbackする。raw readerへcompact重みを渡さない。
+作業領域はmode/use_ref/cacheの状態から独立して予約し、絶対pointerを64byte整列する。
+元のcache形式、packing、registry、選択plan、expert割当、NUMA/chunk schedulerは変更しない。
+sharedはall-missでも前処理する単純な対照。前段のrow-map早読みやlookupの二重化はない。
+
+測定条件
+--------
+E5-2630L v2×2、12物理コア、512GB。実際のOpenMP pin0..11をwarmup後に確認。
+numactl interleave0,1を使用し、ggml_is_numa=falseを実測。両者を同じ設定とは扱わない。
+GPU150W/ECC/fan<=70を変更せず、GPU試験もしていない。
+
+実GGUFからblk.0.ffn_up_exps.weight（IQ2_S）、blk.13.ffn_down_exps.weight（IQ3_S）を
+read-only mmap。8 group×6=48 expertだけをcompact化し、payload303.75MiB/試行。
+6 expert/要求、重複なし。実重みを使用する一方、入力とrouteは固定seedの人工データ。
+キャッシュall-hit/all-missで比較。mixed-hitの性能はまだ測っていない。
+F32量子化、graph計画、準備、row-map、同期、lookup、dispatch、dot、出力書込みを計時。
+入力設定、cache構築、読戻し、出力比較、診断counter、記録I/Oは計時外。
+
+同一library試験は16 ABBA/BAAB block、各8回のgraph平均。8 groupを逆順条件で反復。
+2型×2回×2cache×128=1,024個のtimed chunkを全保存。独立request1,024件ではない。
+共有方式は両型で2回とも事前screenを通過。privateはIQ2のみ通過した。
+IQ2の対照時間には外れ値と順序差があり、比を割ってshared/privateの優劣を断定しない。
+
+凍結版との直接比較
+------------------
+各型を frozen,off,shared,shared,off,frozen の別process順に実行。
+32 block/process、各32 graph平均。全12 process成功、768個のtimed chunkを保存。
+各armは2 processだけであり、信頼区間や汎用的な効果量の確定とは扱わない。
+同じblockの対称process平均同士の比を作り、その中央値を報告する。
+全processで同じ入力・各cache条件の正解出力hashが一致。非有限の実重み出力は拒否する。
+
+all-hitのprocess内中央値ms（2 processずつ）:
+IQ2: frozen .87820,.85116 / off .83829,.83521 / shared .79494,.80965
+IQ3: frozen .89411,.89531 / off .89375,.89198 / shared .87984,.89402
+
+all-missの凍結版比: IQ2 off1.04822/shared1.04873、IQ3 off.99673/shared.99334。
+sharedのall-miss中央値時間悪化はIQ3で約0.67%、事前の1%以内。
+IQ2では新処理を無効にしたoffも速い。compiler/code配置やprocess間の変動を未分離なので、
+直接比較6.7%の全てをabs前処理の利益とは呼ばない。同一libraryの約5%改善が別の裏付け。
+IQ3の直接比較1.5%は2%基準未達。良かった測定だけを使って採用しない。
+
+正しさとメモリ検査
+------------------
+最終validation: 凍結版5,730 graphの正解に対し、試作3 modeで17,190 graphを実行。
+4,565,700出力比較がbit一致。独立・一意な数値4,565,700個という意味ではない。
+変更したC/C++ translation unitとハーネスをASAN+UBSANで再buildし、同じ検証が成功。
+再利用した既存objectやbase library全体はinstrumentしていない。全エンジンのrace自由を
+証明したものではない。sanitizerの検証回数を新しい一意な正解数として加算しない。
+
+K256/2304/5120、入力1/6/64/65、12→1→24 threads、F32/Q8_K、stride付きview、
+cache none/all/partial、safe→all unsafe→safe→partly unsafe→safe、use_ref、-1/重複IDs、
+T=3非対象、IQ3_XXS非対象、MXFP4/F32非対象を検証。
+workspace baseは意図的に16 mod64、前後canary付き。同じplan/workspaceで入力とmodeを変更。
+診断counterで高速経路の行数、共有blockの分割、空worker、private all-missの準備0を確認。
+実operator性能測定は通常のbackend workspace allocationも使用している。
+逐次混合型の大きいgraph/全モデル入力分布、race detector、全浮動小数点環境の組合せは
+今回の新しいoperator検証では網羅していない。以前の単体fixture検証と混同しない。
+
+運用と限界
+----------
+各試行は別process/実行lock、時間上限、RAM64GiB reserve、API活動時abortのguard付き。
+常駐監視のsnapshotを読む仕組みで、0.5秒ごとの読取りが0.5秒ごとの新鮮な温度測定ではない。
+短い試行ではsensor timestampが開始前のままのものがある。温度peakや連続無throttleを
+保証したと書かない。終了時は監視正常、API health ok、config/ロードCPU libraryは凍結版一致。
+
+API/モデル起動・再起動・GPU配置変更・fan変更・モデルdownloadは行っていない。
+GPU route/timing collector、offset4 cache、IQ3_XXS absは今回実装していない。
+これらは返却ZIPの提案で、試験した機能と区別する。
+
+次段階
+------
+IQ2_Sを中心にmixed-hitと実モデルA/Bへ進む価値は残る。今の試験値だけで本番へ採用しない。
+IQ3_Sは保留。実装を簡素化する場合も今回のfrozen/library/harnessを保存して別artifactにする。
+モデル長時間起動を避けた今回の範囲では、通常APIはそのまま使える。
+重要な次案はCONSULT_PRO_JA.txtに記した。元データとコードを省かずGitHubで共有する。
+
+資料案内
+--------
+ANALYSIS.json + analyze.py: 全rawの完全性/出力hash検証、同一library/直接比較の再集計。
+execution/: 全build/validation/timingのstdout,stderr,STATUS。初期compiler警告も保存。
+change.patch / ggml-cpu.c / iq-abs.*: 現行frozenへの差分と実装本体。
+probe.cpp / fixed_probe.cpp / BUILD類 / source hash: 実際の検証とcompile/link条件。
+checkpoint-screen-r1r2/: 初回screen時点のsource/build/hash。最終probeでは境界検証のみ追加。
+FIXED_RECEIPT.json / correctness/: 出力・入力hashと圧縮した正解データ（重みは含めない）。
+LOG_*_TERRA.txt: ログ専門の独立再集計。r1文書のmismatch記述はr2文書で明示訂正。
+incoming/: 今回Proから返却された原文、実験source、EPYC側証拠。Xeon実測と区別する。

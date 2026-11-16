@@ -1,0 +1,126 @@
+{
+  "scope": "Proposed shared/private preparation protocol, real std::threads with CV publication, pinned kernels/quantizer. Not ggml threadpool/allocator/backend integration or performance measurement.",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "source_sha256": {
+    "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/arch/x86/quants.c": "a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7",
+    "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-quants.c": "bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73",
+    "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/iq-rhs.cpp": "1c5bdbe5550a8caa43866da134f19d7d2c1d1c89a0cead146fbf9d5fba8a02ec",
+    "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/cpu_integration/abs_integration_contract.cpp": "7bed1d8b9b32db089ec1a28ad19431b3ac944fe548f7d04eb93672d1f88bfa4a",
+    "archive/review-handoffs-not-for-readers/2026-11-16-next-optimization/incoming/xeon_moe_review_2026-11-16/cpu/iq_abs_rhs_probe.cpp": "8db9910ab7f9ef2d4473535f5ce82b73de98a4377f1d350173b52a8fd2684cac",
+    "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+    "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c"
+  },
+  "commands": [
+    {
+      "argv": [
+        "cc",
+        "-O2",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-std=gnu11",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-next-optimization/incoming/xeon_moe_review_2026-11-16/cpu",
+        "-c",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/arch/x86/quants.c",
+        "-o",
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/cpu_integration/contract_run/reference.o"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "cc",
+        "-O2",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-std=gnu11",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-next-optimization/incoming/xeon_moe_review_2026-11-16/cpu",
+        "-c",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-quants.c",
+        "-o",
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/cpu_integration/contract_run/quantize.o"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "c++",
+        "-O2",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-std=gnu++17",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-next-optimization/incoming/xeon_moe_review_2026-11-16/cpu",
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/cpu_integration/abs_integration_contract.cpp",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/iq-rhs.cpp",
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/cpu_integration/contract_run/reference.o",
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/cpu_integration/contract_run/quantize.o",
+        "-Wl,--gc-sections",
+        "-pthread",
+        "-lm",
+        "-o",
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/cpu_integration/contract_run/contract_probe"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/cpu_integration/contract_run/contract_probe"
+      ],
+      "returncode": 0,
+      "stdout": "{\"passed\":true,\"operator_contract_cases\":692,\"bit_exact_outputs\":295392,\"abs_fast_outputs\":153408,\"raw_outputs\":140352,\"unsafe_compact_fallback_outputs\":1632,\"prepared_input_calls\":59016,\"empty_worker_ranges\":1564,\"mask_checks\":2316,\"layout_checks\":8640,\"shape_checks\":10}\n",
+      "stderr": ""
+    }
+  ],
+  "passed": true,
+  "observations": {
+    "passed": true,
+    "operator_contract_cases": 692,
+    "bit_exact_outputs": 295392,
+    "abs_fast_outputs": 153408,
+    "raw_outputs": 140352,
+    "unsafe_compact_fallback_outputs": 1632,
+    "prepared_input_calls": 59016,
+    "empty_worker_ranges": 1564,
+    "mask_checks": 2316,
+    "layout_checks": 8640,
+    "shape_checks": 10
+  }
+}

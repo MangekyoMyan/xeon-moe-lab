@@ -1,0 +1,37 @@
+次の判断のための相談 — 読者向け説明書ではなく開発レビュー用
+==========================================================
+
+前回のご提案に基づき、実ggmlのshared/private統合を実装してXeonで測定しました。
+本番APIはfinalのまま。RESULTS_JA.txtは案内で、source/raw/正解byteを読む代わりではありません。
+トークン節約のための要約は不要です。独立の発想があれば、こちらの仮説を置き換えてください。
+
+実測: 同一library sharedの速度比はIQ2_Sで1.050/1.054、IQ3_Sで1.024/1.027。
+真のfrozen binaryとの直接比較ではIQ2 1.067、IQ3 1.015。IQ3は事前2%gate未達で保留。
+IQ2 all-missはoffもfrozenより約4.8%速く、absの効果とbinary/process差を分ける必要があります。
+sourceを含めた正しさ・性能の判断は親agentが担当。Terraはraw再集計のみです。
+
+特に見ていただきたい点:
+1. shared/privateのworkspace、既存barrier、input reuse、strided Q8、partial unsafe、
+   use_ref/MXFP4非対象の契約は実source上で保てているか。graph-planのサイズと実nthの
+   関係、例外/将来のgraph reuseで見落としがあれば、再現できる小さい条件を示してほしい。
+2. IQ2だけ次に進め、IQ3は保留という判断は妥当か。同一library/direct結果の差を説明する
+   ために最小限追加すべき測定は何か。外れ値を捨てず、process反復2回という弱さを維持する。
+3. 次はmixed-hit→IQ2限定の全モデルtrace-off A/Bか、まずGPU route-only censusか。
+   以前のbias62全モデル改善が小さかった点、通常APIのIQ cache plan、型の時間比が未確定な
+   点を含め、実装コストに対して優先度の高い一手を提案してほしい。
+4. 新offset4はformat識別/readerの追加が必要。このabsの実測を踏まえて今着手する価値は
+   あるか。着手するなら既存compactとの混同を防ぐ最低限のformat契約と同一harnessでの
+   比較案を提示してほしい。GPU/CPU出力差を許す方向へ勝手に移行しない。
+
+新しい実装を大きくする前に相談しています。単に現在の案を追認する必要はありません。
+候補が全体で小さすぎるなら、それも具体的な根拠と次の測定で判断したいです。
+
+前回からの変更はこのhandoffの隔離CPU試作と測定だけ。通常engine/起動configは不変。
+BASELINEは同じbranchの2026-11-16-current/snapshotのfinal。新しい実装の既定mode0、
+API向け環境スイッチ/profileは未提供。添付builderは実機のbaseline objectを再利用する
+増分link手順で、第三者Linuxでそのまま動く汎用installerではありません。
+
+再集計はpython3 analyze.py（圧縮データ展開方法はREADME.txt）で可能。
+ビルド・測定を再現した場合はEPYC/他CPUとXeonを分けて記述してください。
+実機ではGPU150W/ECC/fan<=70、RAM64GiB reserve、長いモデル起動はユーザー担当が基本です。
+今回の作業中APIを再起動していません。Pro側から稼働サービスへ操作する依頼ではありません。

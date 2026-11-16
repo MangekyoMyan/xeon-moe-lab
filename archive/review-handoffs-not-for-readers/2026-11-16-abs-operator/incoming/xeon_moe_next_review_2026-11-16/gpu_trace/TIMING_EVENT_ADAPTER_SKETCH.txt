@@ -1,0 +1,114 @@
+固定版CUDA timing adapterのsketch（未コンパイル・未実行）
+
+対象commit: 0c9eb472d2460048fb44cca949ad3722ed27b93b
+このファイルは実装担当が検討する設計用断片。配布・運用patchではない。
+source SHAと完全pathはGPU_TRACE_SOURCE_MANIFEST.jsonを参照。
+
+前提:
+- HBは既にggml-backend-impl.h、ggml-cuda.h、cuda_runtime.hをinclude。
+- BACKEND_IMPL:174–177のggml_backend_eventはdevice/contextの2field。
+- C:5050–5053のbackend event_recordはcontextをcudaEvent_tへcastし、
+  private_gpuの正しいstreamへrecordする。
+- C:6246の標準event factoryはDisableTimingなのでelapsed用には使わない。
+- C:6255–6259の標準freeはwrapperをdeleteするので、下記memberには絶対呼ばない。
+- この内部layoutとruntimeのloaded libraryを照合してから採用する。
+
+設計sketch:
+
+struct TraceCudaEvent {
+    cudaEvent_t raw = nullptr;
+    ggml_backend_event bridge{};
+    uint64_t recorded_generation = 0;
+    bool has_record = false;
+
+    // setup時、対象deviceをcurrentにした状態で呼ぶ。hot pathでは呼ばない。
+    void init(ggml_backend_t backend) {
+        // production実装はerror cleanup、device ownershipを既存方針へ合わせる。
+        cuda_check(cudaEventCreateWithFlags(&raw, cudaEventDefault));
+        bridge.device = ggml_backend_get_device(backend);
+        bridge.context = reinterpret_cast<void *>(raw);
+    }
+
+    void record(ggml_backend_t backend, uint64_t generation) {
+        // 前のgenerationをharvest済みであることを別のpool stateで検証する。
+        ggml_backend_event_record(&bridge, backend);
+        recorded_generation = generation;
+        has_record = true;
+    }
+
+    cudaError_t query(uint64_t generation) const {
+        require(has_record && recorded_generation == generation,
+                "unrecorded or wrong-generation trace event");
+        return cudaEventQuery(raw); // success / not-ready / actual-errorを区別。
+    }
+
+    void destroy_after_existing_drain() {
+        // HB destructorの既存private_gpu synchronize後、backend free前に呼ぶ。
+        // 未完了を救う新しいsyncはここに追加しない。
+        if (raw) cuda_check(cudaEventDestroy(raw));
+        raw = nullptr;
+        has_record = false;
+        bridge = {};
+    }
+};
+
+呼出し順（元のHB:168–175を維持）:
+
+if (H < 6) {
+    // host timestamp: cpu_setup begin/end
+    original_cpu_input_and_ids_set();
+}
+if (H > 0) {
+    // host timestamp: gpu_submit_host begin
+    original_memcpy_pinned_input();
+    if (sample_event) event[0].record(private_gpu, generation);
+    original_h2d_input_and_ids();
+    if (sample_event) event[1].record(private_gpu, generation);
+    original_private_gpu_graph_compute_async();
+    if (sample_event) event[2].record(private_gpu, generation);
+    original_d2h_output();
+    if (sample_event) event[3].record(private_gpu, generation);
+    // host timestamp: gpu_submit_host end
+}
+if (H < 6) {
+    // host timestamp: cpu_compute begin/end
+    original_cpu_graph_compute();
+    // host timestamp: cpu_output_copy begin/end
+    original_cpu_output_copy();
+}
+if (sample_event && H > 0 && H < 6) {
+    // queryの前後をhost時計で採る。1回だけ。pollしない。
+    auto status = event[3].query(generation);
+    // cudaSuccess -> ready、cudaErrorNotReady -> not_ready。
+    // その他のstatusをnot_readyやreadyへ丸めない。
+}
+if (H > 0) {
+    // host timestamp: gpu_join begin/end
+    original_private_gpu_synchronize();
+    // host timestamp: scatter begin/end
+    original_scatter_to_original_slots();
+}
+// wallは元の業務処理終了で閉じる。harvest時間は別記録。
+if (sample_event && H > 0) {
+    // 上の既存syncでE3まで完了済み。cudaEventSynchronizeは不要。
+    float h2d_ms, graph_ms, d2h_ms;
+    cuda_check(cudaEventElapsedTime(&h2d_ms, event[0].raw, event[1].raw));
+    cuda_check(cudaEventElapsedTime(&graph_ms, event[1].raw, event[2].raw));
+    cuda_check(cudaEventElapsedTime(&d2h_ms, event[2].raw, event[3].raw));
+    // generation照合・completed=true・duration値をrecordへコピーしてからslot解放。
+}
+
+注:
+1. 実際の関数引数順はこの保存版B:946–950の
+   ggml_backend_event_record(event, backend)と公開headerを必ず照合する。
+   sketchのoriginal_*は説明用placeholderであり、存在する関数名ではない。
+2. error時にtiming-only failureを無視して成功記録を作らない。
+   CUDA async errorがevent APIから表面化する場合は本来のbackend error処理と整合させる。
+3. 同じeventを再recordすると前回記録が置き換わる。前layerのelapsed回収前に再利用しない。
+4. 少数4eventを直ちに回収する版が最小。回収を後へ延ばすなら別event poolが必要。
+5. event範囲はstream elapsedであり、host CPU区間と足し合わせない。
+6. cudaLaunchHostFuncでGPU終了のhost時刻を作る案は採らない。callback自身がstreamを
+   止め得るうえ、今回の問に必要なready/not_readyはevent queryで足りる。
+7. timing event生成とpinned buffer生成は既存guardの評価対象へ加え、guard値を緩めない。
+8. source-only sketchでCUDA Graph/capture対応を実証したと主張しない。
+   実装時はtrace-off/onでreplay回数、graph構造、event generation、outputを確認する。

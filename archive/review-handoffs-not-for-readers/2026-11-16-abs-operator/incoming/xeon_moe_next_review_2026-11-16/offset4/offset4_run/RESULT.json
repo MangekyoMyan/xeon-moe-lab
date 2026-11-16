@@ -1,0 +1,88 @@
+{
+  "scope": "Synthetic IQ3_S offset-nibble arithmetic and compiler inspection only; no performance measurement or backend integration.",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "source_commit": "0c9eb472d2460048fb44cca949ad3722ed27b93b",
+  "source_sha256": {
+    "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/root/iq3s_offset4_probe.cpp": "70b69af5345097b881f2573968b6e0309703d1d2ef6a77fe479e74614af10a13",
+    "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/root/iq3s_offset4.inc": "f89cdab6236c2bff1e08337f257696dd61820172f9598bfa30b9eed5cf5fec84",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-next-optimization/incoming/xeon_moe_review_2026-11-16/cpu/iq_abs_rhs_probe.cpp": "8db9910ab7f9ef2d4473535f5ce82b73de98a4377f1d350173b52a8fd2684cac",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/iq-rhs.cpp": "1c5bdbe5550a8caa43866da134f19d7d2c1d1c89a0cead146fbf9d5fba8a02ec",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/iq-rhs.h": "393a6e194044b051ae42d8194d14ffa8b559b0d5ae067648da94f0c6d4c7c891",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/iq-math.inc": "0d66382960acea25f228fcf46096029ee9597d43c964fe67f88e0d57e42e744d"
+  },
+  "commands": [
+    {
+      "argv": [
+        "c++",
+        "-O3",
+        "-std=gnu++17",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-I/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/root",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-next-optimization/incoming/xeon_moe_review_2026-11-16/cpu",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/root/iq3s_offset4_probe.cpp",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-next-0c9eb47/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/iq-rhs.cpp",
+        "-Wl,--gc-sections",
+        "-lm",
+        "-o",
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/root/offset4_run/probe"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "argv": [
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/root/offset4_run/probe"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "{\"schema\":\"IQ3S_OFFSET4_V1_144\",\"weight_block_bytes\":144,\"rhs_block_bytes\":256,\"recode_nibbles_checked\":512,\"scalar_pairs_checked\":16646400,\"fast_bit_exact_outputs\":10240,\"compat_bit_exact_outputs\":13440,\"unsafe_rejections_and_compat_checks\":3200,\"performance_measured\":false,\"passed\":true}\n"
+    },
+    {
+      "argv": [
+        "objdump",
+        "-d",
+        "-C",
+        "/workspace/scratch/1f624f9ac929/audit/next_optimization_20261116/root/offset4_run/probe"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "selected_functions": 1,
+      "fast_path_instruction_counts": {
+        "vpshufb": 8,
+        "vpsignb": 0,
+        "vpabsb": 0,
+        "vpmaddubsw": 16,
+        "vpaddw": 16,
+        "vpsubw": 16
+      }
+    }
+  ],
+  "passed": true,
+  "observations": {
+    "schema": "IQ3S_OFFSET4_V1_144",
+    "weight_block_bytes": 144,
+    "rhs_block_bytes": 256,
+    "recode_nibbles_checked": 512,
+    "scalar_pairs_checked": 16646400,
+    "fast_bit_exact_outputs": 10240,
+    "compat_bit_exact_outputs": 13440,
+    "unsafe_rejections_and_compat_checks": 3200,
+    "performance_measured": false,
+    "passed": true
+  }
+}

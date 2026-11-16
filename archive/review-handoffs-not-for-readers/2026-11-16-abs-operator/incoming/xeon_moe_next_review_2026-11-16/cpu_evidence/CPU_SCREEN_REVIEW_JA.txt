@@ -1,0 +1,393 @@
+Xeon input-abs screening の独立監査と次段階の CPU 評価設計
+対象 commit: 0c9eb472d2460048fb44cca949ad3722ed27b93b
+作成日: 2026-11-16
+
+結論
+====
+
+IQ2_S / IQ3_S に限定し、実形状・6 expert・12 worker の小さな次段階へ進む価値がある。
+今回の単一 worker の数値だけで backend 統合を採用する根拠は足りない。新しい巨大な
+性能探索を始めるより、最初に主用途の 2 条件だけを測り、準備・同期・dispatch を含めた
+operator 時間で利益が残るかを確認するのがよい。
+
+abs と旧 bias62 の今回の比は別 block の current 対照であり、直接 A/B ではない。
+K2304/M8192 の current baseline 自体が abs block と bias block で CPU3 は約 18.4%、
+CPU9 は約 16.4% 違う。二つの speedup を割って新旧候補の優劣を確定するのは特に危うい。
+原因を単一の drift や clock に決めつけず、別 block の control 差として扱う。
+
+初回の性能対象を次の 2 条件に絞れる。
+  A. IQ2_S: K=5120, M=2304、gate/up 相当、入力 1 本共有、6 expert、12 worker。
+  B. IQ3_S: K=2304, M=5120、down 相当、入力 6 本、6 expert、12 worker。
+この絞り方は保存済み training の projection 型・形状構成に基づく。正しさの対象を
+この 2 条件に減らす意味ではない。他形状・worker 数・fallback の正しさは別途必要である。
+
+相談票には 2 点の表現上の修正が必要である。
+  1. IQ3_XXS の保留条件 K5120/M8192 は実 gate/up の K5120/M2304 ではない。
+     「実形状も落ちた」とはまだ言えない。優先度を下げる判断は妥当だが、根拠を限定する。
+  2. down の Q8_K + abs を 6 入力分足すと約 28.9 KiB になるが、現 dispatcher は
+     expert 外側で、T=1・top-k 重複なしなら worker は通常 1 入力を多数 row に再利用する。
+     6 入力の allocation footprint だけで 32 KiB L1D の容量不足を断定できない。
+
+重要な既試行も見つかった。2 出力 row で同じ入力を共有する kernel は、E より前の
+optimization-20261112 に存在し、unroll 版も含め全記録条件で遅くなっている。
+「2-row 共有」を新規案として再提出しない。再挑戦するなら旧コードとの具体差を示す。
+
+この監査で行ったこと・行っていないこと
+======================================
+
+元 C++、runner、現行 kernel、保存済み全 raw、過去の CPU 実験を読み、標準 Python で
+保存済み数値を再集計した。archived script は実行していない。モデル、API、GPU、配布 ELF、
+新しい推論・性能 benchmark は実行していない。実機性能について新たに測定した事実はない。
+
+略称:
+  N = archive/review-handoffs-not-for-readers/2026-11-16-next-optimization
+  H = archive/review-handoffs-not-for-readers/2026-11-16-current
+  E = H/snapshot/llm-lab/exploration-20261112
+  O = H/snapshot/llm-lab/optimization-20261112
+以下の file:line は上記 pinned commit の配下を指す。
+
+同梱の reanalyze_xeon_screen.py は全期待条件を固定し、raw stdout と parsed arrays、
+arm sample からの比の再計算、source SHA、correctness の重複、旧 ABBA、旧 2-row 失敗、
+形状の構成を検査する。XEON_SCREEN_REANALYSIS.json に全再計算値と source SHA を保存した。
+script は読み取り専用で、新規出力 path を要求する。
+
+実行例:
+  python3 reanalyze_xeon_screen.py --repository /path/to/pinned/repo --output /path/to/new-result.json
+
+1. 新 Xeon screen の再集計
+==========================
+
+CPU3/NUMA0 と CPU9/NUMA1 それぞれについて、期待 16 条件が重複・欠落なく存在すること、
+最後の command の raw stdout が benchmark_rows と一致することを確認した。
+node1 の RESULT.json は node0 の compile/test/bench command 3 件をコピーし、最後に
+node1 bench を追加した構造である。node1 を読む際、先行 3 件を再測定と数えていない。
+
+各条件は current 8 arms、candidate 8 arms、保持 4 組の paired ratios を持つ。
+各組の current 2 arms の和 / candidate 2 arms の和から比を再計算し、その 4 比の中央値を
+求めた。丸め済み出力との差は stdout の小数 6 桁の範囲内であり、公開表の判定と一致した。
+abs の保持 wall 比は両 socket 合計 96 個すべて >1。両 socket の wall/thread CPU で
+中央値 >=1.03、4 比すべて >1 を満たす abs 条件は 11 / 12 だった。
+
+wall paired median の速度増加率（%）。左 CPU3、右 CPU9。
+
+                    K2304/M256  K2304/M8192  K5120/M256  K5120/M8192
+abs IQ3_XXS          4.19/3.54    4.89/3.53    4.01/3.13    2.86/2.79
+abs IQ2_S            5.06/4.42    3.57/3.70    4.18/4.42    3.99/4.19
+abs IQ3_S            5.72/5.40    5.80/5.75    4.69/4.89    4.64/5.10
+bias62 IQ3_XXS       4.39/6.13    4.96/6.53    5.72/7.33    5.20/7.24
+
+これは 2 socket で方向が再現した prospective screen である。独立な入力分布を増やした
+試験でも、一般的な有意差の証明でもない。例えば node1 IQ2_S K2304/M8192 の 4 wall 比は
+1.043790, 1.086003, 1.011315, 1.030126 と幅があり、中央値だけで安定性を表せない。
+
+correctness は 3 型 × 8 MXCSR control 設定の 24 件である。各設定は bit 比較 2560 件、
+unsafe 拒否 200 件、IQ3_XXS のみ bias62 比較 2560 件。合計は abs 61,440、unsafe 4,800、
+bias62 20,480 で、node1 にコピーされた receipt は加算していない。
+8 設定は FTZ/DAZ の同時 off/on と 4 丸めモードの積であり、FTZ と DAZ の全 4 組合せを
+独立に調べたものではない。test は n=256/512/768/2304/5120、有限 scale と subnormal、
+不正 scale / -128 の拒否を含む。backend の barrier、workspace、cache miss まで通した
+正しさ試験ではない。
+
+両 receipt の source SHA 7 エントリを pinned source の実 bytes と独立照合した。
+実行 probe source SHA256:
+  8db9910ab7f9ef2d4473535f5ce82b73de98a4377f1d350173b52a8fd2684cac
+記録された probe binary SHA256 は両 receipt 同一:
+  7792627fb883ee37fc5bf0cacac9eb80d9387a953b64ab26e1190db66a4d420a
+後者は実機で記録された SHA の同一性であり、binary bytes はこの資料に含まれないため、
+こちらで当該実機 ELF の SHA を再計算した、とは主張しない。
+
+RUN_CONTEXT の wrapper は CPU3 / membind0、CPU9 / membind1。RESULT 内の probe argv に
+外側の numactl が無いことを、CPU binding が無かった証拠として扱っていない。
+BASELINE_IDLE / AFTER_SCREEN は API の前後の待機状態と config 不変を支えるが、連続 idle、
+CPU frequency、温度 peak、他プロセスによる汚染の不在を証明しない。
+
+根拠: N/abs-original-xeon/RESULT.json、N/abs-socket1-xeon/RESULT.json、
+N/analyze_screen.py、N/EXPERIMENT_PLAN.txt、N/RUN_CONTEXT.json、
+N/BASELINE_IDLE.json、N/AFTER_SCREEN.json。
+
+2. timed region と compiler/cache に関する監査
+=============================================
+
+N/incoming/xeon_moe_review_2026-11-16/cpu/iq_abs_rhs_probe.cpp:113–149:
+  ・repeat=0 の 4 arms は warmup として捨てる。保持は BAAB, ABBA, BAAB, ABBA。
+  ・各 arm は 32768 row dots。M256 なら 128 traversals、M8192 なら 4 traversals。
+  ・candidate の prepare は各 traversal 内に 1 回あり、計測へ含まれる。
+  ・F32→Q8_K は両 arm とも除外。input scale は .001、qs は -127..127 の人工分布。
+  ・weight/input は同条件中固定され、同じ bank を反復する。LLC flush はない。
+  ・steady_clock の中に thread CPU clock 読取が入る。両 arm の計測境界は同じ。
+  ・current/abs dot は noinline、bias62 は別 translation unit の外部関数。
+  ・各 traversal に memory clobber があり、全 row 結果を serial double sum へ入れ、
+    timed region の後で volatile sink へ格納する。
+
+source 上、dot 全体が DCE された、定数畳み込みされて全計算が消えた、という穴は見えない。
+ただし実行された実機 binary の disassembly を照合した判定ではない。serial double sum は
+共通の測定負荷であり、実 backend の output store や dispatch の代わりではない。
+
+candidate は pabs(weight) の反復を input abs sidecar の load に置換する。元 Q8_K は
+符号と scale のために引き続き必要なので、input load を一式なくす変更ではない。
+input に関する 256 bytes/block の追加 read と prepare を、内側の整数操作削減と交換する。
+sidecar が近い cache にあっても load 自体は無料ではない。この交換条件が single worker
+で利益を示したことは有用だが、実 12 worker の weight/cache/NUMA 負荷下では再評価が必要。
+
+weights の compact payload:
+  K2304/M256  : 331,776 B = 0.31640625 MiB
+  K2304/M8192 : 10,616,832 B = 10.125 MiB
+  K5120/M256  : 737,280 B = 0.703125 MiB
+  K5120/M8192 : 23,592,960 B = 22.5 MiB
+
+H/review/capture/CURRENT_STATE.json の lscpu 記録では private L1d 32 KiB/core、
+L2 256 KiB/core、L3 15 MiB/socket。K2304/M8192 の単一 bank は 1 socket の L3 以下で、
+K5120/M8192 はそれを超える。したがって全条件を「cold な実モデル streaming」と呼べない。
+cache は model 以外にも使われるため、サイズが L3 以下なら必ず全部 resident という意味
+でもない。実 FFN の 1 expert はどちらの形状も 6.328125 MiB、異なる 6 experts で
+37.96875 MiB。実 routing の reuse distance も単一 bank 反復とは違う。
+
+prepare は M 行で償却されるが、実 gate/up では同じ 1 input が 6 experts に共有される。
+提案された backend で prepare が operator に 1 回なら、6 experts 分の行へ償却できる。
+down は 6 inputs が各 expert に対応する。M256/M8192 の一入力 probe の結果を、準備回数
+まで等しい実操作の費用として転用しない。
+
+3. abs と bias62 を直接比較できない理由
+=======================================
+
+両者は同じ source fixture seed から作られているが、別 bench 呼出・別 ABBA/BAAB block。
+各々の current 比を割ると同じ時点の直接 A/B になるわけではない。
+実際、K2304/M8192 の current baseline wall median だけでも次の差がある。
+
+             abs block baseline       bias62 block baseline     比
+CPU3             278.938 ns                 235.602 ns           1.18394
+CPU9             258.419 ns                 221.973 ns           1.16419
+
+同じ current kernel の基準が 16～18% 違っている。原因は clock、cache、code context、
+前の条件など未分離であり、単純に経時 drift と確定することもできない。
+ABBA は block 内の順序効果を抑えるが、別 block の直接性を自動的には作らない。
+
+IQ3_XXS の abs を低優先度にすることには賛成する。旧 bias62 の結果、改善の小ささ、
+今回の合成大 M 条件での 3% 未達を合わせた実務判断である。「bias62 より厳密に遅い」
+という直接比較結果を得たわけではない。もし IQ3_XXS で結論が必要なら、同じ operator、
+同じ input/routing、同じ clock/cache regime で current/abs/bias62 を直接対照する。
+3 arms を単純固定 ABC 順にせず、対称に均衡した順序や対ごとの順序反転を事前固定する。
+
+4. 旧 bias62 の全モデル結果と Amdahl 予算
+========================================
+
+E/iq-rhs/LIVE_ABBA.json と対応する heldout/ の 4 RESULT.json を、期待 8 cases、input SHA、
+出力・token SHA と照合して再集計した。control 2 回 / candidate 2 回、同じ 192-token
+generation の記録から、従来の predicted_n-1 による decode-step 定義では:
+
+  control   7.4311578244 steps/s
+  candidate 7.4690659992 steps/s
+  変化     +0.5101247430%
+
+8 cases の output/token hash は 4 runs で一致する。これは旧 IQ3_XXS bias62 backend の
+全モデル結果である。abs の結果でも、今回の人工 kernel probe の全モデル換算でもない。
+単コア数%が全モデル数%に直結しないことを示す経験的な注意点として使う。
+
+条件付き予算は次式で考える。
+  S_total = 1 / (1 - p + p/r + h)
+  p: 新 kernel が本当に短縮できる baseline critical path の比率
+  r: その部分の local speedup
+  h: 新たな準備・同期・dispatch 等の未包含 overhead / baseline 全体時間
+
+CPU/GPU が並行なら p は CPU worker 時間の総和ではなく、完了を決めている部分の比率。
+CPU 短縮により GPU が遅い側へ入れ替わるなら max(C/r,G) の切替で改善が頭打ちになる。
+この表は重なりと critical path の構造が変わらない範囲の感度計算である。
+r に operator 全体を使う場合、そこに既に含めた overhead を h へ二重加算しない。
+
+追加 overhead=0 と仮定した全体速度増加率（%）:
+  local r     p=10%    p=25%    p=50%
+    1.03       0.292     0.733     1.478
+    1.04       0.386     0.971     1.961
+    1.05       0.478     1.205     2.439
+    1.06       0.569     1.435     2.913
+
+全体 +1% を得るために最低限必要な p（h=0）:
+  r=1.03: 33.993%、r=1.04: 25.743%、r=1.05: 20.792%、r=1.06: 17.492%。
+これは実測 p ではない。新対象は IQ2_S/IQ3_S の compact hit に限られ、raw miss や他型は
+高速化されない。準備を all-miss にも入れる場合、p=0 で h>0 の経路も生まれる。
+
+E/training/20261112-075449/TRAINING_COUNTS.json の 111 CPU projection records は:
+  IQ3_XXS: gate/up 42、down 16
+  MXFP4  : gate/up 18、down 13
+  IQ2_S  : gate/up 12、down  2
+  IQ3_S  : gate/up  2、down  6
+IQ2_S/IQ3_S は 22 / 111 records だが、これは時間比 p ではない。同様に cache の選択
+expert 数、割当数、payload 比を p とみなして decode gain を算出しない。
+
+現 final の p は、この保存資料から確定できない。TRAINING_COUNTS は count のみ。
+E/runs/*/perf-control.json の 4 件は初期 baseline / sparse-frequency / NUMA 実験の
+収録制御で、final の対象 compact dot の時間ではない。O/runs/*/ANALYSIS.json の 3 件は
+旧配置の CPU graph を first tensor ごとに集約しており、対象型の compact dot と raw を
+分離できない。E/FINAL_ABBA.json は全体の生成時間。trace-calls.cpp の counters も
+呼出数である。現在の p をこれらから推測で埋めることはしない。
+
+利益を打ち消さない追加 overhead の厳密な予算は、h < p(1-1/r)。全体 +g を守るなら
+  h <= p(1-1/r) - g/(1+g)
+となる。右辺が負なら、追加 overhead ゼロでもその目標に到達しない。
+break-even の追加 overhead 上限（baseline 全体時間に対する %）:
+  local r     p=10%    p=25%    p=50%
+    1.03       0.291     0.728     1.456
+    1.04       0.385     0.962     1.923
+    1.05       0.476     1.190     2.381
+    1.06       0.566     1.415     2.830
+
+例として p=25%、r=1.05 なら break-even は 1.190476%。全体 +1% を維持する追加
+overhead 予算は 0.200377% に縮む。仮に baseline 100 ms/step なら約 200.38 us/step。
+これはこの機械の baseline を 100 ms と測った主張ではなく、予算の単位換算例である。
+p=25%、r=1.04 は h=0 でも +0.9709% なので、全体 +1% の overhead 予算は既に負。
+この規模では small flags/barrier/lookup の追加が無条件に無視できるとは言えない。
+
+5. 既試行との照合: 2-row、unroll、bias は別々に扱う
+==================================================
+
+探索範囲は E/iq-rhs/ に限定せず、O/cpu-pair/、O/cpu-pair-unrolled/、O/cpu-bias/、
+O/execution/、O/RESULTS_JA.txt を含めた。
+
+O/cpu-pair/paired-rows.inc は 2 出力 row を同時処理して元 Q8_K load を共有する。
+O/cpu-pair-unrolled/paired-rows.inc は同じ考えに g loop の unroll 8 を加えたもの。
+同じ入力を読み、各 weight の signed LUT 展開、psign(input,weight)、pabs(weight) を
+それぞれ行う。これは単なる block loop の unroll 量変更とは別の既試行である。
+
+保存された 12 条件ずつの結果:
+  compact-pair-synthetic-abba          speedup 0.67758～0.82133、全条件遅い
+  compact-pair-unrolled-synthetic-abba speedup 0.78649～0.84156、全条件遅い
+両 log の最終 receipt は pass=true、outputs_checked=886560。
+K2304/M98304 と K5120/M49152、1/12 threads などの人工試験で、current と bit 一致する。
+
+旧 test-pair.cpp は 17-row chunks（8 pairs + scalar tail）を OpenMP static scheduling し、
+8 回の ABBA を用いる。出力の中央値は偶数個の上側 median。保存 log にあるのは各 arm
+群の中央値の比で、今回のような raw per-arm からの paired ratio 再構成はできない。
+したがって「どんな 2-row 方式も不可能」と一般化はしないが、元の入力共有を新規の
+低リスク案として繰り返す根拠はない。register 内 abs を 2 rows へ共有するなら、
+旧版の register 生存期間、spill、増えた accumulator、unroll と何が違うのかを先に示す。
+
+O/cpu-bias/biased-iq3.inc は IQ3_XXS 用。144 B compact に 16 B の half_sum を追加し、
+input を XOR 128 する方式で、PSHUFB の LUT は残る。E/iq-rhs/ の bias62 は別の
+144 B weight 維持の入力 sidecar 方式。これらを abs と同じ既試行と呼ばない。
+
+別途検討中の IQ3_S offset-binary 表現、k=(w+15)/2 により LUT を除き
+2*maddubs(k,y)-15*pair_sum(y) とする案は、上記を調べた範囲では存在しなかった。
+全履歴の不存在を証明したものではない。この案は nibble の意味が変わるので、144 B
+という byte 数だけで現在 cache と互換と見なせない。version/tag と独立 correctness が必要。
+この監査ではその prototype や性能を評価していない。
+
+6. L1/NUMA の仮説を実装に合わせて修正する
+========================================
+
+block_q8_K は 292 B = FP32 scale 4 + qs 256 + bsums 32。
+down K2304 は 9 blocks なので、1 input の Q8_K 2628 B、abs 2304 B、合計 4932 B。
+6 input を割り当てると 29,592 B = 28.8984375 KiB になる。
+
+しかし現 ggml-cpu.c:1867–1953 は cur_a（expert）の外側 loop。T=1、6 unique experts では
+cne1=1 となり、one_chunk:1531–1565 の i11=slot%ne11 で一つの入力をその expert の多数
+row へ再利用する。各 worker の同時に強く参照する input は通常 1 本である。
+別 worker が別 expert へ先行していても、private L1 の 1 本という性質とは矛盾しない。
+
+したがって 28.9 KiB は allocation footprint としては正しいが、L1 cliff の証拠ではない。
+前の input、weights、stack、出力、prepare が残す cache line、切替の reuse distance、
+worker ごとの入力訪問順を含めて考える。逆に「1 本しか使わないから必ず L1 hit」とも
+断定できない。6 入力を round-robin で row ごとに切り替える人工 harness は現 loop 順と
+違い、性能判断を誤らせるおそれがある。
+
+NUMA0 は物理候補 CPU0–5、NUMA1 は CPU6–11（同 capture の sibling は 12–23）。
+6 worker は両 socket 3 core、12 worker は各 6 coreとし、実 worker の pinning を記録する。
+process の affinity mask だけでは 1 worker / core を保証しない。現行 interleave と
+single-node local allocation は目的の違う条件として分ける。1 worker の単純比較も、
+local memory と interleave memory を混ぜて worker 数だけの効果と呼ばない。
+
+根拠: H/.../hybrid/engine/ggml/src/ggml-common.h:370–376、
+E/mx-prepack/release-candidate-a/sources/ggml-cpu.c:1531–1568,1864–1953、
+H/review/capture/CURRENT_STATE.json。
+
+7. 最小限で判断力を持つ次の harness
+===================================
+
+7.1 最初の段階
+
+最初は current compact144 と abs compact144 の 2 arms。
+IQ2_S K5120/M2304 と IQ3_S K2304/M5120、6 distinct experts、12 workers、現行 interleave
+に絞る。正しさを通してから性能を測る。将来の raw/cached mix をまだ実装しないなら、
+all-hit と all-miss を先に必須とする。all-miss は候補分岐が入っただけの費用を測る対照。
+ここで小さいか不安定なら、1/6/12 workers × 全形状 × 全型 × NUMA の全積へ拡張しない。
+
+利益が残った時だけ、1/6 workers、IQ2_S down / IQ3_S gate-up、mixed hit count 1/3/5、
+異なる入力・route group を加えて原因を分ける。全 hit count 0..6 は correctness と coverage
+の完全性のために用意してよい。速度試験を初回から全積にする必要はない。
+gate/up の input1、down の input6 を主結果とし、逆組合せは診断用と明記する。
+
+7.2 既存 cost-probe の再利用で省ける作業と転用時の落とし穴
+
+E/sparse-cache/cost-probe.cpp は有用な土台である。
+  31–54: 実形状、384-expert metadata、6 selected experts、gate/up input1 / down input6。
+  57–84: 8 route groups、最大 48 selected experts だけを compact pack。
+  88–104: 固定した入力・routes、raw/cached mix、ABBA、output bit 比較。
+
+全 384 experts を pack する必要はない。1 projection あたり compact 6.328125 MiB/expert
+なので、48 experts で 303.75 MiB、384 experts は 2.373046875 GiB。resident model と
+reserve を考えると、この scoped bank の方式は適切である。使用前には当時の pool/NUMA
+設定を現在に揃え、allocation の first touch / actual node placement も記録する。
+
+ただし旧 cost-probe:91–97 の A/B は use_ref=true の raw と false の compact の比較。
+今回これをそのまま流用すると abs の利益ではなく cache 効果を測ってしまう。
+今回の両 arm は current compact を有効にした use_ref=false を基準とし、abs の有無だけ
+を切り替える。bit 互換性の基準は current compact とし、use_ref=true は現 raw 分岐を
+保つ別対照として測定外で使う。raw と compact の全条件 bit 一致を仮定しない。
+
+旧 probe の 128 MiB eviction は timed compute の外。これは意図した cache regime の
+一つであり、現実の reuse を保証するものではない。次は warm single-route と複数 route
+rotation を明確に分ける。rotation が実 trace の分布を代表するなら、その入力分布も保存。
+全 operator について毎回強制 eviction した値を現 API の予測値にしない。
+
+7.3 計測する境界
+
+性能採否は wall operator latency。F32→Q8_K、abs 準備、mask、barrier、cache lookup、
+dispatch、6 expert 分の output 書込を同じ境界に含める。診断用の dot-only は副指標。
+現在の microbench は共通量子化を除外しているため、その speedup をこの値と混ぜない。
+use_ref、cache owner、選択 plan、weight bank、input/routing は比較中同一に固定する。
+output の別 buffer への取得を含めるなら両 arm とも含め、その境界を明記する。
+
+各 worker の CPU time 合計は CPU 使用量として補助的に使えるが、barrier 待ちがある
+operator の wall latency の代わりにはならない。kernel/prepare/待ちの区分計測自体が
+hot path に大きな overhead を入れるなら、本採否用の無計測 arm と分ける。
+timer、log、hash、hardware counter read は片側だけに追加しない。
+
+7.4 正しさと可観測性
+
+expected manifest に case ID、型、K/M、input count、worker count、NUMA 方針、
+cache hit count/IDs、unsafe class、rounding control を保存する。空集合 all-pass を禁止。
+欠落・重複・nonfinite・例外・output mismatch は失敗として保存し、除外して median を
+良く見せない。unsafe で current fallback を選んだ件数と abs dot 実行件数を保存する。
+「abs=true の設定」だけで新経路の実行を証明しない。
+
+少なくとも actual shapes、1/6 inputs、1/6/12 workers、mixed unsafe、all-miss、
+partial hit、use_ref、prequantized input、連続 graph 呼出を正しさ側で覆う。
+具体的な workspace 寿命、64 input mask、barrier の成立性は別の integration 監査に従う。
+出力 buffer と canary の検証は timed region 外で行い、timed run の DCE を防ぐための
+結果利用は両 arm で同じにする。保存 source/build/library hash と動作 counters をセットにする。
+
+7.5 ABBA と採否
+
+warmup と本測定 sample 数、最小実務効果を事前固定する。同じ route/input group を
+ABBA と BAAB に渡し、paired 比だけでなく raw wall time と実行順を保存する。
+新入力群を増やすことと、同じ入力を反復することを区別する。独立 run/block の散らばりを
+見ず、何度も繰り返した内側 row を独立 sample として数えない。
+core-local screen の通過は条件の一つだが、real12worker で予算に合う改善が残ることを重視。
+
+end-to-end へ進むのは、operator の改善と対象時間比から Amdahl 上の実務価値があり、
+all-miss などの退行が見えず、再現した場合に限る。局所 3% は今回の探索閾値であって、
+複雑な backend 統合を無条件に採用する閾値ではない。逆に全体 +0.5% でも、複雑さが低く
+安定して計測できるなら価値判断は可能であり、一律にゼロ扱いはしない。
+
+8. 判断の優先順位
+==================
+
+今回の abs は既存 payload・coverage を変えずに準備側へ仕事を移す小さな候補で、
+IQ2_S/IQ3_S の限定 operator 検証は費用に見合う。CPU 案を全面統合する前に止まれる設計にする。
+GPU 配置の critical-path 計測は別の価値があり、CPU の小試験と並行に設計できる。
+旧 hot14 の効果や旧 bias62 の +0.51% だけで、CPU と GPU の次の実装順位を断定しない。
+同じ CPU compact hit の数を減らす場合でも、GPU 完了側が遅ければ全体時間は変わらない。
+
+最も避けたいのは、新しい単コア比を decode 改善へ換算すること、既試行の 2-row を再発明
+すること、6 input の総割当をそのまま L1 同時 working set と見なすこと、raw/compact の
+旧 harness を流用して abs/compact の比較だと思い込むこと。この 4 点を直すだけでも、
+次の限られた実機測定から得られる判断はかなり明瞭になる。

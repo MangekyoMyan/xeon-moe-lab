@@ -1,0 +1,10 @@
+Actual-operator screening, fixed before timing
+Two real tensors: blk.0.ffn_up_exps.weight (IQ2_S,K5120/M2304,input1), blk.13.ffn_down_exps.weight (IQ3_S,K2304/M5120,input6).
+Six distinct experts; eight fixed groups spanning48 experts. Cache all48 or none. Cache payload303.75MiB per tested tensor, one tensor per process. Original GGUF remains read-only.
+Same experimental library: mode0=current compact arithmetic, mode1=shared all-input preparation, mode2=worker-private lazy. New workspace reservation exists in mode0 too, so operator gains alone do not prove the new library beats the production binary.
+12 actual physical CPU pins0-11, process interleave0,1, record ggml_is_numa. Default chunk scheduler remains unchanged.
+F32 quantization, graph planning, preparation, row maps, barrier, cache lookup, dispatch, dot and output writes are timed through ggml_backend_graph_compute. Candidate diagnostics, output readback and byte comparison are outside timing.
+16 blocks: eight route/input groups repeated twice with opposite ABBA/BAAB and candidate order. Each timed sample averages8 graph computes after one warm compute. All128 timings per cache condition are preserved; these are repeated chunks, not128 independent requests. No forced LLC flush.
+Correctness and prepare/row dispatch counts are checked before timing. Every timed chunk is compared with its current-mode output. Expected set=2types x2cache conditions x2candidates x16blocks x4positions. Missing, failed, nonfinite or duplicate receipts are rejected.
+Initial practical gate: all-hit paired median speedup>=2%, with at least12/16 block ratios>1. All-miss median slowdown must be<=1% to advance without an explicit no-hit fix. This is not a statistical confidence interval or whole-model adoption threshold.
+Repeat a primary condition only if a candidate passes or unresolved variability can change its decision. Preserve failures. A surviving mode still needs independent checks against frozen production overhead, actual workload impact, boundary/memory checks and trace-off whole-model comparison before deployment.

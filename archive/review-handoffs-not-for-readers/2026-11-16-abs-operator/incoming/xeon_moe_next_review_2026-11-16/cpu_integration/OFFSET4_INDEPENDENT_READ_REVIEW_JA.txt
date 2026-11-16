@@ -1,0 +1,81 @@
+IQ3_S offset4 prototype の独立ソース照合
+2026-11-16 / CPU統合担当
+
+結論
+現在提示されたprototypeでは、nibble変換、pair grouping、整数境界、scale、FPのlane順に
+誤りを見つけていない。これはソースの独立read-only照合である。この担当はoffset4の
+試験を再実行していない。親の合成試験結果を確認したが、実backend、実重み全体、
+Xeon性能、品質の保証とは扱わない。
+
+照合した新規ソース（audit/next_optimization_20261116/rootをRとする）
+  R/iq3s_offset4.inc
+    SHA256 f89cdab6236c2bff1e08337f257696dd61820172f9598bfa30b9eed5cf5fec84
+  R/iq3s_offset4_probe.cpp
+    SHA256 70b69af5345097b881f2573968b6e0309703d1d2ef6a77fe479e74614af10a13
+  R/run_iq3s_offset4_probe.py
+  R/offset4_run/RESULT.json
+
+比較した現行ソース
+  archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/
+  exploration-20261112/row-local/iq-small-kernels.inc
+    SHA256 847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c
+    28–30: IQ3_Sでは32valuesごとに同じ奇数scale、範囲1..31
+    32–46: 現compact packing
+    48–66: 現compact dot、整数laneとFP加算順
+
+1. encodingは全16値で可逆
+
+元code0..7はw=1,3,...15、code8..15はw=-1,-3,...-15。
+offset4.inc:12–19のmapは、それぞれk=(w+15)/2を0..15へ符号化する。
+low/high nibbleの位置を変えず、scaleとdも同じである。
+compat readerのLUT(70行)はw=2*k-15で完全に復号できる。
+
+2. maddubsの飽和・16bit wrapはsafe範囲で起きない
+
+pairに入るk0,k1∈[0,15]、y0,y1∈[-127,127]として:
+  p = k0*y0 + k1*y1         ∈[-3810,3810]
+  2*p                      ∈[-7620,7620]
+  c = 15*(y0+y1)           ∈[-3810,3810]
+  2*p-c = w0*y0+w1*y1      ∈[-3810,3810]
+したがって31行の補正、52–55行のmaddubs/add/subは16bit内で正確。
+IQ3_S scaleは最大31で、最終int32 laneは32values分の
+32*15*127*31=1,889,760以内。int32加算のoverflowも起きない。
+境界の証明はIQ3_Sの係数集合に依存する。他型へ単に定数15を流用しない。
+
+3. lane/FP順は現行と一致
+
+offset4.inc:45–58は元のlow/highに入る16valuesずつとpair位置を保持し、
+同じ32value groupのscaleを適用する。60–64行は現compactの63–66行と
+同じ8 lane結合、int→F32、d*x.d、FP32積、product+acc、iq_hsum順である。
+親の記録は8種類MXCSR、K256/512/768/2304/5120でsafe10,240出力、
+compat13,440出力、unsafe拒否+compat3,200件のbit一致を報告している。
+これらは合成入力と同一compiler条件の結果であり、全backendの保証ではない。
+
+4. -128で専用compatを使う理由は具体的
+
+元演算は負weightの場合にPSIGNBでinputを反転する。input=-128では
+8bit符号反転が-128へwrapし、数学上のw*yとは異なる中間値になり得る。
+offset fastは数学上のw*yを作るため、この入力で元演算とのbit一致を保証できない。
+offset4_prepareは-128または非finite input scaleでfalseを返し、専用compatは
+元のPSIGNB/MADDUBS順を再現する。提示コードの対応は妥当。
+unsafeのとき元compact readerへ戻してはいけない。payloadの意味が変わっている。
+
+5. 本体へ入れる場合の追加契約
+
+144B/blockを維持しても旧compactと同一schemaではない。
+format tag、pack、dot selector、fallback readerを一緒に切り替える必要がある。
+既存abs_dotも旧compact nibbleを前提としており、新payloadには使えない。
+この点で、weight layoutを変えないabs-input提案より統合の変更範囲は大きい。
+
+correctionは256B/Q8_Kblockで、abs sidecarと同じallocation量。
+毎operatorで現在のinputから準備し、read側の対応input/整列/lifetimeを保証する。
+n>0、n%256==0、入力と重みのblock数、correction16byte整列は呼出し側の契約。
+standaloneはこれらを満たすが、本体統合のguardが自動で存在するとは解釈しない。
+
+6. 性能について言える範囲
+
+記録されたcompiler出力はfast pathでvpsignb/vpabsbがゼロである。
+ただしvpshufbは8個残り、整数add/subとsidecar load/prepareが増える。
+命令種別の削減は有用な仮説であり、critical path/uop/port/cache全体の実測ではない。
+現Xeonで既存144B compactおよびabs候補と、準備を含む同一harnessで比較するまで
+高速化や採用優先度を断定しない。

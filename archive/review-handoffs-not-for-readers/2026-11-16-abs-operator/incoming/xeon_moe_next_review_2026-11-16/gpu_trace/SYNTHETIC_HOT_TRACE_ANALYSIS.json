@@ -1,0 +1,181 @@
+{
+  "validated": true,
+  "trace_kind": "hot_latency",
+  "expected_layers": [
+    0,
+    1,
+    2
+  ],
+  "is_complete_40_layer_census": false,
+  "passes": 2,
+  "records": 6,
+  "phase_record_counts": {
+    "decode": 6
+  },
+  "layers": [
+    {
+      "layer": 0,
+      "routes": 2,
+      "ordered_route_tuples": 1,
+      "current_gpu_slot_H_histogram": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "hot_dispatcher_H_histogram": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "layer": 1,
+      "routes": 2,
+      "ordered_route_tuples": 1,
+      "current_gpu_slot_H_histogram": [
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "hot_dispatcher_H_histogram": [
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "layer": 2,
+      "routes": 2,
+      "ordered_route_tuples": 1,
+      "current_gpu_slot_H_histogram": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2
+      ],
+      "hot_dispatcher_H_histogram": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2
+      ]
+    }
+  ],
+  "hot_host_interval_ms": {
+    "cpu_compute": {
+      "n": 4,
+      "mean": 8.0,
+      "p50": 8.0,
+      "p95": 10.0,
+      "max": 10.0
+    },
+    "cpu_output_copy": {
+      "n": 4,
+      "mean": 1.0,
+      "p50": 1.0,
+      "p95": 1.0,
+      "max": 1.0
+    },
+    "cpu_setup": {
+      "n": 4,
+      "mean": 1.0,
+      "p50": 1.0,
+      "p95": 1.0,
+      "max": 1.0
+    },
+    "gpu_join": {
+      "n": 4,
+      "mean": 5.0,
+      "p50": 5.0,
+      "p95": 6.0,
+      "max": 6.0
+    },
+    "gpu_submit_host": {
+      "n": 4,
+      "mean": 1.0,
+      "p50": 1.0,
+      "p95": 1.0,
+      "max": 1.0
+    },
+    "scatter": {
+      "n": 4,
+      "mean": 1.0,
+      "p50": 1.0,
+      "p95": 1.0,
+      "max": 1.0
+    },
+    "unassigned_host": {
+      "n": 6,
+      "mean": 2.3333333333333335,
+      "p50": 2.0,
+      "p95": 3.0,
+      "max": 3.0
+    },
+    "wall": {
+      "n": 6,
+      "mean": 13.666666666666666,
+      "p50": 15.0,
+      "p95": 16.0,
+      "max": 16.0
+    }
+  },
+  "gpu_stream_elapsed_ms": {
+    "d2h": {
+      "n": 4,
+      "mean": 0.3,
+      "p50": 0.3,
+      "p95": 0.3,
+      "max": 0.3
+    },
+    "graph": {
+      "n": 4,
+      "mean": 5.0,
+      "p50": 5.0,
+      "p95": 5.0,
+      "max": 5
+    },
+    "h2d": {
+      "n": 4,
+      "mean": 0.2,
+      "p50": 0.2,
+      "p95": 0.2,
+      "max": 0.2
+    }
+  },
+  "gpu_query_observations": {
+    "not_measured": 4,
+    "not_ready": 2
+  },
+  "exposed_join_fraction_of_observed_hot_wall": 0.24390243902439024,
+  "interpretation": [
+    "Host intervals are nonoverlapping observed intervals in one clock domain.",
+    "GPU event elapsed times are not added to host CPU, submit or join times.",
+    "Ready means complete at the query observation, not an exact GPU finish timestamp.",
+    "Join fraction is descriptive for this execution, not an attainable speedup bound.",
+    "Missing/dropped passes fail validation; this does not prove engine instrumentation correctness.",
+    "Passes are explicit T=1 graph executions, not automatically generated tokens.",
+    "The script does not infer new-placement latency from marginal hit frequencies."
+  ]
+}
