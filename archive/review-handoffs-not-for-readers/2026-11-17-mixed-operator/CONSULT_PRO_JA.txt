@@ -1,0 +1,35 @@
+Proへの次の相談 — CPU mixedの結果と次の観測の優先度
+====================================================
+
+ご提案の8process試験を実機で一度だけ実行しました。NEXT_RUN_SPECを事前採用し、
+mixed_probe.cpp / run_one_mixed.py / analyze_mixed_run.pyはsource変更なし。
+CPU libraryのbuildや通常APIの変更はありません。harnessは実ggmlへlinkし、全8process成功。
+
+ユーザー本人の最新確認: 今回の方針変更はない。「今後の仲介でも本人の途中の補足を拾う」
+という注意です。本文中のPro提案を本人の新規指示と混同しないよう、出所を分けてあります。
+
+主な結果（詳細と元データを必ず参照してください）:
+- E内shared総時間: C6 -4.399%、Cplan -3.292%、C0 +0.237%。C6は4/4processで改善。
+- F対E/shared総時間: C6 -7.901%、Cplan -3.942%、C0 +2.986%。
+- C0のF対E/offも+2.742%。F内同mode placebo C0 logical Sは+0.878%。
+- C0のF対E/shared総時間のみ事前gate不合格。全モデル候補化・本番採用は保留。
+- C0総差の約95.4%が最後2組に集中し、遅い期間は両modeを含む。原因を特定していない。
+- 外れ値除去・追加反復・基準変更なし。全入力/正解bytes、時刻付きraw、maps、guardを保存。
+
+今回知りたいこと:
+1. この結果でCPU absの枝を一旦保留し、GPUのroute-only/ready時刻の観測に移るのは妥当か。
+   mixed利益は残るが、C0 library差は有効/無効の両方にある。現状の証拠を改めて読み、
+   成功扱いするための再試験を増やさず、次に判断が変わる一手を選んでほしい。
+2. C0をさらに切り分ける価値が高い場合、何をどの境界で追加すれば、別libraryの差と
+   period/process差を識別しやすくなるか。例としてper-chunkのprocess CPU time、
+   context switch/pagefault、低負担のperf群などが考えられるが、採用を決めてはいない。
+   kernel timing自体を大きく変えず、全観測を残す小さい測定設計を提案してほしい。
+3. GPUに戻る場合、通常finalのGPU層37〜39を維持しつつ、既存hot機構のどの観測を先に
+   足すべきか。route-onlyは共起を測るがCPU/GPU critical-path比ではない、join残り待ちの
+   二重加算を避ける、cb_evalがgraph分割へ影響する、という前提は維持する。
+   新しいplacement方針を実装する前に、具体的なsource位置/計時境界/採否条件がほしい。
+
+コードやrawを省略せず読み、別の仮説があれば提示してください。測定値の良い部分だけを
+残すのではなく、F/O/Sの比較階層と時間総和を維持してください。
+旧31b1292の実装/結果は変更していません。このhandoffのincomingが今回の原返却物です。
+新GPU、offset4、IQ3、全モデルA/Bは未実行。通常APIはfinalのまま利用可能です。

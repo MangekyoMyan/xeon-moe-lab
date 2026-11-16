@@ -1,0 +1,307 @@
+{
+  "schema": 1,
+  "process_index": 5,
+  "library_label": "F",
+  "passed": true,
+  "exit_code": 0,
+  "error": null,
+  "files": {
+    "raw.jsonl": {
+      "bytes": 61169,
+      "sha256": "fa04ca8a5f8f8ac3e5b29626c5200da8956082df062c31e01bbce271a007cd01"
+    },
+    "expected-C0.bin": {
+      "bytes": 442368,
+      "sha256": "6d3ffb5c2345af061c67ac3d8bdd4b23043b76308164136648f22f41603bf110"
+    },
+    "expected-C6.bin": {
+      "bytes": 442368,
+      "sha256": "6d3ffb5c2345af061c67ac3d8bdd4b23043b76308164136648f22f41603bf110"
+    },
+    "expected-Cplan.bin": {
+      "bytes": 442368,
+      "sha256": "6d3ffb5c2345af061c67ac3d8bdd4b23043b76308164136648f22f41603bf110"
+    }
+  },
+  "identity": {
+    "cpu_library_sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+    "base_library_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+    "harness_sha256": "c611c2edb2e2acca73b0c913d841ac9506363128c3ac6928586a3ad3bed5032a",
+    "inputs_sha256": "9dc5705e04389d3d08d894ddf25ce675fa2ff3bed73eccc4ba9a156c8028ec93",
+    "plan_sha256": "cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6",
+    "case_spec_sha256": "3fbf870194ee60c88c677da247eac966fd4b0c2725543819c062903002f66c40",
+    "case_header_sha256": "00a00050da3b9b0a245493a869f92e723409ce11bc193b1b80e59c4ea73df7db",
+    "cpu_library_path": "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0",
+    "base_library_path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+    "harness_path": "/home/codex/projects/llm-lab/optimization-20261117/build/mixed_probe",
+    "case_directory": "/home/codex/projects/llm-lab/optimization-20261117/incoming/xeon_moe_abs_next_2026-11-16/next_experiment/case",
+    "shard_stat": {
+      "path": "/home/codex/projects/llm-lab/models/orcarouter--DeepSeek-V4.1-Flash-1017-abliterated-GGUF/Mix-256G/DeepSeek-V4.1-Flash-1017-abliterated-Mix-256G-00003-of-00007.gguf",
+      "device": 2049,
+      "inode": 13649680,
+      "bytes": 46798562592,
+      "mtime_ns": 1793423548821827288
+    },
+    "extra_library_dirs": [
+      "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin"
+    ],
+    "launcher_sha256": "ed40376855e8837d43d8f8457ebe97d6e1ffac96847b6f9aaa45845be5d896b1"
+  },
+  "started_monotonic_ns": 66588656599143,
+  "ended_monotonic_ns": 66595915181795,
+  "argv": [
+    "/usr/bin/numactl",
+    "--physcpubind=0-23",
+    "--interleave=0,1",
+    "/home/codex/projects/llm-lab/optimization-20261117/build/mixed_probe",
+    "bench",
+    "/home/codex/projects/llm-lab/models/orcarouter--DeepSeek-V4.1-Flash-1017-abliterated-GGUF/Mix-256G/DeepSeek-V4.1-Flash-1017-abliterated-Mix-256G-00003-of-00007.gguf",
+    "/home/codex/projects/llm-lab/optimization-20261117/incoming/xeon_moe_abs_next_2026-11-16/next_experiment/case/inputs.bin",
+    "/home/codex/projects/llm-lab/optimization-20261117/mixed-run/process-5",
+    "5",
+    "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0",
+    "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0"
+  ],
+  "env": {
+    "controlled_values": {
+      "LD_LIBRARY_PATH": "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+      "OMP_DYNAMIC": "FALSE",
+      "OMP_THREAD_LIMIT": "24",
+      "OMP_MAX_ACTIVE_LEVELS": "1",
+      "OPENBLAS_NUM_THREADS": "1"
+    },
+    "removed_prefixes": [
+      "LLAMA_",
+      "GGML_",
+      "OMP_",
+      "GOMP_",
+      "LD_"
+    ],
+    "other_environment_inherited": true,
+    "inherits_outer_process_group": true
+  },
+  "timeout_seconds": 180,
+  "outer_guard_required": true,
+  "retry_policy": "Any failed attempt requires a fresh run root.",
+  "host_preflight": {
+    "allowed_affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "required_affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "pool_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "online_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "physical_cores": 12,
+    "packages": [
+      0,
+      1
+    ],
+    "target_topology": {
+      "0": [
+        0,
+        0
+      ],
+      "1": [
+        0,
+        1
+      ],
+      "2": [
+        0,
+        2
+      ],
+      "3": [
+        0,
+        3
+      ],
+      "4": [
+        0,
+        4
+      ],
+      "5": [
+        0,
+        5
+      ],
+      "6": [
+        1,
+        0
+      ],
+      "7": [
+        1,
+        1
+      ],
+      "8": [
+        1,
+        2
+      ],
+      "9": [
+        1,
+        3
+      ],
+      "10": [
+        1,
+        4
+      ],
+      "11": [
+        1,
+        5
+      ],
+      "12": [
+        0,
+        0
+      ],
+      "13": [
+        0,
+        1
+      ],
+      "14": [
+        0,
+        2
+      ],
+      "15": [
+        0,
+        3
+      ],
+      "16": [
+        0,
+        4
+      ],
+      "17": [
+        0,
+        5
+      ],
+      "18": [
+        1,
+        0
+      ],
+      "19": [
+        1,
+        1
+      ],
+      "20": [
+        1,
+        2
+      ],
+      "21": [
+        1,
+        3
+      ],
+      "22": [
+        1,
+        4
+      ],
+      "23": [
+        1,
+        5
+      ]
+    },
+    "numa_nodes_online": [
+      0,
+      1
+    ],
+    "mem_available_bytes": 73357930496,
+    "reserve_bytes": 68719476736,
+    "cache_budget_bytes": 318767104,
+    "scope": "Read-only preflight; outer guard required for live API/temperature/counter monitoring."
+  },
+  "state": "completed",
+  "child_pid": 173425,
+  "auxiliary_files": {
+    "maps.txt": {
+      "bytes": 6449,
+      "sha256": "05250e1da54553c8f1c9a53b70dc185ad96c9122aafd22e5f1009d2b2d2a5c18"
+    },
+    "stdout.log": {
+      "bytes": 51,
+      "sha256": "7515cdb6e93c8a678fcecd8d8aa77c7b22601dec5084bb260774819f087edf6c"
+    },
+    "stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

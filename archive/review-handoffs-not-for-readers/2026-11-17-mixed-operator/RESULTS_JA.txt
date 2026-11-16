@@ -1,0 +1,89 @@
+IQ2 mixed-cache実機検証 — 2026-11-17
+==================================
+
+結論
+----
+Proの提案を親が確認し、既存CPUライブラリを変えずに新しい共通harnessで測定した。
+mixedでもsharedの利益は残ったが、frozen対sharedの全未命中・総時間が事前基準を外した。
+今回は本番化/全モデル候補buildへ進めず、CPU absの採用判断を保留する。
+良い結果が出るまでの再試行、外れ値の除外、事後の基準変更は行っていない。
+
+ユーザー本人への確認では今回の方針変更はない。本人の途中の補足と外部レビューの提案を
+区別して確認・記録するという注意を継続する。詳細はPOLICY_AND_PLAN_JA.txt。
+
+何を測ったか
+------------
+E5-2630L v2×2、12物理コア0..11、interleave0,1、ggml NUMA=false。
+実GGUFのIQ2_S blk.0.ffn_up_exps.weight、K5120/M2304、入力1、1回6expert。
+同じ人工入力8個、48 expert IDs、同じF/E CPU library、同じbase、同じharnessを全試行で使用。
+F=通常final、E=以前のabs試作。E内O=mode0、S=shared mode1。
+F内のlogical O/Sはどちらもactual mode0で、順序・外乱による差を見る対照とした。
+
+C0=compact cacheなし、C6=48 expert全てcompact、Cplan=現行planと48 IDsの交差39expert。
+Cplanの各groupのhit数は[5,5,5,5,3,5,6,5]。CPU compactのhitでありGPU resident hitではない。
+人工routeのmixed診断であり、実利用のhit率や全モデル時間配分を再現したものではない。
+
+固定順F,E,E,F,E,F,F,E、計8process、3cache条件、16block、4arm、32graph/chunk。
+全1,536timed chunks、49,152timed graph callsを保持。独立反復はF4/E4processであり、
+49,152個の独立requestではない。全8processがguard下で成功。再試行なし。
+元のCPU libraryはbuildしていない。Proのharness/launcher/analyzerはsource変更なしで使用。
+親の追加はbuild/orchestration/事前基準の機械的照合/運用receiptだけ。
+
+結果（合計所要時間の変化、負は短縮）
+----------------------------------
+条件                同一E内 S対O       F対EのS
+全命中 C6            -4.399454%         -7.901310%
+混在 Cplan           -3.291620%         -3.941963%
+全未命中 C0          +0.236940%         +2.985553%
+
+中央値の速度比（対照時間/候補時間）:
+条件                同一E内 O/S        F/EのS
+C6                   1.045827872        1.058866743
+Cplan                1.035697599        1.042473054
+C0                   0.999317808        0.999144818
+
+E C6のprocess別総時間比は1.061278,1.048052,1.033783,1.040391で4/4が改善。
+事前NEXT_RUN_SPECではC6の中央値/等量総時間とも1.02以上、C0/Cplanの悪化とも1%以内。
+唯一の不合格はF対E/SのC0総時間。中央値が通ることを理由に総時間の条件を無視しない。
+SCREEN_DECISION.jsonはこの仕様をそのまま適用した結果。数値合格でも本番採用ではない。
+
+共有処理の効果とlibrary差を分ける
+--------------------------------
+C0はEのmode0でもFより総時間+2.742116%。E内shared有効化による差は+0.236940%。
+従って+2.985553%を全てshared前処理の費用とする解釈は成立しない。
+ただし、これだけで「原因は外乱、E binaryに回帰なし」とも断定できない。
+追加workspace/dispatch、code配置、allocator/NUMA状態、clock/OS schedulingなどは未分離。
+
+Fの同actual-mode対照でもC0のlogical Sは総時間+0.877924%。これは観測された揺れで、
+Eの結果から差し引く補正係数ではない。
+C0のE/S−F差176,247,965nsの約95.4%は後半2組(p5/p4,p6/p7)に集中。
+E p4のC0 block8–10、p7のblock12–13/15に、O/S両方を含む連続して遅い期間がある。
+他processにも遅い区間がある。原因を特定できず、削除の根拠にもならない。
+詳細な全block値、開始/終了時刻、等量正規化はMIXED_RAW_REVIEW_TERRA.txtとraw.jsonl。
+
+正しさ・証拠
+------------
+全8processで、同じcaseのmode0 expectedの保存bytesが一致。
+各timed chunk末尾出力はそのcase/groupの正解へmemcmp一致（32回全ての中間出力保存ではない）。
+warmupでabs行数、cache membership、実worker数/CPU、providerを検査。
+input/plan/library/harness hash、shard stat、実行順、全chunk時刻、モード、個数を照合。
+analyzerのpassed=trueは証拠整合性の成功で、性能採用の成功ではない。
+親の判定scriptとTerraによる別計算は主要値が一致。CPU/GPU算術誤差許容は変更なし。
+
+GPUやモデル全体の速度は今回測定していない。APIのPIDは前後11151で同じ、health ok。
+config/final CPU library/試作CPU library/base/planのhashは前後一致。
+モデル起動・download・通常API停止・GPU設定・fan変更は行っていない。
+
+guard記録にはAPI活動abort、64GiB RAM reserve、温度/host counter監視がある。
+ただし短時間試行に対しsensor timestampは1–2種類、古い値が繰り返される区間がある。
+記録上のcounter不変を連続無throttleや温度peakの証明にはしない。
+CLOCK_MONOTONICとUnix時刻を対応する高精度clock pairで保存していないので、sensor事件と
+chunk時刻を直接結び付けた因果説明はしていない。通常API活動sampleも無外乱の保証ではない。
+
+次の判断
+--------
+このmixed試験は完了。自動再試行や通常API切替の待機controllerはない。
+IQ2の利益を否定したのではなく、事前に求めた「未命中を含む全比較の基準達成」に届かなかった。
+再測定をするならC0のE off/frozen差を識別する観測を足す理由が必要。あるいはCPU absを
+保留し、独立したGPU側のroute/共通起点ready時間計測へ戻る。CPU枝試験を際限なく増やさない。
+CONSULT_PRO_JA.txtにこの判断と次の選択を相談する材料を置いた。元コード/rawは全て保持。

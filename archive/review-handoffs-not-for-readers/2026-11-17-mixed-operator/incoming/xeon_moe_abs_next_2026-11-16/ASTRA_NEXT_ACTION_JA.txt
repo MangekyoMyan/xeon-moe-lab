@@ -1,0 +1,196 @@
+実機側Astraへの引き渡し — 次はIQ2 upのmixed条件
+================================================
+対象commit: 31b1292b2767618a28ef6e3f1c9c4450b1fc21be
+日付: 2026-11-16
+
+まず行うこと
+------------
+
+既存frozen CPU libraryと既存abs overlayを変更せず、新しい共通harnessでIQ2_S upの
+C0/C6/Cplanを比較してください。目的は「混在でも利益が残るか」「中央値だけでなく総時間でも
+改善するか」「off自体のlibrary/process差を分けられるか」を一度の小さい試験で判断することです。
+
+これはCPU operator実験です。通常APIのprofile変更、モデル全体の起動、GPU常駐expert追加、
+offset4実装を同時に行う依頼ではありません。CPUのこの段階を閉じたら、限定全体A/Bへ進むか、
+保留してhot並列側の計測へ戻るかを判断できます。
+
+今回の成果物の状態
+------------------
+
+・原証拠182 files、保存golden/rawを独立監査済み。
+・mixed caseは保存planと既存48 IDsから独立抽出済み。生成済み入力も元保存bytesと同じ。
+・mixed_probe.cppはpinned headerで構文検査済み。protocol-only版は実行済み。
+・launcherとanalyzerは合成データ／fake subprocessで検査済み。
+・実ggml link、Xeon上の新mixed実験は未実行。
+
+候補sourceをレビューしてharnessだけをbuildしてください。CPU library builderは呼びません。
+sourceを修正した場合は差分を残し、全8processで同じharnessを使ってください。
+
+1. 読むファイル
+===============
+
+REVIEW_AND_NEXT_STEP_JA.txt             判断、原証拠、適用範囲、保留条件
+NEXT_RUN_SPEC.json                     未測定段階で固定した試験仕様・暫定screen案
+next_experiment/mixed_probe.cpp         新しい専用harness候補
+next_experiment/run_one_mixed.py         指定indexを一つだけ起動するlauncher候補
+next_experiment/analyze_mixed_run.py     全rawのoffline検査と再集計
+next_experiment/prepare_mixed_case.py    pinned資料からcaseを再生成するscript
+next_experiment/case/                   生成済みcase・人工入力・source plan
+contracts/MIXED_HARNESS_BUILD_NOTES.txt  保存FIXED_BUILDとの対応・header/ABI
+VERIFICATION.json                      こちらで実行した範囲と未実行の境界
+
+next_experiment/case/inputs.binは人工入力163,840Bです。GGUF重みは同梱していません。
+case/header/input/planを混ぜたり、inputを乱数から再生成したりせず、このbytesを使ってください。
+
+2. 変更しない比較対象
+====================
+
+F = 既存frozen CPU:
+33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3
+
+E = 今回測定済みabs overlay CPU:
+120038c7e4c452714d188c9ab5e7dc99bda7deaa9506e8fe92e693cca5db06d3
+
+保存された実機path:
+F: /home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a
+E: /home/codex/projects/llm-lab/optimization-20261116/abs-operator/runtime
+base: /home/codex/projects/llm-lab/gpu-stream-20261103/runtime
+その他: /home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin
+
+これは保存資料のpathです。こちらで今の実機path/ELFを再確認した値ではありません。
+実機上でCPU bytesを固定SHAと照合し、baseは従来の実loaded libraryを指定してください。
+launcherはCPUを固定SHAへ照合し、base/harness/input/planの実bytesをhashして全processで
+同一を要求します。C++もCPU/base/cache/abs API providerのcanonical pathを照合します。
+
+全モデルcandidateのtype gateはこの実験では不要です。harnessのwはIQ2_S up一つです。
+現在のmode1がIQ3_Sも対象にすることは、全モデル段階で改めて制限します。
+
+3. caseの内容
+=============
+
+tensor = blk.0.ffn_up_exps.weight
+weight = IQ2_S, K5120, M2304, experts384
+input = F32, 1 input, T1
+routes = 8 groups ×6 distinct experts（48 IDsは元probeと同順）
+
+C0:    selected0,  payload0
+C6:    selected48, payload318,504,960B
+Cplan: selected39, payload258,785,280B
+Cplan各groupのC = [5,5,5,5,3,5,6,5]
+mask = [62,59,55,47,41,62,63,31]
+
+Cplanはfinal planのmembershipを使うmixed経路診断です。典型trafficの再現ではありません。
+groupをC=5に丸めず、group/ordered IDs/maskを保持します。保存C0/C6の出力が同じだった
+ことから、raw/compactの一般的byte一致を前提に置き換えません。同じcaseの参照と比較します。
+
+4. harnessだけをbuildする例
+===========================
+
+以下は実機側でpathを確認して使う例です。今このレビュー環境で実行したcommandではありません。
+abs_review_rootは展開したbundleのroot、abs_build_dirは新規の作業directoryにしてください。
+既存runtimeのELF・symlinkへ出力しないでください。
+
+  abs_lab="/home/codex/projects/llm-lab"
+  abs_review_root="/path/to/xeon_moe_abs_next_2026-11-16"
+  abs_build_dir="/path/to/new-mixed-build"
+  mkdir -p "$abs_build_dir"
+
+  g++ -O3 -std=c++17 -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma \
+    -fno-fast-math -ffp-contract=off -fopenmp -Wall -Wextra \
+    -I"$abs_lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include" \
+    -I"$abs_lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src" \
+    -I"$abs_lab/exploration-20261112/row-local" \
+    -I"$abs_review_root/next_experiment/case" \
+    "$abs_review_root/next_experiment/mixed_probe.cpp" \
+    -L"$abs_lab/optimization-20261116/abs-operator/runtime" \
+    -L"$abs_lab/gpu-stream-20261103/runtime" \
+    -L"$abs_lab/deepseek41-bringup-20261101/build/bin" \
+    -Wl,-rpath,"$abs_lab/optimization-20261116/abs-operator/runtime:$abs_lab/gpu-stream-20261103/runtime:$abs_lab/deepseek41-bringup-20261101/build/bin" \
+    -lggml-cpu -lggml-base -lggml -ldl -o "$abs_build_dir/mixed_probe"
+
+optional abs APIはdlsymで取得します。iq-abs.cppやggml-cpu.cをこのcommandへ足して
+CPU演算をharness側へ二重linkしないでください。
+
+caseを再生成したい場合だけ:
+
+  python3 -B "$abs_review_root/next_experiment/prepare_mixed_case.py" \
+    --repo /path/to/pinned-repository --output /path/to/fresh-case
+
+生成済みcaseと再生成caseのsource/input/header/plan hashが一致することを確認します。
+出力directoryはfreshで、原典repositoryの外に置きます。
+
+5. 実行は既存guardの下で、indexを一つずつ
+======================================
+
+既存guard.pyの温度・API活動・host counter監視を維持してください。新launcherはこの監視の
+代替ではありません。GPU150W/ECC/fan<=70、RAM64GiB reserve、通常API不変を守ります。
+
+launcherはnumactl --physcpubind=0-23 --interleave=0,1を使い、harnessのpoolは12 workers、
+CPU0..11です。read-only事前検査と、実warmup後のworker CPU確認を行います。
+実機構成と合わなければ条件を緩めず、理由を記録して相談してください。
+
+process順:
+
+index  library  case順
+0      F        C0,C6,Cplan
+1      E        C0,C6,Cplan
+2      E        C6,Cplan,C0
+3      F        C6,Cplan,C0
+4      E        Cplan,C0,C6
+5      F        Cplan,C0,C6
+6      F        C0,C6,Cplan
+7      E        C0,C6,Cplan
+
+1 processの例（index0、F）:
+
+  abs_run_root="/path/to/new-mixed-run"
+  abs_cpu_library="$abs_lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0"
+  abs_base_library="$abs_lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0"
+  abs_shard="$abs_lab/models/orcarouter--DeepSeek-V4.1-Flash-1017-abliterated-GGUF/Mix-256G/DeepSeek-V4.1-Flash-1017-abliterated-Mix-256G-00003-of-00007.gguf"
+
+  python3 "$abs_lab/optimization-20261116/abs-operator/guard.py" \
+    --name iq2-mixed-20261116a-p0 --timeout 200 -- \
+    python3 -B "$abs_review_root/next_experiment/run_one_mixed.py" \
+      --harness "$abs_build_dir/mixed_probe" \
+      --cpu-library "$abs_cpu_library" --base-library "$abs_base_library" \
+      --library-dir "$abs_lab/deepseek41-bringup-20261101/build/bin" \
+      --shard "$abs_shard" --case-dir "$abs_review_root/next_experiment/case" \
+      --run-root "$abs_run_root" --process-index 0
+
+index1以降も表の順で一度ずつ実行し、Eのときだけcpu-libraryを既存overlayへ変えます。
+base/harness/input/plan/追加探索directoryは変えません。guardのnameは実行ごとに一意にします。
+outer timeout200秒はlauncher自身の180秒上限と後処理を包含するためで、長時間試験を
+無制限に許す変更ではありません。子はguardのprocess groupを継承します。
+
+run-rootにはRUN.lockとprocess-0..7だけを作らせます。試験仕様やbuild receiptは別directoryへ
+保存してください。失敗したprocessを上書き再試行せず、partialとguard receiptを保持します。
+全8件が揃うまでanalyzerを成功扱いで使いません。
+
+6. 集計と返却
+=============
+
+  python3 -B "$abs_review_root/next_experiment/analyze_mixed_run.py" \
+    --run-root "$abs_run_root" --output /path/to/new-MIXED_ANALYSIS.json
+
+同caseのexpected bytesを全8processで比較し、欠損・重複・wrong mode・timestamp不整合・
+provider/hash違いを拒否します。外れ値を全保持します。analyzerのpassedは証拠の整合性で、
+採用を意味しません。性能のscreenはNEXT_RUN_SPEC.jsonと本レビュー6節で判断してください。
+
+返してほしいもの:
+・使用harness/launcher/analyzer/caseのsourceとhash、build argv/結果。
+・process-0..7のSTATUS.json、raw.jsonl、expected-C*.bin、maps.txt、stdout/stderr。
+・外側guardのSTATUSとstdout/stderr。途中失敗や中止も残す。
+・MIXED_ANALYSIS.jsonと、仕様から変更した点があれば測定前に記録した理由。
+
+CPU/GPUの新しい数値誤差許容、出力の丸め直し、悪いgroupや外れ値の除去は行いません。
+
+7. 通過した場合の次工程
+======================
+
+IQ2_Sかつ確認したgate/up形状/input1へ限定した全モデルcandidateを、既定offで用意します。
+current mode1をそのままglobalに有効化するとIQ3_Sと未測定IQ2 downも入るので注意します。
+異種node連続graph、actual team縮小、対象／非対象dispatchの小検査で統合を確認します。
+通常finalと同じGPU37〜39配置・cache planで、別profileのtrace-off A/Bへ進みます。
+
+full-modelで利益が小さければ、その結果を持って保留するかhot expert並列の計測へ戻れます。
+CPU最適化を全部終えるまでGPUに触れない、という依存関係を作らないでください。

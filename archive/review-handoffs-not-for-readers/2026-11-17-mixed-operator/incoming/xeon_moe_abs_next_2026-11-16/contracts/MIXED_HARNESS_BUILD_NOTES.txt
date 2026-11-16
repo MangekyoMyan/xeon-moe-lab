@@ -1,0 +1,231 @@
+IQ2up mixed-hit harness のbuild準備メモ
+2026-11-16 / pinned commit 31b1292b2767618a28ef6e3f1c9c4450b1fc21be
+
+範囲
+====
+1〜6節はrootがmixed_probe.cppを作成する前のinclude/ABI/build準備記録である。
+完成sourceのread-onlyレビューとsyntax-only確認結果は末尾7節へ追記した。
+実行したのはsyntax-onlyのcompilerと、launcherのfake-Popen単体試験だけである。
+link、既存ELF、モデル、library initializer、graph、API、GPUは実行していない。
+CPU libraryも変更していない。
+
+wをIQ2_Sのup projection K5120/M2304/E384、x入力1、T1、route6に限定するなら、
+mode1がIQ2_S/IQ3_S両方に対応していても、このharnessが動かす対象はIQ2_Sのみである。
+したがって、今回の混在専用harnessのためにengine type gateを変更する必要はない。
+両型が存在する全モデルでIQ2だけ有効にする場合とは区別する。
+
+1. 固定includeルート
+====================
+repo:
+  /workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292
+N:
+  archive/review-handoffs-not-for-readers/2026-11-16-abs-operator
+E:
+  archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112
+G:
+  archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml
+
+include directoryと用途:
+  repo/N              iq-abs.h（test-only mode/diagnosticsの宣言。実装cppはharnessへ入れない）
+  repo/G/include      ggml.h、ggml-backend.h、ggml-cpu.h、gguf.h
+  repo/G/src          ggml-cpu/quants.h、ggml-common.h（Q8_K構造体が必要な場合）
+  repo/E/row-local    実fixed harnessと同じiq3-cache.h
+  repo/E/sparse-cache selection-plan.h（plan parserを実際に使用する場合だけ必要）
+
+row-localとsparse-cacheのiq3-cache.hは今回byte一致する。名前で別版を拾わないよう、
+row-localをsparse-cacheより先に置く。vendorの別ggml headerやsystem headerへ置き換えない。
+selection-plan.hはheader-onlyで、別objectや新libraryは不要。C++17のfrom_charsを使う。
+
+2. この環境での最小syntax-only argv
+===================================
+以下の変数は説明用。abs_mixed_sourceだけrootの完成sourceの絶対pathへ設定する。
+これは実行済みreceiptではなく、使用する予定のcommand。
+
+abs_repo=/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292
+abs_n="$abs_repo/archive/review-handoffs-not-for-readers/2026-11-16-abs-operator"
+abs_e="$abs_repo/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112"
+abs_g="$abs_repo/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml"
+abs_mixed_source=/ABS/PATH/TO/mixed_probe.cpp
+
+c++ -std=c++17 -fopenmp -fsyntax-only \
+  -I"$abs_n" -I"$abs_g/include" -I"$abs_g/src" \
+  -I"$abs_e/row-local" -I"$abs_e/sparse-cache" \
+  "$abs_mixed_source"
+
+最低限は上記。実fixed buildへflagsを近づける場合は、さらに
+  -Wall -Wextra -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma
+  -fno-fast-math -ffp-contract=off
+を加える。syntax-onlyでは-O3、-L、-l、rpath、-oは不要。
+OpenMP pragma/runtime宣言を同じ条件で読むため-fopenmpは保持する。
+headerに構造体/宣言しか使わない通常のharnessならSIMD target flagsは構文確認の必須ではない。
+sourceが新たなintrinsicを含める場合は、その必要flagsをsource完成後に再確認する。
+
+3. fixed_probeが使用するABI
+===========================
+G/include/ggml.h:
+  context、tensor作成/view、shape/type/bytes、ggml_mul_mat_id、graph構築、threadpool params。
+G/include/ggml-cpu.h:58–74,132–139:
+  threadpool new/free、ggml_graph_plan/compute、backend_cpu_init、set_n_threads、
+  set_threadpool、set_use_ref、ggml_is_numa。
+G/include/ggml-backend.h:
+  CPU buffer_from_ptr、ctx tensor allocation、buffer usage/free、tensor set/get、
+  backend graph_compute、backend free。
+G/include/gguf.h:84,90,96,129–133:
+  metadata-only init、find tensor、type/shape、data/tensor offset、free。
+E/row-local/iq3-cache.h:9–19:
+  owner create/free、add_selected_v2、used/total、lookup。
+N/iq-abs.h:10–16:
+  optional mode setter、diagnostics setter、counts。
+
+new abs symbolsはfrozen libraryにはない。fixed_probe.cpp:29–30,149–150と同様に
+dlsymでoptional function pointerを取得し、symbolなしはmode0のみ許可する。
+ヘッダをincludeしても、xeon_iq_abs_set_mode等を直接呼ぶ強いlink依存を作らない。
+関数pointer型をdecltype(&xeon_iq_abs_set_mode)で得ることは、unevaluated contextなので可能。
+既存frozenとoverlayの両方で一つのharnessを使う目的なら、このoptional ABIを維持する。
+
+dladdr(ggml_backend_cpu_init)と期待CPU library pathのcanonical比較も継承する。
+CPUだけでなく共通base等の実loaded path/hashを別途記録する運用は、従来と同じまま保つ。
+
+4. selection-planとcache APIの相違
+===================================
+selection-plan.h:23–85のparse_planは、全plan inventoryとtensors.size()の一致、全tensorの
+name/type/shape/contiguity、sorted unique IDs、declared selected/bytes totalsを要求する。
+full final planに対して、対象IQ2upのtensor一つだけを渡すとinventory mismatchになる。
+
+単一tensor harnessでの選択肢:
+  ・全inventoryの軽量descriptorを正しく用意して既存parserを使い、対象行を取得する。
+  ・検証済みplanから対象行を抽出した別artifactを入力とし、元plan hash、tensor名/type/shape、
+    expert IDs、抽出手順を固定する。
+新sourceがどちらを採るかは、source完成後に確認する。parserの全体検証を黙って省略しない。
+
+read_planはregular file、1MiB上限、O_NOFOLLOW等を検査する(88–107行)。
+add_selected_v2はglobal expert IDsを受け、uniqueなら順不同も許可する(iq3-cache.h:12–13)。
+parserのsorted要求とcache ABIの順不同許容を同一視しない。
+owner/weightsはすべてのgraph実行完了まで生かす。packしたslot番号をrouting IDにしない。
+
+5. 実機でharnessだけをlinkする場合
+==================================
+N/FIXED_BUILD.jsonが一次資料。保存buildは次の方針。
+  g++ -O3 -std=c++17 -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma
+      -fno-fast-math -ffp-contract=off -fopenmp -Wall -Wextra
+      （実機G/include、G/src、E/row-local、必要ならE/sparse-cacheとNの-I）
+      （新しいmixed_probe.cpp）
+      -L/home/codex/projects/llm-lab/optimization-20261116/abs-operator/runtime
+      -L/home/codex/projects/llm-lab/gpu-stream-20261103/runtime
+      -L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin
+      -Wl,-rpath,/home/codex/projects/llm-lab/optimization-20261116/abs-operator/runtime:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin
+      -lggml-cpu -lggml-base -lggml -ldl -o （新規harness path）
+
+これはharnessだけのlink。A=iq-abs.cpp、C=ggml-cpu.c、iq3-cache.cpp、保存*.oを
+commandへ加えない。N/build_overlay.pyやbuild_sanitized.pyを呼ばない。
+保存FIXED_BUILDはoverlayをlink探索の先頭に置くが、実行時には既存の隔離runtime選択に従い、
+dladdrでfrozen/off/sharedが意図したproviderになっていることを確認する。
+shared=overlay+mode1、off=同overlay+mode0、frozen=元CPU library+mode0。
+
+現在資料のCPU hash:
+  frozen（N/FINAL_RUNTIME.jsonの保存値）
+    33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3
+  overlay（N/BUILD.jsonの保存値）
+    120038c7e4c452714d188c9ab5e7dc99bda7deaa9506e8fe92e693cca5db06d3
+こちらで実機ELF bytesを再hashした値ではない。
+
+この環境ではheaderのsyntax-onlyまでが予定範囲。実機pathの存在・link成功・runtime一致を
+syntax-onlyの成功で確認したと扱わない。新sourceのparse/ownership/output/counter期待は
+別途read-onlyレビューし、必要な修正はrootへ返す。
+
+6. 参照header/build SHA256
+=========================
+以下はpinned checkoutのファイルbytesから計算した値。
+
+archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/FIXED_BUILD.json
+  f431f39ddc6cb85e6fce1e9746b8db435231e9cae4ed6c4b0b6d28e6930cf430
+
+archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/fixed_probe.cpp
+  7c2da70818ba5684096fa4b5907a8e2adb30c2711d1f1eebe3eca7c4bd1cefc2
+
+archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.h
+  d0f6beb5306f57207345b3312e02677ccb9735d35ebce7cac6dedab1c64825d6
+
+archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include/ggml.h
+  61d3ab0de171dc5c5d2b8d627c1d59224c28fc1b759d5a4a24c7d122f9f11b91
+
+archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include/ggml-backend.h
+  6926bee0487ed349cce290466bbd4b24e2f9af2758f6fac3cd77adef3a421799
+
+archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include/ggml-cpu.h
+  316279e004cdeb8e6ef78599acb602bf79a8abdf897fed9fd1914808c1518c6e
+
+archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include/gguf.h
+  e56714aab702e5ce62ee587a409643c08f7e93e8fbb77f48ef7cc85075f96fa4
+
+archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/quants.h
+  3bb038f9d2ef391018aea72c4d01c85eec0dcc9a3a87c3b54cb807afa6211a4c
+
+archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-common.h
+  0061131b615c5721fc88a78feeb22c1f8c450f1c2646a317d80796a653bf595c
+
+archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local/iq3-cache.h
+  7db88449073d5e60274f9414acecf5916eb2ceb6aa52161f5a19093b0a4550b8
+
+archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/iq3-cache.h
+  7db88449073d5e60274f9414acecf5916eb2ceb6aa52161f5a19093b0a4550b8
+
+archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/selection-plan.h
+  afad1b28d4d970eb012b766750d52f52176ac1c6d3e0aba296d27598a65c13b9
+
+7. 完成sourceとlauncherの確認追記
+==================================
+確認source:
+  audit/abs_operator_20261116/root/mixed_probe.cpp
+採用case directory:
+  audit/abs_operator_20261116/priority/generated_case_v2
+
+実sourceはselection-plan.hを使用しない。検証済みgenerated mixed_case_data.hをincludeし、
+launcherがinputs.bin、同梱source-plan.txt、header、specのbytes/SHAを照合する。
+optional abs APIはdlsymのfunction pointerで扱い、iq-abs.h自体もincludeしない。
+したがって完成sourceで必要な最小include directoryは次の三つである。
+  generated_case_v2
+  repo/G/include
+  repo/E/row-local
+
+実際に成功したsyntax-only argvはMIXED_HARNESS_SYNTAX_ONLY.jsonに保存した。
+そのreceiptにはsource/headerのbytes/SHA、compiler version、argv、exit code、
+確認前後のsource/header不変検査を含めている。full sourceを構文確認したが、
+link、ABIの実動作、実機performanceまで確認したという意味ではない。
+
+read-onlyレビューでは次を確認した。
+  ・argc8: bench SHARD INPUTS_BIN OUTPUT_DIR PROCESS_INDEX CPU_LIBRARY BASE_LIBRARY。
+  ・IQ2_S upの固定shapeとfixtureだけを使い、mode1のIQ3_S対応は到達しない。
+  ・mode/diagnostics/countsはoptionalかつ同じCPU providerを要求する。
+  ・mode変更は同期graph computeが戻った後。weights/cache owner/pool/contextの寿命が
+    対象graphを覆う。C0/C6/Cplanのownerはcase末で解放する。
+  ・actual team12、0..11のCPU sample、ggml NUMA falseを検査する。
+  ・expected outputはcaseごとに8 groupを保存し、1 file 442368 B、3 files計1327104 B。
+    全timed callの出力を保存する設計ではなく、各32-call chunkの最終出力を比較する。
+  ・rawは正常時197 records、192 timed chunks、6144 timed graph calls/process。
+    温度/API監視と実library SHA確認はharnessだけでは完結しない。
+
+userside launcher:
+  source_contract/run_one_mixed.py
+  source_contract/test_run_one_mixed.py
+  source_contract/MIXED_LAUNCHER_TEST_RESULTS.json
+
+launcherは指定したprocess-index一つだけを実行する。F,E,E,F,E,F,F,Eの順序、
+固定CPU SHA、base/harness/input/plan/spec/header/launcherの同一性、過去出力hash、
+fresh process directoryを要求し、失敗時は同じrunへ上書き再試行しない。
+case bytesを前後照合し、各成功STATUSにはprovider path、hash、argv、制御したenv、
+monotonic開始終了、shard stat、四つの主要出力hashを記録する。
+
+元のguard.pyを外側で必ず使用する。launcherは温度/API活動/counter監視を代替しない。
+childはouter guardのprocess groupを継承する。numactl argvは
+  --physcpubind=0-23 --interleave=0,1
+で、poolの0..11設定はharnessが行う。read-only preflightは0..23 affinity、
+12 physical cores / 2 socket、NUMA node0/1、64GiB reserve＋304MiB cache budgetを検査し、
+不適合時には条件を緩和せず失敗する。
+child envはLLAMA_/GGML_/OMP_/GOMP_/LD_を除去して固定OMP設定と明示LD_LIBRARY_PATHを与える。
+180秒timeoutとSIGTERM/SIGINT時にはchildだけをterminate、必要ならkill、waitする。
+partial outputは削除しない。outer guardがSIGKILLした場合のreceipt完成は保証できない。
+
+ここで実行したlauncher検査はfake-Popenとsynthetic sysfsによる15 testsで全通過した。
+実numactl、harness ELF、shared library、モデル、API、GPUをこの検査では一切実行していない。
+生成caseの実bytes/hash照合はread-onlyで行った。実機のlink/runは別の検証段階である。

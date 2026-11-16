@@ -1,0 +1,58 @@
+{
+  "scope": "Newly compiled helper-only functional audit; no engine/model/GPU/shipped ELF/performance run.",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "compiler": "c++ (Debian 14.2.0-19) 14.2.0",
+  "source_commit": "31b1292b2767618a28ef6e3f1c9c4450b1fc21be",
+  "source_sha256": {
+    "/workspace/scratch/1f624f9ac929/audit/abs_operator_20261116/source_contract/source_contract_probe.cpp": "39461bb900c0c2173465aac7e222a3cc9a895d6bb3c43392b5d0a2a5be53cac2",
+    "/workspace/scratch/1f624f9ac929/audit/abs_operator_20261116/source_contract/run_source_contract_probe.py": "b1362039030ac0c7de050f932798ba3690d04f6a1dd3e9576cda6a739916bacc",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.cpp": "2055a9a91b3f26476e06750c6c9e5651999f3216d554cf4eef370e9da9b82eb5",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.h": "d0f6beb5306f57207345b3312e02677ccb9735d35ebce7cac6dedab1c64825d6",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/ggml-cpu.c": "b87089543cd8da780e7d0a0563c5c4056a4ea40a30dc5a1f17789abeb844e9db",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include/ggml.h": "61d3ab0de171dc5c5d2b8d627c1d59224c28fc1b759d5a4a24c7d122f9f11b91",
+    "/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-common.h": "0061131b615c5721fc88a78feeb22c1f8c450f1c2646a317d80796a653bf595c"
+  },
+  "commands": [
+    {
+      "argv": [
+        "c++",
+        "-std=gnu++17",
+        "-O1",
+        "-g",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-fsanitize=address,undefined",
+        "-fno-sanitize-recover=all",
+        "-fno-omit-frame-pointer",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-abs-operator",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-abs-31b1292/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+        "/workspace/scratch/1f624f9ac929/audit/abs_operator_20261116/source_contract/source_contract_probe.cpp",
+        "-Wl,--gc-sections",
+        "-o",
+        "/workspace/scratch/1f624f9ac929/audit/abs_operator_20261116/source_contract/probe_run/source_contract_probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/workspace/scratch/1f624f9ac929/audit/abs_operator_20261116/source_contract/probe_run/source_contract_probe"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "==10==LeakSanitizer has encountered a fatal error.\n==10==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1\n==10==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)\n"
+    }
+  ],
+  "passed": false
+}

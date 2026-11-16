@@ -1,0 +1,658 @@
+{
+  "repo_commit": "31b1292b2767618a28ef6e3f1c9c4450b1fc21be",
+  "scope": "Offline reaggregation of saved routing marginals and fixed probe routes. No model/GPU/API/library execution. Not a timing or current-workload coverage estimate.",
+  "recorded_runtime_config_sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+  "exported_profile_file_sha256": "3e3cd33de5fef98d3798136a75b0bba03ebc66aab1e13ffce77bcdec32bf66af",
+  "profile_hash_note": "The exported profile contains a redacted API-key path and its file hash differs from the recorded runtime config hash; these identities are not conflated.",
+  "training_config_sha256": "990e9f87a537fa4b8e49e73615c5fdf341faf409426663f018f6400e9e90e535",
+  "training_scope": "One model lifetime per process; snapshot only while API idle. Aggregated CPU single-token expert assignments include possible prefill tails. No token IDs, text, requests or execution order.",
+  "global_cache": {
+    "tensor_count": 80,
+    "selected_projections": 19200,
+    "payload_bytes": 127401984000,
+    "payload_GiB": 118.65234375,
+    "budget_GiB": 120,
+    "not_GPU_cache": true
+  },
+  "training": {
+    "CPU_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36
+    ],
+    "tensor_count": 111,
+    "calls_per_tensor": [
+      2040
+    ],
+    "type_summary": {
+      "iq3_xxs": {
+        "tensor_count": 58,
+        "calls": 118320,
+        "assignments": 709920,
+        "selected_projections": 13766,
+        "candidate_projections": 22272,
+        "hit_assignments": 689214,
+        "miss_assignments": 20706,
+        "training_assignment_hit_fraction": 0.9708333333333333,
+        "selected_fraction_of_own_type_candidates": 0.6180854885057471,
+        "selected_fraction_of_global_19200_cache": 0.7169791666666666,
+        "all_hit_operator_fraction_lower_bound": 0.825,
+        "all_hit_operator_fraction_upper_bound_relaxed": 0.9708333333333333,
+        "all_hit_operator_fraction_upper_bound_integer": 0.970605138607167,
+        "compact_payload_bytes": 91344568320
+      },
+      "iq3_s": {
+        "tensor_count": 8,
+        "calls": 16320,
+        "assignments": 97920,
+        "selected_projections": 1980,
+        "candidate_projections": 3072,
+        "hit_assignments": 95135,
+        "miss_assignments": 2785,
+        "training_assignment_hit_fraction": 0.9715584150326797,
+        "selected_fraction_of_own_type_candidates": 0.64453125,
+        "selected_fraction_of_global_19200_cache": 0.103125,
+        "all_hit_operator_fraction_lower_bound": 0.8293504901960784,
+        "all_hit_operator_fraction_upper_bound_relaxed": 0.9715584150326797,
+        "all_hit_operator_fraction_upper_bound_integer": 0.9713235294117647,
+        "compact_payload_bytes": 13138329600
+      },
+      "iq2_s": {
+        "tensor_count": 14,
+        "calls": 28560,
+        "assignments": 171360,
+        "selected_projections": 3454,
+        "candidate_projections": 5376,
+        "hit_assignments": 166165,
+        "miss_assignments": 5195,
+        "training_assignment_hit_fraction": 0.9696837068160598,
+        "selected_fraction_of_own_type_candidates": 0.6424851190476191,
+        "selected_fraction_of_global_19200_cache": 0.17989583333333334,
+        "all_hit_operator_fraction_lower_bound": 0.8181022408963585,
+        "all_hit_operator_fraction_upper_bound_relaxed": 0.9696837068160598,
+        "all_hit_operator_fraction_upper_bound_integer": 0.9693977591036415,
+        "compact_payload_bytes": 22919086080
+      },
+      "mxfp4": {
+        "tensor_count": 31,
+        "calls": 63240,
+        "assignments": 379440,
+        "selected_projections": 0,
+        "candidate_projections": 11904,
+        "hit_assignments": 0,
+        "miss_assignments": 379440,
+        "training_assignment_hit_fraction": 0.0,
+        "selected_fraction_of_own_type_candidates": 0.0,
+        "selected_fraction_of_global_19200_cache": 0.0,
+        "all_hit_operator_fraction_lower_bound": 0.0,
+        "all_hit_operator_fraction_upper_bound_relaxed": 0.0,
+        "all_hit_operator_fraction_upper_bound_integer": 0.0,
+        "compact_payload_bytes": 0
+      }
+    },
+    "iq2_by_projection": {
+      "gate_up": {
+        "tensor_count": 12,
+        "calls": 24480,
+        "assignments": 146880,
+        "selected_projections": 3004,
+        "candidate_projections": 4608,
+        "hit_assignments": 142564,
+        "miss_assignments": 4316,
+        "training_assignment_hit_fraction": 0.970615468409586,
+        "selected_fraction_of_own_type_candidates": 0.6519097222222222,
+        "selected_fraction_of_global_19200_cache": 0.15645833333333334,
+        "all_hit_operator_fraction_lower_bound": 0.8236928104575163,
+        "all_hit_operator_fraction_upper_bound_relaxed": 0.970615468409586,
+        "all_hit_operator_fraction_upper_bound_integer": 0.970343137254902,
+        "compact_payload_bytes": 19933102080
+      },
+      "down": {
+        "tensor_count": 2,
+        "calls": 4080,
+        "assignments": 24480,
+        "selected_projections": 450,
+        "candidate_projections": 768,
+        "hit_assignments": 23601,
+        "miss_assignments": 879,
+        "training_assignment_hit_fraction": 0.964093137254902,
+        "selected_fraction_of_own_type_candidates": 0.5859375,
+        "selected_fraction_of_global_19200_cache": 0.0234375,
+        "all_hit_operator_fraction_lower_bound": 0.7845588235294118,
+        "all_hit_operator_fraction_upper_bound_relaxed": 0.964093137254902,
+        "all_hit_operator_fraction_upper_bound_integer": 0.9637254901960784,
+        "compact_payload_bytes": 2985984000
+      }
+    },
+    "iq2_tensors": [
+      {
+        "name": "blk.0.ffn_gate_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 313,
+        "candidate_projections": 384,
+        "hit_assignments": 12026,
+        "miss_assignments": 214,
+        "plan_line": 10
+      },
+      {
+        "name": "blk.0.ffn_up_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 313,
+        "candidate_projections": 384,
+        "hit_assignments": 12026,
+        "miss_assignments": 214,
+        "plan_line": 11
+      },
+      {
+        "name": "blk.1.ffn_gate_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 304,
+        "candidate_projections": 384,
+        "hit_assignments": 11930,
+        "miss_assignments": 310,
+        "plan_line": 12
+      },
+      {
+        "name": "blk.1.ffn_up_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 304,
+        "candidate_projections": 384,
+        "hit_assignments": 11930,
+        "miss_assignments": 310,
+        "plan_line": 13
+      },
+      {
+        "name": "blk.2.ffn_gate_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 258,
+        "candidate_projections": 384,
+        "hit_assignments": 11932,
+        "miss_assignments": 308,
+        "plan_line": 14
+      },
+      {
+        "name": "blk.2.ffn_up_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 258,
+        "candidate_projections": 384,
+        "hit_assignments": 11932,
+        "miss_assignments": 308,
+        "plan_line": 15
+      },
+      {
+        "name": "blk.3.ffn_gate_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 224,
+        "candidate_projections": 384,
+        "hit_assignments": 11836,
+        "miss_assignments": 404,
+        "plan_line": 16
+      },
+      {
+        "name": "blk.3.ffn_up_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 224,
+        "candidate_projections": 384,
+        "hit_assignments": 11836,
+        "miss_assignments": 404,
+        "plan_line": 17
+      },
+      {
+        "name": "blk.4.ffn_down_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "down",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 241,
+        "candidate_projections": 384,
+        "hit_assignments": 11759,
+        "miss_assignments": 481,
+        "plan_line": 64
+      },
+      {
+        "name": "blk.6.ffn_gate_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 189,
+        "candidate_projections": 384,
+        "hit_assignments": 11739,
+        "miss_assignments": 501,
+        "plan_line": 22
+      },
+      {
+        "name": "blk.6.ffn_up_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 189,
+        "candidate_projections": 384,
+        "hit_assignments": 11739,
+        "miss_assignments": 501,
+        "plan_line": 23
+      },
+      {
+        "name": "blk.7.ffn_gate_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 214,
+        "candidate_projections": 384,
+        "hit_assignments": 11819,
+        "miss_assignments": 421,
+        "plan_line": 24
+      },
+      {
+        "name": "blk.7.ffn_up_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "gate_up",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 214,
+        "candidate_projections": 384,
+        "hit_assignments": 11819,
+        "miss_assignments": 421,
+        "plan_line": 25
+      },
+      {
+        "name": "blk.8.ffn_down_exps.weight",
+        "type": "iq2_s",
+        "projection_group": "down",
+        "calls": 2040,
+        "assignments": 12240,
+        "selected_projections": 209,
+        "candidate_projections": 384,
+        "hit_assignments": 11842,
+        "miss_assignments": 398,
+        "plan_line": 65
+      }
+    ]
+  },
+  "candidate_plan_membership_mixed": {
+    "source_stdout": "archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/execution/fixed-iq2-0-frozen/stdout.log",
+    "source_stdout_sha256": "a8806bd1c8c72ff6ff93f5684a94276062709488b0c06f0fd0d6176a9d61e5f2",
+    "source_plan": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/plans/frequency19200.plan",
+    "source_plan_sha256": "cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6",
+    "source_plan_line": 11,
+    "tensor": "blk.0.ffn_up_exps.weight",
+    "K": 5120,
+    "M": 2304,
+    "input_vectors": 1,
+    "n_experts": 384,
+    "original48_in_order": [
+      79,
+      176,
+      232,
+      279,
+      273,
+      173,
+      256,
+      363,
+      47,
+      140,
+      154,
+      4,
+      299,
+      223,
+      276,
+      235,
+      133,
+      196,
+      245,
+      112,
+      321,
+      101,
+      244,
+      183,
+      300,
+      295,
+      224,
+      288,
+      206,
+      287,
+      226,
+      33,
+      98,
+      120,
+      283,
+      124,
+      12,
+      338,
+      14,
+      191,
+      270,
+      81,
+      310,
+      61,
+      107,
+      89,
+      352,
+      27
+    ],
+    "production_selected_count": 313,
+    "selected_ids_sorted": [
+      4,
+      12,
+      14,
+      33,
+      61,
+      81,
+      89,
+      98,
+      101,
+      107,
+      112,
+      120,
+      124,
+      133,
+      140,
+      154,
+      173,
+      176,
+      183,
+      191,
+      196,
+      223,
+      232,
+      245,
+      256,
+      270,
+      273,
+      276,
+      279,
+      283,
+      287,
+      288,
+      299,
+      300,
+      310,
+      321,
+      338,
+      352,
+      363
+    ],
+    "selected_count": 39,
+    "unused_from_original48": [
+      27,
+      47,
+      79,
+      206,
+      224,
+      226,
+      235,
+      244,
+      295
+    ],
+    "cache_payload_bytes": 258785280,
+    "cache_payload_MiB": 246.796875,
+    "route_groups": [
+      {
+        "route_group": 0,
+        "ordered_global_ids": [
+          79,
+          176,
+          232,
+          279,
+          273,
+          173
+        ],
+        "compact_hit_mask": 62,
+        "cached_of_six": 5,
+        "hit_ids_in_slot_order": [
+          176,
+          232,
+          279,
+          273,
+          173
+        ],
+        "miss_ids_in_slot_order": [
+          79
+        ]
+      },
+      {
+        "route_group": 1,
+        "ordered_global_ids": [
+          256,
+          363,
+          47,
+          140,
+          154,
+          4
+        ],
+        "compact_hit_mask": 59,
+        "cached_of_six": 5,
+        "hit_ids_in_slot_order": [
+          256,
+          363,
+          140,
+          154,
+          4
+        ],
+        "miss_ids_in_slot_order": [
+          47
+        ]
+      },
+      {
+        "route_group": 2,
+        "ordered_global_ids": [
+          299,
+          223,
+          276,
+          235,
+          133,
+          196
+        ],
+        "compact_hit_mask": 55,
+        "cached_of_six": 5,
+        "hit_ids_in_slot_order": [
+          299,
+          223,
+          276,
+          133,
+          196
+        ],
+        "miss_ids_in_slot_order": [
+          235
+        ]
+      },
+      {
+        "route_group": 3,
+        "ordered_global_ids": [
+          245,
+          112,
+          321,
+          101,
+          244,
+          183
+        ],
+        "compact_hit_mask": 47,
+        "cached_of_six": 5,
+        "hit_ids_in_slot_order": [
+          245,
+          112,
+          321,
+          101,
+          183
+        ],
+        "miss_ids_in_slot_order": [
+          244
+        ]
+      },
+      {
+        "route_group": 4,
+        "ordered_global_ids": [
+          300,
+          295,
+          224,
+          288,
+          206,
+          287
+        ],
+        "compact_hit_mask": 41,
+        "cached_of_six": 3,
+        "hit_ids_in_slot_order": [
+          300,
+          288,
+          287
+        ],
+        "miss_ids_in_slot_order": [
+          295,
+          224,
+          206
+        ]
+      },
+      {
+        "route_group": 5,
+        "ordered_global_ids": [
+          226,
+          33,
+          98,
+          120,
+          283,
+          124
+        ],
+        "compact_hit_mask": 62,
+        "cached_of_six": 5,
+        "hit_ids_in_slot_order": [
+          33,
+          98,
+          120,
+          283,
+          124
+        ],
+        "miss_ids_in_slot_order": [
+          226
+        ]
+      },
+      {
+        "route_group": 6,
+        "ordered_global_ids": [
+          12,
+          338,
+          14,
+          191,
+          270,
+          81
+        ],
+        "compact_hit_mask": 63,
+        "cached_of_six": 6,
+        "hit_ids_in_slot_order": [
+          12,
+          338,
+          14,
+          191,
+          270,
+          81
+        ],
+        "miss_ids_in_slot_order": []
+      },
+      {
+        "route_group": 7,
+        "ordered_global_ids": [
+          310,
+          61,
+          107,
+          89,
+          352,
+          27
+        ],
+        "compact_hit_mask": 31,
+        "cached_of_six": 5,
+        "hit_ids_in_slot_order": [
+          310,
+          61,
+          107,
+          89,
+          352
+        ],
+        "miss_ids_in_slot_order": [
+          27
+        ]
+      }
+    ],
+    "cached_of_six_sequence": [
+      5,
+      5,
+      5,
+      5,
+      3,
+      5,
+      6,
+      5
+    ],
+    "limitations": [
+      "Membership matches the existing final plan for the probe experts; route distribution and input vectors remain the fixed probe fixtures.",
+      "This is not a replay of final API traffic and does not reproduce the 118.65 GiB model-wide cache reuse distance.",
+      "Do not call 39/48 the production hit rate.",
+      "No measured library change is needed to specify this condition; a harness would register these 39 cache IDs and log hits per route."
+    ]
+  },
+  "interpretation": [
+    "All percentages are projection/assignment counts, not fractions of critical-path time.",
+    "Plan was selected using the same training marginals; training hit rates are in-sample and from an older configuration.",
+    "All-hit bounds use only 0<=misses_per_call<=6 and do not assume independent expert routing.",
+    "Gate/up share route patterns; projection counts are not independent workload samples.",
+    "Exact joint C=0..6 distribution and actual current traffic remain unobserved."
+  ]
+}

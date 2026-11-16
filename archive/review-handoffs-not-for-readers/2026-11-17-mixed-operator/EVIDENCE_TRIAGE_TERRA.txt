@@ -1,0 +1,114 @@
+IQ2 shared/off raw evidence triage, 2026-11-17
+
+Reviews read: /home/codex/projects/llm-lab/optimization-20261117/incoming/xeon_moe_abs_next_2026-11-16/evidence/ABS_OPERATOR_EVIDENCE_REVIEW_JA.txt
+              /home/codex/projects/llm-lab/optimization-20261117/incoming/xeon_moe_abs_next_2026-11-16/priority/NEXT_STEP_PRIORITY_JA.txt
+
+Scope: independently parsed the prior two raw stdout logs with Python standard library JSON and Decimal. No provided analysis code executed; no build, benchmark, model, API, or GPU access. No observations were removed. Calculations below concern the shared candidate=1 comparison; candidate=2 has its own control arms and is excluded from these particular sums.
+
+For each run/cache JSON record: 16 blocks, four shared-comparison arms per block, two mode=0 off and two mode=1 shared, 32 measurements per mode. A recorded ms value is the average of 8 graph calls (as described by evidence review); its sum has units of summed per-call averages, not actual full wall time. Multiply these sums by 8 for the aggregate reported graph intervals, 256 calls per mode. Block ratio = (sum two off arms)/(sum two shared arms); median is median of 16 such ratios. Total ratio = sum(all 32 off values)/sum(all 32 shared values); shared change = (shared total/off total - 1)*100%. These samples are within one process per run, not independent processes.
+
+RAW: /home/codex/projects/llm-lab/optimization-20261116/abs-operator/execution/real-iq2-r1/stdout.log
+SHA256: cfe703b578b19582a157c42fbe3dcbd404b765da6cbe6ef5c1f4e5185d8f8d74; bytes=20928; JSON lines=3; final passed=True
+
+  C=6; tensor=blk.0.ffn_up_exps.weight; type=iq2_s; K=5120; M=2304; threads=12; bit_mismatches=0
+  arms off/shared=32/32; summed ms/call averages off=28.328693875, shared=28.043794000
+  inferred summed 8-call intervals ms off=226.629551000, shared=224.350352000; 256 graph calls/mode
+  median block ratio=1.049977843; mean block ratio=1.021557028; >1 blocks=13/16
+  total off/shared ratio=1.010159106; shared total change=-1.005693648%
+  block  sum(off 2 arms)  sum(shared 2 arms)  off/shared
+   0      2.095264625         2.693585125  0.777872066
+   1      1.801851500         1.708447750  1.054671704
+   2      1.842329000         2.007936500  0.917523537
+   3      1.804836125         1.717274875  1.050988488
+   4      1.788618625         1.703260750  1.050114391
+   5      1.664738250         1.580877125  1.053047213
+   6      1.666334500         1.579441625  1.055014933
+   7      1.657029875         1.582029000  1.047408028
+   8      1.659847250         1.581045875  1.049841296
+   9      1.674846375         1.587814125  1.054812619
+  10      1.668783000         1.578424125  1.057246258
+  11      2.345142125         2.346321875  0.999497192
+  12      1.657628875         1.589425000  1.042911037
+  13      1.672592625         1.590193875  1.051816795
+  14      1.666920750         1.612705625  1.033617496
+  15      1.661930375         1.585010750  1.048529403
+
+  C=0; tensor=blk.0.ffn_up_exps.weight; type=iq2_s; K=5120; M=2304; threads=12; bit_mismatches=0
+  arms off/shared=32/32; summed ms/call averages off=46.500814500, shared=47.501713375
+  inferred summed 8-call intervals ms off=372.006516000, shared=380.013707000; 256 graph calls/mode
+  median block ratio=0.999072066; mean block ratio=0.991911622; >1 blocks=5/16
+  total off/shared ratio=0.978929205; shared total change=2.152432997%
+  block  sum(off 2 arms)  sum(shared 2 arms)  off/shared
+   0      2.795745000         2.801163750  0.998065536
+   1      2.792974625         2.796543500  0.998723826
+   2      2.788850500         2.814810875  0.990777222
+   3      2.994961625         2.848576625  1.051388823
+   4      2.785018500         2.793005625  0.997140312
+   5      2.795639250         2.795523875  1.000041271
+   6      2.798647000         2.806218250  0.997301974
+   7      2.793604625         2.795225000  0.999420306
+   8      3.677969875         2.801763875  1.312733706
+   9      3.487179375         4.137372375  0.842848808
+  10      2.791103625         2.790996875  1.000038248
+  11      2.790093750         2.790185750  0.999967027
+  12      2.779533500         2.777535625  1.000719298
+  13      2.841624125         4.160501625  0.683000364
+  14      2.794967625         2.795641375  0.999759000
+  15      2.792901500         2.796648375  0.998660227
+
+RAW: /home/codex/projects/llm-lab/optimization-20261116/abs-operator/execution/real-iq2-r2/stdout.log
+SHA256: 4a31c31b23733cb0913c74a4de787a1ec75166b69e0c04577c285b355783b8a8; bytes=20928; JSON lines=3; final passed=True
+
+  C=6; tensor=blk.0.ffn_up_exps.weight; type=iq2_s; K=5120; M=2304; threads=12; bit_mismatches=0
+  arms off/shared=32/32; summed ms/call averages off=33.726258500, shared=31.572594125
+  inferred summed 8-call intervals ms off=269.810068000, shared=252.580753000; 256 graph calls/mode
+  median block ratio=1.053994403; mean block ratio=1.072906455; >1 blocks=15/16
+  total off/shared ratio=1.068213095; shared total change=-6.385719824%
+  block  sum(off 2 arms)  sum(shared 2 arms)  off/shared
+   0      2.759456125         2.719453625  1.014709756
+   1      2.813418625         2.703987500  1.040470278
+   2      2.366252500         1.954037875  1.210955289
+   3      2.730843000         2.493154625  1.095336395
+   4      2.433757875         2.555268125  0.952447162
+   5      2.591252750         2.488500250  1.041290934
+   6      2.189099750         1.959527750  1.117156800
+   7      1.672513875         1.586265750  1.054371801
+   8      1.676333500         1.591027375  1.053617006
+   9      2.148886125         1.944799625  1.104939603
+  10      1.955127875         1.597395750  1.223947087
+  11      1.667494500         1.595569625  1.045077867
+  12      1.700943250         1.586316875  1.072259444
+  13      1.670802875         1.593047750  1.048809036
+  14      1.667338625         1.609524500  1.035920003
+  15      1.682737250         1.594717125  1.055194820
+
+  C=0; tensor=blk.0.ffn_up_exps.weight; type=iq2_s; K=5120; M=2304; threads=12; bit_mismatches=0
+  arms off/shared=32/32; summed ms/call averages off=45.344140875, shared=46.042385000
+  inferred summed 8-call intervals ms off=362.753127000, shared=368.339080000; 256 graph calls/mode
+  median block ratio=1.001000021; mean block ratio=0.989201443; >1 blocks=10/16
+  total off/shared ratio=0.984834753; shared total change=1.539877284%
+  block  sum(off 2 arms)  sum(shared 2 arms)  off/shared
+   0      2.796288250         2.788732250  1.002709475
+   1      2.802862375         2.799839875  1.001079526
+   2      3.040365375         2.792678750  1.088691413
+   3      2.796070500         2.793287625  1.000996272
+   4      2.793755625         2.786706375  1.002529599
+   5      2.792331750         2.796870375  0.998377249
+   6      2.803509750         2.805624500  0.999246246
+   7      2.801068250         2.796754000  1.001542592
+   8      2.787492000         2.791036125  0.998730176
+   9      2.808557625         2.800810750  1.002765940
+  10      2.791236375         2.813733750  0.992004441
+  11      2.801335125         2.800186625  1.000410151
+  12      2.792411375         2.789611250  1.001003769
+  13      2.894519125         2.813129375  1.028932103
+  14      2.903757750         3.665049500  0.792283365
+  15      2.938579625         3.208333875  0.915920767
+
+Interpretation and limits:
+- Reported total ratios match the review to six decimal places: hit6 r1 1.010159, r2 1.068213; miss0 r1 0.978929, r2 0.984835. Shared total time changes are respectively -1.006%, -6.386%, +2.152%, +1.540%. The 16-block median ratios are respectively 1.049978, 1.053994, 0.999072, 1.001000. These describe the recorded work under two statistics; the raw establishes neither a general average miss penalty nor statistical independence of blocks.
+- Mathematically the overall off/shared ratio is a shared-time-weighted average of per-block ratios, unlike the unweighted median; substantial uneven durations can therefore change its value and direction. Example r1 hit6 block 0: off 2.095264625 vs shared 2.693585125 ms summed arms, ratio 0.777872, whereas 13/16 block ratios exceed 1. For r1 miss0 blocks 9 and 13 have shared sums 4.137372375 and 4.160501625 vs off 3.487179375 and 2.841624125; block 8 has the opposite imbalance 3.677969875 vs 2.801763875. For r2 miss0, blocks 14 and 15 have shared sums 3.665049500 and 3.208333875 vs off 2.903757750 and 2.938579625. No block or observation is dropped in the table.
+- The preceding observations explain how the statistics differ, not why durations differ. The saved records lack per-chunk start/end timestamps and do not identify OS scheduling, CPU clock, cache state, contention, or any causal mechanism. Do not attribute outliers or the measured total differences to ABS itself. Separate paired median gate from secondary total-time evidence rather than retrospectively changing the historical gate.
+- Priority review describes a mixed diagnostic with C by group [5,5,5,5,3,5,6,5], intersecting 39 of 48 fixed IDs with the plan. It explicitly states this is not actual traffic or a production-weighted speedup. Its future full-model A/B and other proposed measurements are review recommendations, not independent user authorization.
+- Policy attribution: priority/NEXT_STEP_PRIORITY_JA.txt:192 explicitly claims the existing condition that long model startup and arranging normal API execution windows are the user’s responsibility; line 193 says not to treat the review as an instruction to operate a live service. This is external review text, not itself proof of a user instruction or authorization. The parent supplied current user policy: existing guard for actual tests; GPU 150 W, ECC, fan <=70; reserve 64 GiB RAM; no automatic long model startup. Preserve those constraints and do not infer service-operation authorization from the review. Priority lines 218-219 additionally propose retaining a specific hot-backend reserve guard; assess applicability from actual source and user policy, not as a new human instruction.
+- Earlier review values for fixed frozen/off/shared, plan membership, counter correctness, and provider identity were not independently recalculated in this narrow audit. Full raw JSON remains at the exact paths above; per-block tables do not replace it.

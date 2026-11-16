@@ -1,0 +1,84 @@
+{
+  "scope": "protocol-only executable; no ggml link/model/GPU/performance experiment",
+  "source_sha256": "4e7dbf6796205a011a294a8ab5b3b1fde0647cd1730195ba074ab3d8c4898f21",
+  "compile_argv": [
+    "g++",
+    "-std=c++17",
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    "-DXEON_MIXED_SPEC_ONLY",
+    "-I/workspace/scratch/1f624f9ac929/audit/abs_operator_20261116/priority/generated_case_v2",
+    "/workspace/scratch/1f624f9ac929/audit/abs_operator_20261116/root/mixed_probe.cpp",
+    "-o",
+    "/workspace/scratch/1f624f9ac929/audit/abs_operator_20261116/root/mixed_protocol_only_final"
+  ],
+  "compile_exit_code": 0,
+  "compile_stdout": "",
+  "compile_stderr": "",
+  "run_exit_code": 0,
+  "stdout": "{\"kind\":\"protocol_only\",\"passed\":true,\"model_executed\":false,\"ggml_linked\":false,\"processes\":8,\"chunks\":1536,\"timed_graph_calls_if_run\":49152,\"case_orders\":[[\"C0\",\"C6\",\"Cplan\"],[\"C0\",\"C6\",\"Cplan\"],[\"C6\",\"Cplan\",\"C0\"],[\"C6\",\"Cplan\",\"C0\"],[\"Cplan\",\"C0\",\"C6\"],[\"Cplan\",\"C0\",\"C6\"],[\"C0\",\"C6\",\"Cplan\"],[\"C0\",\"C6\",\"Cplan\"]],\"Cplan_masks\":[62,59,55,47,41,62,63,31]}\n",
+  "stderr": "",
+  "result": {
+    "kind": "protocol_only",
+    "passed": true,
+    "model_executed": false,
+    "ggml_linked": false,
+    "processes": 8,
+    "chunks": 1536,
+    "timed_graph_calls_if_run": 49152,
+    "case_orders": [
+      [
+        "C0",
+        "C6",
+        "Cplan"
+      ],
+      [
+        "C0",
+        "C6",
+        "Cplan"
+      ],
+      [
+        "C6",
+        "Cplan",
+        "C0"
+      ],
+      [
+        "C6",
+        "Cplan",
+        "C0"
+      ],
+      [
+        "Cplan",
+        "C0",
+        "C6"
+      ],
+      [
+        "Cplan",
+        "C0",
+        "C6"
+      ],
+      [
+        "C0",
+        "C6",
+        "Cplan"
+      ],
+      [
+        "C0",
+        "C6",
+        "Cplan"
+      ]
+    ],
+    "Cplan_masks": [
+      62,
+      59,
+      55,
+      47,
+      41,
+      62,
+      63,
+      31
+    ]
+  },
+  "passed": true
+}

@@ -1,0 +1,150 @@
+mixed_probe.cpp 独立read-only review
+2026-11-16
+
+対象:
+/workspace/scratch/1f624f9ac929/audit/abs_operator_20261116/root/mixed_probe.cpp
+対象source SHA256:
+6a77f47371fca21f607666debefcc3ad53c86e3cc83f6289ab3dca6f3cfa8d10
+header: priority/generated_case_v2/mixed_case_data.h
+原典source: xeon-moe-lab commit 31b1292b2767618a28ef6e3f1c9c4450b1fc21be
+
+判定
+====
+
+現sourceについて、依頼されたisolated IQ2 up条件を取り違えるblocking defectは
+見つからなかった。修正を必須とする指摘は0件。
+これはsource上の判定であり、実機・実ggmlで候補harnessを動かした証明ではない。
+このレビューではモデル、GGML graph、配布ELF、benchmarkを実行していない。
+
+1. frozen/experimentalとprovider
+==============================
+
+27行の8 process labelsはF,E,E,F,E,F,F,E。
+188–202行は、Fではabs mode/diagnostic/count APIが全て存在しないこと、Eでは全て存在する
+ことを要求する。Eの各API providerもCPU libraryと同じcanonical pathであることを確認する。
+CPU init、base ggml_init、cache addのproviderを192–194行で指定pathと照合する。
+従って「new libraryのmode0をfrozenと呼ぶ」誤りをこのharnessは避けている。
+
+frozenではlogical Sもactual mode0になる（272、296行）。これは意図したplaceboである。
+Fのlogical O/S差は同一算術の順序・測定揺れを示すもので、shared実装の速度ではない。
+Eでは同じlibrary内でO=0、S=1を切り替えるため、同一libraryのabs差を別に得られる。
+
+provider pathの一致はfile hash一致そのものではない。
+217–220行はinputs/planのhashを宣言しつつhashes_verified_by_harness=falseと明記している。
+予定launcherによるinput/header/spec/source-planとlibraryの実bytes照合を使用条件とする。
+この役割分担は明示されており、C++がhash検証済みと偽っているわけではない。
+
+2. cache membershipとpayload
+===========================
+
+52–57、63–72行でC0/C6/Cplanを区別し、Cplan39 sorted IDsとordered routesのmembershipを
+再計算する。期待C=[5,5,5,5,3,5,6,5]、mask=[62,59,55,47,41,62,63,31]と整合する。
+263–266行では登録結果だけでなく、実lookup tableの384 expert全部をselectionと照合する。
+実cache payloadも選択数*6,635,520 bytesで確認している。
+
+原典E/sparse-cache/release-v2-a/sources/iq3-cache.cpp:92–97はselected IDsの順序を
+昇順に限定せず、一意性と範囲を検査する。134–135行でglobal expert IDへpointerを対応させる。
+従ってC6が元48 IDsのroute順で登録され、Cplanが昇順で登録されること自体は誤りではない。
+C0は同source:82で空selectionを登録せず0を返すため、harnessの戻り値期待も正しい。
+
+ただしCplanのdense39-bank配置は、全finalの313-bank配置や118.65 GiBのreuse distanceを
+再現しない。この限定はcase metadataにあり、membership診断という用途と整合している。
+
+3. 入力・projection・protocol
+============================
+
+62–63行はK5120/M2304/384 experts/6 slots/8 groups/input1を固定する。
+224–243行はGGUF内の名前・IQ2_S型・実shapeと出力13,824 floatを確認する。
+240行で入力vectorを1本に限定するので、今回harnessがIQ2 downやIQ3を誤って有効化する
+経路はない。全モデル向けtype/shape制限を今このharnessへ加える必要はない。
+205–209行の入力は163,840 bytesちょうどでfinite。exact SHA検証はlauncherの担当である。
+
+caseは3個、各16 blocks、各block4 arms、各arm32 timed graph calls。
+1 process=192 chunks、8 processes=1,536 chunks、timed calls=49,152でprotocol表示と一致。
+groupはblock%8で、各入力を2 blocks使う。
+47–50行のlogical順序はOSSO/SOOS。block gとg+8では反転するため、各routeが両順序を経験する。
+45–46行のcase順序は近接F/E pair内で同じ。F/Eで各case-orderの出現数も一致する。
+固定8 routesを多数回計測しているので、1,536を独立request/process標本数とは扱わない。
+
+4. expected出力の意味
+====================
+
+各cache condition/groupについて、268–270行でmode0の出力を一度取得する。
+warmupの4 armsはそのmode0参照へbyte比較する。Eではabs row counterがC*Mであることも
+277行で確認する。入力が1本かつ今回の安全fixtureなので、この期待値は意図に合う。
+
+expected-C0.bin / expected-C6.bin / expected-Cplan.binに保存されるものは、
+それぞれ8 groups×13,824 floatsのmode0参照である。
+各file=442,368 bytes、全3file=1,327,104 bytes。
+Fのfileはfrozen mode0、Eのfileはnew library mode0の参照。
+S出力を全反復保存したファイルではない。
+
+timed chunk終了後、301–304行で最後のgraph出力を同じcase/groupの参照へmemory比較する。
+raw.jsonlも153行でそのscopeを明記しており、32反復すべての出力を保存・照合したとは
+主張していない。全chunkの中間31回まで独立検証済みと説明しない。
+
+offline analyzerが同じcache conditionのexpected bytesをF/E間で照合すれば、
+frozen mode0 == new mode0、および各chunk最後のshared == new mode0を対応付けられる。
+異なるcache condition間のraw/compact出力が常にbyte一致すると仮定する必要はない。
+また、metadataの名前/type/shapeだけで過去測定と全weight bytesが同一だと証明したことには
+ならない。既定の実機GGUFを同じものとして使う条件は引き続き必要である。
+
+5. timing区間と記録の費用
+========================
+
+cache構築、input set、mode setter、warm call、診断counter、出力readback/byte比較、
+expected file保存、JSON化は299行のbegin/endの外にある。
+timing区間に入るのは32回の同期ggml_backend_graph_computeである。
+graph planning等、同API内部の費用も含むoperator wallという測定目的と一致する。
+
+report.casesは3要素、record.samplesは64要素をreserve済み。
+timed loopのsample pushはend取得後であり、64件以内なのでrecord vectorの追加allocationも
+必要ない。JSON/file I/Oは全timingの後のReport.save、expected file保存はcase timing前。
+diagnosticsはwarmup後279行でoffになり、その状態で測定される。
+frozenとEに同じinput/cache条件が適用され、同libraryのO/Sでcache構築をやり直すこともない。
+
+clockはCLOCK_MONOTONIC一つで、end>beginを確認している。
+このwallをCPU worker使用時間やモデルtoken時間へ読み替えない。
+
+6. lifetimeと同期
+================
+
+原典gpu-stream-20261103/ggml-backend.cpp:799–802のggml_backend_graph_computeは、
+compute_async呼出し後にbackend synchronizeしてから戻る。
+harnessのmode切替は前のcomputeが戻った後であり、in-flight mode変更という指摘は当たらない。
+
+CacheOwnerは各caseの全warmup/timing完了後にscopeを抜ける。
+次case前259行と終了時308行でglobal cache使用量0も確認する。
+iq3-cache.cpp:153–159はregistryからentryを外してownerを解放するため、前caseのlookup
+tableを次caseで使い続ける設計ではない。compute間でも毎回lookupされる。
+
+Resources destructorはpoolのbackend接続を外してからpool、activation、weight wrapper、
+tensor context、mmap、metadata、backendを解放する。
+原典ggml-backend.cpp:2812以降のCPU buffer-from-ptr ifaceはptr非所有でfree_buffer=NULL。
+従ってwrapperをfreeした後にmunmapする順はdouble freeではない。
+原典CPU backendのset_threadpoolは旧poolをpauseしてからpointerを切り替える。
+今回の同期CPU graphだけの経路に、追加GPU syncを足す理由はない。
+
+7. 残る実機確認の境界
+====================
+
+- このレビューはsourceと既存APIの照合。実Xeonでの実ggml呼出しやperformanceは未実行。
+- 282–290行のpin確認は別OpenMP regionで採ったworker CPU sampleであり、全timed命令の
+  continuous affinity traceではない。raw表現はsampleとして扱う。
+- harnessのprovider path検証とlauncherのbytes/hash検証を組み合わせる。
+- 完走していないrunは、途中raw/expectedが残ってもsuccessful suiteへ数えない。
+- Cplanは強めのmixed診断。全モデル・実traffic・GPU同時実行の検証へ読み替えない。
+
+以上はいずれも現harnessが述べていない保証を後から付けないための境界であり、
+一般的な防御機能や新しいbenchmark matrixを追加する要求ではない。
+
+最終source照合の追記（2026-11-16）
+=================================
+
+引き渡し版mixed_probe.cppのSHA256は
+4e7dbf6796205a011a294a8ab5b3b1fde0647cd1730195ba074ab3d8c4898f21。
+57行のmask関数に追加された[[maybe_unused]]だけをbytes上で除くと、本レビューで
+読んだsourceのSHA256
+6a77f47371fca21f607666debefcc3ad53c86e3cc83f6289ab3dca6f3cfa8d10
+に一致した。変更は未使用警告を抑えるannotationだけで、実行条件・算術・計測・
+lifetimeの変更はない。上記review結論をそのまま適用する。新測定は行っていない。

@@ -1,0 +1,379 @@
+xeon-moe-lab — abs operator 再評価と次の一手
+================================================
+対象: 31b1292b2767618a28ef6e3f1c9c4450b1fc21be
+作成: 2026-11-16
+
+結論
+----
+
+次の一手は、既存IQ2_S up operatorを使い、CPU compact cacheのhit/missが混在する
+条件を一つ追加して測ることです。CPU libraryは今回測定された既存2種類のままにし、
+ハーネスと記録方法を揃えます。それを通過したら、IQ2_S gate/up形状に限定した候補の
+全モデルtrace-off A/Bへ進むのが妥当です。
+
+IQ3_S absは保留、offset4も今は保留します。GPU route-only censusとhot expert並列の
+評価は独立した作業として残します。CPU最適化の完了をGPU評価の必須前提にはしません。
+今回CPUを先に進める理由は、実operatorで再現した改善があり、残ったmixed条件の疑問を
+既存の重み・入力・route・libraryで小さく解けるためです。
+
+新しい重要な発見は、中央値と総時間の差です。IQ2 all-hitのpaired中央値は約5%改善
+していますが、同じ等量仕事の時間総和ではr1が約1.0%、r2が約6.4%短縮でした。
+all-missは中央値ではほぼ不変でも、総時間では約2.15%／1.54%増えています。
+これはabsが外れ値の原因だという証明ではありません。次の判定に総時間とprocess別の
+結果を事前に加える理由です。元の中央値gateを事後変更して「過去の試験は失敗」とは
+しません。[S1, S2; evidence/ABS_OPERATOR_REANALYSIS.json; PARENT_RAW_RECHECK.json]
+
+今回渡すもの
+------------
+
+・本レビューと、実機側Astra向けの具体的な次作業。
+・原証拠の独立再集計script・JSON・実装契約レビュー。
+・pinned資料からmixed条件を抽出するprepare_mixed_case.py。
+・同一library比較と凍結library比較を揃えるmixed_probe.cpp候補。
+・一度に1 processだけを起動するrun_one_mixed.py候補。
+・全rawを検査・再集計するanalyze_mixed_run.py。
+・生成済みの人工入力163,840B、route/cache定義、元cache plan、検証記録。
+
+新ハーネスはこの環境でpinned headerによる構文検査を通しています。ggmlをリンクしない
+protocol-only版は実行しました。実ggmlへのlink、Xeon上の実operator測定は未実行です。
+生成済みELF、モデル重み、通常API用の起動変更は同梱していません。
+候補コードを実機でレビュー・buildしてから測るための引き渡しです。
+
+1. 原証拠をどこまで確認したか
+============================
+
+NのFILES_SHA256.jsonにある182 filesのSHA256・サイズを照合し、実ファイル集合にも
+欠落・余剰を確認していません。圧縮正解データは6 blobsを上限付きで復元し、38 targetsの
+bytes/hashを照合しました。原典repositoryは変更していません。
+
+golden-r2.binでは、sourceから独立に作った期待順序に対し5,730 headersを全件照合。
+1 modeあたり1,521,900出力値、3 modesで4,565,700比較という保存receiptと一致します。
+17,190 graph executionsという件数も一致しました。これは保存証拠の確認であり、こちらで
+モデルを再実行して4,565,700出力を新しく生成した意味ではありません。
+
+same-libraryの1,024 timed chunksとfixed比較の768 chunksを全件検査し、公表された
+ratio/gateを再現しました。親もIQ2/IQ3 sharedの主要数値を別の短い集計で再確認しています。
+これらのchunkは同じprocess内の反復です。1,792件の独立requestやprocess標本ではありません。
+
+保存出力の意味にも注意が必要です。fixed_probe.cppが保存するoutputs-hit*.binはmode0の
+expectedです。その後、候補のtimed chunk最後の出力をmemcmpするsourceと成功receiptが
+あります。候補の全中間出力を独立にdumpした証拠としては扱いません。[S2, S3]
+
+sanitizer成功は変更translation unitsとharnessの範囲です。再利用された全object/baseを
+instrumentしたわけではありません。今回追加したhelper-only probeも、実backend・threadpool・
+モデルを再実行する試験とは区別しています。
+
+2. 実装の評価 — 前回の主要な懸念は閉じられている
+================================================
+
+現在のハーネスが守る条件下で、新abs統合に由来する到達可能なworkspace不足、同期欠落、
+誤ったfallback、stale input再利用による出力破壊は確認していません。特に次の接続が妥当です。
+
+2.1 plannerとruntimeの契約
+
+追加領域はK*max(inputs,nth)+8*nthで、planner/runtimeが同じhelperを使います。
+mode、cache hit、use_refに依存しない予約なので、planを維持したmode0/1/2切替に対応します。
+絶対pointerを64Bへ整列し、shared各input／private各workerのK-byte領域とmaskを分けています。
+Kが256の倍数なので各sliceの整列も維持されます。[S4: iq-abs.h 33–46; ggml-cpu.c 1791–1799,
+3194–3197]
+
+plan要求thread数と実OpenMP team数の厳密一致は必須ではありません。actual<=plannedなら
+上の領域量は単調非減少なので、縮小時も足ります。保存planのshape、pool、n_threadsを
+後から無断で変える利用は別問題で、既存caller契約を保つ必要があります。
+
+2.2 shared準備と同期
+
+F32→Q8_Kの量子化とabs prepareは、同じcomplete-blockのfloor比例分割です。
+他workerの未完成blockを先に読む実装ではありません。empty rangeもsafeとして扱います。
+workerごとにmaskを書き、既存barrierの後に各workerがローカルにANDします。
+worker0だけが新しい共有結果をpublishする方式ではないので、追加barrierを必要としません。
+[S4: ggml-cpu.c 1830–1834, 1856–1867, 1898–1903]
+
+2.3 stride、unsafe、private reuse
+
+prequantized Q8は元のnb11、F32由来のQ8は量子化workspaceの連続rowを参照します。
+-128または非finite scaleを検出すると、そのinputだけを従来compact dotへ戻します。
+raw pointerとcompact pointerのreaderを取り違える変更ではありません。
+
+private stateはoperatorごとのworker frameでresetされ、同じinputを使う次のchunkへは
+再利用されます。現T=1の対象ならi11でinputを識別できます。将来T>1へ広げる場合に
+このidentityをそのまま使えないことと、現在のバグであることは区別します。
+
+2.4 本番化するときの有効化条件
+
+現mode1はIQ2_SとIQ3_Sの両方を対象にします。「IQ2だけ採用」の全モデル候補では、
+型と確認したgate/up形状を明示的に限定する必要があります。一方、今回のmixed専用
+harnessはweightをIQ2 upに固定するため、ここでengine/libraryを変更する必要はありません。
+
+mode setterはprocess-global atomicで、headerにgraph in-flight時の変更禁止があります。
+atomicは全workerのmode snapshotを保証しません。現probeと新候補は同期graphの戻り後に
+切り替えるので、この条件を守っています。将来requestごとのmode変更を実装するなら
+backend/planに固定snapshotを渡す設計が必要です。今すぐその機能を追加する理由はありません。
+
+2.5 追加でこちらが実行した小試験
+
+実iq-abs.cpp/hをincludeしたhelper probeで、workspaceの容量・整列・非重複198,144条件、
+shape16条件、不正size引数4条件、buffer再利用／safety／worker数反復324条件を確認しました。
+prepare61,344回、empty range1,152回、sidecar19,630,080 byte比較はpassでした。
+ASAN/UBSANを有効にしています。初回はLeakSanitizerがptrace環境制約で終了したため記録を
+残し、detect_leaks=0で再実行しました。leak検査成功とは主張しません。
+
+禁止されている途中mode変更を段階実行した小例では、現compact出力512に対して混在modeは
+256となりました。これは利用条件の必要性を示す例であり、現在の実験が失敗した意味では
+ありません。詳細はcontracts/SOURCE_CONTRACT_REVIEW_JA.txtとreceiptを参照してください。
+
+全モデル限定候補を作る機会に残す小さい正しさ確認は、異種nodeを同じgraph/work_dataで
+連続実行する条件、実OpenMP team縮小、対象／非対象型のdispatchです。既存の巨大matrixを
+機械的に繰り返す必要はありません。今回の実graphで直接注入した非finiteは+Infで、NaNを
+実graphでも確認済みとは書かないことも維持します。
+
+3. 性能の解釈 — 中央値、総時間、library差を分ける
+================================================
+
+速度比Rは「対照時間÷候補時間」で、R>1が改善です。
+所要時間変化は100*(1/R-1)%。速度比1.05と時間5%短縮は同じではありません。
+
+同一library、shared対off、IQ2_S:
+
+条件          paired比の中央値   総対照時間/総候補時間   候補の総所要時間変化
+all-hit r1        1.049978              1.010159                  -1.006%
+all-hit r2        1.053994              1.068213                  -6.386%
+all-miss r1       0.999072              0.978929                  +2.152%
+all-miss r2       1.001000              0.984835                  +1.540%
+
+各chunkが同じgraph数なので、総時間比はsum(off時間)/sum(shared時間)で求まります。
+これは平均所要時間の比に一致しますが、各block比の算術平均とは一致しません。
+例えばall-hit r1は、比の中央値1.049978、比の平均1.021557、総時間比1.010159です。
+平均・中央値という言葉だけで集合や分母を省略すると結論が変わります。
+
+all-missの増加は無視しません。ただし、offも含めた同時期の4armが全て遅い群があります。
+既存rawにはchunk開始・終了のtimestampがなく、OS scheduling、clock、cache、他process
+との原因分解はできません。外れ値を削ることも、absが必ず待ち時間を作ると断定することも
+しません。次は元の2回のwall clock読みを整数nsで保存し、全rawを残します。
+
+凍結library Fとの直接比較:
+
+型/条件          F/off 中央値比    F/shared 中央値比
+IQ2 all-hit          1.013748            1.066752
+IQ2 all-miss         1.048217            1.048733
+IQ3_S all-hit        1.003977            1.015101
+IQ3_S all-miss       0.996734            0.993338
+
+IQ2 all-missでoffまで速いので、F/sharedの差を全てabs計算の利益へ帰属できません。
+offも新workspace/dispatchを含む別binaryです。コード配置、allocator/process状態等の
+どれが主因かは未分離です。既存F,O,S,S,O,Fは各label2 processesの比較にとどまります。
+
+IQ3_S sharedは同一libraryで1.024160/1.026796、F/sharedで1.015101でした。
+事前の直接比較2%gateに届いていないので保留が妥当です。「IQ3には効果がない」という
+証明ではありません。IQ2だけを次へ進める判断と両立します。[S1, S2]
+
+4. mixed条件を追加する具体案
+===========================
+
+既存fixed IQ2 probeの48 expert IDsと、final frequency19200.planのblk.0.up選択313 IDsを
+交差させると39 IDsになります。8入力・ordered routesをそのまま使えます。
+compact payloadは258,785,280B=246.796875MiB。C6は48 IDs、318,504,960B=303.75MiB。
+ここでCはCPU compact cache hit数で、GPU resident expertのhit数Hとは別です。[S3, S5]
+
+group  ordered six IDs                  hit mask   C
+0      79,176,232,279,273,173               62      5
+1      256,363,47,140,154,4                 59      5
+2      299,223,276,235,133,196              55      5
+3      245,112,321,101,244,183              47      5
+4      300,295,224,288,206,287              41      3
+5      226,33,98,120,283,124                62      5
+6      12,338,14,191,270,81                63      6
+7      310,61,107,89,352,27                31      5
+
+固定するのはmembershipです。これを典型trafficの再現とは呼びません。
+既存48 IDsは人工の固定乱択で、Cplanは7/8 groupsがmixed、all-hitは12.5%です。
+一方、blk.0.upのtraining marginalから得られるall-hit下界は89.5098%です。
+したがってCplanはmixed経路を強く踏む診断です。39/48を実利用のhit率やspeedup重みに
+代入してはいけません。working set/reuse distanceも全モデルと同じではありません。
+
+保存trainingのIQ2全体は166,165/171,360 assignmentsがplanにhitし、96.9684%でした。
+ただし同じtrainingからplanを選び、configも現finalと異なります。out-of-sample保証では
+ありません。assignment比は時間比でも、全6expertがhitするoperator比でもありません。
+
+独立routingを仮定しなくても、N calls、M miss assignmentsなら
+  max(0,1-M/N) <= all-hit call fraction <= 1-M/(6N)
+という範囲は得られます。保存IQ2全体ではN=28,560、M=5,195で、81.8102〜96.9684%。
+これはC6対照を維持し、小さいmixed診断を足す根拠です。実C=0..6 histogramを観測した
+意味ではありません。詳細はpriority/CACHE_PLAN_SCOPE_AND_MIXED.jsonにあります。
+
+5. 新しい測定設計 — 小さく、比較の階層を揃える
+=============================================
+
+外側はlibraryのF=frozen、E=experimental overlay。
+内側はE process内のO=mode0、S=mode1 sharedです。
+
+process順: F, E, E, F, E, F, F, E
+隣接pair: (F0,E1), (F3,E2), (F5,E4), (F6,E7)
+
+各processでC0/C6/Cplanの3条件、16 blocks、4 arms、1 chunkあたり32 graph calls。
+E内のarmはOSSO/SOOSで、同routeを2回目に使うとき順序を反転します。
+Fも同じlogical O/Sを持ちますがactual modeは全て0です。F内のlogical O/S差は、同じ
+処理に順序・外乱だけでどの程度差が出るかを見る対照になります。
+
+cache条件の順序はpairごとに回転させ、隣接F/Eで同じ順序にします。
+全体は8 processes、1,536 timed chunks、49,152 timed graph callsです。
+process反復数はF4/E4であり、1,536独立試行という意味ではありません。
+
+旧F,O,S,S,O,Fは左右対称なので、単に逆順にしても同じ順序です。
+新設計は、同processのmode効果とlibrary間差を一つのharnessで見るために階層を分けます。
+
+統計の重要な注意:
+Fは1 blockに4 arms、EのOまたはSは2 armsです。生の時間総和をそのまま割ると2倍を
+作ってしまいます。cross比較はF4 armsの平均とE2 armsの平均を比べます。総時間の比較も
+F側を同じ仕事量へ正規化します。付属analyzerはこの誤りをsynthetic fixtureで検査しています。
+
+timing内: ggml_backend_graph_compute（量子化、planning、prepare、row map、同期、lookup、
+dispatch、dot、output storeを含む）。
+timing外: input/route設定、cache構築、warmup、counter、readback、memcmp、記録、hash。
+各arm前のuntimed compute、計測graph数、timer、input順、warmup回数はF/Eで揃えます。
+計測中はraw recordを事前確保した領域へ保存し、JSON整形とfile出力は最後にまとめます。
+
+各chunkの開始・終了CLOCK_MONOTONIC ns、group、ordered IDs、C、mask、actual modeを保存。
+同じcaseのmode0 expectedを8 groups分保存し、全8process間でfull bytesを比較します。
+候補は各timed chunk最後の出力をmemory上で照合します。全32回の中間出力をdumpしたと
+いう主張にはしません。失敗・partialデータを削除せず、成功結果としても扱いません。
+
+6. 判定基準と、その先の分岐
+==========================
+
+NEXT_RUN_SPEC.jsonに次の暫定screen案を固定しました。過去のgateを変更するものではなく、
+これからの測定を見て都合よく基準を選ばないための案です。実機側で変更が必要なら、測定前に
+差分と理由を残してください。analyzerは採否を自動決定しません。
+
+・正しさ: 同じcaseのfrozen/currentにbyte一致。dispatch、provider、input/plan、実行条件が一致。
+・E内C6: pooled paired中央値比と等量総時間比の両方が1.02以上。
+・E内C0/Cplan: 上記2指標とも候補時間増加が1%以内。
+・F対E/shared: C6は両指標で速度比1.02以上、C0/Cplanは候補時間増加が1%以内。
+・process単位の方向を残す。pooled値が良くても一つのprocessだけで利益が生まれた結果は保留。
+  E内C6の総時間改善が4process中3以上で同方向であることも進行条件とする。
+  これは小試験の判断規則であり、統計的有意性を証明する条件ではない。
+
+これを通ればIQ2 gate/up限定の全モデルA/Bへ進めます。通らなければ、外れ値を除いた集計で
+通しません。Fの同mode対照まで大きく揺れるなら測定がまだ候補の差を識別できていません。
+原因を一つ特定して修正した再測定に進むか、保留します。無根拠な反復追加で「通る回」を
+探さないことが大切です。
+
+C0/Cplanの退行が実装由来と再現した場合にも、absの全方式が無価値と決まったわけでは
+ありません。privateはmiss時prepareを行わない既存候補なので、必要なら同じharnessで
+shared/privateを直接比べる小試験が次候補になります。現在の別々のoff対照ratioだけを
+割って両者の優劣を断定しません。新formatや大きなearly-hit scanを先に増やす必要はありません。
+
+7. 全モデルへ持ち出す範囲
+========================
+
+保存CPU projection111件中、IQ2_Sは14件。内訳はgate/up12件、down2件です。
+今回性能を測ったのはblk.0.up、K5120/M2304/input1です。
+IQ2 downはblk.4とblk.8、K2304/M5120/input6で、準備費用の償却が異なります。
+
+最初の全モデル候補は、IQ2_Sかつ確認したgate/up形状/input1に限定します。
+全IQ2を有効にしたい場合だけ、downの性能を先に1条件確認してください。
+型だけをIQ2に限定して「測定済み範囲だけ」と呼ぶのも不正確です。[S5]
+
+既定off、固定opt-in、modeの実行中変更禁止、対象／非対象dispatchの確認を明示した候補を
+別profileへ用意します。GPU37〜39の配置、CPU cache plan、context/KV、固定token列、
+CPU affinity、loaded librariesを揃え、最終採否はtrace-offの全モデル時間で判断します。
+CPU absの算術一致方針と、CPU/GPU差の品質評価を勝手に混ぜません。
+長いモデル起動枠と通常APIの運用は従来どおり実機側で扱います。[S1]
+
+局所1.05倍でも全体の利益が小さい可能性はあります。しかし14/111という件数を時間割合へ
+置き換えて断定できません。仮に対象のbaseline critical-path比p、対象速度比1.05、追加費用0
+なら、全体速度比は1/(1-p+p/1.05)。全体+1%にはp>=20.79%、+0.5%にはp>=10.45%です。
+これは条件付き計算で、今回pを測定した値ではありません。
+
+以前のbias62の全体改善が小さかったことは慎重になる理由ですが、今回の上限を決める
+証拠ではありません。pを詳細traceで完全に求める前に、限定候補の全体A/Bを一度行う方が
+安く判断できる場合があります。全体で採用に足りなければそこで保留できます。
+
+8. CPU/GPU expert並列とのつながり
+================================
+
+今回のabs測定と新mixed試験はCPU内12 workersのoperator試験です。CPU/GPUのexpertを
+同時に処理した新しい実測ではありません。
+
+本来のhot expert並列では、同一の起点からCPU/GPUの結果が統合に使えるまでの経過時間を
+t_CPU-ready、t_GPU-readyと定義すれば、概念的には
+  T_FFN ≈ max(t_CPU-ready, t_GPU-ready) + T_merge/scatter
+を考えます。両branchが同時に開始するという仮定は置きません。準備・転送・開始の遅れも
+共通起点からのready時刻に含めます。既存gpu_joinの「残り待ち」はこのmaxに含まれるので、
+さらに待ち時間として加算してはいけません。merge/scatter自体の費用だけを後ろへ分けます。
+CPUが遅い側ならCPU短縮が全体に現れやすく、GPUが遅い側ならCPUを速くしても隠れる
+範囲があり得ます。したがってCPU最適化は並列の目標とも関係しますが、CPU単独の+5%を
+並列全体へそのまま加算することはできません。
+
+GPU route-only censusは6 expertの共起やhot候補を調べるために有用です。一方でCPUの
+critical-path時間比pを直接測るものではありません。通常latency測定へcallbackを挿入すると
+graph分割・同期の影響も入ります。route censusとtrace-off採否測定は分けます。
+
+旧hot14比較は新しいGPU常駐expertの追加と同時に既存GPU層37〜39をCPUへ戻しており、
+CPU planも変わります。新hot expertだけの因果効果にしないことを維持します。
+GPU private reserve guard、150W/ECC/fan<=70、RAM64GiB reserveを緩めません。[S6]
+
+CPU mixedが失敗・保留になったとき、または全モデル起動枠がないときに、CPUの枝試験を
+際限なく増やす必要はありません。GPU側の設計・測定は独立に進められます。今回の選択は
+「CPUを全部終えてからGPU」という開発方針への変更ではありません。
+
+9. offset4の位置づけ
+===================
+
+今回は保留します。IQ2 absには実operatorの利益があり、既存formatのまま評価を閉じる
+小さい次手があります。offset4には新packer/reader/dispatch/format識別の費用があり、
+まだ同じoperatorでそれを上回る性能証拠がありません。
+
+IQ3 absのgate未達はoffset4の不可能性を証明しません。再開時の最低契約は、同じ144Bでも
+既存compactと互換とみなさない明示format ID/version、packer/reader/fallbackの一致、
+GGUF原weightの維持、cache metadataのsource/type/shape照合です。unsafe fallbackで
+offset nibbleを旧compact readerへ流さないことも必須です。同じharness・input・route・
+membership・worker条件でformat dispatchまで含めたoperator wallを測ります。
+
+10. 「2トークンずつ見える」現象との関係
+=====================================
+
+今回見つけた総時間と中央値の違いは、待ち時間を残して評価する価値を示します。
+ただし、このoperatorの遅いchunkがOpen WebUI上の2トークン表示の原因だと結び付ける
+証拠はありません。32 graph callsの平均はtoken間隔ではありません。
+
+その現象を切り分ける段階では、engineのtoken確定、API送出、client受信・表示を別の
+観測点にし、同じ固定token列について時刻とchunk/token数を対応させる必要があります。
+平均tok/sに加え、TTFT、token間隔の分布、長いpause、複数tokenを含む送信chunkを残します。
+ここで推論kernel側の二連続を推定して最適化対象を決めるのは早いです。
+
+11. こちらの作業と、未実行の境界
+===============================
+
+実行済み: pinned sourceの読解とhash、保存raw/goldenの再集計、実abs helperの小試験、
+mixed条件の独立抽出、候補harnessの構文/protocol確認、launcher/analyzerの合成試験。
+未実行: 新mixed harnessの実ggml link、Xeon実operator測定、GPU新実験、全モデルA/B、
+実中間activationの回収、streaming計測、通常APIへの採用。
+
+元repository・通常サービス・起動config・モデルファイルへ変更は加えていません。
+生成済みsourceと試験結果にはそれぞれscopeを付け、合成の時間値を性能証拠へ混ぜません。
+引き渡し候補の具体的な検査結果はVERIFICATION.jsonと各receiptを参照してください。
+
+出典の読み方
+============
+
+全GitHub出典は次のpinned commitです。
+https://github.com/MangekyoMyan/xeon-moe-lab/tree/31b1292b2767618a28ef6e3f1c9c4450b1fc21be
+
+N = archive/review-handoffs-not-for-readers/2026-11-16-abs-operator
+H = archive/review-handoffs-not-for-readers/2026-11-16-current
+E = H/snapshot/llm-lab/exploration-20261112
+
+[S1] N/CONSULT_PRO_JA.txt, README.txt, RESULTS_JA.txt, PERFORMANCE_PLAN.txt
+[S2] N/ANALYSIS.json, analyze.py, FIXED_RECEIPT.json, execution/*/stdout.log, correctness/INDEX.json
+[S3] N/fixed_probe.cpp, probe.cpp, FIXED_BUILD.json, SOURCE.json, BUILD.json
+[S4] N/ggml-cpu.c, iq-abs.h, iq-abs.cpp, change.patch
+[S5] E/plans/frequency19200.plan（blk.0.upは11行目）, E/plans/FREQUENCY_MANIFEST.json,
+     E/checkpoint-1600/profile.json, E/checkpoint-1600/FINAL_PROFILE_MANIFEST.json,
+     E/training/20261112-075449/TRAINING_COUNTS.json, 同directoryのMANIFEST.json
+[S6] E/hot-ffn/hot-backend.cpp（reserve guard）, E/prepare_hot_profiles.py,
+     H/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp（route callbackのsplit/sync）
+
+各sourceの完全path/SHA256は、evidence・contracts・priorityのmanifestに保持しています。
+本書の新しい総時間表は提供rawの独立再計算、Cplan定義は保存routeとplanの独立交差です。
+提案された新試験の速度・効果は、まだ測定していません。

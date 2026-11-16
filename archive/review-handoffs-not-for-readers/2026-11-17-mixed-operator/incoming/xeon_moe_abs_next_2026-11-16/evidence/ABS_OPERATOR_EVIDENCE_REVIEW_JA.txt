@@ -1,0 +1,283 @@
+実 ggml abs operator: 原証拠の独立監査・質問2への判断
+対象 commit: 31b1292b2767618a28ef6e3f1c9c4450b1fc21be
+作成: 2026-11-16
+
+結論
+====
+
+IQ2_S gate/up の shared を次の小さな測定へ残し、IQ3_S を現時点で保留する判断は妥当。
+事前に定めた中央値 gate の判定を、結果を見て別指標へ変更していない。
+ただし IQ2 の平均仕事量に対する費用は、中央値の約5%改善という説明より不安定である。
+今回の最も重要な追加情報は、同じ全 raw を保持した「総時間」の再集計である。
+
+IQ2 shared / 同一 library:
+                   paired比中央値   総対照時間/総候補時間   候補の総時間変化
+  hit6 r1              1.049978           1.010159               -1.006%
+  hit6 r2              1.053994           1.068213               -6.386%
+  miss0 r1             0.999072           0.978929               +2.152%
+  miss0 r2             1.001000           0.984835               +1.540%
+
+miss0 は中央値でほぼ不変だが、測定された等量の仕事の総時間では両回とも悪化している。
+これだけで abs が外れ値を起こした、平均で確実に遅い、とも結論しない。両 mode が同時期に
+遅くなる群があり、保存された情報から OS/clock/cache 等の原因は特定できない。
+median gate を事後変更して失格とはしない一方、「平均でも miss overhead は1%以内」と
+受け取られる説明を避ける。次の測定では中央値と総時間をともに事前指定する。
+
+frozen/shared の IQ2 hit6 は既報の中央値比1.066752を再現した。総時間比は1.106048である。
+新 library の mode0 も frozen より速い条件があるため、いずれの数字も abs 単独の効果量
+ではない。実モデル tok/s、実 traffic の routing 分布、GPUとの重なりもこの試験にはない。
+
+検査の範囲
+==========
+
+N = archive/review-handoffs-not-for-readers/2026-11-16-abs-operator
+H = archive/review-handoffs-not-for-readers/2026-11-16-current
+E = H/snapshot/llm-lab/exploration-20261112
+
+N の相談票・README・結果・計画・分析 script、source、全 timing raw、全 execution status、
+build/source/checkpoint manifests、圧縮正解 byte を調べた。
+独立 Python script は標準 library の解析・hash・統計だけを使い、資料中の Python/C++ を
+import/execute していない。モデル、API、GPU、配布 ELF、build、性能 benchmark を実行して
+いない。復元先を repo 外の本 audit 配下に限定した。repo は変更していない。
+
+成果物:
+  reanalyze_abs_operator.py
+  ABS_OPERATOR_REANALYSIS.json
+  restored/ 以下の照合済み正解データ（元提供物の復元。新モデル出力ではない）
+
+再現例（新しい出力 directory を指定する）:
+  python3 reanalyze_abs_operator.py --repository /path/to/repo --output-dir /path/outside/repo/new-audit
+
+1. 提供物・build・process identity
+=================================
+
+FILES_SHA256.json の182 filesについて、保存 bytes の SHA256 と長さを独立に照合した。
+実ファイル集合も、この182件とmanifest自身だけで一致した。証拠ファイルの読み違い・欠落は
+検出していない。JSON に185入力ファイルの source manifestを保存した（Nの183件とbaseline2件）。
+
+SOURCE.json の baseline ggml-cpu.c と baseline BUILD.json は H の保存sourceに一致する。
+checkpoint-screen-r1r2 と最終Nの ggml-cpu.c / iq-abs.cpp / iq-abs.h はbyte一致する。
+つまり今回の r1/r2 screen 後に、別の kernel へ差し替えた証拠はない。
+
+記録された実験 CPU library SHA256:
+  120038c7e4c452714d188c9ab5e7dc99bda7deaa9506e8fe92e693cca5db06d3
+記録された frozen final CPU library SHA256:
+  33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3
+
+probe source:
+  screen checkpoint: f6678622b7ce34a83942117d4129bb50aa39204ddde3505bef2845ebd7f4c769
+  final validation : 99ed6e6b36bba52e4e366d39091b6643baf1bcfb9fa3ca45c91ec0d0278880e7
+  fixed comparison : 7c2da70818ba5684096fa4b5907a8e2adb30c2711d1f1eebe3eca7c4bd1cefc2
+
+screen checkpointとfinalのbenchmark関数本文はbyte一致。変更はvalidation側のphase拡張と
+MXFP4追加であり、同一libraryの r1/r2 timing を最終validation sourceの新性能結果として
+数え直していない。初期 probe-build-r1 には compiler warning が残り、r2/r3/r4 はstderr空。
+最終sourceに対応しない初期buildの全ELFは提供されていない。これはREADMEが既に明示する
+来歴の限界であり、新たに隠された不一致を発見したという扱いはしない。
+
+run_fixed.py:9–10 が起動前に両CPU libraryのSHAをassertし、固定probe:149が実providerの
+canonical pathをdladdrで照合する。各STATUSはlibrary探索順・要求provider path・mode・
+GGUF path・tensor名を記録する。frozenはmode0かつexperimental=false、offはmode0かつ
+experimental=true、sharedはmode1かつexperimental=trueというrawとも一致した。
+ELF bytes自体は未提供なので、こちらで実機ELFを再hashしたとは主張しない。
+
+6 process/type はfrozen,off,shared,shared,off,frozenの順で、全12processは時間的に非重複。
+全exit0・error null・timing stderr空。全timing行はthreads12、pins0..11、ggml_numa=false。
+外側のnumactl interleave0,1とggml_numa=falseは別の設定として確認できる。
+
+2. 圧縮byteの復元と、何が正解として保存されているか
+==================================================
+
+correctness/INDEX.json の6 blobsを、宣言長+1 byteまでに制限して展開した。
+展開長とSHAを確認し、absolute path / traversal / target重複を拒否してrepo外へ保存した。
+復元targetは38件（golden2件、fixed inputs/outputs36件）。同じbytesは元提供物で内容同定
+して一度だけ圧縮保存されている。6process分の別dumpが再圧縮されて増えたものではない。
+
+golden形式はprobe.cpp:77–84の12個uint64 header + F32出力列。
+sourceから独立に期待inventoryと順序を構成し、全headerを照合した。
+
+                     frozen records   出力値/mode     bytes
+  golden.bin              3,294          880,308       3,837,456
+  golden-r2.bin           5,730        1,521,900       6,637,680
+
+r2の出力値 ×3 modes =4,565,700、graph records ×3 =17,190で、validate-abs-r2と
+validate-sanitized-r2の成功receiptに一致する。sanitizerの同じ試験は独立な正解値として
+加算していない。r1とr2も単純に新しい一意な数値の総数として加算しない。
+
+golden-r2のweight型別recordsはIQ2_S2700、IQ3_S2700、IQ3_XXS90、MXFP4240。
+phase0..4は各1146件。期待headerの欠け・重複・余剰・順序差・切れたpayloadはなかった。
+unsafeを含むgoldenには有限1,436,058 / NaN85,168 / Inf674 valuesがある。これは失敗では
+なく、非有限を含む現CPU算術のbit比較fixtureである。NaNを勝手に正規化していない。
+
+fixed保存データについては36 targetsをreceiptと再hashし、入力/出力のサイズを実shapeと
+照合した。IQ2入力163,840 B、出力1,769,472 B/cache/process、IQ3入力442,368 B、
+出力3,932,160 B/cache/process。全固定入力・実重み由来出力は有限であり、同route/input
+groupを4回使う出力の8-block周期もbyte一致する。
+型ごとにinput bytesは全6processで同一、hit0出力は全6process同一、hit6出力も同一。
+実際はhit0とhit6間も同じSHAだが、それを一般的な raw/compact 算術の公理にはしない。
+
+保存方法の限界を区別する。
+  ・goldenはfrozen expected出力であり、候補validation出力が全件別保存されたわけではない。
+  ・fixed_probe.cpp:134–138はmode0 expectedをfileへ書き、その後fixed modeの最後の出力と
+    memcmpしている。従って保存出力同一性に加え、候補一致はsourceと成功receiptが支える。
+  ・各timed chunk内の全8/32回の中間出力を毎回保存・比較しているわけではない。
+  ・real-iq2/iq3s r1/r2の古いinputs.binはexportされていない。sourceは同じseeded generator、
+    route列も一致するが、元のinput bytesを再hashできるfixedの証拠とは区別する。
+  ・GGUF weights自体や当時のweight内容hashは提供されていない。この監査で数値演算を
+    再実行してcandidateの正しさを独立証明したという意味ではない。
+
+3. timing inventory・測定単位・統計量
+====================================
+
+same-libraryは2types ×2process反復 ×2cache ×2candidate ×16blocks ×4arms =1,024 chunks。
+各chunkは8 graph callsの平均で、timed graph callsは8,192。固定比較は2types ×6process ×
+2cache ×32blocks =768 chunks、各32 graph calls平均で24,576 calls。
+全chunkのmsが正・有限、期待keyに欠損/重複なし、route_group=block mod8、modeと順序は
+sourceから構成したABBA/BAABに一致した。全公表paired ratiosとgate判定を独立再現した。
+これらを1,792件の独立requestや、32/16個の独立process標本とは扱わない。
+
+全timing行で48 unique expert IDsが同一、範囲0..383、6 distinct IDs/groupである。
+all-hit payload318,504,960 B、all-miss0 B。実weightsを使うがinputとroutesは人工固定分布。
+same/fixedともsourceの主な境界はggml_backend_graph_computeのwall時間である。
+input/route設定、cache構築、出力readback、memcmp、診断counter、記録は計測外。
+kernelだけではなく量子化・計画・準備・同期・lookup・dispatch等を含むが、全モデルの
+latency、sample/tokenizer、API/streamingとは別の単位である。
+
+sampleごとのgraph回数が同一の比較なので、総時間比はsum(control ms)/sum(candidate ms)
+で求められる。これは算術平均時間の比と一致し、比の算術平均とは一致しない。
+
+例: IQ2 shared hit6 r1
+  median(block ratios)             =1.049978
+  arithmetic mean(block ratios)    =1.021557
+  sum(control time)/sum(candidate) =1.010159
+どれも同じrawを全保持しており、統計量が異なる。今回の事前gateは最初の中央値を使う。
+副指標を後から確認することと、事後的に採否条件を別物へ変えることを区別する。
+
+同様に「control中央値」もraw 32 armsの中央値と、16 blocksのcontrol2arms平均の中央値で
+異なる。例えばIQ2 r2 shared hit6は前者0.880467 ms、後者1.026004 ms。
+TERRAの1.026004は後者に対応する。中央値という語だけで分母の集合を省略しない。
+
+4. 同一library: 主たるsharedの再集計
+====================================
+
+type/run/cache   paired中央値  >1の数/16  ratio算術平均  総時間比   総時間変化
+IQ2 r1 hit6       1.049978        13        1.021557    1.010159     -1.006%
+IQ2 r2 hit6       1.053994        15        1.072906    1.068213     -6.386%
+IQ2 r1 miss0      0.999072         5        0.991912    0.978929     +2.152%
+IQ2 r2 miss0      1.001000        10        0.989201    0.984835     +1.540%
+IQ3 r1 hit6       1.024160        15        1.021319    1.021257     -2.081%
+IQ3 r2 hit6       1.026796        14        1.023952    1.023826     -2.327%
+IQ3 r1 miss0      1.000100         8        1.002585    1.002586     -0.258%
+IQ3 r2 miss0      0.999262         4        0.999710    0.999700     +0.030%
+
+sharedは両型とも事前screenをr1/r2で通る。privateはIQ2だけ通る。private IQ2 hit6の
+paired中央値1.046637/1.048408、総時間比1.048524/1.025186。IQ3 privateのpaired中央値
+1.017370/1.012262は2%閾値未達。
+sharedとprivateは別のcurrent対照を持つABBA群なので、二つのratioを割って直接優劣を
+確定しない。今回の主目的でないprivate探索を全面的に広げる根拠もない。
+
+5. frozen / off / shared の直接比較
+==================================
+
+各型でF,O,S,S,O,Fの6process。各blockについてFの対称2processの平均を、OまたはSの
+2process平均で割り、32比の中央値を出す。以下を再現した。
+
+type/cache/arm   paired中央値  総時間比  median時間変化  総時間変化
+IQ2 hit6 off       1.013748    1.066573       -1.356%       -6.242%
+IQ2 hit6 shared    1.066752    1.106048       -6.258%       -9.588%
+IQ2 miss0 off      1.048217    1.080547       -4.600%       -7.454%
+IQ2 miss0 shared   1.048733    1.079241       -4.647%       -7.342%
+IQ3 hit6 off       1.003977    1.004467       -0.396%       -0.445%
+IQ3 hit6 shared    1.015101    1.014355       -1.488%       -1.415%
+IQ3 miss0 off      0.996734    0.994019       +0.328%       +0.602%
+IQ3 miss0 shared   0.993338    0.990282       +0.671%       +0.981%
+
+IQ2 missでoff/sharedがともに速いため、abs前処理が全差を生んだとは言えない。
+offも新workspace/dispatch scaffoldが入ったbinaryであり、本来のfrozenと同一ではない。
+compiler/code配置、allocator/ASLR/cache、process状態などを分離していない。どの要因が
+主因かをこのrawから決めない。相談票はこの交絡を既に認めており、その注意を確認した。
+
+process中央値ms（frozen0,off1,shared2,shared3,off4,frozen5）:
+  IQ2 hit6 : .878195 .838293 .794937 .809653 .835210 .851161
+  IQ2 miss0: 1.435692 1.395961 1.398488 1.397496 1.397160 1.495805
+  IQ3 hit6 : .894107 .893748 .879836 .894024 .891978 .895309
+  IQ3 miss0: 1.966613 1.973296 1.965503 1.982949 1.971543 1.963488
+
+process平均もJSONへ保存した。IQ2 frozen hit6はmedian .878→.851 msの一方、meanは
+.927→.974 msで逆方向。中央値だけから「後半でwarmになった」と原因を説明できない。
+IQ3 frozen0/shared2のprocess中央値比は1.016220、frozen5/shared3は1.001437。
+その二組を多くのblockへ展開しても、独立なprocess反復数は2/labelのままである。
+
+IQ3を保留する根拠は「改善が絶対に無い」ことではない。same-libraryで2.4〜2.7%を
+観測した一方、frozen直接比較の事前gate2%に対し1.51%であり、性能を持ち出す条件を
+満たしていないためである。IQ2だけを次の小試験へ残す判断と整合する。
+
+6. 外れ値・順序について分かったことと、分からないこと
+====================================================
+
+全外れ値を保持した。下記は順序が記録された具体例であり、原因の説明ではない。
+  ・IQ2 r1 hit6 block0のshared中央2armは1.357063 /1.336522 ms。
+  ・IQ2 r2 miss0 block14のprivate比較4armsは2.48〜2.64 msで、offも含めて遅い。
+  ・IQ2 r1 shared missのABBA/BAAB別総時間比は0.919528 /1.045485。
+    r2は1.003540 /0.966491で、方向は固定していない。
+
+sourceのreverseは(block%8+block/8)%2であり、同route groupを反対の順序で再訪する。
+candidateの実行順も反転する。これは順序の偏りを抑える設計だが、非線形の変化や
+特定chunkに重なる割込みを消去するものではない。
+
+rawはblock/candidate/orderしか持たず、各chunkの開始/終了timestampがない。
+guardのsensorとの正確な時刻対応、descheduleか実CPU消費増か、特定のbackground taskとの
+因果関係は復元できない。daemon sensor timestampは繰返しが多く、全期間新鮮なclock/
+temperature traceでもない。API coresが0に近いことはOS全体が無活動という証拠ではない。
+
+次は既存now()のbegin/endをrawへ保存し、recordをmemoryへ貯め、loop終了後にまとめて
+書くと小さい変更で診断可能性が上がる。clock/throttleの継続時系列が無いまま原因を
+frequencyと断定しない。補助diagnosticが必要ならprocess CPU time / getrusageを検討する。
+12workerの場合main thread CPU timeだけではworker全体を表せない。追加計測費用は両arm
+で対称にし、必要なら診断runと採否runを分ける。
+
+7. 最小限の追加比較案
+====================
+
+最初はIQ2 gate/up一条件を保つ。frozen/overlay libraryのbytesを変更せず、harnessだけを
+共通化し、cache C=0 / C=6 / C=現final planを使う。CはCPU compact hit数で、GPU hit Hと
+同一記号にしない。既存48 IDsを現planに交差させれば、人工入力/routesを増やさず現在の
+選択境界を試せる。planがgroupごとに違うCを生む場合、Cplanを単一C=5のように丸めない。
+ordered IDs[6]、group、C、選択ID hashを残し、同じgroupへ同じ重みを付けて比べる。
+これは現trafficのhit率や時間比pの測定ではない。
+
+比較の階層を分ける。
+  外側: library F=frozen、E=experimental overlay。
+  内側: Eの同一processでO=mode0 / S=sharedをOSSO/SOOS。
+Fは同じ4arm分をすべてcurrentで実行し、warmup・graph回数・timer・cache/input順を揃える。
+外側の小さい均衡順序は F,E,E,F,E,F,F,E（8process、F4/E4）。
+E内でO/Sを両方実行するのに、process全体をoffかsharedの単一labelへ分類しない。
+この設計なら同processのmode差と別libraryの差を、同じharness・同じ仕事量で評価できる。
+
+既存のF,O,S,S,O,Fはpalindromeなので、単に「逆順で反復」しても順序は変わらない。
+3label fixed-mode方式を継続する場合は、各labelが外側/中間/中央へ来るよう循環させる。
+ただしO/Sの同process pairingとは別の実験設計であり、labelの意味を混ぜない。
+
+次の採否指標を測定前に固定する。
+  ・same-process O/Sのpaired中央値と、同量のgraph総時間比の両方。
+  ・全raw・process別mean/median・C別およびCplan全体の総時間。
+  ・C=0の平均/総時間の退行予算。今回のmedian gateを過去へ遡って変更しない。
+  ・library間F/E差はprocess単位で保持し、内部blocksを独立反復としてCIを作らない。
+  ・欠落、重複、nonfinite、output mismatch、unexpected dispatchは失敗として保存。
+  ・source/library/provider identity、worker pinning、ggml NUMA、cache/input/routesを固定。
+
+主目的は「1.05という局所中央値の効果が、同じ仕事量の平均とprocess反復でも残るか」を
+判定すること。全型×全K/M×全threads×全NUMAの大きな再benchmarkは不要である。
+未測定のIQ2 downを全IQ2有効化へ混ぜず、gate/upだけを候補にできる契約も明記する。
+
+8. 付録: correctnessの主張を広げない
+====================================
+
+実operatorのNaN scale直接注入は現probeで見つからない。明示注入は-128と+Infで、
+非有限golden出力にNaNがあることとは別である。これは次の小さいcoverage候補であり、
+相談票やRESULTSの誤記という指摘ではない。現在のREADMEも全組合せを網羅したとはしない。
+
+source読みと成功receiptは実ggmlでのworkspace/dispatch試験を支えるが、sanitizerが
+既存再利用objectsまでinstrumentしたわけではない。CPU/GPU算術の一致や回答品質も
+この資料からは得られない。offset4やGPUの次の設計へ、このoperatorの速度をそのまま
+効果量として移植しない。今回の比較はCPU compact算術を維持した範囲で解釈する。

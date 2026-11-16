@@ -1,0 +1,245 @@
+abs operator 実装のsource契約レビュー
+2026-11-16 / commit 31b1292b2767618a28ef6e3f1c9c4450b1fc21be
+
+略称
+  N = archive/review-handoffs-not-for-readers/2026-11-16-abs-operator
+  H = archive/review-handoffs-not-for-readers/2026-11-16-current
+  E = H/snapshot/llm-lab/exploration-20261112
+  G = H/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml
+  C = N/ggml-cpu.c
+  A = N/iq-abs.cpp
+  Q = N/iq-abs.h
+  P = N/probe.cpp
+  B = E/sparse-cache/ggml-cpu.cpp
+
+結論
+====
+
+現行ハーネスが守る条件下で、新abs統合の到達可能な出力破壊・workspace不足・同期欠落を
+このレビューでは確認していない。前回提案段階だったshared/private方式は、実sourceで
+主な契約を保っている。既存4,565,700出力比較とsanitizerの成功はユーザー実機の証拠であり、
+こちらがそのfull operator試験を再実行した結果とは扱わない。
+
+次段階へ持ち込む前に具体化すべき点は以下。
+  1. 現mode1はIQ2_S/IQ3_Sを両方有効にする。IQ2限定A/Bには型の有効化範囲を固定する変更が必要。
+  2. test-only modeはprocess-globalで、graph実行中の変更禁止が正しさの条件である。
+     atomic setterだけではoperator全workerのmodeを一つに揃えられない。現probeは条件を守る。
+  3. planの要求thread数とactual team数は、常に等しくなくてもよい。actual<=plannedなら
+     新領域は十分。再利用planのshape/保存pool/n_threadsを後から変えることとは区別する。
+  4. validationは同plan/input/mode反復を実施済み。残る高価値の小試験は、同じwork_dataで
+     異種MUL_MAT_ID nodeを連続実行するgraph、実thread縮小、IQ2限定dispatchである。
+
+稼働サービス、モデル、GPU、配布ELF、既存builderは実行していない。repoは未変更。
+こちらの新規実行は、A/Qをincludeした小さいhelper/size契約probeだけである。
+
+1. 前回から閉じられた契約
+========================
+
+1.1 plannerとruntimeが同じshape/size helperを使う
+
+Q:33–38のshape predicateは、weight型IQ2_S/IQ3_S、ids.ne1==1、x.ne2/ne3==1、
+inputs1..64、K>0/INT_MAX以内/256倍数、F32/Q8_K、nb0==type sizeを要求する。
+これはfeatureのeligible条件であり、ggml tensor全体の妥当性検査の置換ではない。
+Kの一致、broadcast、output配置等の既存constructor/compute契約は引き続き必要。
+
+Q:39–46で追加予約は K*max(inputs,nth) + 8*nth。
+C:1791–1799はmode/use_ref/cache hitに依存せず、shapeだけでその領域を確保する。
+同じ予約の中でsharedのinputs*K、privateのnth*Kを選び、末尾をworker maskへ使う。
+C:3194–3197も同じhelperを使用し、alignment用63Bを加算する。
+したがって、mode0→1→2の切替だけでreplanを必要にしない。
+
+backendはB:136/174でplanを作り、その後B:149/189でuse_refを付ける。
+今回の予約がuse_refに依存しない実装は、この呼出し順と整合する。
+
+1.2 絶対pointerの整列とmask非重複
+
+C:1724–1729のincr_ptr_alignedは絶対pointerを丸める。C:1797はabs先頭を64B整列する。
+Kは256倍数なので、shared各input、private各workerのstride Kは64B整列を保つ。
+mask開始 K*max(inputs,nth) は64の倍数であり、uint64_tの8B整列も満たす。
+shared/privateのどちらもmaskより前に収まり、どちらのmodeも同時使用する設計ではない。
+
+Qの積のguard、Cのextra+63 guardは、対象64bit環境とshapeの範囲で整合している。
+old planner全演算の巨大shapeに対するoverflow耐性まで今回証明したわけではない。
+既存末尾padding(C:3335–3336)を維持しており、今回それを節約する必要はない。
+
+新probeはvirtual addressのbase residue0..63、K256/2304/5120、inputs1/6/64、
+planned1/6/12/24、actual1..planned、experts8/384、F32量子化領域あり/なし、
+tiled scratchあり/なしで198,144通りのcapacity/alignment/非重複を検査した。
+これはplanner/pointer進行を数学的に写した検査。実allocatorを全residueで動かしたのではない。
+
+2. n_tasks、actual nth、plan再利用
+================================
+
+C:2635–2639でMUL_MAT_IDのn_tasksはplan要求n_threadsになる。
+C:3340のcplan.n_threadsはmax_tasksとのMINだが、このnodeがあるgraphでは上記要求を保つ。
+OpenMPではC:3706–3712で実際のteam数をn_graphへ入れ、C:3401でそれをcompute nthにする。
+runtimeが要求より小さいteamを返した場合、planのn_tasksとcompute nthは違い得る。
+
+新領域 f(t)=K*max(inputs,t)+8*t はtについて単調非減少である。
+actual<=plannedならf(actual)<=f(planned)。tiled scratchもG/src/ggml-cpu/tiled/tiled.cpp:
+654–659の64+512KiB*tまたは0なので、対象条件で同じ向きに変わる。
+全workerが同じactual nthを使用し、maskもactual個だけを上書き・ANDする。
+よって「actualが小さくなっただけでabs領域が足りない」という欠陥は確認していない。
+等号を必須にするより、この上界関係を契約にする方が正確。
+
+通常のbackend graph_computeはB:174で毎回replanし、B:176–185で容量を増やす。
+一方graph_plan_createはB:136–149でthreadpool/n_threads/use_refをsnapshotし、graphは
+浅いcopy(B:137)。graph_plan_compute(B:163–166)は保存したplanをそのまま使う。
+後でbackend設定だけを変えても、保存planのthread数やuse_refが追従するわけではない。
+
+再利用planを使う場合の条件:
+  ・同じshape/strideとgraph nodeの寿命を維持する。graph headerの浅いcopyはnode所有権を持たない。
+  ・保存poolとwork_dataを計算完了まで生かす。
+  ・shape、plan n_threads、pool構成を変えるならplanと容量を作り直す。
+  ・小さいpoolへ大きいn_threadsを要求しない。
+
+最後の条件はabs導入前からのOpenMP側の制約である。C:3719/3722はworkers[ith]へアクセスし、
+native側C:3729–3731にあるpool上限へのclampはOpenMP分岐にはない。
+現在のP:57–62はthreadsと同じサイズのpoolを作ってreplanするため、この条件を破っていない。
+これを新absの発見バグとして数えない。
+
+3. shared準備と既存barrier
+=========================
+
+C:1830–1834の量子化はcomplete blockのfloor比例分割。
+C:1856–1867のshared prepareも同じ分割であり、他workerの未完成Q8_Kを読まない。
+K2304/12workersの空rangeは0,4,8。A:29–39はemptyならtrueを返し、必要input bitを立てる。
+C:1864はUINT64_C(1)<<inputでinput最大63。1<<64は発生しない。
+
+C:1867で各workerが専用mask slotを書き、1898の既存barrierで公開する。
+C:1900–1903は各workerのローカルsafe_maskへactual nth個のmaskをANDする。
+新たな共有合成値をworker0だけがpublishする方式ではなく、追加barrierもmask atomicも不要。
+
+現在のsharedはall-missでも全inputをprepareする単純な方式。
+row-mapを公開前に読まないし、barrier後の既存lookup(C:1914–1915)を二重化していない。
+実測がある段階で、今回直ちにearly hit scanを追加する理由はない。
+
+4. stride、partial unsafe、fallback
+==================================
+
+shared RHSはC:1862で、prequantizedならsrc1.data+input*nb11、F32量子化後なら
+params.wdata+input*qrowを使用する。
+dot側C:1551–1554はi11/i12とcontiguityに応じた既存stride選択を保つ。
+abs対象ではT=1/x.ne2==1なのでi12==0。prepareとdotが同じinput rowへ到達する。
+
+A:31–35はblock scaleのexponent-all-onesまたはqs==-128を検出する。
+そのblock担当workerだけがfalseでも、input単位のANDによってそのinput全体がfallbackになる。
+他のsafe inputはabsを継続できる。unsafeだからsidecar全inputを無効にする方式ではない。
+unsafe検出後も担当範囲のabs bytesは作るが、unsafe inputのabs dotは選択しない。
+
+C:1523–1526は従来通りcompact/rawのdot、pointer、row strideの組を選ぶ。
+C:1560–1585でabs_preparedがあるときだけ差し替え、unsafeはその既存組へ戻す。
+raw readerへcompact pointerを渡す変更はない。compact row strideは(K/256)*144Bのまま。
+Q8_Kのd/qs/bsums、元cache、registryを変更していない。
+
+P:64–88はsafe→all unsafe→safe→partial unsafe→safeを同planで行い、input別fast行数も照合。
+64入力のinput63 unsafeを含むため、単に最下位bitしか見ないmask誤りも検出対象になる。
+現在のnew graph validationが注入する非finiteは+Infで、NaNの注入はない(P:70)。
+これは大きい穴とは判断しない。判定式はNaN/Infを同じexponent maskで扱い、以前の単体試験と
+今回こちらのhelper-only probeにはNaNが含まれる。ただし「今回の実graphでNaNも確認済み」
+とは書かない。再度小さいgraph regressionを回す機会に1ケース足せば十分。
+
+5. private input reuseと寿命
+===========================
+
+C:1792–1799でstateはoperatorのworker frameに作られ、last_input=-1で始まる。
+C:1993で同じstate pointerを各chunkへ渡す。C:1565–1570はinput identityが変わったときだけ
+そのworker専用K bytesへprepareするので、同inputの次row/chunkでは再利用できる。
+次operatorではstateが作り直され、同Kだが違うinputのstale sidecarを再利用しない。
+
+対象shapeではi12==0なのでlast_input=i11で十分。将来T>1を許すと、このidentityでは不足する。
+現在はshapeがT>1を拒否するため、今あるバグではない。
+
+duplicate expertやbroadcast入力2/3本等でinputを再訪すると、1-entryは再prepareする。
+C:1533–1535の16row tile内のir1巡回と組み合わさるため、1inputにつき最大nth回という
+一般上界は置けない。今回の実性能case（gate/up1入力、down6 distinct inputs/experts）に
+限定すれば各workerで通常一度ずつ。これは性能の注意であり、正しさの欠陥ではない。
+
+T>1、IQ3_XXS、MXFP4はQのshapeで除外され、use_refはC:1794でmode0になる。
+private prepareはcompact_dataがある非空row loop内のみなので、all-miss/use_refで準備0。
+P:86–88も非対象のcounter期待とprivate all-missゼロを検査する。
+
+graphのnode間/終了barrierはC:3442/3452に残る。abort callbackはoperator終了後の
+C:3435–3438で次node開始を止める。途中でwork_dataを他nodeへ貸し出す変更はない。
+新stateにheap ownershipや例外時の独自cleanupはなく、既存graph lifetimeへ従う。
+
+6. mode setterと将来のconcurrent caller
+======================================
+
+Q:10–15はtest-onlyで、graph実行中にmodeを変えないと明記する。
+A:12–17はprocess-global atomic。C:1794で各workerが独立にmodeを読む。
+atomicはmode変数自体のdata raceを避けるが、全workerが同じ値を読むsnapshot機能ではない。
+
+現P:79–81/P:121/P:133は前の同期graph_computeが戻った後にmodeを変える。
+fixed harnessも各computeの戻り後だけmodeを変える(N/fixed_probe.cpp:120–121,134–137)。
+測定armはprocessごとに固定する。この利用では新たなmode raceを確認していない。
+
+小さい禁止条件の実証（今回のhelper-only probe）:
+  K512、inputs1、workers2。前operatorのshared sidecarがゼロ、mask1がsafeの状態を想定。
+  worker0はmode1を読み、自分のblock0だけを新input=1からsharedへprepareする。
+  途中でmode2へ切り替え、worker1はprivate領域へ全inputをprepareする。
+  worker1はshared block1/mask1を書かない。worker0がstale safe maskを採用すると、
+  現compact出力512に対してabs出力256となる。
+これは実threadをraceさせず、実helper/dotを使って許されるinterleavingを段階実行した例。
+headerに明記された使用条件への違反であり、現benchの失敗や現APIに隠れたraceとは呼ばない。
+
+将来の最小契約は「process起動時にmode/型範囲を一度固定し、graph実行中に変更しない」。
+requestごとの変更が必要なら、backend/plan/compute parameterにsnapshotを持たせる設計が必要。
+それを今回すぐ実装する必要はない。setterへatomic memory_orderを強めるだけでは解決しない。
+
+別backend・別pool・別work_dataで、同じ固定modeのgraphを並行実行することと、
+同じbackend/pool/workspaceを重ねて実行することも別。後者は既存Bの共有work_data/plan状態から
+既にreentrant契約を持たない。registry ownerもlookup後の演算が終わるまで解放しない。
+lookupはlock後に生pointerを返す(E/row-local/iq3-cache.cpp:183–191)。新absはここを変えない。
+
+diagnostic totalsはprocess集約で、3項目のatomic readは同一instantの一括snapshotではない。
+同時callerのbefore/after差は自分のgraphだけの件数にならない。現試験はquiescentな同期呼出し
+なので妥当。将来のtraceにこのtest counterをそのままrequest別指標として使わない。
+
+7. IQ2限定の次段階へ進める際の具体条件
+=====================================
+
+Q:34の対象型はIQ2_SとIQ3_Sの両方。mode1を呼ぶだけではIQ2限定構成にならない。
+次の最小patchは、同じ既定mode0を維持し、IQ2のみをenableする固定type predicateを明示するもの。
+IQ3_Sの予約を残すかどうかは、まず正しさ・比較条件を優先して決める。61KiB程度のworkspaceを
+削るためにmode依存plannerへ戻す必要はない。
+型限定後はIQ2 fast rows>0と、同graph内のIQ3_S/MX/XXS fast rows==0を検査するとよい。
+
+今回すでに実施済みの境界を機械的に再要求しない。残る小さい優先試験:
+  ・同じgraph/work_dataでIQ2→IQ3_SまたはMX→IQ2と並べ、shape/stride/unsafeを切り替える。
+  ・plan requested12、OpenMP actual6/1の縮小を実graphで一度確認する。
+  ・IQ2限定の有効化、use_ref/off、cache mixed-hitのdispatchを同じ固定inputで確認する。
+  ・NaNを1条件追加する場合も全matrixを再走させる必要はない。
+
+graph shapeを無断で変更した古いplanや、途中mode切替を「支持対象」へ広げる試験ではない。
+CPU arithmeticの変更許容やGPUとのbit差を今回のabs評価へ持ち込まない。
+
+8. 今回の独立実行の範囲
+=======================
+
+source_contract_probe.cpp / run_source_contract_probe.py
+  実A/Qと現iq-small-kernels.incをincludeし、新規C++をcompileした。
+  runtimeはEPYC側Linux、Ivy Bridge ISA、-O1、-mno-avx2/-mno-fma、
+  -fno-fast-math/-ffp-contract=off、ASAN+UBSAN。性能時間は測定していない。
+  ggml_type_sizeはF32/Q8_Kだけの小さいaudit stub、operator plannerは数学的写像。
+  実ggml backend、threadpool、model、以前の配布ELFはリンク/実行していない。
+
+結果（probe_run_lsan_disabled/RESULT.json）:
+  layout条件                  198,144
+  shape条件                       16
+  不正size引数の拒否                4
+  buffer再利用・safety/thread phase324
+  実prepare呼出し              61,344
+  empty worker区間              1,152
+  合成safe mask照合               324
+  abs sidecar byte照合     19,630,080
+  すべてpass。
+  禁止mode切替の段階実行例も、512対256の不一致を期待通り示した。
+
+最初の実行はLeakSanitizerがptrace環境を理由に終了した。
+probe_run/RESULT.jsonに失敗を残し、再実行はASAN_OPTIONS=detect_leaks=0と明記する。
+AddressSanitizer/UndefinedBehaviorSanitizerは有効だが、leak検査成功とは主張しない。
+今回の19,630,080はbyteの照合回数で、モデル出力件数でも新しい4,565,700正解の再実行でもない。
+
+sourceのpath/line/hashは本書とSOURCE_MANIFEST.json、実行argv/stdout/compilerはRESULTにある。
+再実行は新規output directoryを指定する。生成ELFは引き渡し対象から除外する。

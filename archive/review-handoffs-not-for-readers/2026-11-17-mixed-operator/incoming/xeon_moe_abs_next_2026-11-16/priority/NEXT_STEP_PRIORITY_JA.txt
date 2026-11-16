@@ -1,0 +1,272 @@
+次の一手の優先順位 — IQ2 mixed条件とCPU/GPU評価の関係
+対象 commit: 31b1292b2767618a28ef6e3f1c9c4450b1fc21be
+2026-11-16
+
+0. 結論
+
+次の実験は、既存IQ2 up operator harnessへ「現final planと同じcache membershipを
+使うmixed条件」を一つ足すのがよい。測定済みlibraryは変更せず、既存48 expert IDsと
+8入力を再利用できる。GPU route-only censusをCPUの必須前提にはしない。
+
+具体的には、既存48 IDsとfinalのblk.0.ffn_up_exps.weightの313 selected IDsの交差39個を
+compact cacheへ登録する。既存8 route groupsのcached-of-six Cは
+  [5, 5, 5, 5, 3, 5, 6, 5]
+になる。C0/C6対照を残し、このCplanを一条件追加する。
+これはGPU hot hit数Hとは異なる。CPU compact cacheへのhit数Cである。
+
+この小試験を通ったら、最初の全モデルcandidateをIQ2 gate/upの実形状へ明示限定し、
+現finalと同じGPU配置・cache plan・算術でtrace-off A/Bを行う順序を支持する。
+全IQ2を一括有効化すると、今回性能を測っていないIQ2 down/input6も2 projection入る。
+そこまで含めたい場合に限り、先にIQ2 downを少なくとも1条件確認する。
+
+GPU route censusは元のCPU/GPU expert同時実行の評価へ戻るための有用な別経路であり、
+CPU候補の完了を待たなければ設計・測定できないものではない。一方、今回のIQ2には
+実operator上の再現した改善があり、既存harnessで残りのmixed疑問を小さく解ける。
+この状況でCPU作業を打ち切ってGPU collectorへ全投入する理由もない。
+
+offset4は今は保留する。新format/readerの維持費を増やす前に、既存formatを保つabsの
+適用範囲と全体効果を一度閉じる方が判断材料が増える。IQ3 absの1.5%という結果は、
+別方式offset4の不可能性を証明するものではない。
+
+1. 証拠の範囲
+
+N = archive/review-handoffs-not-for-readers/2026-11-16-abs-operator
+H = archive/review-handoffs-not-for-readers/2026-11-16-current
+E = H/snapshot/llm-lab/exploration-20261112
+
+今回実行したのは保存JSON/sourceのread-only検査とoffline再集計だけ。
+サービス、モデル、GPU、配布ELFに触れていない。repo sourceを変更していない。
+各sourceの完全path/SHA256はPRIORITY_SOURCE_MANIFEST.json。
+再集計値、元48 IDs、交差39 IDs、各routeのmask/CはCACHE_PLAN_SCOPE_AND_MIXED.json。
+
+N/FINAL_RUNTIME.jsonの記録上config SHA256:
+963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43
+E/checkpoint-1600/profile.jsonの公開済みfileそのもののSHA256:
+3e3cd33de5fef98d3798136a75b0bba03ebc66aab1e13ffce77bcdec32bf66af
+後者にはapi_key_fileのREDACTED表記がある。記録上の実行config hashと公開file hashを
+同一視しない。E/checkpoint-1600/FINAL_PROFILE_MANIFEST.jsonの記録configは前者と一致。
+
+N/iq-abs.cpp:12–15はmode0が既定のtest-only mode。N/iq-abs.h:10はgraph in-flight時の
+mode変更を許さない。通常API用のopt-in環境設定/profileはまだない。
+新しいoperator結果を「通常APIの改善済み」と表現しない。
+
+2. 現finalのcacheから何が分かるか
+
+E/checkpoint-1600/profile.json:101–102は120 GiB budgetとfrequency19200.planを指定。
+118–129行ではCPU expert層0–36、全層GPU expertは37–39。135行のcompact scopeは
+IQ3_XXS/IQ2_S/IQ3_SのCPU MUL_MAT_ID single-tokenに限定される。
+これはCPU RAM上のcompact weight cacheであってGPU hot expert bankではない。
+
+plan header:
+  80 tensors / 19,200 expert-projections / 127,401,984,000 bytes
+  payload = 118.65234375 GiB、configured budget = 120 GiB
+plan SHA256:
+  cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6
+
+保存trainingはCPU37層×3 projections=111 records。
+各recordのcalls=2,040、assignments=12,240=6*callsであり、counts[]の和とも一致した。
+型のenum値は保存ggml.h:410–431と照合した。
+
+型         CPU projection数   内訳gate/up,down   plan selected slots
+IQ2_S             14                12,2                3,454
+IQ3_XXS           58                42,16              13,766
+IQ3_S              8                 2,6                1,980
+MXFP4             31                18,13                   0
+
+IQ2だけの分母を分ける:
+- IQ2全候補は14*384=5,376 expert-projections。
+- 3,454/5,376=64.2485%はIQ2候補に対するcache coverage。
+- 3,454/19,200=17.9896%は全compact cache選択slots中のIQ2比。
+- 14/111=12.6126%はCPU projection件数比。
+いずれもcritical-path時間割合、モデル全体の時間割合、speedup予測ではない。
+gate/upは同じrouteを使うため、projection件数を独立request試行数とも扱わない。
+
+IQ2内訳:
+  gate/up: 12 tensors、selected 3,004/4,608、training hit 142,564/146,880=97.0615%
+  down:     2 tensors、selected   450/768、  training hit  23,601/24,480=96.4093%
+  合計:    14 tensors、selected 3,454/5,376、training hit 166,165/171,360=96.9684%
+
+training scopeは「CPU single-token assignmentの集約、prefill端数を含み得る。
+token IDs/text/request/execution orderを持たない」と明記されている。
+training MANIFESTのconfigは990e9f87...で、現在finalのconfigとは異なる。
+さらに、この同じtrainingを使ってplanを選んでいる。96.97%はin-sample hit率であり、
+現在の一般trafficに対する保証でもheldout評価でもない。
+
+3. co-occurrenceがなくても言える保守的な範囲
+
+IQ2全projectionでNcall=28,560、miss assignment数M=5,195。
+各callのmiss数は0..6なので、all-hit callの割合は、独立性を一切仮定せず
+  max(0, 1-M/Ncall) <= P(all-hit) <= 1-M/(6*Ncall)
+を満たす。
+
+IQ2全体: 81.8102% <= all-hit比 <= 96.9684%
+gate/up: 82.3693% <= all-hit比 <= 97.0615%
+down:    78.4559% <= all-hit比 <= 96.4093%
+
+各tensorのmiss整数性まで使えばIQ2全体の上界は96.9398%まで少し狭まるが、
+実際のC=0..6 histogramが得られたわけではない。q^6のような独立選択モデルも使わない。
+この範囲は「training内ではall-hitが多数だった」とは言える一方、mixedとall-missの
+具体的な比率、型ごとのtime share、現在のtraffic分布を確定しない。
+
+従って最初からC0..6全点の大きな性能matrixを回すより、C6対照を維持し、C5を中心に
+踏める小さなmixed診断条件を先に置くことには根拠がある。ただしC5が実trafficの
+最頻mixed形である、と証明されたわけではない。
+
+4. 次の一条件を厳密に定義する
+
+既存route source:
+  N/execution/fixed-iq2-0-frozen/stdout.log、最初の2 JSON recordsのroutesは同一。
+  SHA256 a8806bd1c8c72ff6ff93f5684a94276062709488b0c06f0fd0d6176a9d61e5f2
+plan source:
+  E/plans/frequency19200.plan、11行目 blk.0.ffn_up_exps.weight
+  IQ2_S / K5120 / M2304 / 384 experts / 313 selected
+
+既存48 IDsを6個ずつ区切り、plan selected集合とのmembershipを調べる。
+交差39 IDsを昇順でcacheへ登録する。ordered routeのslotは変えない。
+
+group  ordered six IDs                 compact hit mask   C
+0      79,176,232,279,273,173                 62           5
+1      256,363,47,140,154,4                   59           5
+2      299,223,276,235,133,196                55           5
+3      245,112,321,101,244,183                47           5
+4      300,295,224,288,206,287                41           3
+5      226,33,98,120,283,124                 62           5
+6      12,338,14,191,270,81                  63           6
+7      310,61,107,89,352,27                  31           5
+
+登録39 IDs:
+4,12,14,33,61,81,89,98,101,107,112,120,124,133,140,154,173,176,183,191,
+196,223,232,245,256,270,273,276,279,283,287,288,299,300,310,321,338,352,363
+
+cache payloadは39*6,635,520=258,785,280 bytes=246.796875 MiB。
+expert単位のbyte式はE/sparse-cache/release-v2-a/sources/selection-plan.h:75–76。
+既存C6の48 expert cacheは303.75 MiB。どちらも全モデルcacheとは異なるworking set。
+
+N/fixed_probe.cpp:110–121はseed固定の48 distinct experts、8入力、C6/C0登録と
+事前warmup/bit照合を持つ。ここへ登録条件を一つ追加するだけで既存libraryを使える。
+現在のwarm dispatch期待値6*Mは、Cplanでは各groupのC*Mへ変える必要がある。
+sampleごとにroute_group、C、cache bytes、mode、library SHAを保存する。
+同じcache membershipを全armで使い、miss時の元weight経路も変えない。
+
+特に重要な限定:
+このCplanは現finalの「cache membership」を使うだけで、実trafficのroute再生ではない。
+既存48 IDsは固定乱択で、Cplanは7/8 groupがmixed、all-hitは12.5%になる。
+一方blk.0.upのtraining marginalからはall-hit>=89.5098%である。
+従ってこの条件はmixed経路を強く踏む診断であり、典型trafficの平均ではない。
+39/48や上のgroup分布をそのまま本番speedupの重みにしない。
+
+測る順序:
+- 同一libraryのoff/sharedでabs分だけの差を見る。
+- frozen/off/sharedの直接対照でartifact全体の差も保持する。
+- C0/C6/Cplanの順序を回転させ、元の全観測を保存する。
+- correctness、診断counter、readback/hash、cache構築はtiming外。
+- Cplanのbit照合相手は同じmembershipのfrozen/current。rawとcompactがあらゆる入力で
+  byte一致する前提に置き換えない。
+
+IQ2 all-missでoff自体もfrozenより約4.8%速かったので、frozen/shared差の全てをabsへ
+帰属させない。新mixed条件でもこの3者の役割を維持する。
+Cplanの期待gainをC6と同じ5%へ固定しない。低Cでは対象内積が少なくprepare費用も変わる。
+通過基準は測定前に固定し、悪いgroupや外れ値を除いて改善を作らない。
+
+5. IQ2限定と全モデルA/Bの境界
+
+N/PERFORMANCE_PLAN.txtとfixed_probe.cpp:103–108が性能測定したIQ2は、
+blk.0.upのK5120/M2304/input1である。
+現finalのIQ2 downはblk.4.ffn_down_exps.weightとblk.8.ffn_down_exps.weight。
+K2304/M5120/input6であり、shared prepareの償却条件が異なる。
+
+N/iq-abs.h:33–37の形状判定はIQ2_SとIQ3_Sの両方を許し、IQ2 gate/upだけの
+production activation policyはまだない。単純にmode1をglobal有効化すれば、
+今保留としたIQ3_Sも対象になってしまう。
+
+今すぐの隔離IQ2up mixed harnessにはtypegate追加は不要。wがIQ2upだけだからである。
+全モデル段階では、明示的にIQ2_Sかつ確認したgate/up形状/input1へ限定した候補が必要。
+IQ2 downを含める拡大は、その性能を測ってからにする。この限定を「全IQ2最適化完了」と
+表現しない。最初のscopeはCPU projection12個で、14個全てではない。
+
+最終判断はtrace-offの全モデルA/Bで行う。
+frozen finalとの比較で、実際に配るcandidateが速いかを確かめる。
+同一library off/sharedはabsの効果の帰属を補う。片方で他方を代用しない。
+input/token/output hash、CPU affinity、cache plan、GPU37–39配置、context/KV、runtime
+libraryを揃え、通常APIへの採用前にisolated profileで確認する。
+長いモデル起動・通常APIの実行枠確保はユーザー担当という現行条件を守る。
+このレビューから稼働サービスへ操作する依頼へ読み替えない。
+
+6. なぜGPU censusを先に必須化しないか
+
+比較対象             直接答える疑問                         追加費用・条件
+IQ2 Cplan mixed      raw/compact混在でも利益とbit一致が残るか   既存operator harnessの小変更。
+IQ2限定全体A/B       配布candidateが現finalを速くするか        model起動枠、opt-in限定、全体検証。
+GPU route census     全40層の6 expert共起がどうなっているか    collector、診断context、モデル実行。
+hot host trace       同時実行時のCPU/GPUどちらが露出するか     安全なhot実行枠、既存join計測。
+
+route-only censusはCPUの時間割合pを測らない。これを先に実装しても、今回IQ2候補の
+全体利益が確定するわけではない。今回のmixed疑問は保存planと既存probeだけで作れる。
+従って、最小mixed screen→限定全体A/Bを先に進める判断には、実装コストに対する根拠がある。
+
+一方、CPUを全て最適化し終わることはhot並列評価の前提ではない。
+mixedが失敗する、全体gainが採用に足りない、またはmodel起動枠が取れずCPU側の
+判断を進められない場合に、CPU試行を際限なく増やす必要はない。
+GPU側は既存設計から再開でき、必要な実行枠があるならCPU作業と独立に採れる。
+この文章は新しいGPU collectorの実装を今回再開する指示ではない。
+
+GPU側で維持する条件:
+- route-only callbackはB=H/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp:
+  2177–2207でgraph分割、2200で同期するため、通常のlatency測定へ流用しない。
+- 旧hot14はE/prepare_hot_profiles.py:22–27で旧GPU37–39をCPUへ戻し、CPU planも変更。
+  新hot expert追加だけの効果へ帰属しない。
+- E/hot-ffn/hot-backend.cpp:124のpayload+3072MiBと151の2560MiB reserve guardを維持。
+  現APIと共存できない場合、guardを緩めない。
+- CPU/GPUの入力量子化差と数値差を、CPU bit一致だけで品質良否に置き換えない。
+  今回のCPU absが既存CPU算術を維持する方針も変更しない。
+
+7. 全体改善が小さいかを、件数から断定しない
+
+旧IQ3_XXS bias62の保存E/iq-rhs/LIVE_ABBA.jsonは全体約+0.5101%だった。
+これは局所数%と全体数%が異なる経験的な注意点だが、今回IQ2の上限ではない。
+
+現在のbaseline critical-pathにおける対象時間比pは未確定。
+r=1.05が対象全体で維持され、追加費用ゼロと仮定するだけなら、
+  S = 1 / (1-p+p/1.05)
+となる。全体+1%にはp>=約20.79%、全体+0.5%にはp>=約10.45%が必要。
+これは条件付き計算であり、12/111や3,004/19,200をpへ代入しない。
+同時実行ではCPU worker time総和をpにしない。
+
+N/ANALYSIS.jsonのIQ2 frozen process medianはC6約0.85–0.88ms、C0約1.44–1.50ms。
+同じ6 expertでもcache経路により所要が違う実例であり、assignment比がそのまま時間比に
+ならない理由にもなる。ただし、このisolated値を14倍して本番token時間と比較するのも
+実working set/input/重なりを無視するため、性能予測としては採用しない。
+
+型別traceを大きく追加してpを完全に求める前に、限定候補の全体A/Bで実際の効果を問う
+方が安い場合がある。採用に足りない結果なら、その時点でpの内訳を調べるか、候補を
+保留してhot計測へ戻る。測定しないまま小さすぎると断定することも、必ず効くと
+断定することもしない。
+
+8. offset4を今保留する理由と、再開時の最低条件
+
+IQ3_SはCPU8 projections（gate/up2、down6）、plan選択1,980 slotsである。
+これは時間割合ではないが、主用途が今回IQ2upと異なることは明確。
+offset4はabsとは異なるinstruction削減であり、IQ3 absのgate未達を直接引き継ぐものではない。
+ただし、まだoffset4の実operator速度はなく、新format/compat reader/loader dispatchまで
+増やす根拠が、現時点のIQ2 mixed→全体判断より強いとは言えない。
+
+再開する場合の最低契約:
+- 144-byteという同じsizeだけで現compactと互換としない。cache entryへ明示format ID/version。
+- packer、reader、unsafe fallbackは同じformat tagへ結び付け、既存readerとの混用を拒否。
+- GGUF原weightは維持し、source hash/shape/typeとformat versionをcache metadataへ保存。
+- -128/非finite等で旧経路へ戻す場合も、offset nibbleを旧compact nibbleとして読ませない。
+- 比較armは同一実operator harness上で既存compact対offset4。cache membership、route、
+  input、workersを揃え、decode/prepare/format dispatch/compat費用をoperator wallへ含める。
+- 現CPU算術とのbit一致を維持する設計を続ける。GPUとの差を許す方針への変更にはしない。
+
+今回は以上を将来条件として残し、format実装や新性能試験には着手しない。
+
+9. 今回の成果物の検証
+
+plan全80行のID一意性・範囲・宣言selected数・payload合計を照合。
+training全111 recordのcalls/assignments/counts和、type/shape/plan対応を照合。
+plan/trainingのSHAを保存FREQUENCY_MANIFESTと照合。
+新handoffから読んだsource/stdoutはFILES_SHA256.jsonのbyte数/SHAと照合。
+全体の選択率・training hit率・all-hit保守上下界を独立再計算。
+既存C0/C6 stdoutの48 ordered IDs一致を確認し、Cplan39 IDsと8 masksを抽出。
+モデル・CUDA・library・サービスを実行した回数は0。
