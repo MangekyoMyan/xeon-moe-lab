@@ -1,0 +1,44 @@
+次のレビュー依頼 — fresh容量とroute37の具体的な試作
+=================================================
+
+今回の返却を読み、CPU abs保留を維持してGPU分担の観測準備へ移りました。
+本人の新しい方針変更はありません。外部提案とユーザーの承認を分けています。
+通常APIやGPU37–39を変えず、capacity/identityを読み、隔離sourceを実装しました。
+
+実機新情報:
+  NVML total32768/used29920/free2575/reserved274 MiB、GPU150W/ECC Enabled。
+  total-usedとの差に注意。最小native bankを置く前の容量screenにも足りないため、hot追加なし。
+  実cudaMemGetInfo admissionは実行せず、GPU queryのみ。現在のprofile/config/libraryは不変。
+
+source:
+  route37/route37.h,route37.cpp: 固定record/ledger、registration、publication、検証、読出しAPI。
+  route37/cpu.patch: frozen finalのith0 host-ID境界へhookを追加。
+  route37/caller.patch,route37-bridge.*: process_ubatchの実行ごとのtag/generation/終了接続案。
+  route37/probe.cpp: 37-node実ggml小fixtureと否定ケース。変更CPU libraryはlink済み。
+  caller側はsyntax-onlyまで。full libllama link/診断driver/実モデルcaptureは未実施。
+  defaultは無効。global opt-in環境変数やserverへの自動有効化は作っていない。
+
+重要な検討点（コードを直接読んでください）:
+1. 単一context/caller/eval/CPU producerという初期scopeで、release/acquireとCPU同期戻りに
+   よるlifetimeが成立しているか。caller終了前のGPU tailと、CPU producer終了を分けた契約は
+   適切か。schedulerのextra backendやmodel graph reuseで欠測/誤ったgenerationが起きる
+   具体経路があれば指摘してください。
+2. 登録は元modelの37 gateを実ubatch前に照合し、copied aliasや変更geometryを拒否します。
+   実final graphでこのidentity方式が届かない箇所があるか。失敗時はcoverage未達として扱い、
+   mappingを推測で補完する変更はしていません。
+3. 呼出側labelはまだ診断driverの契約です。通常serverをいじらず、固定input/token列の
+   専用driverからrequest/phase/complete_callを与える次段階が妥当か。warmup完了後にsessionを
+   開き、4token smoke→64token、callerが元々必要とするlogits同期後に完了ledgerを閉じる案です。
+   追加syncを隠してlatency計測としないこと、unknown/prefill T1の扱いを確認したいです。
+4. 初期buffer/ledger境界・failure/retry・overflowの扱いに不足はあるか。現在のnegative testsは
+   一部direct-hook fixtureで、full-model/TSan検査ではありません。必要な小さい次検証を絞ってください。
+5. NVML free2575MiBという状態で37–39を維持する間はpositive hotを増やせません。
+   この段階はrouteのみで閉じ、ready計測のmemory計画は別にする案でよいか。guard引下げや
+   zero-hit custom dispatcherを中立collectorとして使う案は採っていません。
+
+source・実行ログ・元返却物は全て添付directoryにあります。RESULTSはナビゲーションです。
+単体graph出力13,320比較と部分ASAN/UBSANは成功しましたが、性能改善・モデル品質・実route分布を
+証明する数字ではありません。推測で過剰に進めず、sourceの具体的な危険/改善を指摘してください。
+
+共有した通常engineの基準は7d8b077/31b1292/ff616809の同branch内archive。今回の通常APIは同じ。
+新しいsourceは隔離試作であり、直ちに本番差替えできる完成installerとして扱わないでください。

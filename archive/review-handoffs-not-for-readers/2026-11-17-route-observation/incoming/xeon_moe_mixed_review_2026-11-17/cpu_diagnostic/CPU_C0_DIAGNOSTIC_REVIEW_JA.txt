@@ -1,0 +1,310 @@
+CPU C0 の追加観測 — source / 計時境界 / 識別できること
+2026-11-17 handoff 固定レビュー
+対象commit: ff6168094858141aeeebf45abc5c309882fe5216
+
+0. 結論と、この成果物の範囲
+============================
+次の主作業はGPU観測のsource契約・容量確認へ移してよい。CPU absは「mixedの利益あり、C0のcross-library
+総時間が事前基準外なので採用保留」のまま残す。本書は、CPU枝へ戻る具体的理由が
+できた時の診断仕様であり、追加実機試行の実施命令でも採用gateの変更でもない。
+
+追加CPU観測の第一候補は、read-onlyのprocess contextと、元wall境界の外側に置く
+CLOCK_PROCESS_CPUTIME_ID + getrusage(RUSAGE_SELF)である。まずperf群を増やさない。
+CPU time / context switch / faultsは「遅延時に何が伴うか」を増やすが、各processが
+一つのlibraryしか使わない現設計のlibrary/process交絡を、それだけで因果分離しない。
+新しいcounterが無反応でも、Eに固定費用なし／外乱なしとは結論できない。
+
+本担当が行ったのはsource・保存raw/STATUS/maps/guardの読み取り、一次API文書の照合、
+offlineの整数割当検査のみ。モデル、既存CPU library、API、GPU、ベンチを動かしていない。
+時刻/counterの動作試験も行っていない。新しいharness・launcherの実装もしていない。
+重要コードを編集する場合は親担当がこの契約とsourceを照合する。
+
+同梱:
+  CPU_DIAGNOSTIC_CONTRACT.json   未実装の機械可読仕様
+  SAVED_CONTEXT_AUDIT.json       保存8processのcontextと48source/evidenceのhash
+  audit_saved_context.py        上記を再現するread-only script
+  PRIMARY_DOCUMENTATION.json    API仕様を確認した一次文書と範囲
+
+1. 固定sourceと元計時境界
+=========================
+以下のaliasは対象checkoutのrepo相対path。
+  N = archive/review-handoffs-not-for-readers/2026-11-17-mixed-operator
+  I = N/incoming/xeon_moe_abs_next_2026-11-16/next_experiment
+  A = archive/review-handoffs-not-for-readers/2026-11-16-abs-operator
+
+主要sourceのSHA256:
+  I/mixed_probe.cpp
+    4e7dbf6796205a011a294a8ab5b3b1fde0647cd1730195ba074ab3d8c4898f21
+  I/run_one_mixed.py
+    ed40376855e8837d43d8f8457ebe97d6e1ffac96847b6f9aaa45845be5d896b1
+  N/evaluate_screen.py
+    dbf351eb8d57df465038f7333b71729f7a7d32aa99d2925b6df159e7e9f7f642
+  A/ggml-cpu.c
+    b87089543cd8da780e7d0a0563c5c4056a4ea40a30dc5a1f17789abeb844e9db
+  A/iq-abs.h
+    d0f6beb5306f57207345b3312e02677ccb9735d35ebce7cac6dedab1c64825d6
+  A/guard.py
+    f7304e868db0eaf9e6510d06576a2e05b47fb294fbfc6e0bba097988e8efa362
+
+I/mixed_probe.cpp:24–27は12 threads、16 blocks、4 arms、32 graph/chunkとF/E順序。
+45–50でcase順とABBA/BAABを定義。C0のselectionは52–57でemptyである。
+258–280はcase構築と全group warmup、281–290はteam/CPU sample、291はexpected file。
+294でinput/IDsを更新し、298のmode(actual);compute();は計時外の一回である。
+299のCLOCK_MONOTONIC begin → 32回compute() → endだけが元のwall測定区間。
+301–304のtensor_get / memcmp / sample追加はこの区間の外。JSONは123–154で後から出す。
+
+このwallは「dot kernelだけ」ではない。250のggml_backend_graph_compute呼出しを
+32回含むoperator/graph時間であり、backendのplan/dispatch/thread同期など到達する
+処理を含む。逆にweights mmap、cache pack、初期warmup、input更新、mode setter、
+計時直前の一回compute、出力取得・memcmp、JSON保存はwall対象外である。
+
+N/build_mixed.py:9–14とbuild/BUILD.jsonは既存flagsからharnessだけをlinkした記録。
+実harness SHAはc611c2edb2e2acca73b0c913d841ac9506363128c3ac6928586a3ad3bed5032a。
+N/run_mixed_suite.py:11–22は事前schedule、既存guard、200秒外側timeout、失敗時停止。
+I/run_one_mixed.py:242–254,281–365はfresh結果、identity、順序、child group、partial保持。
+N/evaluate_screen.py:6–19は以前のspecの中央値と時間総和を両方照合している。
+CPU診断を追加しても、この完了済みscreenを後から合格へ書き換えない。
+
+2. 保存結果から確定できる範囲
+=============================
+本担当のoffline再集計でも、C0のE/S−F/2のpair差は順に
+  (F0,E1) +1,466,564 ns
+  (F3,E2) +6,600,561 ns
+  (F5,E4) +84,876,211 ns
+  (F6,E7) +83,304,629 ns
+となった。Fは全4arm、E/Sは2armなのでF総時間を1/2にする。単純な全件平均を
+同じ仕事量として比較しない。E/Oでも後半二組の差は+92,090,849/+85,987,999 ns。
+この分布は、遅いperiodを調べる動機にはなるが、後半を除去する根拠にはならない。
+全block/chunk、processごとの総和、F placebo、E内S/O、F対E/O・Sを保持する。
+
+保存全8processでbase/harness/input/plan/launcher identityは共通、STATUSはcompleted。
+guardのhost countersは各56項目でEDACとthermal_throttleのみ。値が不変だったことは
+保存記録で確認したが、CFS/cgroup CPU bandwidth制限の観測ではない。
+sensor unix値は各process一種または二種。p7は一種だけで、新規chunkごとの実温度ではない。
+現在rawにはprocess CPU / context switch / pagefault / cgroup / perfの値がない。
+launcherのstarted/ended_monotonic_nsはlauncher全体であり、chunkのCPU時間ではない。
+
+I/mixed_probe.cpp:223のmaps保存はGGUF mmap:235より前である。保存8 maps全てに
+GGUF mappingはなく、weightsのNUMA割当・backend workspaceの最終配置は分からない。
+全mapsに同じlibgomp pathはあるが、そのbyte hashを今回の保存receiptから追加検証した
+わけではない。path一致とbinary一致を混同しない。
+
+3. C0で残るlibrary差の意味
+===========================
+E/offはFそのものではない。A/ggml-cpu.c:1791–1799はmode0でもshape/state処理と
+追加領域の予約を行う。3194–3197のplanner追加もmode非依存。A/iq-abs.h:39–45では
+K5120、inputs1、nth12のabs領域は5120*12+8*12=61,536 B、plannerはさらに63 Bの
+alignment余裕を足す。追加領域は既存row map/current_chunk等の後ろにあるので、
+この差分だけを根拠に「以前のrow map offsetがずれる」とは言えない。
+
+E/sharedはC0でも1856–1867のinput preparationを実行する。compact lookupは1914–1915。
+従ってcache missだけから「sharedの仕事は完全にゼロ」とは言えない。一方、この構造を
+今回の+2.74%や+2.99%の主因だと測定なしに断定もしない。workspace量、命令数、code
+layout、allocator、NUMA、page state、実行周波数、schedulerは別の変数である。
+
+識別の限界は設計上のものでもある。F/Eはprocess間で切り替わり、process内でF→Eへ
+切り替えていない。任意のprocess固定効果を同時に許せばlibrary効果と完全に分けられない。
+counterを説明変数に入れた回帰も、原因を自動的に同定しない。library自身がwaitや
+faultを変える場合、counterを差し引いて「補正」することは効果の一部を消し得る。
+
+4. まず取得価値がある計時外context
+=================================
+将来の実機診断では、counterを大量追加する前に以下を記録する。すべてread-only。
+現在の通常APIにqueryを追加せず、既存guardの運用契約・制限は維持する。
+
+・process自身の/proc/self/cgroup、/proc/self/mountinfo、PID、kernel release、boot ID、
+  scheduler policy/nice、affinity、実threads/TIDs、既存topologyを記録する。
+  shell/launcherだけのcgroupをharness自身の値とみなさない。
+  warmed workerの/proc/self/task/<tid>/cgroupも一度照合する。thread単位のcgroup配置が
+  許される構成を、mainのmembershipだけで全worker同一と仮定しない。
+・cgroup v2は、上記から解決したleafと可視ancestorのcpu.max / cpu.statを保存する。
+  cpu.stat.local、cpu.max.burst、cpu.pressure等は存在時だけ読む。v1なら対応する
+  cpu.cfs_quota_us / cpu.cfs_period_us / cpu.statを存在時だけ読む。未知項目もraw保持。
+  namespace/mount rootを考慮し、/sys/fs/cgroupを文字列連結で決め打ちしない。
+  見えないancestor・未提供fieldはunknown。leafのmaxだけで無制限と判定しない。
+・cpu.statとPSI totalはcase前後に、monotonic read開始/終了とともに取得する。
+  group共有・ancestorの値は他process/descendantも含み得る。増加してもharness単独の
+  kernel原因とは言えない。counter差分はcaseの診断で、32-call wallだけの値ではない。
+  /proc/pressure/cpuはhost範囲として分離。PSI avg10と短いchunkの時間率を同一視しない。
+・OMP_WAIT_POLICY / GOMP_SPINCOUNT / KMP_BLOCKTIME等の存在/値、pool.pollとstrict_cpu、
+  loaded OpenMP runtimeのpath/hash/versionを記録する。値を今回新規設定しない。
+  現launcherはOMP_/GOMP_を除去し固定OMP三項目だけ戻す(173–185)。ggml側の初期化後
+  に採るreceiptが望ましい。A/ggml-cpu.c:4194–4205ではOMP_WAIT_POLICY設定はコメント、
+  KMP_BLOCKTIMEのdefault設定は実コードなので、launcher前のenvだけでは足りない。
+・mapsに加え必要時はnuma_mapsを計時外に取得する。numa_mapsは仮想空間をscanする
+  ためper-chunkの安価な観測には入れない。最初の案では全timed loop終了後、Resources
+  cleanup前(308–309付近)に一回。これはpost-run配置で、C0実行中の配置証明ではない。
+  C0専用の前後配置が不可欠になった場合に限りcase境界へ追加し、その負担を記録する。
+
+CPU bandwidth quotaはthermal throttleとは別の機構である[D4,D5]。quotaが見つかった
+場合も、それを解除する、新cgroupへ移す、CPU/NUMA policyを変えることは本提案に含めない。
+unknownの場合に既存条件を推測で緩和しない。NUMA page数はremote access数ではなく、
+mapsのASLR address差も性能差の原因を証明しない[D8]。
+
+5. 最小per-chunk snapshotの仕様
+===============================
+全threadsの観測として、CLOCK_PROCESS_CPUTIME_IDとRUSAGE_SELFを用いる[D1,D2]。
+RUSAGE_THREAD、CLOCK_THREAD_CPUTIME_IDをmainだけで読む方式では
+worker11本を含めた観測にならない。launcher側のRUSAGE_SELFはlauncherの資源であり、
+RUSAGE_CHILDRENは終了・wait済み子の集計なのでchunk目的に合わない。
+
+取り方は以下の固定順とする。既存32-call loop内へsyscall、JSON、file I/O、追加barrier、
+atomic counter、OpenMP regionを入れない。pre/post用領域はwarmupより前に確保・touchする。
+
+  mode(actual); compute();           // 元の計時外一回。移動・削除しない
+  pre.read_begin_mono_ns = monotonic()
+  getrusage(RUSAGE_SELF, pre.ru)
+  pre.process_cpu_ns = process_cpu_clock()
+  pre.read_end_mono_ns = monotonic()
+  begin = monotonic()                // 元のwall begin
+  32回 compute()                     // 元のloop
+  end = monotonic()                  // 元のwall end
+  post.read_begin_mono_ns = monotonic()
+  post.process_cpu_ns = process_cpu_clock()
+  getrusage(RUSAGE_SELF, post.ru)
+  post.read_end_mono_ns = monotonic()
+  元のneed/tensor_get/memcmp/sample追加
+
+preはrusage→CPU、postはCPU→rusageにしてCPU clockをwallへ近づける。各callは原子的な
+共通時刻のsnapshotではなく、process全threadの資源は別API・別時点で読む。従って
+counter窓が元wallより広いことを明示する。pre/post read envelopeを保存し、後から
+wallと完全同一区間だったように表示しない。CPU clockとrusage CPU timeの厳密一致も
+要求しない。rusageのCPU timevalはsec/usecを整数で保存する。
+
+最小counter:
+  process CPU nanoseconds
+  ru_utime / ru_stime
+  ru_nvcsw / ru_nivcsw
+  ru_minflt / ru_majflt
+各pre/post生値を残し、差分だけにしない。ru_maxrssは高水位なのでchunk RSS差分として
+使わない。未維持fieldの0を「そのeventがない」と読まない[D1]。
+
+派生値はwall_ns、cpu_delta_ns、user/system_us、各switch/fault delta、read_duration、
+counter窓の余白を別項目で出す。cpu_delta/wallは平均的なprocess CPU占有量の手掛かりで、
+1を超えるのは多threadなら自然である。これを12から引いて「scheduler待ち時間」と
+する演算や、CPU time増分を「追加命令の時間」とする解釈はしない。spin・stalls・周波数・
+unbalanced worker・API窓差が混ざる。全thread集計はどのworkerが遅れたかも示さない。
+
+clock_getresをprocess開始時に保存し、CLOCK_MONOTONICは元のまま用いる。異なるwall clock
+へ差し替えない。run/case境界でmonotonic-before → realtime → monotonic-afterの組を
+保存すると外部sensorとの対応に幅を付けられる。realtimeのjumpやdaemon timestampの
+古さは別に残り、clock pairだけで温度因果が証明できるわけではない[D2]。
+
+6. 観測負担の対照
+=================
+snapshotをwallの外に置けば直接のsyscall時間はwallから除けるが、直前のcache/TLB状態や
+OpenMP spin/sleepへの影響は残る。GNU libgompはwait policy/spin設定によって待ち方が
+変わる[D9,D10]。空snapshotを何回か測った費用をwallから引くだけでは、この影響を消せない。
+
+将来C0診断を行う場合の小さい対照候補は、同じ新harness binary内で
+  diagnostic_enabled = ((arm + block % 8) & 1)
+を事前固定する方式である。各4-arm blockでlogical O/Sそれぞれ1本on・1本offとなる。
+同routeのblock+8は元のmode順が反転し、modeに対する位置の偏りも入れ替わる。
+64 C0 wall chunksは全保存、うち32にcounter、32はcounter fields=nullと理由を明示する。
+SAVED_CONTEXT_AUDIT.jsonでこの組合せだけを整数計算し確認した。collectorは未実装。
+
+これは診断のon/off対照であり、旧screenの追試でもpass探索でもない。比較は
+F placebo、E S/O、F対E/O・Sを保ちつつ、diagnostic on/offを別軸に出す。
+全wall総和を残し、counterがある半分だけを性能集計として選ばない。counterなしの
+chunkを0 counters扱いしない。period/preceding-armからのcarryoverも依然あり、対照が
+無差だからobserver effectゼロと断定しない。
+
+全chunkにcounterが必要な将来目的ならfull samplingを事前選択してもよいが、
+負担対照を別に設計する必要がある。途中で良い方へ選び替えない。いずれも新harness
+buildになるため、元harnessと同一byteの追試ではない。新旧結果を混ぜて旧gateを再採点しない。
+
+7. 仮説識別表
+==============
+下記の「整合」は原因の証明ではない。矢印は同group・同mode等の等量仕事での比較。
+
+仮説                     追加観測と整合する型                 なお識別できないこと
+E/shared前処理の費用      E S/OでwallとCPUが一貫して増加        modeがworker待ち方を変える効果と分離しない
+Eのmode非依存固定費用     E OもSもFよりCPUが増える傾向         code配置/allocator/clock/stall、process状態
+descheduling/待ち        wall↑、CPUほぼ同じ、switch増など     switch回数は待ち時間でない。barrier sleepもある
+一部worker停止+他のspin   wall↑、CPUも増える場合がある          高CPUだから外乱なしとは言えない
+page-in/初回page活動      major/minor faultやsystem CPU増      fault数はL1/LLC miss数でもfault latencyでもない
+quota/CPU pressure       cgroup stat/PSIがcase中に増加        共有groupの他process、ancestor、chunkとの時刻差
+frequency/実行中stall    wallとCPUが伸び、fault変化なし等      CPU timeだけでfrequencyとmemory stallは分けない
+NUMA/cache/first touch    post maps/numa_mapsに配置差がある等    配置差からremoteアクセス量・因果は分からない
+ASLR/build layout        maps address/binaryが異なる          相関だけでは遅い原因と言えない
+
+追加観測が全部平穏なら「未解決」である。period/process外乱の無存在証明にはしない。
+counter相関を使ったoutlier除去、F placeboの差し引き、clock/switch補正後のscreen合格は行わない。
+
+8. perf等を先送りする理由と、必要になった場合の条件
+==================================================
+最小snapshotで説明できないscheduled CPU側の増加が残り、対応を決める必要がある時だけ
+次段を検討する。PMUはsampling/callstackではなく少数counting eventから始める。
+候補はinstructions / cycles / ref-cycles。未対応eventを勝手に別eventへ替えない。
+event nameだけで意味を決めず実CPU/PMU/kernelの仕様を照合する[D3]。
+
+threads作成後にmainへperf_event_open(pid=0,cpu=-1,inherit=1)を一つ開くだけでは、
+既存workers全体を覆わない。inheritは新しいchildに対するもの。全workerを測るなら、
+全TIDへ適切にattachして寿命を検査する等、明示したcoverage契約が必要になる。
+per-thread groupのread窓も同時ではなく、12 groupのreadは最小案より負担が増える。
+生counts、event config、exclude_user/kernel等、TID、time_enabled/runningを保存する。
+multiplex推定値だけを出さず、coverageが不足した値を未実行eventの0として扱わない。
+
+instructions増は算術以外のspin/dispatchも含む。cycles/instructionsやcycles/ref-cyclesの
+変化は仮説を狭め得るが、cache/NUMA/thermal原因の確定ではない。generic cache-missesを
+L1 missやremote-memoryアクセスと読み替えない。
+whole-process perf statはstartup/mmap/cache packも含み、C0 chunkとの一対一対応を持たない。
+外部interval samplingもcaseやchunkの境界をまたぐ。trace/schedstat/per-thread timingは
+さらに別の第二段案であり、RUSAGE_THREADをmainに足しただけで代替できない。
+権限不足なら未観測として止め、sysctl/cgroup/production設定を変更しない。
+
+9. 採否・保留と、GPUへ先に進む情報価値
+=====================================
+通常APIは現状維持し、GPU観測のsource契約と容量確認を先に整えることは妥当である。
+実captureには診断buildと適切な起動枠が必要であり、稼働APIへ無変更で新計測を接続
+できるという意味ではない。route-onlyの別full-model processでも、通常のGPU層37〜39や
+KVの確保が加わる点は、実captureの容量・起動計画で別途扱う。
+CPU mixed利益は既に記録されており、C0原因を完全同定しても実workloadのhot expert共起、
+CPU/GPU completionの重なり、GPUへ逃がせるcritical pathは分からない。一方、そのGPU側
+情報は次にどのCPU費用を削る価値があるかも変え得る。このためCPU枝を先に精密化する
+機会費用がある。route-only自体をcritical-path割合とみなすことも避ける。
+
+CPU診断を再開する条件:
+  ・CPU abs候補の採否が直近の判断を阻み、識別結果で次の実装/観測が変わる。
+  ・親が元wall境界・F/O/S階層・新diagnostic schemaを確認し、有限の予定・停止条件を
+    実行前に決める。旧8processを理由なく再実行しない。
+  ・contextに明白な未把握制約があれば、まずその記録を解釈する。設定変更は別作業。
+
+候補collectorを採る条件:
+  ・scopeが全threadsで、counter API失敗・負delta・clock不整合を隠さない。
+  ・allocation/touch/file I/O・new barrierが元32-call区間にない。
+  ・同一binaryのobserver対照とsnapshot時間を残し、負担が問題規模と区別できないなら
+    「低負担で測れた」と言わず診断を保留する。
+  ・新source/header/build/library identityと全rawを保存する。新schema/purposeを明示し、
+    既存evaluate_screenを自動で適用しない。
+
+再測定で旧遅延が出なかった場合、元結果を取り消さない。「この有限診断では再現せず」
+としてCPU保留を維持する。測定を続ければpassが見つかる、という停止規則は置かない。
+原因が外部と疑われても、counterで悪い区間を除外して採用基準を満たしたことにはしない。
+
+10. 一次文書
+============
+local /usr/share/man には対象getrusage/clock/perfのman pageが見つからなかったため、
+公開一次文書で意味を確認した。URLと使用箇所はPRIMARY_DOCUMENTATION.jsonにも保存。
+最新版文書であり、対象実機kernel固有のoptional field存在は未確認として扱う。
+
+[D1] Linux man-pages getrusage(2), DESCRIPTION / resource fields
+  https://man7.org/linux/man-pages/man2/getrusage.2.html
+[D2] Linux man-pages clock_gettime(3), CPU clocks / MONOTONIC / clock_getres
+  https://man7.org/linux/man-pages/man3/clock_gettime.3.html
+[D3] Linux man-pages perf_event_open(2), pid/cpu / inherit / read_format / events
+  https://man7.org/linux/man-pages/man2/perf_event_open.2.html
+[D4] Linux kernel documentation, Control Group v2, CPU interface / hierarchy
+  https://docs.kernel.org/admin-guide/cgroup-v2.html
+[D5] Linux kernel documentation, CFS Bandwidth Control, quota / stats / hierarchy
+  https://docs.kernel.org/scheduler/sched-bwc.html
+[D6] Linux kernel documentation, PSI - Pressure Stall Information
+  https://docs.kernel.org/accounting/psi.html
+[D7] Linux man-pages proc_pid_mountinfo(5), mount namespace/root/mount point
+  https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html
+[D8] Linux man-pages numa(7), /proc/pid/numa_maps
+  https://man7.org/linux/man-pages/man7/numa.7.html
+[D9] GNU libgomp documentation, OMP_WAIT_POLICY
+  https://gcc.gnu.org/onlinedocs/libgomp/OMP_005fWAIT_005fPOLICY.html
+[D10] GNU libgomp documentation, GOMP_SPINCOUNT
+  https://gcc.gnu.org/onlinedocs/libgomp/GOMP_005fSPINCOUNT.html

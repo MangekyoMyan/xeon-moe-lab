@@ -1,0 +1,16 @@
+{
+  "scope": "Primary API documentation read for a deferred diagnostic specification; optional target-kernel support remains unverified",
+  "local_man_lookup": "No target getrusage/clock_gettime/perf_event_open manual found under /usr/share/man in the review environment",
+  "sources": [
+    {"id":"D1","url":"https://man7.org/linux/man-pages/man2/getrusage.2.html","web_ref":"turn24view0","sections":["DESCRIPTION: RUSAGE_SELF, RUSAGE_THREAD, RUSAGE_CHILDREN","ru_utime/ru_stime, ru_minflt/ru_majflt, ru_nvcsw/ru_nivcsw","ru_maxrss and unmaintained fields"],"use":"Define whole-process versus main-thread scope and limits of event counts"},
+    {"id":"D2","url":"https://man7.org/linux/man-pages/man3/clock_gettime.3.html","web_ref":"turn24view1","sections":["CLOCK_PROCESS_CPUTIME_ID","CLOCK_THREAD_CPUTIME_ID","CLOCK_MONOTONIC","CLOCK_REALTIME","clock_getres"],"use":"Keep original wall clock, use all-thread process CPU time, record separate intervals"},
+    {"id":"D3","url":"https://man7.org/linux/man-pages/man2/perf_event_open.2.html","web_ref":"turn23view2","sections":["pid/cpu arguments","inherit","read_format and time_enabled/time_running","generic hardware and software events"],"use":"Perf thread coverage and multiplexing caveats; deferred counting only"},
+    {"id":"D4","url":"https://docs.kernel.org/admin-guide/cgroup-v2.html","web_ref":"turn28view0","sections":["hierarchy","process/thread organization","CPU interface files"],"use":"Read-only leaf/ancestor CPU controls and group scope"},
+    {"id":"D5","url":"https://docs.kernel.org/scheduler/sched-bwc.html","web_ref":"turn28view1","sections":["quota/period","v1 management/statistics","hierarchical considerations"],"use":"Differentiate CFS bandwidth limits from thermal throttling"},
+    {"id":"D6","url":"https://docs.kernel.org/accounting/psi.html","web_ref":"turn28view2","sections":["Pressure interface","Cgroup2 interface"],"use":"Group/host pressure totals, distinct from harness-only CPU time"},
+    {"id":"D7","url":"https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html","web_ref":"turn29view3","sections":["mount namespace, mount root, mount point"],"use":"Resolve visible cgroup paths without assuming a fixed mount root"},
+    {"id":"D8","url":"https://man7.org/linux/man-pages/man7/numa.7.html","web_ref":"turn30view0","sections":["/proc/pid/numa_maps"],"use":"Post-run policy/page-placement receipt, no per-chunk scan or access inference"},
+    {"id":"D9","url":"https://gcc.gnu.org/onlinedocs/libgomp/OMP_005fWAIT_005fPOLICY.html","web_ref":"turn29view0","sections":["Description"],"use":"Active/passive wait interpretation; record settings without changing them"},
+    {"id":"D10","url":"https://gcc.gnu.org/onlinedocs/libgomp/GOMP_005fSPINCOUNT.html","web_ref":"turn29view1","sections":["Description"],"use":"Observer delay can affect spin/sleep behavior; target runtime defaults are not inferred from current documentation"}
+  ]
+}

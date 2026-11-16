@@ -1,0 +1,194 @@
+{
+  "schema": 1,
+  "purpose": "Deferred CPU C0 mechanism diagnosis, not an adoption screen",
+  "implementation_status": "Specification only; no collector or diagnostic harness implemented or executed",
+  "review_commit": "ff6168094858141aeeebf45abc5c309882fe5216",
+  "recommendation": {
+    "next_primary_work": "GPU route and readiness observation under the existing final placement",
+    "cpu_abs_adoption_status": "On hold; the completed original C0 cross-library total-time gate failed",
+    "cpu_trial_scheduled": false,
+    "cpu_cause": "Unidentified",
+    "fundamental_identifiability_limit": "CPU library is fixed within each process. Additional counters can describe accompanying mechanisms but do not identify library effects separately from arbitrary process effects."
+  },
+  "forbidden_actions": [
+    "Repeat the original eight-process suite until a pass is found",
+    "Discard slow observations or subtract placebo/counter-derived corrections to pass the original gate",
+    "Rebuild CPU libraries as part of collecting these diagnostics",
+    "Change cgroup, NUMA, affinity, ASLR, production API, fan, power, or GPU settings",
+    "Interpret absent or unreadable counters as zero",
+    "Run the saved build/run scripts automatically"
+  ],
+  "source_anchors": {
+    "harness": {
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-mixed-operator/incoming/xeon_moe_abs_next_2026-11-16/next_experiment/mixed_probe.cpp",
+      "sha256": "4e7dbf6796205a011a294a8ab5b3b1fde0647cd1730195ba074ab3d8c4898f21",
+      "constants_lines": [24, 27],
+      "mode_order_lines": [45, 50],
+      "sample_struct_lines": [112, 119],
+      "deferred_output_lines": [123, 154],
+      "maps_before_gguf_mmap_line": 223,
+      "gguf_mmap_line": 235,
+      "pool_setup_lines": [246, 250],
+      "case_and_warmup_lines": [258, 291],
+      "input_route_update_line": 294,
+      "untimed_mode_compute_line": 298,
+      "original_wall_32_graph_loop_line": 299,
+      "post_wall_correctness_lines": [300, 304],
+      "post_all_timing_before_cleanup_lines": [308, 309]
+    },
+    "launcher": {
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-mixed-operator/incoming/xeon_moe_abs_next_2026-11-16/next_experiment/run_one_mixed.py",
+      "sha256": "ed40376855e8837d43d8f8457ebe97d6e1ffac96847b6f9aaa45845be5d896b1",
+      "env_lines": [173, 185],
+      "identity_sequence_lines": [242, 254],
+      "launch_cleanup_lines": [281, 365]
+    },
+    "cpu_operator": {
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/ggml-cpu.c",
+      "sha256": "b87089543cd8da780e7d0a0563c5c4056a4ea40a30dc5a1f17789abeb844e9db",
+      "mode_independent_state_workspace_lines": [1791, 1799],
+      "shared_preparation_lines": [1856, 1867],
+      "cache_lookup_lines": [1914, 1915],
+      "mode_independent_planner_lines": [3194, 3197],
+      "omp_environment_initialization_lines": [4194, 4205]
+    },
+    "full_saved_source_manifest": "SAVED_CONTEXT_AUDIT.json#/source_manifest"
+  },
+  "retained_original_work": {
+    "threads": 12,
+    "route_groups": 8,
+    "experts_per_group": 6,
+    "blocks_per_case": 16,
+    "arms_per_block": 4,
+    "timed_graph_calls_per_chunk": 32,
+    "untimed_graph_calls_immediately_before_chunk": 1,
+    "wall_clock": "CLOCK_MONOTONIC",
+    "wall_scope": "32 synchronous ggml_backend_graph_compute calls, including their internal backend work",
+    "included_in_wall": ["the existing 32 graph calls"],
+    "excluded_from_wall": ["mode setter", "existing untimed graph", "input and routing updates", "diagnostic snapshots", "tensor_get and memcmp", "JSON formatting", "file I/O", "cache packing"],
+    "unchanged_supporting_contracts": ["read-only weights", "F/E provider and SHA verification", "expected output and cache membership checks", "existing outer guard", "fresh run directory", "partial output preservation", "bounded finite run with no automatic retries"],
+    "case_history": "A future C0-only run answers a changed context question. If diagnosing the original mixed-case carryover, preserve and record its case sequence; do not silently equate C0-only with the original protocol."
+  },
+  "tier0_read_only_context": {
+    "placement": "Outside all timed 32-call windows",
+    "required_metadata": ["PID", "kernel release", "boot identity", "effective affinity", "physical topology", "scheduler policy and nice", "warmed worker TIDs", "actual OpenMP runtime path and SHA", "pool poll and strict_cpu values", "source/header/harness/library/input/plan hashes"],
+    "environment_fields": ["OMP_WAIT_POLICY", "GOMP_SPINCOUNT", "KMP_BLOCKTIME", "OMP_DYNAMIC", "OMP_THREAD_LIMIT", "OMP_MAX_ACTIVE_LEVELS", "OPENBLAS_NUM_THREADS"],
+    "environment_policy": "Record presence and value after backend initialization; do not add or modify settings",
+    "cgroup_resolution": {
+      "membership": "/proc/self/cgroup",
+      "worker_membership_check": "/proc/self/task/<tid>/cgroup after warmup",
+      "mounts": "/proc/self/mountinfo",
+      "require_mount_root_and_namespace_handling": true,
+      "levels": "leaf and visible ancestors of the relevant CPU hierarchy",
+      "v2_if_present": ["cpu.max", "cpu.stat", "cpu.stat.local", "cpu.max.burst", "cpu.pressure"],
+      "v1_if_present": ["cpu.cfs_quota_us", "cpu.cfs_period_us", "cpu.cfs_burst_us", "cpu.stat"],
+      "missing_or_unreadable": "Preserve path, errno and availability=false; never infer unlimited or zero",
+      "raw_contents_preserved": true,
+      "writes_allowed": false,
+      "interpretation_limit": "The cgroup or ancestor can include other processes. A change is not necessarily caused by the harness. An unlimited leaf does not establish absence of ancestor limits."
+    },
+    "case_boundary_context": ["cgroup CPU stat snapshots before and after the case", "cgroup PSI cumulative totals if available", "host /proc/pressure/cpu under a distinct host scope", "monotonic read begin/end timestamps"],
+    "placement_receipts": {
+      "maps": "Existing startup map plus a post-all-timed-work receipt if added",
+      "numa_maps": "Optional one read after all timed loops and before Resources cleanup; never per chunk",
+      "reason": "numa_maps scans the virtual address space; it describes mapping and page placement, not remote accesses or cache misses",
+      "limit": "A post-run placement receipt does not establish placement during an earlier C0 case"
+    },
+    "clock_pair": {
+      "sequence": ["CLOCK_MONOTONIC before", "CLOCK_REALTIME", "CLOCK_MONOTONIC after"],
+      "when": ["run boundaries", "case boundaries when adding context snapshots"],
+      "uncertainty": "Preserve the enclosing monotonic interval and any realtime discontinuity; do not claim exact sensor/chunk correspondence"
+    }
+  },
+  "tier1_process_snapshot": {
+    "scope": "All threads in the harness process",
+    "cpu_clock": "CLOCK_PROCESS_CPUTIME_ID",
+    "resource_api": "getrusage(RUSAGE_SELF)",
+    "not_substitutes": ["CLOCK_THREAD_CPUTIME_ID on main", "RUSAGE_THREAD on main", "launcher RUSAGE_SELF", "RUSAGE_CHILDREN"],
+    "per_snapshot_fields": {
+      "read_begin_mono_ns": "uint64 integer",
+      "read_end_mono_ns": "uint64 integer",
+      "process_cpu_ns": "uint64 integer",
+      "ru_utime_sec": "nonnegative integer",
+      "ru_utime_usec": "integer in 0..999999",
+      "ru_stime_sec": "nonnegative integer",
+      "ru_stime_usec": "integer in 0..999999",
+      "ru_nvcsw": "nonnegative integer",
+      "ru_nivcsw": "nonnegative integer",
+      "ru_minflt": "nonnegative integer",
+      "ru_majflt": "nonnegative integer",
+      "valid": "boolean",
+      "error": "null or API/errno explanation"
+    },
+    "ordered_protocol": [
+      "Keep original mode(actual); compute() outside wall",
+      "pre.read_begin = CLOCK_MONOTONIC",
+      "getrusage(RUSAGE_SELF, pre)",
+      "pre.process_cpu = CLOCK_PROCESS_CPUTIME_ID",
+      "pre.read_end = CLOCK_MONOTONIC",
+      "original wall begin = CLOCK_MONOTONIC",
+      "original 32 synchronous compute calls, no extra instrumentation",
+      "original wall end = CLOCK_MONOTONIC",
+      "post.read_begin = CLOCK_MONOTONIC",
+      "post.process_cpu = CLOCK_PROCESS_CPUTIME_ID",
+      "getrusage(RUSAGE_SELF, post)",
+      "post.read_end = CLOCK_MONOTONIC",
+      "original validation, tensor_get, memcmp and sample storage"
+    ],
+    "allocation_policy": "Allocate and touch all snapshot/sample storage before warmup",
+    "clock_resolution_receipt": "clock_getres for original wall and process CPU clocks once at startup",
+    "api_failure_policy": "Retain error and partial evidence; classify diagnostic incomplete, do not silently use zero or switch clocks",
+    "interval_limit": "CPU and rusage readings have different enclosing windows extending outside the original wall interval; do not assert simultaneous atomic snapshots or exact interval equality",
+    "no_new_hot_path_operations": ["additional worker barrier", "new OpenMP region", "per-row counters", "JSON formatting", "file reads/writes", "perf reads inside wall"]
+  },
+  "measurement_perturbation_control": {
+    "preferred_candidate_for_a_future_diagnostic": "Balanced half-chunk snapshots in one newly built common harness",
+    "formula": "diagnostic_enabled = ((arm + block % 8) & 1)",
+    "per_block_per_logical_mode": {"enabled": 1, "disabled": 1},
+    "per_c0_case": {"all_wall_chunks": 64, "counter_enabled": 32, "counter_disabled": 32},
+    "disabled_fields": "null with reason=planned_measurement_control",
+    "all_wall_observations_retained": true,
+    "assignment_validation": "Offline integer checks in SAVED_CONTEXT_AUDIT.json; collector unimplemented",
+    "comparisons": ["F placebo by diagnostic flag", "E S/O within each flag", "F versus E/O and E/S with equal work and flag balance", "all retained wall totals"],
+    "carryover_limit": "Before/after snapshots may change cache, TLB, spin/sleep, and next-arm state. On/off comparison does not completely eliminate temporal or carryover confounding.",
+    "full_sampling_alternative": "Must be chosen prospectively if all-chunk counters are required, with a separate burden control; never select after inspecting favorable results",
+    "no_empty_call_subtraction": true,
+    "admission_condition": "If observed or unresolved measurement perturbation is comparable to the actionable effect, keep the diagnosis on hold rather than declare the collector negligible"
+  },
+  "recording_and_analysis": {
+    "new_schema_and_purpose_required": true,
+    "original_evaluate_screen_not_automatically_applicable": true,
+    "retain_original_chunk_keys": ["process_index via metadata", "library_label via metadata", "case", "block", "route_group", "arm", "logical_mode", "actual_mode", "ids", "hit_mask", "cached_of_six", "begin_ns", "end_ns", "elapsed_ns", "repeats", "bit_mismatches"],
+    "add_chunk_keys": ["diagnostic_enabled", "diagnostic_scope", "pre_snapshot", "post_snapshot", "diagnostic_error"],
+    "keep_raw_cumulative_values": true,
+    "derived_values": ["CPU time delta", "user/system time delta", "switch and fault deltas", "pre/post read duration", "boundary envelope slack", "CPU delta / original wall with interval caveat"],
+    "prohibited_interpretations": ["12 minus CPU/wall equals scheduler wait", "CPU time increase equals added instructions", "major/minor faults equal CPU cache misses", "context-switch count equals waiting duration", "no counter anomaly proves no interference", "cgroup counters belong exclusively to the harness", "post-run NUMA mapping proves C0 placement", "ASLR address change proves layout slowdown"],
+    "comparison_hierarchy": ["within-E S/O", "cross-library F versus E/O", "cross-library F versus E/S", "within-F logical placebo"],
+    "aggregation": "Keep equal-work total wall time and process results, not only chunk medians. Do not treat graph calls as independent requests.",
+    "outlier_policy": "Keep every planned observation and failure; no removal based on timing or counters"
+  },
+  "tier2_deferred": {
+    "reason_to_open": "A scheduled-CPU-side difference remains and distinguishing work versus stalls/frequency would change the next decision",
+    "counting_event_candidates": ["instructions", "cycles", "ref-cycles"],
+    "sampling_or_callstack_profiling": false,
+    "coverage": "Explicitly cover all existing worker TIDs and validate lifetimes. Main-thread inherit=1 opened after workers exist is insufficient.",
+    "required_perf_receipts": ["CPU/PMU/kernel version", "event type/config", "user/kernel/hypervisor exclusion flags", "TID coverage", "raw count", "time_enabled", "time_running", "read-window timestamps", "availability/error"],
+    "multiplex_policy": "Preserve raw coverage and counts; do not report an estimated scaled count as complete observation",
+    "permission_failure": "Record unavailable and stop this optional branch; do not change permissions, sysctl or cgroup policy",
+    "cannot_establish_alone": ["NUMA cause", "thermal cause", "code layout cause", "library causal effect independent of process state"]
+  },
+  "stop_conditions": [
+    "CPU diagnostic result would not change the next implementation/measurement decision",
+    "Observer effect cannot be separated from the effect of interest",
+    "Required identity, scope, clock, counter, guard or correctness contracts fail",
+    "A finite predeclared trial does not reproduce the old delay: report non-reproduction and keep old evidence and hold status"
+  ],
+  "executed_review_checks": [
+    "Read fixed CONSULT_PRO_JA, RESULTS_JA, README, POLICY_AND_PLAN_JA",
+    "Read source timing, build, suite, launcher, gate and CPU C0 paths",
+    "Read saved eight process raw/STATUS/maps/guard and compute exact-work context",
+    "Verify balanced sampling formula with pure integer enumeration",
+    "Check API semantics in official Linux man-pages, Linux kernel and GNU libgomp documentation"
+  ],
+  "not_executed": ["clock/counter collector probe", "new benchmark", "CPU library execution", "real model", "API", "GPU", "perf", "runtime configuration mutation"]
+}

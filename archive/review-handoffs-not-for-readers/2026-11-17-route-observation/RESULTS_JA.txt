@@ -1,0 +1,109 @@
+GPU分担の観測準備 — 容量の実測とroute37試作（2026-11-17）
+========================================================
+
+結論
+----
+CPU absは保留を維持。以前の8processを再試行して合格を探す作業はしていない。
+今回のPro提案を親が確認し、現在の容量・実体を読み取ったうえで、CPU側の37 gateにおける
+expert選択を記録する診断用試作を別ディレクトリへ実装した。通常APIは変更していない。
+
+新しいGPU性能・実モデルroute分布・CPU/GPU overlapの測定結果はまだない。
+今回得た実機の新情報はfresh capacity/identityと、人工graphによる記録処理の検証結果。
+
+1. 現在の容量
+-------------
+GPU UUID GPU-6622f7a2-ee1a-a79e-1277-cee96d850aa3、PCI00000000:84:00.0。
+NVML/nvidia-smi単発XMLの表示値:
+  total32768 MiB、used29920 MiB、free2575 MiB、reserved274 MiB。
+  free=2,700,083,200 B=約2.515GiB。電力制限150W、ECC Enabled。
+  driver580.196.07、製品名Tesla PG500-216。
+
+total-used=2848MiBを現在のfreeとして扱えない。今回free fieldは2575MiBで、reservedの
+表示も別に存在する。各fieldのMiB表示は丸め等を含むため足し算の厳密一致も仮定しない。
+
+既存hot機構の事前条件は実cudaMemGetInfo.free > native payload+3072MiB。
+返却資料の最小native triplet12,072,960Bを例にすると、>3083.513671875MiBを要求する。
+今回のNVML値はこの容量screenを満たさない。CUDA context/allocationを作って実guardを
+実行した意味ではない。3072MiB/2560MiBの既存guardは維持し、hot bankは追加しなかった。
+通常APIと別モデルを同居させる起動もしていない。
+
+host MemAvailableは同snapshotで73,349,971,968B（約68.31GiB）、reserve64GiBは維持。
+これはhost参考値で、将来のallocation成功やcgroup headroomを保証する値ではない。
+GPU compute-process queryにはPID11151のみが出力された。device usedとprocess usedは別値。
+
+2. 稼働実体
+-----------
+通常APIのPID11151、health ok、slot0 idleを読み取り確認。GPU resident層はconfig上37,38,39。
+config SHA963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43。
+CPU final SHA33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3。
+CPU/CUDA/base/libllama等のmapped pathをinode/deviceと照合し、backing file hashを保存した。
+再配置後のmemory内ELFをhashしたという意味ではない。詳細はIDENTITY_SNAPSHOT.json。
+監視serviceはactive。fan出力は変更していない。70%上限は継続方針で、今回dutyを独立query
+した値ではない（monitorのRPMを記録）。GPU queryは定期pollではなく容量とprocess各1回。
+
+3. 実装した試作
+---------------
+route37/ggml-cpu.cはfinalのコピーへ1か所のhookを追加したもの。abs候補は組み込まない。
+既存MUL_MAT_IDのith==0がhost IDsを読んだ後、既存barrier前にrecord関数を呼ぶ。
+登録済みgate weight tensor/data/type/shape/strideを照合し、gate/up/downを3重に数えない。
+hook内にheap allocation、mutex、clock、file I/O、追加barrierはない。
+無効時はhookのatomic flag確認が残るので、性能が完全に不変と断定しない。
+
+固定128byte record×4096、attempt ledger512、call ledger128を使用。現在のx86 little-endian
+ABIでrecordサイズと主要offsetをstatic_assert。session開始時に固定領域をprefaultする。
+呼出側がrequest/sequence/decode-call/logical-token/phaseを明示。1トークンだからdecodeとは
+推測しない。warmup/prefill/unknown_t1はdecode件数に入れない。実ubatchのpositionを使う。
+
+one context / one caller / one active eval / CPU ith0のsingle producerに限定。
+immutable tagと37 bindingsをrelease/acquireでworkerへ公開し、thread_localには依存しない。
+caller APIsはgraph in-flightで変更しない契約。並列requestの汎用ロガーではない。
+モード/labelのmid-eval変更とbusy closeを拒否するが、任意の誤用をrace-freeにするものではない。
+
+新しいattempt IDは各実graph実行に付け、graph再構築時にはgenerationを進める。
+失敗と再試行は別attemptで保持。重複/欠測/不正ID/-1/未知コピー/overflowをerrorとして残す。
+bufferが満ちても古い記録を上書きせず、dropとinvalidを記録する。
+通常の成功decodeには37unique gate×6unique IDsが必要。未観測層をhit0で補わない。
+
+呼出側差分caller.patchとroute37-bridge.cppは、process_ubatchの実graph_compute直前でtagを
+結び、戻りでCPU route生産を閉じる。pipeline_parallelやmultisequence/複数positionは初期scope外。
+normal CPU backendのgraph_computeはggml_graph_computeを同期実行することを現sourceで確認。
+GPU37–39のasync tail完了をその戻りだけで宣言せず、callerの通常sync後にcomplete_callを要求する。
+
+4. 実行済み検証
+---------------
+診断CPU libraryのcompile/link成功。libllama側の変更contextとbridgeは構文検証成功。
+libllama全体のlink、診断driver/server接続、実モデル起動は未実施。
+
+人工weightの37-node ggml graph（K256/M4/expert384、各6IDs、12threads）を使用。
+IQ2_S/IQ3_S/IQ3_XXS/MXFP4を混在させ、凍結版の5graph出力を正解にした。
+診断default-off、session観測off、観測onの計13,320出力比較がbit一致。
+parentでlabelを設定し、別std::threadから実ggml graphを実行してworkerが記録する条件を検証。
+warmup、prefill T1、unknown T1、decode2回のmetadata/ordered IDs/generation再利用を検査。
+別に9件の否定的契約ケース（欠測、重複、alias、record/attempt超過、不正IDs、graph失敗、
+未sync完了、失敗→retry ledger）とstrided IDs、多token prefillのscope除外を確認。
+一部はhookを直接呼ぶ契約fixture。全9件が実graphで起きたという主張ではない。
+多token prefill除外はcaller metadataの契約fixtureで、実行graph自体のIDsはT1のまま。
+strided IDsもdirect-hookで検査し、実modelのstrided graphを実行した結果とは区別する。
+
+同じ検証を変更CPU C/C++とprobeにASAN/UBSANを付けて再実行し、成功。
+再利用された全object/baseやcaller側はinstrumentしていない。TSan/race証明でもない。
+繰返し検査を別の一意な13,320件として加算しない。
+
+これは実モデルのK5120/M2304でのcapture、4token coverage smoke、64token joint分布、
+観測off/onのlatency比較を済ませたという意味ではない。実形状でextra CPU backendや
+schedulerによってこのhookが迂回されれば、次のcoverage検査は失敗しなければならない。
+callerが提供するphase/完了情報の正しさは、将来の診断driverを含めて確認する必要がある。
+
+5. 次段階と今回の停止点
+----------------------
+Proが求めたfresh receiptとsource差分/phase受渡し案を作り、小さい実graphで先行検証した。
+通常APIへの動的attach機構や本番profileは追加していない。GPU ready/eventsも未実装。
+CPU absの新性能試験、hot配置変更、GPU37–39のCPU化、guard引下げ、モデルdownloadは行っていない。
+
+次はこのsource/寿命/phase契約をレビューし、診断driverとlibllamaの限定buildを詰める。
+実captureは同居ではなく、通常APIと入れ替える適切な起動枠で検討する。
+長いモデル起動はユーザー担当という既存方針があり、今回はこちらで起動していない。
+現時点の試作を通常APIへ差し替えるコマンドは提供しない（接続側の実行検証が未完了）。
+
+FINAL_RUNTIME.jsonでPID/config/plan/runtime backing files/元source不変、health ok、監視正常を確認。
+テストcontrollerは終了済み。資料は生ログ・source・差分・build hashごと保存し、次のPro相談に渡す。

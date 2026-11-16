@@ -1,0 +1,189 @@
+CPU mixed operator 後の GPU 観測契約レビュー
+対象 commit: ff6168094858141aeeebf45abc5c309882fe5216
+対象 handoff: 2026-11-17-mixed-operator
+状態: 読み取りレビューと計測設計。新 GPU / model / API / 配布 ELF は実行していない。
+
+参照方法
+本文の [HOT_CPP:175] 等は SOURCE_MANIFEST.json の source_ids と、その固定 source の行番号を指す。manifest は実ファイルの SHA256 を収録する。新 handoff の CONSULT / RESULTS / README / POLICY を全文読み、以下の実装経路を照合した。OBSERVATION_CONTRACT.json は実装前の契約であり、計測済み結果・起動許可・採用指示ではない。
+
+1. 質問1/3への判断
+
+CPU abs の本採用を保留したまま、次の調査対象を GPU 観測へ戻すのは妥当である。今回 C6 は同一 experimental library の shared で total time が約4.399%減り、実在する局所利益を示した。一方、frozen と experimental/shared の C0 total は約2.986%増え、事前 screen を通過しなかった。後半 process への偏りは調査価値があるが、環境原因・実装原因のどちらも確定していない。この結果を捨てたり閾値を変えたりせず、CPU 候補を保管して別の未解決点へ調査を進められる。[N_CONSULT, N_RESULTS, N_SCREEN]
+
+ここで GPU 観測へ戻るとは、直ちに hot placement を増やして走らせることではない。優先する順序は次である。
+  (a) 現在の容量・library・配置の読み取り receipt。
+  (b) GPU37–39 を維持したまま、候補対象 CPU0–36 の ordered joint routes を採る最小契約。
+  (c) 実際の private reserve guard が通る診断枠でのみ、CPU/GPU readiness の bounded 観測。
+
+現状の記録は (c) をすぐ実行できることを示していない。従って今回提出するのは、親が重要コードを点検・実装するための契約と source 台帳である。過去 Pro 文書の「次に起動する」「API を止める」等を新しいユーザー指示として再利用しない。[N_POLICY]
+
+2. CPU worker 並列・CPU/GPU expert 並列・通常 final の区別
+
+CPU 内12 worker の並列計算と、同一 FFN の6 expert を GPU hit / CPU miss に分けて進める並列計算は別である。後者の実装は存在する。HOT_CPP は6 IDsを分割し、GPU H2D→graph→D2H を enqueue した後、CPU miss graph を同期実行し、最後に GPU stream の残りを待って元 slot へ戻す。[HOT_CPP:156–175]
+
+従って「並列コードがない」という理解は正しくない。ただし async 呼出の存在だけで、実際の GPU kernel 実行と CPU 演算が時間的に重なったと証明したことにはならない。起動遅延、capture/replay、資源競合、H、層の型、CPU compact hit 状況に依存する。
+
+通常 final は CPU0–36 / GPU37–39、120 GiB sparse CPU compact、MX prepack / CUDA-sort / sparse-cache libllama を使い、profile に hot 有効化はない。新 mixed 後の loaded CPU は frozen のままである。今回問題にしている「CPU 層内の一部 expert を新しい GPU bank へ振る」経路は、通常 final へ採用されていない。これは GPU37–39 や他の GPU 演算の存在を否定する意味ではない。[PROFILE:38–41,91–103,118–160; N_FINAL]
+
+3. 最初の重要な制約: positive hot 診断の容量
+
+実 hot backend の guard は payload>0 のとき、cudaMemGetInfo の free > payload + 3072 MiB を要求する。native bank と各 H の private graph を確保・warmup した後も free > 2560 MiB が必要である。private CUDA backend、pinned buffers、graph workspace 等を伴う。[HOT_CPP:120–151]
+
+直前 abs handoff の FINAL_RUNTIME は GPU used 29920 MiB、既存機器 receipt の total は32768 MiBである。単純差は2848 MiBで、3072 MiBを既に224 MiB下回る。CPU0–36の最小 native triplet でも12072960 bytes = 11.513671875 MiBであり、guard が必要とする free は3083.513671875 MiBより大きい値となる。単純差を free と仮置きした当時の margin は −235.513671875 MiBである。[A_FINAL:monitor.gpu; H_STATE:hardware.gpu; CAPACITY:layers; CAPACITY_READONLY_ANALYSIS.json]
+
+これは保存された値の読み取り計算であり、現在の cudaMemGetInfo を測った結果ではない。新 mixed FINAL_RUNTIME は同じ API PID11151・設定・libraryの継続を記録するが、GPU used/free を含まない。PIDが同じだから free も同じと扱えない。当時の容量 screen は positive private guard と整合せず、現在 guard が通る証拠もない、という結論に留める。[N_FINAL]
+
+次の読み取り receipt は、日時、GPU UUID/PCI、NVML total/used/free、GPU process、API slot/health/PID、runtime maps/各 hash、MemAvailable、既存 monitor 状態を同じ窓に記録する。CUDA context 作成や allocation は不要である。NVML free は screen に留め、後の実 cudaMemGetInfo guardを代替しない。warmup後guardも残す。private reserve、GPU150W、ECC有効、fan上限70%、RAM reserve64 GiB、monitorを緩める提案はしない。
+
+route-only で hot bank を増やさなくても、別 full-model context を通常 API と同居起動すれば、GPU37–39・KV等を二重確保する。これを VRAM不要と説明してはいけない。現在の通常APIをそのまま維持する段階では、receiptと契約まで進め、実captureには適切な診断起動枠が必要である。
+
+4. なぜ最初は all40 callback より37層の CPU host ID hook か
+
+GPU37–39 を維持するなら、新 hot plan の eligible 対象は CPU0–36だけでよい。hot loaderは gate/up/down がすべてhost上の対応型である層のみ eligible とし、ineligible層の n は0を要求する。GPU37–39を n=0に固定する候補の joint hit 分布を評価するために、その3層の routes は必須ではない。[HOT_CPP:65–66,90–114]
+
+現 final CPU の MUL_MAT_ID は、既にhost上のidsを ith==0 で一度読む。1830–1844行のループは6slotを読み、expert毎の row mapping を作り、1853行の既存barrierへ進む。この場所に gateだけ・CPU0–36だけの固定record書き込みを加える候補は、追加D2Hやgraph splitを必要としない。[CPU_C:1712–1744,1825–1853]
+
+旧 census はほぼ同じ場所に xeon_moe_census_v1 を挿していたが、そのcollectorは全projectionの calls/assignments/countsを集計するものである。6 IDs の順序と同時選択関係、token/phaseは保存しない。旧 source/binary をそのまま戻すと現 final の MX prepack 等の経路が変わるため、現 final CPU source を基点に小さな診断overlayを作る必要がある。現 final CPU_C には旧 census hook自体がない。[CENSUS_C:1790–1810; CENSUS_CPP:18–45,68–106; CPU_C]
+
+この capture は IQ2 に限定しない。IQ3_XXS / IQ3_S / MXFP4 を含む37層の gateを対象にする。CPU compact hit の型・件数を GPU hot hit H と取り違えない。今回 mixed の Cplan=[5,5,5,5,3,5,6,5] はCPU compact plan membershipであり、GPU hot Hの観測ではない。[N_RESULTS]
+
+5. 37層 route collector の最小具体案
+
+【hook】CPU_C:1825–1845 の ith==0、host IDループの直後、1853の既存barrier前。init/graph生成時に実gate weight identityとlayer/type/shapeを37件登録し、hot pathでは固定テーブルと固定bufferへ書く。元weightのtensor/dataがコピー等で変わる場合はgraph generationごとにmappingを確認し、未知・曖昧なmappingを黙って名前推測しない。
+
+【projection】blk.L.ffn_gate_exps.weightのみ。gate/up/downを3回の route として数えない。gateが必ず37件通ることは最初のsmokeで確認する。欠けた層をH=0で埋めない。
+
+【記録単位】run / context / request / sequence / decode-call / ubatch / eval-attempt / logical token / input position / layer / phase / graph generation / ordered global expert IDs[6]。0<=ID<384、6個unique、T=1、hot無効時に-1無しを検査する。再試行やfailed evalは別attemptとして保持する。
+
+【phase】T=1というshapeだけでは、生成decodeとprefill末尾1tokenは区別できない。caller/harnessがphaseを明示し、llama_contextの実行境界でimmutable tagを公開する。process_ubatchやgraph_computeの各実行が対象であり、graph build時だけtoken番号を進めてはいけない。graph reuseがある。llama側でphaseを確定できなければunknown_t1とし、decode統計に混ぜない。[NORMAL_CONTEXT:1525–1595,2003–2033,2754–2782]
+
+【thread境界】parent threadのthread_localをCPU worker ith0が読めると仮定しない。1context・同時active eval 1件を最初の対応scopeとし、既存graph実行前にrelease/acquire等でtagを安全に公開し、終了状態をledgerへ記録する。複数context・多sequence・speculative経路は、対応していないなら明示的にscope外とする。
+
+【buffer】128 bytes/recordの固定layout案を別JSONに示した。4096recordなら512 KiB、64 decode tokens×37=2368recordを収められる。先に4tokens×37=148recordのcoverage smoke、その後64tokensという小さな上限を提案する。値は新しい観測案であって実測数ではない。bufferはwarmup前に確保・prefault、hot pathでclock、JSON、file I/O、malloc、mutex、追加barrierを入れない。overflowはdrop counterとinvalid flagを残し、古いrecordを上書きしない。
+
+【sampling】1token内37層を丸ごと採る。層ごとのランダム間引きはjointを壊す。failed/retried attemptを集計対象から区別するが、rawから消さない。decoder callerの完了ledgerと独立照合し、成功decode各tokenに37unique layers×6IDsが揃うことを要求する。
+
+【得られるもの】あらかじめ凍結した仮想planごとのH0..6分布、同じtoken内の層間joint、hot slot mask、H0/低Hの連続性。37–39はeligible=false/n=0としてmetaに記録し、採っていないroutesを捏造しない。64tokenの診断は典型trafficを保証しない。plan選択に使ったpromptとの同一データ評価はtraining fitと明示し、後のheld-out評価と分ける。
+
+【得られないもの】Hの頻度だけではCPU残り時間・GPU時間・copy時間・critical path・最適planは分からない。同じHでもlayer型、CPUcompact membership、expert個別行列、入力、warm/capture状態で費用が違う。周辺分布だけを再最適化して配置を決める段階には進めない。
+
+6. all40 cb_eval は比較案として残す
+
+通常graphの ffn_moe_topk callbackは2252行、命名はgraph_get_cbでlayer suffixが付く。top-kは全argsortの先頭6をviewにしたものなので、特にT>1では元strideを保持する。raw dataを無条件に6×T連続I32と解釈しない。[NORMAL_GRAPH:2247–2252; NORMAL_CONTEXT:2869–2875; GGML_C:5503–5516]
+
+専用callbackならask段階をtarget top-kだけtrueにし、post callbackで6IDsを固定host bufferへ読む。ただしこのschedulerはcb_evalが非nullならgraph viewを分割し、そのviewごとにbackend_synchronizeを行う。最後のviewでaskがfalseでも同期がある。低頻度callbackにすれば通常scheduleと同じになる、とは言えない。[SCHEDULER:2171–2202]
+
+既存common/debug callbackをregexで ffn_moe_topkだけに絞る方法は、最小案ではない。askは常にtrueで、regexは後半の出力filterであり、device tensorのcopyもその前後で行う。そのため対象外nodeにも同期・copyが増える。[COMMON_DEBUG:143–186]
+
+all40 callbackはcoverage oracleや将来37–39までplacement変更対象にした場合の候補である。今回の37 eligible層だけならhost hookを優先する。callback実装ではtop-k viewが実際にcallback訪問されることをsmokeで確認する。訪問されないときはmissingを明示し、全tensor dumpへ黙って退避しない。通常latencyの証拠として使わない。
+
+cb_evalはcontext paramsから初期化され、現通常APIへ無再起動で注入する既存public setterは確認できない。host hookも新CPU診断buildが必要であり、どちらも現API無変更のまま使える観測器ではない。[LLAMA_H:394–395; NORMAL_CONTEXT:233–234,1555,4068; COMMON_COMMON:1775–1776]
+
+7. zero-hit hot dispatcher を route-only に代用しない
+
+hot有効・selected0でもcustom backendとprivate CPU graphは作られる。hot graphは元FFNをcustom nodeへ置換し、weightを掛けるtailをouter GPUへ強制する。つまりH0はGPU expert bankが空という意味であり、通常finalと同じgraph/schedulingという意味ではない。[HOT_CPP:130–135,211–232; HOT_GRAPH:2320–2329,2506–2511]
+
+旧 all-miss byte一致はcorrectnessの有用な証拠だが、placement中立なtiming controlではない。通常route captureはhot disabledを保つ。hotあり/なし、CPU worker設定、CPUcompact対象、GPU37–39を同時変更した結果を新hot効果だけへ帰属させない。旧hot14 profileはn_cpu_moeを40に変え、CPU planも差し替えるのでこの対照に使えない。[HOT_PROFILES:16–27]
+
+8. hot readiness: host clock でまず分かる範囲
+
+将来positive pathを測れる場合、inner scopeを「State.computeへhost入力/IDsが揃ってから、6slotの非重み付きhost FFN出力が完成するまで」と明示する。outer schedulerの入力D2H待ち、後段weighted/reductionのGPU転送はこの外である。
+
+計時境界はJSONのhost_hooksに列挙した。主な場所は、execution mutex前後184、compute entry156、partition完了167、CPU入力set後168、GPU enqueue前169/後172、CPU graph前後174、CPU出力copy後174、既存GPU join前後175、scatter後175、関数exit178。phase/callID/layer/H/orderedIDs/slot mask/型triplet/CPUcompact maskを同じrecordに結び付ける。H0にはGPU branchの値が存在せず、H6にはCPU branchの値が存在しないためnullで表す。欠測を0として平均しない。
+
+CPU完了とGPU完了を共通起点からのready時刻 C,G と置くと、理想的なinner完了は max(C,G)+merge である。CPU/GPUの開始時刻は一致すると仮定しない。GPUはCPU入力set後のenqueueから進み、CPU graph開始はその後である。
+
+しかし既存gpu_join_endはGそのものではない。GPUがCPUより先に終わっていても、CPU終了後のjoin呼出から戻った時刻しか観測しないため、早く終わった位置が隠れる。join待ちは残り待ち＋call overheadであり、GPU全体時間でもない。max(C,G)にjoin残り待ちをさらに足すと二重計上になる。
+
+hostだけで厳密に再構成できるのは、連続する境界間を重複なく足したwall timeである。partition/prep、enqueue、CPU graph+copy、既存join残り、scatter、その他gapを分ける。未観測のGをjoin_endで代用して「GPU律速だった」「完全に隠れた」と断定しない。初回logger176とgraph warmupをsteadyと別扱いにする。[HOT_CPP:156–178]
+
+9. private CUDA stream、graph末尾join、eventを置く場所
+
+実CUDAはUの元ggml-cuda.cuではなくcuda-sort/release-candidate-aのoverlayである。以下の行番号はその実overlayを基準にする。
+
+  H2D: CUDA_CU:2731–2737、D2H:2740–2746 はともに cuda_ctx->stream()。
+  backend同期:2830–2833 は同じstreamの cudaStreamSynchronize。
+  private stream:CUDA_COMMON:1528–1536、cudaStreamNonBlockingで生成。
+  graph内fork:CUDA_CU:4767–4773、main streamから子streamへevent待ち。
+  graph内join:4860–4866、curr_stream_no=0へ戻して子streamのjoin eventsを待つ。
+  capture終了launch:4940、replay launch:4961、backendからの最終呼出:5045。
+  標準backend event:5050–5053で現streamにrecord、6246でdisable-timing生成。
+  内部fork/join eventsもCUDA_COMMON:1326,1329でdisable-timing生成。
+
+従って、必要ならCUDA backend内の小さな専用helperでtiming-enabled eventを別途作り、実stream上でE0=H2D前、E1=H2D後、E2=graph_compute_asyncでgraphをenqueueした後、E3=D2H後にrecordする案がある。現public APIにstream getterがあると仮定したり、libllamaからbackend contextを任意castしたりしない。
+
+eventをbackend graph callの外側に置けば、direct / capture / replayを囲める。kernel発行loopだけに計時を挿すと、replayではそのloopが走らず計測が消える。graphは最初の安定2回等でwarmup/capture状態が変わり得るため、graph key/generationとmodeを残す。hot初期化は各reachable Hで3回warmupしているが、すべての後続callがreplayであると無確認で固定しない。[CUDA_CU:4996–5045; HOT_CPP:143–149]
+
+標準backend eventはcudaEventDisableTimingなのでcudaEventElapsedTime用には流用できない。別timing eventsを計測前に固定poolで作り、既存175行のstream synchronizeが完了した後だけelapsedを回収する。追加cudaDeviceSynchronize、eventSynchronize、poll loopは入れない。E0→E1等はdevice stream上の経過時間であり、他streamとの競合、queue/host発行の隙間も含み得る。純kernel稼働時間とは呼ばない。
+
+CPU/GPUでclock原点が異なる。event elapsedをhost enqueue_beginへ加えてexact GPU readyを作ることはできない。GPU elapsedとhost CPU時間やjoin待ちを単純加算してwall分解することもできない。CUDA Runtime API 12.9.1 Event Managementのrecord/query/elapsed仕様を参照した。
+https://docs.nvidia.com/cuda/archive/12.9.1/cuda-runtime-api/group__CUDART__EVENT.html
+
+10. single event query が分かることと、分からないこと
+
+0<H<6のcallでCPU出力ready後、既存join前にE3を1回だけcudaEventQueryし、query_begin_ns / query_end_ns / status / event_generationを記録する案は、追加同期を避けた補助分類になる。
+
+successならE3はquery_endまでに完了していた。しかしCPU出力readyより前なのか、CPU marker後からqueryまでの窓で完了したのかは分からない。NotReadyなら問い合わせ窓のどこかでE3がpendingだった。それはexact完了epochでも、D2H本体がまだ未完了だった証明でもない。E3はD2Hの後に置く完了markerであり、markerの遅延もある。
+
+従って最小分類は「query窓でready / pending / error」である。CPUendとの厳密前後やCPU律速/GPU律速を、単一queryから無条件には確定しない。eventの未record状態はqueryがsuccessになり得るので、call/event generation一致を先に検証する。NotReady以外のCUDA errorは成功扱いにしない。queryをbusy loopに変えるとoverheadとscheduleを変えるので禁止する。
+
+実行の時間的overlapそのものを強く示すには、別段階のhost/device相関timelineが必要になる。同じplacement・同じbackend算術でserial/concurrentのbounded twinsを比べる方法は条件付きwall利益を示せるが、元のCPU-onlyとGPU混合の差をoverlap量と呼ぶことはできない。H6はCPU miss branchが無く、そこでの高速化はCPU/GPU overlap利益ではない。
+
+11. lifetime と outer scheduler で残すべき同期
+
+既存hotはexecution_mutexで同Stateのcallを直列化する。GPUはpinned_input/pinned_idsを読み、pinned_outputへD2Hする。CPUは別cpu outputをdstへ書いた後、既存GPU join後にhot slotsをscatterする。通常経路175、例外188、destructorのsyncがbuffer/layerを守る。これらを消さず、event poolはcall generationを付けてresolve後に再利用する。現実に守られているinflight lifetimeを架空の不具合として扱わない。[HOT_CPP:67–88,163–175,183–188]
+
+outer schedulerにも、input copy、destination再利用、zero-input splitのallocator lifetimeのためのevent wait / synchronizeがある。単に「syncが多いからoverlapを観測したい」と削除してはいけない。[SCHEDULER:2095–2133,2137–2169]
+
+whole FFN latencyが必要になった時点で、既存split入口、copy_input前後、host dispatcher呼出前後、tail enqueueを同じcallIDへ結ぶ。copy/submitのhost returnはGPU完了ではない。tailの真のreadyにはそのstreamのcompletion markerや既存dependent completionによる上界が必要である。追加cb_evalでtailを切って観測するとscheduleが変わるため、inner host timingから段階的に広げる。
+
+CUDA gate/up/SwiGLU融合では中間gate/upがmaterializeされない場合がある。latency測定のために融合を無効化したり、未書き込み中間bufferを読んだりしない。算術比較が必要な別fixtureと混同しない。[CUDA_CU:4473–4508]
+
+12. 既存 isolated fixture をどう位置付けるか
+
+旧hot-backend correctness testは実dispatcher、L4/L24、H0/1/3/6、inputのCPU/GPU配置等を検査し、CPUcold slotやGPUscatterの妥当性を示している。BACKEND_VALIDATIONは当時APIを停止したisolated testだったと記録する。今通常APIと同居できる証拠にはならない。[HOT_TEST; HOT_VALIDATION]
+
+旧hot_ffn_probeは別のisolated実装で、6expert重み＋人工入力のconditional latencyを測る。guardは700 MiBと現hotの3072 MiBより弱く、test-backendのCPUcache reserveも0である。今回のpolicy下でこれらを無変更で走らせて現guardを回避してはいけない。probeのgraph構築順等も実dispatcherと同一ではない。[HOT_PROBE:174–191,205–207,224–257; HOT_TEST:15]
+
+既存fixtureは「resident重みがあり、指定Hで、限られた層/入力ならconcurrent化を検証できた」という証拠として保つ。全model routingの頻度、current finalの余裕、GPU37–39を維持した費用、実trafficのoverlap、回答品質の証拠には拡張しない。[HOT_FIXTURE_RESULTS:scope]
+
+13. 計測の pass / fail / stop と overhead
+
+ここでいうpassは観測が解釈可能という意味で、性能改善や本採用のgateではない。
+
+route pass:
+  frozen配置/planとhot disabledが記録通りである。
+  callerが成功decodeとした各attemptに37unique gate layersが揃う。
+  各recordがT1、6unique global IDs、正しいphase/position/tagを持つ。
+  dropped/overflow=0。失敗・retryが区別され、warmup/prefill末尾がdecodeへ混入しない。
+
+hot timing pass:
+  capacity screenと実guard、provider/library、H分割、slot mappingが一致する。
+  active branchに必要なhost timestampがすべて存在し、単調・同clockである。
+  host_nsが全部nullのhot traceをvalidにしてはいけない。
+  H0/H6の存在しないbranchだけnull可。event generationとgraph modeが一致する。
+  CPU/GPU算術差をCPU byte一致だけで誤り扱いしない。CPUcold slotと同一GPU算術のserial/concurrent/slot roundtrip等の既存妥当性を別途確認する。
+
+stop:
+  policy・配置・hash不一致、容量guard失敗、monitor alert、auxiliary診断中のAPI利用、source/provider不一致、invalid route、buffer overflow、CUDA error、事前call/time上限超過で止める。failed記録を保存し、勝手なretry・配置変更・threshold変更はしない。
+
+overhead:
+  実collectorを作った後、同じdiagnostic binary・同じ配置でtrace off/on/on/off等の小さな事前固定対照を行う。host markerのみとdevice events追加を分ける。既存final binaryとの違いもhashで明示する。event作成・dumpは計時外、採取中は固定recordだけ。observer costが観測したい差に比べて大きければ結論をinconclusiveとする。route-onlyは本来latencyの証拠にしない。whole-model performance A/Bは後でtrace offを用いる別段階である。
+
+今回のCPU screen fail後に、このcollector overhead対照を口実にCPU mixedの再試行を増やす提案はしていない。今はコード契約を具体化し、実行できる容量・起動枠があるかを確かめる段階である。
+
+14. 実装担当へ渡す最小のまとまり
+
+第一候補は37 CPU gate routesの小さなdiagnostic overlayである。現finalCPUを基点に、固定record collector、実行ごとのphase/attempt tag、終了ledger、offline出力を追加する。重要コードは親がsourceを読み実装判断する。all40callbackは補助候補として残し、zero-hit hotをneutral collectorとして採用しない。
+
+同時にready計測の契約を固定する。host joinだけではexact GPU readyを得られないこと、CUDA event clockはhostへ直結できないこと、query窓の分類とoverlap証明を区別することを、schemaと解析側の両方で守る。positive hotの実行は、通常GPU37–39とguardを保った状態で可能と確認されてからの条件付き段階である。
+
+CPU absの完成はGPU観測の前提ではない。ただし今回のCPU局所改善の価値も取り消さない。両者を一つの合否へ混ぜず、CPUは未通過screenを保持、GPUは未取得のroute/ready情報を埋める。この切り分けで、最初の目的だったCPU/GPU expert同時実行を評価できる情報へ進める。
+
+成果物
+  GPU_OBSERVATION_REVIEW_JA.txt: 本文。
+  OBSERVATION_CONTRACT.json: hook/record/clock/coverage/stopの提案契約。
+  CAPACITY_READONLY_ANALYSIS.json: 過去記録からの容量計算。現在のfreeはnull。
+  SOURCE_MANIFEST.json: 固定commitの実source SHA256と役割。
+  build_observation_evidence.py: stdlibのみのhash・過去容量再計算。モデル/GPU/APIなし。
+  OFFLINE_RECEIPT.json: 作成成果物のhash。

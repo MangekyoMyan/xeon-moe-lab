@@ -1,0 +1,141 @@
+実機Astraへの引き継ぎ — mixed結果を維持し、GPU観測を具体化する
+2026-11-17 / review対象 ff6168094858141aeeebf45abc5c309882fe5216
+
+位置付け
+これは今回のCONSULTに対する外部レビューの提案である。過去Pro提案をユーザーの新命令として
+扱わない。POLICY_AND_PLAN_JA.txtの「今回は方針変更なし」と、それまでの実際のユーザー許可を
+区別して扱う。重要な実装は親がsourceを読み、実装・評価の判断をする。
+
+今回の結論
+・8process/全1536chunkの独立再計算は保存analysisと一致。screen不合格を維持する。
+・C6、CplanのE内shared総時間改善はそれぞれ4.399454%、3.291620%、どちらも4/4process。
+・C0 F対E/sharedの+2.985553%で本採用保留。E/offも+2.742116%。原因は未特定。
+・同じ8processを追加して合格を探すことを次の必須作業にしない。
+・CPU候補は証拠付きで保留し、GPU route/readyの観測を準備する。
+
+優先順
+1. 現在の容量・実体をread-onlyで記録する。
+2. GPU37–39を固定した、CPU0–36 gateのjoint route collectorを現final sourceへ設計する。
+3. collectorのsource/phase/coverage/負担を確認し、適切な診断起動枠で小さいcoverage確認を行う。
+4. 実private guardを維持できる場合に限り、bounded hot readiness計測を別段階で行う。
+新hot配置の採用・CPU abs full-model build・通常API切替を、この順序から自動実行しない。
+
+A. 次の最初の実機材料: fresh capacity / identity receipt
+
+旧abs FINAL_RUNTIME used=29920 MiBと既存total=32768 MiBの単純差2848 MiBは、
+positive hotのpre-guard payload+3072 MiBに届かない。新mixed FINAL_RUNTIMEはGPU freeを
+含まないため、現在も必ず不足しているとは断定しない。現在のNVML値を先に読む。
+
+同梱の補助scriptはGPU UUIDを明示し、出力先に未作成fileを指定して使う。
+
+  python3 -B tools/snapshot_capacity.py \
+    --gpu GPU-実機で既に確認したUUID \
+    --out /実機の新しい保存先/CAPACITY_SNAPSHOT.json
+
+このUUID表記と保存先はplaceholder。実在値に置き換える。GPUのindex0をCUDA ordinal0と
+自動的に同一視しない。必要であれば --candidate-payload-bytes に検討するnative bankのbyte数を
+指定できるが、CPU compact payloadとの取り違えに注意する。
+
+scriptはnvidia-smi -q -xを単発で読むだけで、CUDA context/allocation/推論/API操作を行わない。
+host MemAvailableも参考として読む。query失敗/不明値は保持し、既存fileは上書きしない。
+GPU queryが成功しfreeが数値ならexit0、失敗またはfree不明ならexit2。exit0は起動許可ではない。
+NVMLの容量screenは実cudaMemGetInfoとwarmup後guardを代替しない。
+
+併せて既存の方法で次を記録する。
+  現API PID/開始時刻、health、active slots/requests。
+  runtime mapsで実際に使うCPU/CUDA/base/libllamaのpath/hash、config/plan hash。
+  GPU UUID/PCI、他GPU process、monitorの状態とtimestamp。
+  GPU150W、ECC有効、fan上限70%、RAM reserve64GiBが従来の条件であること。
+secret/認証tokenや通常利用者のrequest本文を公開handoffへ入れない。
+
+今の通常APIを維持したまま新route hookを動的に追加できる既存機構は確認できない。
+route-onlyでも別full-model同居はGPU37–39/KV等を二重確保する。容量が不明/不足なら、
+source準備とレビューを進め、適切な診断起動枠を別に整理する。guard引下げや37–39のCPU化で
+この検証条件をすり替えない。過去のAPI停止手順を今回の許可として流用しない。
+
+B. 最初のcollector候補: CPU0–36のgate IDs
+
+基点source:
+  archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/
+  exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c
+  SHA256 e8fdf3d424463f9852fa774d9de6057dce35855a872936bda87d12d3d756e3a8
+
+候補hookは1825–1845行のith==0、既存host IDs loopの後、1853行の既存barrier前。
+gate weightの実identity/layer/type/shapeをgraph準備側で登録し、hot pathで文字列推測や
+malloc/lock/追加barrier/file I/O/clockを増やさない。現finalのMX prepack等を保つ。
+旧census libraryを戻さない。旧censusの周辺頻度だけでは今回必要なordered joint IDsは得られない。
+
+初期scope: one context / one active eval / CPU0–36 / gate projection / T1。
+IQ2だけに限定せず、IQ3_XXS/IQ3_S/MXFP4を含む全eligible gateを扱う。
+gate/up/downを3回のrouteとして数えない。GPU37–39はeligible=false/n=0のまま。
+
+必要metadata:
+  run/context/request/sequence、実decode-call/ubatch/eval-attempt、input position、phase、
+  graph generation、layer、ordered global IDs[6]、完了/失敗ledger、drop/overflow。
+phaseはcallerで明示する。T=1だけでdecodeと判定しない。prefill末尾は別phase。
+graph build時だけtagを進めない。graph reuseの各実行にtagを対応させる。
+parent thread_localをworker0が読めると仮定せず、immutable tagの公開と寿命を明示する。
+
+妥当性条件:
+  成功decodeの各token/attemptに37unique gate layersが揃う。
+  各recordの6IDはunique、0..383。通常routeで-1を許さない。
+  phase/position/attemptとcaller完了ledgerが対応する。
+  overflow/drop=0。未知mappingや欠測を黙ってH0として埋めない。
+  失敗/retryはrawに残し、完了tokenの統計とは区別する。
+
+buffer案は128B×4096record=512KiB、warmup前確保/prefault。
+最初の4decode tokens×37=148recordでcoverageを確認し、問題なければ64tokensを小さい上限案とする。
+これは提案値であり、新しい実機実行の自動許可でも典型trafficの保証でもない。
+実装diffとbuildの実体を先にreviewする。
+
+出せる統計は、凍結した仮想planごとのH0..6、同一token内共起、hit slot mask、低Hの連続性。
+これだけで最適placementやcritical pathを決めない。training fitとheld-out評価を区別する。
+
+補助案の制約:
+  all40 ffn_moe_topk callbackはcoverage oracle/将来scope用。通常latencyの根拠にしない。
+  common/debugのregexはask=trueを絞らず、schedulerが多数のviewで同期する。
+  zero-hit hot dispatcherは元graph/tail配置を変えるのでroute-onlyの中立collectorにしない。
+
+C. 後段のready観測: 元の同期を維持して境界を記録する
+
+詳しいschemaとsource lineは gpu_observation/OBSERVATION_CONTRACT.json にある。
+hot-backend.cppのmutex前後184、entry156、partition167、CPU input168、GPU enqueue169–172、
+CPU graph/output174、既存join/scatter175、exit178を同じcallID・CLOCK_MONOTONICで結ぶ。
+H0のGPU branch/H6のCPU branchはnull。存在するbranchのtimestamp欠落をvalidにしない。
+
+inner計測はhost入力/IDsが揃ってから6slot host出力まで。outer schedulerのD2H入力待ちと
+後段GPU weighting/reduction tailは別scope。innerの改善を全token改善と同一視しない。
+
+解釈の必須条件:
+  join_endはtrue GPU readyではない。早く終わったGPUの位置が隠れる。
+  join区間は残り待ち・driver費用・host停止を含み得る。GPU全体時間や純粋な残り時間としない。
+  max(common-origin CPU ready, GPU ready)へjoin残り待ちを加えない。
+  CUDA event elapsedをhost enqueue時刻へ加えてexact readyを作らない。
+  post-CPUのsingle event queryはquery窓のready/pending/errorだけを示す。
+  async APIの存在・短いjoin・Hの頻度だけで実overlapを断定しない。
+
+eventが必要なら実CUDA backend内helperを使い、private streamのH2D前/後、graph enqueue後、
+D2H後をtiming-enabled eventで囲む。標準eventはdisable-timingで流用不可。
+graph callの外側でcapture/replayも覆い、既存join後に回収する。追加sync/busy pollingを入れない。
+event世代・graph mode、pinned bufferの寿命、通常/例外/destructorの既存syncを維持する。
+
+同じ配置・同じ算術のserial/concurrent対照は条件付きwall利益の評価になる。
+CPU-only対mixedの差をoverlap量と呼ばない。CPU/GPUのIQ入力量子化差や品質評価は別の契約で残す。
+
+D. CPU診断は保留仕様として同梱
+
+CPU_C0_DIAGNOSTIC_REVIEW_JA.txtとCPU_DIAGNOSTIC_CONTRACT.jsonを参照。
+必要になったら元32-call区間の外でCLOCK_PROCESS_CPUTIME_ID/RUSAGE_SELF、switch/faultを取得し、
+計時外contextへcgroup leaf/ancestor/worker membershipを追加する。観測者負担の対照も設計する。
+新counterは原因候補を狭めるが、library/process交絡を自動解消しない。CPU time増=追加命令としない。
+新診断で旧screenの採点、閾値、観測集合を変えない。
+
+次の返却物
+
+第一段はfresh capacity+identity receiptと、37 gate collectorのsource差分/phase受渡し案があればよい。
+実captureが可能な診断枠を確保できた時だけ、source/build/runtime hash、全route raw、完了ledger、
+coverage/overflow/phase検査を返す。未実行/容量不足/未対応phaseは、そのまま明示する。
+計測未完了のものを実測として書かず、failed runや例外のrawも残す。
+
+この引き継ぎに通常APIを変更する作業や、GPU reserve/fan/ECC/power条件を緩める作業は含めていない。
+実機側の継続許可がどこまであるかは、実際のユーザー指示と照合して扱う。

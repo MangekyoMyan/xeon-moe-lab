@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "purpose": "read_only_capacity_snapshot_before_designing_observations",
+  "script_sha256": "c56565c750180c1bd798fabba1009a162dc954472139912c949fb1e9e00eaa2d",
+  "clock_before": {
+    "monotonic_before_ns": 69745315300829,
+    "unix_ns": 1794866329199466807,
+    "monotonic_after_ns": 69745315302251
+  },
+  "host_memory": {
+    "values": {
+      "MemTotal_bytes": 541014450176,
+      "MemAvailable_bytes": 73349971968
+    },
+    "missing_fields": [],
+    "complete": true,
+    "error": null,
+    "read_begin_monotonic_ns": 69745315304254,
+    "read_end_monotonic_ns": 69745315661157,
+    "existing_RAM_reserve_bytes": 68719476736,
+    "interpretation": "Host MemAvailable only; does not establish process/cgroup allocation headroom or future reserves."
+  },
+  "query": {
+    "argv": [
+      "nvidia-smi",
+      "--id=GPU-6622f7a2-ee1a-a79e-1277-cee96d850aa3",
+      "-q",
+      "-x"
+    ],
+    "begin_monotonic_ns": 69745315667756,
+    "end_monotonic_ns": 69745410967410,
+    "returncode": 0,
+    "stdout_bytes": 23000,
+    "stdout_sha256": "bebc7e2f659c4977e5b181c73e3ad713c323bac94acba1ac92843110911b2dac",
+    "stderr": ""
+  },
+  "gpu": {
+    "requested_id": "GPU-6622f7a2-ee1a-a79e-1277-cee96d850aa3",
+    "uuid": "GPU-6622f7a2-ee1a-a79e-1277-cee96d850aa3",
+    "pci_id": "00000000:84:00.0",
+    "product_name": "Tesla PG500-216",
+    "driver_version": "580.196.07",
+    "memory_raw": {
+      "total": "32768 MiB",
+      "used": "29920 MiB",
+      "free": "2575 MiB",
+      "reserved": "274 MiB"
+    },
+    "memory": {
+      "total_bytes": 34359738368,
+      "used_bytes": 31373393920,
+      "free_bytes": 2700083200,
+      "reserved_bytes": 287309824
+    },
+    "power_fields_raw": {
+      "gpu_power_readings/current_power_limit": "150.00 W",
+      "gpu_power_readings/power_limit": null,
+      "power_readings/power_limit": null,
+      "gpu_power_readings/enforced_power_limit": null
+    },
+    "ecc_mode_current": "Enabled"
+  },
+  "error": null,
+  "engine_or_API_actions": [],
+  "GPU_settings_changed": false,
+  "zero_payload_dispatcher_is_not_a_route_only_probe": true,
+  "capacity_screen": {
+    "candidate_payload_bytes": 12072960,
+    "positive_payload_requires_free_strictly_greater_than_payload_plus_bytes": 3221225472,
+    "reported_free_exceeds_3072_MiB": false,
+    "candidate_preallocation_threshold_bytes": 3233298432,
+    "reported_free_passes_candidate_memory_inequality": false,
+    "zero_payload_skips_this_positive_payload_preallocation_guard": false,
+    "existing_postallocation_free_must_exceed_bytes": 2684354560,
+    "postallocation_guard_evaluated": false,
+    "runtime_admission_or_launch_authorized": false,
+    "interpretation": "NVML MiB reporting is a coarse snapshot. Actual cudaMemGetInfo, postallocation and existing guards remain authoritative. A true flag never starts or permits a run."
+  },
+  "clock_after": {
+    "monotonic_before_ns": 69745414591057,
+    "unix_ns": 1794866329298758803,
+    "monotonic_after_ns": 69745414594633
+  },
+  "limitations": [
+    "This performs one read-only nvidia-smi query, not a per-token profiler.",
+    "The XML snapshot spans a query interval; its individual values are not guaranteed simultaneous.",
+    "The script does not map an NVML GPU index to a CUDA_VISIBLE_DEVICES ordinal.",
+    "It does not establish current API identity, GPU layer placement, monitor/fan state or complete guard compliance.",
+    "No memory allocation, API request, restart, build, model download or GPU setting change is performed.",
+    "Full XML is not saved; selected numeric/identity fields and a hash are retained."
+  ]
+}

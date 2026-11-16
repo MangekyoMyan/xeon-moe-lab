@@ -1,0 +1,40 @@
+{
+  "status": "offline_arithmetic_from_recorded_evidence_only",
+  "commit": "ff6168094858141aeeebf45abc5c309882fe5216",
+  "prior_usage_source": "A_FINAL",
+  "prior_usage_unix": 1794825386.0406098,
+  "prior_api_pid": 11151,
+  "recorded_total_source": "H_STATE",
+  "recorded_total_MiB": 32768,
+  "recorded_used_MiB": 29920.0,
+  "inferred_total_minus_used_MiB": 2848.0,
+  "not_cudaMemGetInfo": true,
+  "current_mixed_final_source": "N_FINAL",
+  "current_mixed_final_unix": 1794863324.0383518,
+  "current_mixed_final_api_pid": 11151,
+  "current_mixed_final_has_gpu_memory": false,
+  "current_actual_free_memory": null,
+  "positive_payload_preflight": "cudaMemGetInfo.free > native_payload_bytes + 3072 * 2**20",
+  "postallocation_guard": "cudaMemGetInfo.free > 2560 * 2**20",
+  "minimum_one_native_triplet_bytes_cpu_layers_0_36": 12072960,
+  "layers_with_minimum_native_triplet": [
+    0,
+    1,
+    2,
+    3,
+    6,
+    7
+  ],
+  "minimum_one_native_triplet_MiB": 11.513671875,
+  "necessary_free_for_minimum_payload_strictly_greater_MiB": 3083.513671875,
+  "prior_snapshot_margin_vs_minimum_preflight_MiB": -235.513671875,
+  "prior_snapshot_compatible_with_positive_private_guard": false,
+  "caveats": [
+    "The total and used values are historical recorded measurements, not a same-call CUDA free-memory result.",
+    "N_FINAL retains the same API pid/config but omits GPU memory. It cannot establish current free memory.",
+    "A fresh NVML free value is a necessary screening observation; it does not replace the unchanged actual CUDA guard.",
+    "CUDA context, padded banks, workspaces, activation allocation and later vision/pool growth remain material.",
+    "A second full-model route-only context would still duplicate GPU37-39/KV and is not memory-free.",
+    "The zero-payload all-miss dispatcher is not a placement-neutral route collector."
+  ]
+}

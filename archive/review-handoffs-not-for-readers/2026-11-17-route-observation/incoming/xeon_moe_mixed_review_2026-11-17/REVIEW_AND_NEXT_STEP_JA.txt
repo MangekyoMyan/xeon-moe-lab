@@ -1,0 +1,351 @@
+mixed-operator の受領評価と、GPU並列へ戻る次の一手
+2026-11-17
+対象 commit: ff6168094858141aeeebf45abc5c309882fe5216
+
+1. 結論
+
+CPU absの採用は保留したまま、次の主作業をGPU並列のための観測設計へ移す判断に賛成する。
+今回の試験で、mixed cacheでもsharedの局所利益が残ることと、
+現在の候補libraryをそのまま採用するにはC0の未解決差があることを、同じprotocolで分けられた。
+
+相談票の3問への回答は次の通り。
+
+・質問1: CPU absをいったん保留し、GPUのroute/ready観測へ戻るのがよい。
+  ただし、直ちにhot bankを追加して走らせる段階ではない。先に現在の容量・実体を読み取り確認する。
+・質問2: CPU診断を続ける価値はあるが、今すぐ必須ではない。必要時はprocess全threadsのCPU時間、
+  getrusage、計時外のcgroup等を小さく追加する。それでもlibraryとprocess固有状態の完全分離はできない。
+・質問3: GPU37–39を固定するなら、まずCPU0–36のgateでorderedな6 expert IDsを記録する案を優先する。
+  ready観測では既存join、CPU出力、GPU enqueue、scatterを区別し、GPU真の完了時刻は未確定として扱う。
+
+通常APIのfrozen CPU、GPU37–39、既存compact planを現在の基準として維持する。
+CPU候補は「混在条件で利益を確認、事前screenのC0総時間条件が未達、採用保留」として保存する。
+CPUの改善価値を否定した判断ではなく、今の次の測定が何を決められるかで優先順位を付けた判断である。
+
+2. 今回こちらで確認したこと
+
+新しいCONSULT、RESULTS、README、POLICYを読み、全raw、STATUS、provider/maps、build/run wrapper、
+guard、保存expected、前回からのincomingを照合した。さらに別実装のstdlib再集計と、親の短いraw-only
+再計算を行った。GPU担当は現final CPU、hot dispatcher、実CUDA overlay、scheduler、旧censusを追跡した。
+
+確認結果:
+  現handoffのmanifest 127件: size/SHAとファイル集合が一致。
+  incoming 40ファイル: 前回こちらが返したローカル成果物と全bytesが一致。
+  8 process / 1,536 chunk / 49,152 timed graph calls: 全件を使用。除外0件。
+  保存analysisとの936数値の比較: 全process/block比、整数和、cross pair、集約値が一致。
+  全gate: SCREEN_DECISION.jsonと一致。numeric_screen_passed=falseを維持。
+  mode0 expected 24ファイル: 元gzipから上限付きでrepo外へ復元し、全件のbytes/SHAを照合。
+
+この端末で新しいXeon性能試験、モデル読み込み、GPU計算、API操作、配布ELF実行はしていない。
+実機のlibrary/model bytes自体はexportされていないため、実行時libraryのSHAは保存receiptとmapsの
+整合性として検査した。shard stat一致をmodel全byte hashの独立検証とは呼ばない。
+
+作成した容量snapshotスクリプトは、GPU呼出をすべてmockした7検査を通した。実GPUでの動作確認は未実施。
+route collector、ready collector、新engine patchはこの成果物では実装していない。仕様を計測済み成果と
+混同しないよう、機械可読contractにもproposed/unimplementedを残した。
+
+3. mixed試験が示した利益と、採用を止める条件
+
+F=frozen library、E=abs候補library。E/Oはmode0、E/Sはshared mode1。
+FのO/Sは表示labelが異なるだけで、実際には両方mode0である。
+
+C0はcompact登録0、C6は固定48 expertをすべてcompact登録、Cplanは現planと48IDsの交差39個。
+Cplanの各6-ID groupのhit数は[5,5,5,5,3,5,6,5]。これはGPUのhot hit数ではなくCPU compact hit数である。
+対象はblk.0.ffn_up_exps.weightのIQ2_S、K5120×M2304、8人工入力・48固定IDs、12threadsである。
+
+総時間変化 = 100 × (候補時間 / 同量仕事の対照時間 − 1)。負が短縮。
+
+条件       E/shared 対 E/off     E/shared 対 F       E/off 対 F
+C6             −4.399454%           −7.901310%         −3.663009%
+Cplan          −3.291620%           −3.941963%         −0.672479%
+C0             +0.236940%           +2.985553%         +2.742116%
+
+同じE内ではC6とCplanの両方が4/4 processで総時間短縮だった。前回のmicrokernelだけの期待より、
+mixed operatorという実際のdispatchに近い範囲で利益を確認できた点に価値がある。
+
+一方、事前条件は中央値と総時間の両方を要求していた。F対E/sharedのC0では、paired中央値の
+speed ratio 0.999144818は通過するが、総時間比0.971009981は不合格である。
+時間増加1%以内の条件はspeed ratio >=1/1.01=0.990099009901。
+中央値を採用して総時間を捨てたり、1%を今回だけ3%へ変えたりする理由はない。
+
+Fは4 arm、Eの指定modeは2 armなので、F総和を2で割って仕事量を揃える。ここに集計ミスはない。
+この正規化後は総時間比と1graphあたり平均時間の比が一致する。
+比の中央値、比の算術平均、平均時間の比は別の統計であり、どれか一つへまとめない。
+
+F対E/sharedのCplanには、p5/p4のpairだけ総時間+6.947450%という例も残っている。
+これは同じE p4内でsharedがoffを改善することと両立する。全pairへ新しい合否条件を後付けするのではなく、
+「mode切替の利益」と「別library/processの比較」を別の表にして保持する必要がある。
+
+全modelへの外挿にはまだ距離がある。39/48を通常trafficのhit率と呼べず、48expertの限定cacheは
+全modelのreuse distanceも再現しない。上表の3–8%をtoken/sの改善率へそのまま移せない。
+
+4. C0の差の読み方
+
+まず、C0でsharedをoffにしたEもFより+2.742116%遅い。総和には正確に
+
+  E/shared / F = (E/off / F) × (E/shared / E/off)
+               = 1.027421159… × 1.002369400…
+               = 1.029855531…
+
+という関係がある。したがって+2.985553%をshared有効化の費用だけに帰属できない。
+しかし、+2.742116%を環境のせいとして消してよいわけでもない。
+
+ソース上、E/offにはabsのshape/state処理とmode非依存の追加workspace予約が残る。
+この形状のabs領域は61,536 B、plannerはalignment余裕63 Bを追加する。既存scratchの末尾への追加であり、
+以前のrow-map offsetがこの差分によって移るとは言えない。またE/sharedはC0でも入力前処理を実行する。
+「cache missならsharedの仕事が完全に0」という前提も成り立たない。
+これらは検証対象となるコード差であり、今回の約3%の原因を測定した結論ではない。
+
+等量仕事でのC0 E/shared−F/2のpair差:
+  p0 F / p1 E:  +1,466,564 ns  (+0.097367%)
+  p3 F / p2 E:  +6,600,561 ns  (+0.447457%)
+  p5 F / p4 E: +84,876,211 ns  (+5.777298%)
+  p6 F / p7 E: +83,304,629 ns  (+5.733736%)
+  合計:       +176,247,965 ns
+
+後半2組が差の95.422855%を占めるが、4組すべてが悪化方向である。「後半だけ悪化した」とは言わない。
+95.4%は差の配分であり、外乱の原因寄与率ではない。全512個のC0 chunkを図にし、O/S両方の遅延や
+Fにもある遅い区間を残した。図は32call平均であり、個々のgraphの尾やtoken間隔を示さない。
+
+今回の設計には順序対策として意味がある。FEEFEFFEはFE/EFを各2組含み、process indexの合計と
+二乗和までF/Eが均衡する。内側のOSSO/SOOSと同group2周目の反転も単純なdriftを抑える。
+ただし各processは一つのlibraryしか使わない。任意のprocess固有効果を許せば、Eを示す列は
+p1+p2+p4+p7のprocess列と重なり、library効果と完全には分離できない。
+chunkを増やすだけではこの構造は変わらない。F placeboの+0.877924%も差し引く補正値にはしない。
+
+guardは成功し、保存されたEDAC/thermal countersは不変だった。ただし温度等のsensor時刻は
+processあたり1–2種類で、p7は開始前の1種類が繰り返される。これはguard全体が停止していた意味ではない。
+MemAvailable/API ticksは別途取得される。連続的な実行周波数や短い競合の不在を保証した記録ではない。
+
+5. CPUをさらに調べる場合の、小さい診断
+
+今の優先はGPU観測の準備であり、以下は保留仕様である。CPU候補の採否が次の判断を実際に阻む時に使う。
+
+第一に、計時外でprocess自身とwarmed workersのcgroup/affinity/runtimeを記録する。
+今回のguardの56 host countersはEDACとthermal throttleであり、CPU quotaやCPU pressureを含まない。
+可視ancestorを含むcpu.max/cpu.stat、存在するPSI累積値を記録する価値がある。
+共有groupのcounterは他processも含み得るので、増加をこのkernel単独の原因とはしない。
+quotaの解除、CPU/NUMA設定変更、監視条件変更は、この観測提案に含めない。
+
+第二に、元の32-call wall区間を維持し、その外側へ最小snapshotを置く。
+元sourceのmode(actual);compute();という計時外の1回も維持する。
+
+  元の計時外compute
+  pre: monotonicで読取り窓を挟み、RUSAGE_SELFとprocess CPU clockを取得
+  元のwall begin、32回compute、元のwall end
+  post: process CPU clockとRUSAGE_SELFを取得し、読取り窓を保存
+  元の出力取得・memcmp・record保存
+
+保存するのはCPU nanoseconds、user/system CPU time、voluntary/involuntary context switches、
+minor/major faultsのpre/post生値である。main threadだけのRUSAGE_THREADでは11workerを覆えない。
+取得窓はwallより広く、同時刻の原子的snapshotではないので、その余白も記録する。
+
+解釈の例:
+  wall増、CPUほぼ同じ: 待ち/deschedulingなどと整合し得るが、switch数は待ち時間ではない。
+  wallもCPUも増える: 命令追加、spin、実行中stall、周波数等をまだ区別できない。
+  faults/system CPU増: page活動の手掛かりだが、cache miss数やfault時間を直接示さない。
+  cgroup throttling増: group全体の制約の手掛かりで、kernel固有費用の証明ではない。
+
+counterをwallの外へ置いても、cache/TLBやOpenMP待ち方への影響は残る。同じ診断binaryでobserver
+on/offをmodeと別軸で均衡させる案を同梱した。全wallを残し、counterありの半分だけを選別しない。
+perfは必要性が具体化した第二段とする。worker生成後にmainへinherit付きeventを開くだけでは、
+既存workerを自動で覆わない。全TID coverageとenabled/running等の契約が別途必要になる。
+
+現在保存されているmapsはGGUF mmapより前なので、weightのNUMA配置を示さない。numa_mapsが必要でも、
+仮想空間scanを各chunkへ入れず、初案は全timed loop後・cleanup前に限定する。
+新診断で旧遅延が再現しなくても、旧screenを合格へ書き換えず「この有限診断では再現せず」とする。
+
+6. GPU側で最初に確認すべき容量
+
+既存hot-backendはpositive payloadに対して、割当前に
+  cudaMemGetInfo.free > native payload + 3072 MiB
+を要求し、bank/graphのwarmup後にも
+  cudaMemGetInfo.free > 2560 MiB
+を要求する。この条件をそのまま維持する。
+
+直前のabs handoffにはGPU used=29920 MiB、別の機器receiptにはtotal=32768 MiBがある。
+単純差は2848 MiBで、payloadを含める前から3072 MiBを下回る。
+eligible層の最小native expert tripletは12,072,960 B=11.513671875 MiBなので、最小1個でも
+事前条件はfree>3083.513671875 MiBとなる。
+
+この計算は過去の別receiptを組み合わせた容量screenで、同時刻のfree実測でも現在のCUDA freeでもない。
+新mixedのFINAL_RUNTIMEはGPU used/freeを含まない。同じAPI PIDでも現在値を代用できない。
+従って最初の実機側の材料はfreshな読み取りreceiptである。
+
+tools/snapshot_capacity.pyを用意した。既に確認したGPU UUIDを明示して、nvidia-smi -q -xを1回だけ
+読み、total/used/free、power/ECCの該当field、MemAvailable、monotonic/realtimeの読取り窓を保存する。
+不明値はnull、既存ファイルは上書きせず、CUDA context、GPU allocation、モデル/APIは起動しない。
+これは容量の補助材料だけであり、API identity、37–39配置、active slots、fan、既存monitorの確認は
+実機側の既存receiptで合わせて行う。GPU query未対応ならunknownを残し、CUDAへ自動fallbackしない。
+
+NVML freeが大きく見えても、実cudaMemGetInfoとwarmup後guardの代替にはならない。scriptの
+runtime_admission_or_launch_authorizedは常にfalseで、何かを起動する機能はない。
+
+route-onlyでも、別full-model contextを通常APIと同居させればGPU37–39とKV等を二重確保する。
+また現CPUに新route hookはなく、cb_evalを現在のAPIへ動的注入できる既存setterも確認できない。
+通常APIを現状維持する段階ではreceipt・source契約・診断コード準備までを進め、実captureには
+実機側で適切な診断起動枠が必要になる。過去のAPI停止手順を今回の新しい許可として流用しない。
+
+7. 最初のroute観測は37層のgateでよい
+
+GPU37–39を固定する候補では、新hot対象はCPU0–36である。hot loaderはgate/up/downがhostにある
+eligible層だけを受け付け、GPU側のineligible層に選択expertがあるplanを拒否する。
+このscopeなら、最初から全40層のcallbackを入れる必要はない。
+
+現final CPUのggml-cpu.cでは、1825–1845行のith==0がhost IDsを読み、1853行の既存barrierへ進む。
+この境界でgate projectionだけの6 ordered IDsを固定bufferへ記録する診断overlayを第一候補とする。
+現finalのMX prepack等を維持して小さく追加し、旧census libraryへ戻さない。
+旧censusはmarginal countsだけで、6IDsの共起・順序・phaseを保存していない。
+
+recordにはcontext、eval attempt、decode-call/ubatch、sequence、position、layer、phase、
+graph generation、6 ordered global IDsを結び付ける。callerの完了ledgerと照合する。
+同じgate/up/downを3件と数えず、IDは0..383のunique6個、成功decode tokenごとにunique37層を要求する。
+T=1だけではprefill末尾と生成decodeを区別できない。phase不明はunknown_t1として別扱いにする。
+graph build時だけtagを進めるとgraph reuseを誤るので、実際のeval実行境界でtagを更新する。
+parentのthread_localをworker0がそのまま読めると仮定せず、安全なcross-thread公開を設計する。
+
+最小scopeは1context・同時active eval1件。固定bufferの事前確保・prefault、hook内の追加allocation/
+file I/O/clock/lock/barrierなしを契約とする。overflow/dropは0を要求し、欠測層をH=0で埋めない。
+GPU契約の4token coverage smoke→64tokenの提案は、collector妥当性を見る小さい上限であり、
+実行済み測定でも、典型trafficを代表する統計量でもない。
+
+この記録なら、凍結した仮想hot planごとのH0..6分布、同一token内の層間共起、低Hの連続性を後処理できる。
+ただしHの頻度だけでは最適配置を決められない。同じHでも型、CPU compact mask、expert、入力、
+graph状態によってCPU/GPU費用が違う。plan選択に使ったデータとheld-out評価も分ける必要がある。
+
+全40層のffn_moe_topk callbackはcoverage確認や将来のscope拡大の第二候補とする。
+現schedulerはcb_evalが非nullならgraph viewを分割して同期し、最後の対象外viewも同期する。
+common/debugのregex filterはask段階の全trueを止めない。単なる表示filterを最小観測器と扱わない。
+zero-hit hot dispatcherも通常FFNをcustom nodeへ置換しtailをouter GPUへ寄せるため、中立なroute-only
+collectorではない。過去のall-miss byte一致は正しさの証拠であり、schedule中立性の証明ではない。
+
+8. ready計測と「本当に並列の得があるか」
+
+hotの並列実装は存在する。6IDsをGPU hit/CPU missへ分け、GPU H2D→graph→D2Hをenqueueし、
+CPU miss graphを同期実行して、最後にGPUを待ち元slotへscatterする。
+CPU内12workerの並列とは別の経路で、通常finalへこのexpert分割経路を採用したわけではない。
+
+将来のhot診断では、まずinner scopeを明示する。State.compute開始時点ではhost入力/IDsが揃っている。
+終了は6slotの非重み付きhost FFN出力の完成。outer schedulerの入力移送待ちと後段GPU tailは別scopeである。
+
+固定source上の観測点:
+  hot-backend.cpp:184        execution mutex取得の前後
+  :156–167                  inner入口、6IDs分類完了
+  :168                      CPU input/IDs set後
+  :169–172                  pinned copy、GPU enqueue開始/終了
+  :174                      CPU graph開始/終了、CPU出力copy完了
+  :175                      既存GPU join開始/終了、scatter完了
+  :178                      inner終了
+
+既存joinを減らすのが目的ではなく、重複しないhost区間の合計で実wallを再構成できるようにする。
+H0のGPU区間、H6のCPU区間は存在しないのでnullとし、欠測を0で平均しない。
+
+同じ起点からの真のCPU/GPU ready時刻をC,Gと置けば、理想化したinner完了はmax(C,G)+mergeである。
+GPU側をenqueueしてからCPUを始めるので、CPU/GPUが同時startしたという仮定は置かない。
+このmaxへGPUのjoin残り待ちをさらに足すと二重計上になる。
+
+一方、現在のgpu_join_endはGそのものではない。GPUがCPUより早く終わっていても、CPU終了後に
+joinへ入って戻った時刻しか見えない。join区間には残り待ちのほか、driver呼出費用やhostの
+deschedulingも入り得るため、GPU全体時間でも純粋なGPU残り時間でもない。
+したがって「joinが短いからCPU/GPU演算が大きく重なった」とはまだ断定できない。
+GPUがCPU開始前に終わった場合も、最後のjoinは短くなる。
+
+必要時はCUDA backendの実private streamでtiming-enabled eventsを別に置く。
+H2D前/後、graph enqueue後、D2H後を囲み、既存join完了後にelapsedを回収する。
+実CUDA overlayのH2D/D2Hは同じcuda_ctx->stream()、内部子streamはmainへjoinする構造である。
+標準backend eventはdisable-timingなのでelapsedへ流用できない。kernel発行loop内だけのhookでは
+CUDA graph replay時に計測が消えるため、backend graph callの外側を囲む。
+
+CUDA event elapsedはdevice側の時間差であり、host enqueue時刻へ足してexact GPU readyを作れない。
+CPU ready後・既存join前の単発event queryは「その問い合わせ窓でready/pending/error」の補助分類になる。
+successでもCPU readyより前に終わったとは限らず、NotReadyでもD2Hそのものの未完了を直接証明しない。
+event世代を検査し、未record eventのsuccessや別callのeventを取り違えない。busy pollingや新同期は加えない。
+
+同じ配置・同じCPU/GPU算術のserial/concurrent対照なら、条件付きのwall利益を比較できる。
+CPU-onlyとGPU混合を比べた差を、そのままoverlap量と呼ばない。H6にはCPU miss branchがないため、
+そこでの高速化をCPU/GPU overlap利益と呼ぶこともできない。
+
+CPU最適化との関係も明確になる。他の費用とGPU readyが一定という理想化でCPU readyをδだけ早めると、
+  改善 = max(C,G) − max(C−δ,G) = min(δ, max(C−G,0))
+である。CPUがcriticalな部分ではCPU改善が効き、GPU側で待つ部分では同じ局所短縮が隠れ得る。
+現段階のroute/ready観測は、この重み付けを知るための作業でもある。CPUを軽視する理由にはならない。
+
+9. 観測結果から次の実装へ進む基準
+
+容量receipt: UUID・時刻窓・値の鮮度を確認し、現在値不明ならunknownのまま保持する。
+不足なら既存guardやGPU37–39を緩めず、code準備までを続ける。別model同居を自動実行しない。
+
+route collector: 成功ledgerと37層×6IDsが全件対応し、phase/attempt/tagが明確、drop/overflow=0、
+配置/plan/hot disabledが一致した時だけ、joint分布の解析へ進む。未観測layerを推測しない。
+routeだけでplacementの性能採用を判断しない。
+
+ready collector: active branchのtimestampが欠けず、同clockで単調、host区間が重複せず、event/graph
+世代・slot mappingが一致する。observer off/on対照を先に計画し、計測費用が目的の差に近いなら保留する。
+このpassは観測可能性のpassであり、速度改善や本採用のgateではない。
+
+実装選択の読み方:
+  host enqueueが大きい: graph warmup/capture、launch、ID準備等の内訳を優先。
+  CPU phaseが支配しpost-CPU query時にはreadyが多い: CPU側費用/planの調査価値が高い可能性。
+  join区間が大きい: GPU/copy/queue側の残りと、join中のhost停止・driver費用を切り分ける。
+    inner外の待ちも別に見る。
+  H0/低Hが多い: branch固定費や常駐候補の共起を見直す動機。頻度だけで新plan採用はしない。
+  innerは良いがtokenは悪い: outer移送/tail、他layer、実routing変化、API deliveryを分ける。
+
+これらは原因確定の規則ではなく、次に取る観測を選ぶ分岐である。通常性能の最終比較にはtrace offの
+全model試験が必要で、CPU/GPU算術差を含む品質評価は別に維持する。CPUとのbit一致だけを品質目標にしない。
+
+10. 以前の「2トークンずつ出る」問題
+
+今回のoperator試験はこの問題を解決していない。1点が32 graph callsの平均で、API token間隔ではない。
+後でstreamを測る際は、内部token完了、SSE flush、クライアント受信、Open WebUI表示を対応させる。
+SSE chunk数、文字数、token数を同一視しない。別hostのmonotonic時刻を直接引かない。
+平均throughputは残し、個々の間隔とその分布を併記する。この課題をCPU C0の短い遅延と結び付ける
+測定証拠は、今回のデータにはない。
+
+11. 次に実機担当へ返してほしいもの
+
+最初の返却は、新ベンチの合否より次の小さいreceiptが有用である。
+  ・freshな容量と現在のAPI/config/library/plan/monitorの同一性。
+  ・通常GPU37–39を保つ診断captureの起動枠があるか。別context同居のメモリを除外しない。
+  ・37 gate hook案を実final sourceへ追加する位置と、phase/attempt tagの受け渡しdiff。
+  ・将来のsmokeで確認するcoverage/overflow/phaseの仕様。
+
+その後にroute観測を行い、容量と観測妥当性が揃った段階でbounded ready観測へ進む。
+CPU absの同じ8processを繰り返してpassを探すことを、次の必須作業にはしない。
+この文書は外部レビューの提案であり、過去のPro文書を今回のユーザーの新命令へ変換するものではない。
+
+12. 根拠と同梱資料
+
+今回の入口:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/ff6168094858141aeeebf45abc5c309882fe5216/archive/review-handoffs-not-for-readers/2026-11-17-mixed-operator/CONSULT_PRO_JA.txt
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/ff6168094858141aeeebf45abc5c309882fe5216/archive/review-handoffs-not-for-readers/2026-11-17-mixed-operator/RESULTS_JA.txt
+
+同じcommit内の主なsource（repo相対）:
+N = archive/review-handoffs-not-for-readers/2026-11-17-mixed-operator
+A = archive/review-handoffs-not-for-readers/2026-11-16-abs-operator
+E = archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112
+
+  N/incoming/xeon_moe_abs_next_2026-11-16/next_experiment/mixed_probe.cpp:267–304
+    mode0 expected、warmup、元32-call wall境界と末尾memcmp。
+  A/ggml-cpu.c:1791–1799,1856–1867,3194–3197 / A/iq-abs.h:39–45
+    E/offとsharedの追加処理・作業領域。
+  E/mx-prepack/release-candidate-a/sources/ggml-cpu.c:1825–1853
+    現finalでのhost ID読取り境界。
+  E/hot-ffn/hot-backend.cpp:90–178,183–188,211–232
+    eligibility、容量guard、CPU/GPU分割、join、mutex、zero-hit graph。
+  E/cuda-sort/release-candidate-a/ggml-cuda.cu:2731–2746,2830–2833,4860–4866,5050–5053,6246
+    実CUDA overlayのstream、転送、同期、event。
+  archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp:2171–2202
+    cb_evalによる分割と同期。
+
+全sourceのSHAと追加行番号はgpu_observation/SOURCE_MANIFEST.json、cpu_diagnostic/SAVED_CONTEXT_AUDIT.json、
+evidence/MIXED_AUDIT_SOURCE_SHA256.jsonにある。親の再計算はchecks/PARENT_RAW_RECHECK.json。
+
+一次API文書:
+https://man7.org/linux/man-pages/man2/getrusage.2.html
+https://man7.org/linux/man-pages/man3/clock_gettime.3.html
+https://docs.kernel.org/admin-guide/cgroup-v2.html
+https://docs.kernel.org/scheduler/sched-bwc.html
+https://docs.nvidia.com/deploy/nvidia-smi/index.html
+https://docs.nvidia.com/cuda/cuda-runtime-api/cuda_runtime_api/group__CUDART__EVENT.html
+
+詳細なCPU/GPU仕様、全再集計、容量補助script、全C0図、検査範囲は同梱各fileを参照。

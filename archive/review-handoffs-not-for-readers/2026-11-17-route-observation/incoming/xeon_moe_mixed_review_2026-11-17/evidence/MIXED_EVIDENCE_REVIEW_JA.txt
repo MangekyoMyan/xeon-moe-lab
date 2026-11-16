@@ -1,0 +1,438 @@
+IQ2 mixed-operator 独立証拠監査
+対象: ff6168094858141aeeebf45abc5c309882fe5216 / 2026-11-17-mixed-operator
+作成: 2026-11-17 handoff の外部レビュー
+======================================================================
+
+0. 結論
+-------
+
+新しいデータは、前回不足していた「同じharness、mixed cache、時刻付きraw、
+process別反復、等量仕事の時間総和」を実際に埋めている。監査で結果を覆す
+計算ミス・ファイルの不一致・観測除外は見つからなかった。既存のscreen不合格を
+維持し、CPU absを一旦保留する判断は妥当である。
+
+一方、今回の結果を「absの利益が消えた」と読むのも不正確である。同じE内の
+shared/off比較では、C6が時間総和で4.399454%短縮、Cplanが3.291620%短縮し、
+それぞれ4/4 processで総時間が短縮している。残る問題はFとEをまたぐC0比較で、
+sharedだけでなくoffもFより遅かった点である。今回の観測だけでは、この差を
+Eのbinaryそのものとprocess/periodの状態差に分離できない。
+
+C0のE/shared−F差の95.422855%が後半2組へ集中したことは独立に再現した。
+これは時間差の配分であり、「95.4%は外乱が原因」という原因分解ではない。
+F/E(shared)の総時間は4組すべて悪化方向で、前半は約+0.10%/+0.45%、後半は
+約+5.78%/+5.73%。後半だけを削除することも、「悪化は後半だけ」とすることも
+支持しない。RESULTS_JA.txt:52–61の慎重な解釈は適切である。
+
+次の一手をGPU側の観測へ移すことと、C0の問題を解決済みにすることは別である。
+CPU候補は保留状態で証拠ごと保存できる。将来この候補を前へ進める判断が必要に
+なった時だけ、具体的な原因を識別する小さいC0観測を行う理由が生じる。
+同じ試験をそのまま反復して合格を待つ提案はしない。
+
+本稿はraw/evidence担当の監査である。GPUのsource位置や観測仕様の詳細は、
+別担当のsourceレビューと統合する。本稿を実機操作の新しい許可として扱わない。
+
+
+1. 調査範囲と再現方法
+---------------------
+
+以下をNと略記する。
+archive/review-handoffs-not-for-readers/2026-11-17-mixed-operator/
+
+最初にN/CONSULT_PRO_JA.txt、RESULTS_JA.txt、README.txt、POLICY_AND_PLAN_JA.txtを
+全文読んだ。本人の補足、前回の外部提案、実機側の判断、測定結果は区別した。
+POLICYの「今回は方針変更なし」を、新しい実装・API操作の指示へ読み替えていない。
+
+その後、FILES_SHA256、incoming全file、build/実行wrapper、全STATUS、全raw、
+maps、全guard、compressed expected、前後runtime、既存集計と判定を確認した。
+mixed_probe.cppとrun_one_mixed.pyを読み、タイマーと保存出力の意味も照合した。
+配布Pythonをimport/実行せず、独立に書いたstdlib scriptで再集計した。
+
+生成物:
+  reanalyze_mixed_evidence.py
+  MIXED_INDEPENDENT_REANALYSIS.json
+  MIXED_AUDIT_SOURCE_SHA256.json
+  本稿
+
+JSONには全1,536 chunkの時刻・arm・mode・値・元raw行番号を残した。
+再集計は整数elapsed_nsから行い、表示用ms値もelapsed_ns/32/1e6と一致するか検査した。
+各process、各case、各block、各pair、pooled結果を別々に保存している。
+
+再実行例（出力先には未作成のディレクトリを指定）:
+
+  python3 reanalyze_mixed_evidence.py \
+    --repository /path/to/xeon-moe-mixed-ff61680 \
+    --prior-return /path/to/previous/xeon_moe_abs_next_2026-11-16 \
+    --output-dir /path/outside/repository/new-audit
+
+元repositoryは書き換えない。gzip展開には442,368 byteの上限、path逸脱の拒否、
+size/SHA照合を設けた。復元先はaudit/restoredのみ。既存出力は上書きしない。
+モデル、API、GPU、配布ELF、CPU library、性能benchmarkは一度も実行していない。
+
+
+2. 証拠の完全性と同一性
+----------------------
+
+2.1 ファイル
+
+N/FILES_SHA256.jsonの127件すべてでbyte数とSHA256が一致した。manifest自身を
+除いた実ファイル集合も完全一致し、未列挙のファイルや欠落はなかった。
+
+incoming内の独立manifest39件もすべて一致した。さらにincomingの40ファイルを、
+前回こちらが返したローカル成果物40件と直接byte比較し、ファイル集合・全内容が
+同一だった。したがって「元harness/launcher/analyzerはsource変更なし」は、
+実機側の自己申告だけでなく、前回返却bytesまで照合できた。INTAKE.json記録の
+zip SHA 85be15394aec2a8397413936731a863ec642335471898c44751b038b573fc4cb も、
+こちらに残る前回zipそのもののSHAと一致した。
+
+前回NEXT_RUN_SPEC.jsonも同一である。今回の結果に合わせたthreshold変更はない。
+旧checks/配下は前回のsynthetic/source checksであり、今回のXeon性能測定数へは
+加算しない。
+
+主なSHA256:
+  mixed_probe.cpp
+    4e7dbf6796205a011a294a8ab5b3b1fde0647cd1730195ba074ab3d8c4898f21
+  run_one_mixed.py
+    ed40376855e8837d43d8f8457ebe97d6e1ffac96847b6f9aaa45845be5d896b1
+  analyze_mixed_run.py
+    3f4ef333777bee926ca3e31c34c88c69b685da8a9347c381a6b88cdf1a8ceaa8
+  NEXT_RUN_SPEC.json
+    a0cda7ea3c40e3b0b77d3d2941889fc2d4bc1dc6a4173f5da375e781682a7157
+  input 163,840 byte
+    9dc5705e04389d3d08d894ddf25ce675fa2ff3bed73eccc4ba9a156c8028ec93
+  plan
+    cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6
+
+2.2 build/provider/library
+
+build/BUILD.jsonのsource/header SHAは今回のincomingと一致する。前回FIXED_BUILD
+receiptのSHAも、保持された旧handoffの実bytesと一致した。記録されたbuildは
+mixed_probe executableのみで、CPU libraryのrebuildではない。
+
+全8 STATUSで以下を確認した。
+  F CPU: 33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3
+  E CPU: 120038c7e4c452714d188c9ab5e7dc99bda7deaa9506e8fe92e693cca5db06d3
+  base:  2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558
+  probe: c611c2edb2e2acca73b0c913d841ac9506363128c3ac6928586a3ad3bed5032a
+
+base/harness/input/plan/case spec/header/launcher SHA、shard_stat、extra_library_dirs
+は全8process共通。CPU hashはF/Eラベルと一致。rawのcpu/cache/base/mode providerは
+STATUSのcanonical pathと一致し、mapsには対応するCPU/base各1種と同じharnessがある。
+Fではabs mode providerが空、EではCPU providerと一致する。map snapshotにCUDA library
+はない。実動CPU/baseのpath取り違えを示す証拠は見つからなかった。
+
+元harnessはproviderをdladdrで照合し、Fにabs APIがないこと、Eにはあることも検査
+する（mixed_probe.cpp:189–203）。rawのhashes_verified_by_harness=falseは意図通り。
+hashはlauncherが前後に検査する。harnessが自分でhashしたと解釈しない。
+
+実ELF/model bytesはexportされていない。この端末で独立にSHAを再取得できるのは
+exportされたsource/raw等であり、実行library SHAは保存receipt・provider・mapsの
+整合性として検証した。shard stat一致はmodel全byte hash一致の証明ではない。
+mapsの保存はmodel mmap前のsetup時点であり、連続map監視ではない（同223–235）。
+
+raw.meta.commit=31b1292…は、前回生成fixture/headerの元commitを維持した値である。
+今回のexport commit ff616809…と混同しない。sourceを変更せず実行した仕様と一致する。
+
+2.3 正解bytesと検査の射程
+
+24 expected fileは1個のgzip blobに重複排除されていた。上限付き展開後の442,368
+byte/SHAを確認し、repo外へ24件を復元した。各fileは110,592個のfinite F32である。
+
+全24件のSHA:
+  6d3ffb5c2345af061c67ac3d8bdd4b23043b76308164136648f22f41603bf110
+
+つまり同じcaseの8processだけでなく、C0/C6/Cplan間でも保存mode0 expectedは
+このfixtureで完全一致している。これは今回のcache membershipに関する良い追加証拠。
+対象は8人工入力・48固定expertのIQ2 upであり、全modelや別dtypeの保証ではない。
+
+保存されているのはcase/groupごとのmode0 expectedである（mixed_probe.cpp:267–291）。
+timed chunkは32callの最後の出力をexpectedへmemcmpしている（同299–304）。
+全1,536 chunkのbit_mismatches=0と完了receiptは確認したが、32回すべての中間出力や
+candidate全出力byte列は保存されていない。正確には「保存expectedの独立byte照合」
+と「sourceおよびsuccess/rawに基づくcandidate末尾memcmp成功」を組み合わせた証拠。
+49,152個の全中間出力をこの端末で再検証したとは言わない。
+
+warmupではcache membership全384expertと、Eのabs行数がhit数×Mに一致することを
+検査している。測定区間ではdiagnosticsを無効化する。同じCPU0..11に実workerが
+載ったsampleもcaseごとに保存されるが、これは全timed callの連続affinity traceではない。
+
+
+3. 何を測り、何を分母にしたか
+----------------------------
+
+8process × 3case × 16block × 4arm = 1,536 timed chunk。
+1chunkは32 graph callなので、合計49,152 timed call。
+全chunk elapsed_nsの総和は54,435,431,224 ns。setupやwarmupは含まない。
+
+各process/caseではO/S各32chunk=1,024callで同量仕事。FはO/Sのどちらもactual mode0、
+EだけO=mode0、S=mode1である。F/E比較ではFの64chunk=2,048callをEの1,024callと
+比較するため、F総時間を2で割る。比は以下から独立に計算した。
+
+  E内 block ratio = (Oの2arm合計)/(Sの2arm合計)
+  F/E block ratio = (Fの4arm合計)/(2 × E指定labelの2arm合計)
+  total ratio     = 全blockの同量仕事の対照合計 / 候補合計
+
+Fを2で割らない誤りはない。整数和が奇数なら0.5nsも保持し、丸めた表示値から比を
+計算していない。全processの記録順とCLOCK_MONOTONIC時刻は非重複、全chunkも非重複。
+raw行は8×197=1,576件で、すべて仕様通りに消費した。
+
+各caseの計測前にcache構築・8groupのexpected/warmupを行う。各timed chunk直前にも
+1回computeを行う。mode setter、input/route copy、出力get、memcmp、record追加、
+JSON/file I/Oは32回computeのタイマー外（mixed_probe.cpp:258–304）。timed領域は
+同期ggml_backend_graph_computeを32回呼ぶ区間であり、dot kernelだけの時間ではない。
+operator graph planning等を含む今回の測定範囲を維持して解釈する。
+
+この32call平均から単発graphのp95/p99や、token streamの2tokenごとの停止を復元する
+ことはできない。今回のms/graphは人工入力の単一operatorについての値であり、
+APIのtoken間隔・全model throughputの測定ではない。
+
+Cplanはplanのblk.0 up 313IDsと固定48IDsの交差39IDs。各groupのCPU compact hit数は
+[5,5,5,5,3,5,6,5]、maskは[62,59,55,47,41,62,63,31]と独立に確認した。39/48を
+現traffic hit率にはしない。48 expertの限定cacheはmodel全体のreuse distanceも再現しない。
+
+
+4. 再計算結果と全gate
+--------------------
+
+時間変化は100×(候補時間/対照時間−1)。負は所要時間短縮。
+中央値は64block ratioの中央値で、64独立processの推定値ではない。
+
+比較                 条件   paired median   ratio of sums   総時間変化
+E O/S                C0      0.999317808     0.997636200      +0.236940%
+E O/S                C6      1.045827872     1.046019132      -4.399454%
+E O/S                Cplan   1.035697599     1.034036556      -3.291620%
+F / E O              C0      1.002550419     0.973310693      +2.742116%
+F / E O              C6      1.015303235     1.038022868      -3.663009%
+F / E O              Cplan   1.002798677     1.006770315      -0.672479%
+F / E S              C0      0.999144818     0.971009981      +2.985553%
+F / E S              C6      1.058866743     1.085791778      -7.901310%
+F / E S              Cplan   1.042473054     1.041037309      -3.941963%
+F logical O/S        C0      1.000118010     0.991297163      +0.877924%
+F logical O/S        C6      1.000889542     0.994762501      +0.526508%
+F logical O/S        Cplan   0.999475145     1.009698101      -0.960495%
+
+事前screen:
+  ・正しさ・同一性: 上記必須検査を通過。
+  ・E C6: pooled median と total ratioの双方 >=1.02 → 双方通過。
+  ・E C0/Cplan: 所要時間増加 <=1% → 両case・両指標通過。
+  ・E C6: 4process中3以上で総時間短縮 → 4/4で通過。
+  ・F/E S C6: median と total ratioの双方 >=1.02 → 双方通過。
+  ・F/E S C0/Cplan: 所要時間増加 <=1% → C0総時間だけ不合格。
+
+1%時間増加のratio基準は1/1.01=0.990099009901であり、単純な0.99ではない。
+今回のC0 0.971009981は不合格。C0 median 0.999144818の通過で総時間条件を
+上書きしない。新しい条件は追加しておらず、原基準をそのまま適用した。
+
+保存MIXED_ANALYSISとの照合では、全process/blockの比、整数和、全cross pair、
+pooled median/total ratioの計936数値が一致。SCREEN_DECISIONの全row・process
+consistency・numeric_screen_passed=falseも完全一致した。
+
+4.1 比の平均と平均時間の比は別
+
+O_b/S_bをr_bとすると、総時間比は
+
+  sum(O_b)/sum(S_b) = sum(S_b×r_b)/sum(S_b)
+
+であり、候補時間S_bを重みにする。r_bの算術平均でも中央値でもない。
+全blockを同じ重みで眺める記述統計と、実際に使った総時間は異なる問いに答える。
+例:
+
+比較              median(r_b)   mean(r_b)     sum対照/sum候補
+E O/S C0          0.999317808   0.997943879    0.997636200
+F/E S C0          0.999144818   0.981061984    0.971009981
+E O/S C6          1.045827872   1.049586416    1.046019132
+E O/S Cplan       1.035697599   1.044901907    1.034036556
+
+同量call数へ正規化した後は「総時間比」は「1graphあたり算術平均時間の比」と
+一致する。今回「平均は危険だから中央値を使う」で総時間を捨てる理由はない。
+遅延を含めて計測した仕事の所要時間を評価するため、両方を残す意味がある。
+また、4process ratioの算術平均もpooled総時間比とは別。JSONで別名にして保存した。
+
+
+5. process方向とC0集中の確認
+---------------------------
+
+E内 O/S 総時間比（1を超えるとSが短い）:
+
+process       C0             C6             Cplan
+p1          0.971824116    1.061278235     1.019760159
+p2          1.012290591    1.048051524     1.057840703
+p4          1.004642595    1.033783162     1.017148893
+p7          1.001746769    1.040390678     1.042139771
+
+C6/Cplanはともに4/4で短縮。C0は3/4で短縮方向だが、p1の差を含めた総和では
+0.236940%増える。単に「多数決で3/4改善」と合計時間を置き換えない。
+
+F/E Sのpair総時間比:
+
+(F,E)         C0             C6             Cplan
+(p0,p1)     0.999027272    1.018691372     1.157749741
+(p3,p2)     0.995545358    1.080447354     1.008597115
+(p5,p4)     0.945382443    1.086550189     0.935038654
+(p6,p7)     0.945771931    1.162887208     1.073672069
+
+C6は4/4短縮、Cplanは3/4短縮。Cplan(p5,p4)の総時間は6.947450%増えている一方、
+そのE p4内のsharedはoffより短い。異なる比較階層を混同すると説明が逆転する。
+事前gateは全pairに1%を課したものではないので、この1pairだけで新たなgate失敗を
+追加しない。全pairは今後の判断資料として残す。
+
+C0の等量仕事・整数差:
+
+(F,E)       F/2 合計ns       E O−F/2 ns      E S−F/2 ns      E S時間増
+(p0,p1)     1,506,215,608     -41,013,714       1,466,564       +0.097367%
+(p3,p2)     1,475,125,909      24,811,855       6,600,561       +0.447457%
+(p5,p4)     1,469,133,440      92,090,849      84,876,211       +5.777298%
+(p6,p7)     1,452,885,590      85,987,999      83,304,629       +5.733736%
+合計        5,903,360,547     161,876,989     176,247,965
+
+後半2組のS差168,180,840ns / 全差176,247,965ns =95.422854953%。
+これはsigned差の配分である。正負が相殺するデータでは同種の比が100%を超えることも
+数学的に可能で、原因寄与率や「悪い観測の割合」として定義された量ではない。
+
+C0のpooled時間には次の恒等式がある。
+
+  E S / F = (E O / F) × (E S / E O)
+           = 1.027421159… × 1.002369400…
+           = 1.029855531…
+
+従って約2.99%をsharedを有効にした費用だけとするのは無理がある。しかしこの
+恒等式は、E O/Fの2.74%がbinary固有の回帰かperiod/process差かを決めない。
+F placeboの+0.877924%を差し引く補正にも根拠がない。
+
+
+6. 遅い区間の時刻とguardの射程
+-----------------------------
+
+全C0 block/armはJSONに保持した。遅い例だけを抜き出すのは位置の説明のためであり、
+採否計算から外すためではない。
+
+p4 E C0:
+  b8  begin=66584191176424 ns  all-arm mean=1.921902047 ms/graph
+  b9  begin=66584444266909 ns  all-arm mean=1.929239195 ms/graph
+  b10 begin=66584699342911 ns  all-arm mean=1.684022031 ms/graph
+  この連続窓のend=66584920320669 ns。直前はおよそ1.43ms、直後はおよそ1.41ms。
+  b8にはOとS、b9にもOとSの長いarmがある。
+  根拠: mixed-run/process-4/raw.jsonlのC0 b8–10（行100–111）。
+
+p7 E C0:
+  b12 begin=66606795391006 ns  all-arm mean=1.847146398 ms/graph
+  b13 begin=66607038762396 ns  all-arm mean=1.903577938 ms/graph
+  b14 begin=66607289456468 ns  all-arm mean=1.464747828 ms/graph
+  b15 begin=66607483909869 ns  all-arm mean=1.899843836 ms/graph
+  b15 end=66607731816450 ns。ここでも長いarmはO/S両方にある。
+  根拠: mixed-run/process-7/raw.jsonlのC0 b12–15（行51–66）。
+
+他にもp0 F b0=2.090210039ms、p1 E b6=2.045558047ms等の遅いblockがあり、E後半
+だけが特別に遅延を発生させる、とする形ではない。p2はb6を境に約1.40→1.45msへ
+O/S双方が動く。入力groupが毎block変わるので、隣接blockの変化の全てを時刻要因と
+呼ぶことも避ける。同じ8groupを2周する情報とF/E比較を併記する必要がある。
+
+guardはbuild1回+実行8回の9receiptすべてexit0/error=null。実行各receiptで56個の
+ECC/thermal counterは全sampleを通してゼロかつ不変だった。API活動は0だけではなく、
+最大0.0199594329 core相当の記録がある。通常APIの強い活動を示す記録はないが、
+他process、短い競合、CPU clock等を観測していないので無外乱とは言わない。
+
+process   guard sample数   distinct sensor時刻数
+p0              16                  2
+p1              15                  2
+p2              15                  1
+p3              15                  1
+p4              16                  2
+p5              15                  2
+p6              15                  2
+p7              15                  1
+
+p7の唯一のsensor時刻はUnix1794863186.1167223、guard開始は1794863188.2537646。
+つまり保存された温度・host counter側のsensor snapshotは開始前の1種類が繰り返される。
+これはguard自体が動いていないという意味ではない。guard.pyのsnapshotはdaemonの
+latest.jsonを読み、MemAvailableやAPI ticksは別途取る構造である。sensor値と各sample
+の新しいメモリ/API観測を一つの鮮度だとみなさない。
+
+guardで報告されたCPU最大温度は各実行で32–38℃だが、その最大値を真の連続peak温度
+とは扱わない。CLOCK_MONOTONICのchunk時刻とsensorのUnix時刻を結ぶ高精度clock pairが
+保存されておらず、特に1sensor時刻のp7を時刻精密化だけで原因診断可能にはできない。
+RESULTS_JA.txt:77–81はすでにこの限界を認めている。本稿で新発見の誤り扱いはしない。
+
+
+7. この設計でlibrary差とperiod/process差をどこまで識別できるか
+---------------------------------------------------------------
+
+7.1 明確に改善した点
+
+前回の別probe/別processから得たF/O/Sを並べるより、今回は共通harness、共通input、
+共通cache membership、等量仕事、明示したpair、同library O/S、F placeboがある。
+同じE process内でO/Sを交互に測るので、process全体に一定にかかる状態差はE内比較では
+かなり抑えられる。C6/Cplanの利益を検討する根拠は前回より具体的になった。
+
+内側OSSO/SOOSは等間隔の単純な線形driftに対して対照・候補の位置平均を揃え、
+同じgroupの2周目では順序を反転する。外側F,E,E,F,E,F,F,Eも無意味な固定順ではない。
+FE/EFを各2組含み、process indexで数えると以下が均衡する。
+
+                 F index={0,3,5,6}       E index={1,2,4,7}
+個数                      4                       4
+sum(index)               14                      14
+sum(index^2)             70                      70
+sum(index^3)            368                     416
+
+従って単純な順序に対する対策として価値がある。ただし実時間は等間隔でなく、cache
+caseの位置も回転する。上記のindex上の性質は、実時間の任意の曲線や突然の停止を
+打ち消す保証ではない。
+
+7.2 残る非識別
+
+1processは1種類のlibraryしか実行しない。各chunkについてprocess pのダミーをD_p、
+E libraryなら1の列をLとすると、全行で厳密に
+
+  L = D_1 + D_2 + D_4 + D_7
+
+となる。任意のprocess固有効果を同時に自由に推定するモデルではlibrary列が完全に
+重なるため、library固有の係数を一意に求められない。同じprocess内のchunkを何千個に
+増やしても、この構造は解消しない。4process対4processの比較が無価値という意味では
+なく、process条件に関する仮定なしで因果的library差を断定できないという意味である。
+
+また全8processは固定順の1suiteで、同じ時刻にFとEを測ったわけではない。任意の
+period効果を許すと、それもlibraryと分離できない。隣接pairを組み、FE/EFを反転した
+ことは単純driftを抑えるが、特定の短い停滞を説明する観測を増やすものではない。
+
+E内O/Sも、arm内の急変、warmupで残る状態、非線形drift等が消えたとは限らない。
+F placeboはその種の差が出得る診断であり、Eで起きた同じ差の同時測定ではない。
+placeboの値を補正係数として引くと、測定していない共通外乱を仮定してしまう。
+
+ここから言える最も強い範囲は「この8process suiteで、E内のshared切替は命中・混在の
+総時間を短縮した。一方F/E比較のC0は事前許容を超え、off側にも差がある」。
+ここから「E固有回帰」「単なるOS外乱」のどちらかを確定するには新しい観測が要る。
+
+7.3 次の観測が答えるべき問い
+
+追加するなら、元のC0 F/E off差に対して「wall timeが増えた時、process全threadの
+CPU timeも増えたか」「context switch/page fault等が同じchunk境界で増えたか」を
+まず対応させる価値がある。これは原因候補を分ける観測で、library効果の統計的な
+非識別を一挙に解消する魔法ではない。CPU timeだけから周波数やcacheの原因を確定
+することもできない。詳細な取得API/境界はCPU診断担当の仕様と合わせる。
+
+samplingは遅かったchunkだけに後付けせず、すべての対象chunkで同じ項目を保存する。
+比較のためのwall timeの境界を維持し、counter取得やJSON I/Oを既存timed compute
+ループへ混ぜない。事後に原因らしいcounterを見つけても、そのchunkをscreenから
+除く規則へ読み替えない。
+
+もし独立processの比較を追加する必要が生じるなら、同じF先/E先の1suiteを無限に
+繰り返すのではなく、time/orderの仮定を弱める固定本数のcounterbalancedまたは事前
+randomized割当と、停止条件を新測定前に決める。既存libraryはそのままにする。
+ただし今回のユーザー相談は、何回も成功試験を増やすことではない。GPU観測を次に
+選ぶなら、この追加C0測定は必須作業として予約しない。
+
+
+8. 監査で変えなかったこと
+------------------------
+
+全観測を保持し、外れ値の除外・温度による事後補正・placeboの差し引き・新thresholdの
+導入は行っていない。旧median-only gateを遡って変更しておらず、今回のprospective
+median+total gateも変えていない。正しさ許容を緩めたり、CPU/GPU算術差をこの試験で
+解決済みにしたりしていない。
+
+APIの前後PID11151とhealth、config/CPU2種/base/planの前後hashは保存receipt間で
+一致した。この監査は通常APIの変更や再起動を行わず、資料に書かれた運用結果を
+検証した。既存finalを変える提案の実行許可をここから新たに作っていない。
+
+この結果の価値は「合格と呼べるか」だけにない。IQ2の限定利益と、E offを含むC0の
+未解決差が同じprotocolで明示された。次の判断を変えない反復を止め、CPU候補を保留
+のまま他の大きい不確実性の観測へ移れる状態になっている。

@@ -1,0 +1,37 @@
+--- /home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src/llama-context.cpp
++++ diagnostic/llama-context.cpp
+@@ -1,3 +1,5 @@
++#include "route37.h"
++#include "route37-bridge.h"
+ #include "llama-context.h"
+ 
+ #include "ggml.h"
+@@ -1529,6 +1531,7 @@
+         return nullptr;
+     }
+ 
++    bool route37_rebuilt = false;
+     auto * res = get_gf_res_prev();
+     auto * gf  = res->get_gf();
+ 
+@@ -1548,6 +1551,7 @@
+ 
+         n_reused++;
+     } else {
++        route37_rebuilt = true;
+         gf_res_prev_active = nullptr;
+         res->reset();
+ 
+@@ -1585,7 +1589,12 @@
+         //LLAMA_LOG_INFO("graph set inputs time: %.3f ms\n", (ggml_time_us() - t_start_us)/1000.0);
+     }
+ 
++    const int route37_ticket = xeon_route37_bridge_begin(this, ubatch, route37_rebuilt, cparams.pipeline_parallel);
+     const auto status = graph_compute(res->get_gf(), ubatch.n_tokens > 1);
++    // CPU backend execution is synchronous within scheduler submission. This
++    // closes CPU route production only; it does not claim GPU tail completion.
++    // The diagnostic caller must later finalize the call after its normal sync.
++    if (route37_ticket) xeon_route37_end_eval_v1(this, status);
+     if (status != GGML_STATUS_SUCCESS) {
+         LLAMA_LOG_ERROR("%s: failed to compute graph, compute status: %d\n", __func__, status);
+         ret = status;

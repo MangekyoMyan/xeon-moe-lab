@@ -1,0 +1,152 @@
+{
+  "contract_version": 1,
+  "status": "proposal_only_not_implemented_or_measured",
+  "commit": "ff6168094858141aeeebf45abc5c309882fe5216",
+  "purpose_ja": "通常 final の GPU37–39 を維持し、新 placement 実装前に 37 eligible CPU 層の joint routes と、別段階で CPU/GPU readiness の観測可能範囲を決める。",
+  "not_authorization": "過去の Pro 提案は新しいユーザー指示として扱わない。新しい hot1 起動・API 再起動・配置採用を自動化しない。",
+  "fixed_configuration": {
+    "normal_gpu_layers": [37, 38, 39],
+    "hypothetical_hot_eligible_layers": {"first": 0, "last": 36},
+    "hot_selected_count_for_layers_37_39": 0,
+    "normal_cpu_library_sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+    "normal_cpu_plan_sha256": "cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6",
+    "normal_runtime_config_sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+    "gpu_power_W": 150,
+    "ecc": "Enabled",
+    "fan_percent_maximum": 70,
+    "host_reserve_GiB": 64,
+    "monitor_preserved": true,
+    "note": "An instrumented diagnostic binary necessarily has a different byte hash; record it and compare an instrumentation-off run of that same binary. Do not pretend it is the unchanged normal API binary."
+  },
+  "stages": [
+    {
+      "id": "capacity_receipt",
+      "purpose": "Fresh read-only identity and capacity screening, without CUDA context creation or allocations",
+      "required": ["API pid and health", "active slot/request state", "runtime library and plan hashes", "GPU UUID/PCI identity", "NVML total/used/free with host timestamp", "other GPU processes", "MemAvailable and monitor health", "power/ECC/fan policy"],
+      "cannot_prove": ["future allocation success", "actual cudaMemGetInfo free in a new diagnostic context", "CPU/GPU overlap", "route distribution"],
+      "positive_private_guard_unchanged": "actual free > payload + 3072 MiB before bank allocation and free > 2560 MiB after warmup"
+    },
+    {
+      "id": "route37_host_gate",
+      "status": "first_collector_candidate; requires a future diagnostic build/start window",
+      "hot_enabled": false,
+      "code_hook": {"source_id": "CPU_C", "line_range": [1825, 1845], "placement": "ith==0 after the host IDs loop, before the existing barrier at 1853"},
+      "projection": "ffn_gate_exps only; no gate/up/down triple counting",
+      "type_scope": "all eligible gate types including MXFP4; not limited to IQ2_S",
+      "expected_layers_per_complete_decode_token": 37,
+      "expert_count": 384,
+      "top_k": 6,
+      "time_calls_in_route_hook": false,
+      "json_or_file_io_in_route_hook": false,
+      "new_barrier": false,
+      "heap_allocation_in_route_hook": false,
+      "capture_policy": {
+        "smoke_complete_decode_tokens": 4,
+        "next_bounded_complete_decode_tokens": 64,
+        "proposed_record_bytes": 128,
+        "record_capacity": 4096,
+        "route_buffer_bytes_excluding_header": 524288,
+        "prefault_before_warmup": true,
+        "sample_unit": "whole contiguous decode token/eval attempt across all 37 eligible layers",
+        "overflow": "increment dropped/overflow, mark whole run invalid, do not overwrite old records",
+        "decode_phase_requires_caller_label": true,
+        "unlabelled_T1_phase": "unknown_t1; excluded from decode claims"
+      },
+      "lifecycle": "Publish immutable eval tag before each actual graph execution, not only graph construction. Cross-thread publication is explicit; thread-local parent state is insufficient. One context and one active eval are the initial supported scope.",
+      "source_parent_hooks": [
+        {"source_id": "NORMAL_CONTEXT", "line_range": [1525, 1595]},
+        {"source_id": "NORMAL_CONTEXT", "line_range": [2003, 2033]},
+        {"source_id": "NORMAL_CONTEXT", "line_range": [2754, 2782]}
+      ],
+      "registration": "Bind actual gate weight tensor/data identity, layer, type and geometry outside the measured operator. Version mapping on graph generation; copied/unknown tensors or duplicate bindings invalidate the capture rather than guessing from a hot-path regex.",
+      "outputs": ["ordered six global expert IDs per token/layer", "phase and eval attempt identity", "completion/failure ledger", "source/configuration manifest", "drops and coverage counters"],
+      "offline_only_derivations": ["H histogram 0..6 for each frozen hypothetical plan", "same-token joint layer hit patterns", "ordered-slot GPU hit mask", "consecutive H0 or low-H runs"],
+      "cannot_prove": ["latency benefit", "actual CPU/GPU overlap", "best placement", "representative traffic", "response quality", "GPU37-39 routing"]
+    },
+    {
+      "id": "route40_callback",
+      "status": "optional coverage oracle or future placement scope; not mandatory for GPU37-39-fixed plan candidates",
+      "hook": {"source_id": "NORMAL_GRAPH", "line_range": [2247, 2252], "name": "ffn_moe_topk-{layer}"},
+      "ask_callback": "true only for explicit target top-k tensors and selected eval attempts; validate graph-view visitation in smoke",
+      "post_callback": "read six I32 IDs respecting view strides after scheduler synchronization, using fixed buffer",
+      "expected_layers": 40,
+      "known_perturbation": "SCHEDULER:2177-2202 partitions graph views and synchronizes; non-null callback also synchronizes the terminal view even if ask=false there",
+      "forbidden_shortcut": "COMMON_DEBUG ask always true at 150-152; its regex filter is post-execution and does not avoid all-node synchronization/copy",
+      "latency_inference": "excluded; this is explicitly a perturbed callback run",
+      "live_install_in_unchanged_API_supported": false
+    },
+    {
+      "id": "bounded_hot_readiness",
+      "status": "later conditional stage, not a current run recommendation",
+      "prerequisites": ["fresh capacity screen", "actual unchanged private reserve guards pass", "normal GPU37-39 allocation retained", "RAM reserve64GiB and monitor retained", "exact backend/provider/source identities", "one bounded operator or explicitly enumerated layers; no automatic placement adoption"],
+      "host_scope": "inner State.compute starts with host input and IDs available; ends with canonical six-slot unweighted host FFN output",
+      "source_id": "HOT_CPP",
+      "host_hooks": [
+        {"field": "lock_wait_begin_ns", "line": 184, "where": "before execution_mutex acquisition"},
+        {"field": "lock_acquired_ns", "line": 184, "where": "after acquisition"},
+        {"field": "inner_enter_ns", "line": 156, "where": "compute entry"},
+        {"field": "partition_done_ns", "line": 167, "where": "six-route partition complete"},
+        {"field": "cpu_input_ready_ns", "line": 168, "where": "after CPU input/IDs set; absent if H=6"},
+        {"field": "gpu_enqueue_begin_ns", "line": 169, "where": "before pinned input copy; absent if H=0"},
+        {"field": "gpu_enqueue_end_ns", "line": 172, "where": "after D2H enqueue; absent if H=0"},
+        {"field": "cpu_compute_begin_ns", "line": 174, "where": "before CPU graph call; absent if H=6"},
+        {"field": "cpu_compute_end_ns", "line": 174, "where": "after synchronous CPU graph return; absent if H=6"},
+        {"field": "cpu_output_ready_ns", "line": 174, "where": "after CPU output copy; absent if H=6"},
+        {"field": "gpu_join_begin_ns", "line": 175, "where": "before existing stream synchronize; absent if H=0"},
+        {"field": "gpu_join_end_ns", "line": 175, "where": "after existing stream synchronize; absent if H=0"},
+        {"field": "scatter_end_ns", "line": 175, "where": "after hot-slot scatter; H=0 uses end of already-complete CPU output"},
+        {"field": "inner_exit_ns", "line": 178, "where": "after existing first-call logger/counters; first call separately marked"}
+      ],
+      "clock": "CLOCK_MONOTONIC nanoseconds, or a single explicitly identified steady clock throughout; do not mix epochs",
+      "join_meaning": "residual host wait plus call overhead, and an upper bound on completion; not true GPU ready time",
+      "not_allowed_formula": "max(cpu_ready_from_common_start, gpu_ready_from_common_start) + gpu_join_wait + scatter",
+      "allowed_ideal_formula": "max(cpu_ready_from_common_start, gpu_ready_from_common_start) + merge; branch start times need not coincide; true gpu_ready may remain unknown",
+      "exact_host_accounting": "Use successive host boundaries for a non-overlapping wall decomposition; keep enqueue, CPU phase, residual join, scatter and unassigned gaps separate",
+      "optional_device_events": {
+        "interface": "proposed tiny backend-local helper on actual cuda_ctx->stream(); no assumed public stream getter or cross-library context cast",
+        "event_kind": "new timing-enabled events, not existing disable-timing backend events",
+        "positions": {"E0": "before H2D submissions", "E1": "after both H2D submissions", "E2": "after graph_compute_async enqueued capture/replay/direct work", "E3": "after D2H submission"},
+        "gpu_elapsed_fields_ms": ["E0_to_E1_ms", "E1_to_E2_ms", "E2_to_E3_ms", "E0_to_E3_ms"],
+        "resolve": "after existing HOT_CPP:175 synchronization; no new device synchronize, event synchronize, or polling loop",
+        "epoch": "GPU elapsed-time domain; no host epoch is provided",
+        "prohibited": ["adding event elapsed to host enqueue start to invent exact readiness", "summing GPU elapsed with overlapping host CPU or residual join time", "calling GPU interval pure kernel occupancy", "reading unfurnished fused gate/up intermediates"],
+        "graph_compatibility": "bracket the backend graph call, outside its capture region; record direct/capture/replay and graph generation. Kernel-loop-only instrumentation vanishes on replay.",
+        "lifetime": "preallocate pool before warmup, stamp event generations, resolve before reuse. Existing dispatcher mutex, normal join, error-path synchronization and destructor synchronization remain intact."
+      },
+      "optional_single_query": {
+        "point": "after CPU output ready and before existing GPU join, for 0<H<6 only",
+        "record": ["event_generation", "query_begin_host_ns", "query_end_host_ns", "cuda_result"],
+        "success": "E3 completion occurred no later than query_end; it may be before or after CPU output readiness",
+        "not_ready": "E3 was still pending at a point within the query window; pending is not an exact GPU completion epoch or proof that D2H itself was incomplete",
+        "classification": "ready/pending/error at query window; strict CPU-vs-GPU completion order remains unknown unless separate bounds establish it",
+        "no_busy_poll": true
+      },
+      "outer_scope_separate": "Scheduler input waits/copies before State.compute and subsequent GPU weight/reduction tail are excluded from inner timing; use existing split/copy boundary markers without new callback cuts if whole FFN path is later measured",
+      "overlap_claim": "Asynchronous enqueue and small join do not alone prove CPU/GPU execution overlap. Controlled serial/concurrent same-placement twins show conditional wall benefit; a correlated device/host activity trace is a later stronger temporal proof."
+    }
+  ],
+  "route_record_v1_proposed_layout": {
+    "format": "128-byte fixed record, implementation must static_assert and specify endianness; JSON is exported after capture",
+    "fields_in_order": [
+      ["record_ordinal", "u64"], ["eval_attempt_id", "u64"], ["request_index", "u32"], ["sequence_id", "i32"],
+      ["decode_call_id", "u32"], ["ubatch_index", "u32"], ["logical_token_index", "u64"], ["input_position", "i64"],
+      ["graph_generation", "u64"], ["context_id", "u32"], ["layer_id", "u16"], ["phase", "u8"], ["projection", "u8"],
+      ["n_tokens", "u32"], ["ordered_expert_ids", "i32[6]"], ["flags", "u32"], ["reserved_zero", "u8[32]"]
+    ],
+    "header_and_manifest": ["run UUID", "schema and record bytes", "capacity and completed/dropped/overflow counts", "producer/context constraints", "source/build/runtime library hashes", "CPU plan/configuration hashes", "capture scope and phase vocabulary", "request/token-ID workload digest", "eval attempt completion ledger", "cold/warm and graph-mode labels"],
+    "route_validation": ["0<=layer<=36", "six unique IDs in [0,383]", "no -1 under hot-disabled route capture", "T=1", "gate projection only", "complete successful decode attempt has exactly37 unique layers", "failed/retried attempts retain distinct IDs and are not silently deduplicated"]
+  },
+  "trace_validation_and_stops": {
+    "route_coverage_and_hot_timing_scope_are_distinct": true,
+    "host_times_mandatory_for_hot_timing": true,
+    "all_missing_host_times_must_fail": true,
+    "inactive_branch_null_times_allowed_only_if_H_proves_inactive": true,
+    "unexpected_missing_layer": "invalid trace, not zero hit count",
+    "drop_or_overflow": "invalid complete joint trace; preserve partial evidence with explicit status",
+    "event_generation_or_clock_mismatch": "invalid timing trace",
+    "warmup_capture_and_replay_not_pooled": true,
+    "stop_on": ["policy/identity mismatch", "API becomes active during auxiliary diagnostic", "existing monitor alert", "guard failure", "unexpected allocation/geometry/provider", "duplicate/invalid routes", "buffer overflow", "non-success CUDA status other than query NotReady", "predeclared call/time budget exceeded"],
+    "overhead_control": "For a future executable collector, compare capture disabled/enabled in the same diagnostic binary and fixed placement, with prospectively bounded off/on/on/off order. Separate host-only and event variants. Do not remove adverse samples or infer whole-model speed from route capture.",
+    "no_automatic_retry_or_adoption": true
+  }
+}
