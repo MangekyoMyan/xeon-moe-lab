@@ -1,0 +1,31 @@
+route37隔離統合の返却 — full link/provider/scheduler/driverが準備済み
+================================================================
+
+前回の提案に沿って次を実行しました。実modelは未起動です。
+- sparse-loaderの保存linkを再現し、元libllamaとのbyte一致を確認。その入力系譜でcontextとbridge
+  だけを隔離link。collectorは元診断CPU DSOの1個だけ。C APIの定義/未定義、link mapを保存。
+- 実行時16 symbolのcanonical path/device/inode/hashをモデル初期化前に照合。
+- actual gpu-stream scheduler + CPU1backendの小fixtureで3graph、111records、generation1/1/2、
+  direct CPUと2664 scalar比較一致。実model graph bridge実行と混同していません。
+- 同じcoordinatorを使う8件のcaller cleanup試験。fake submit/drain/direct hookと明記。
+- actual deepseek41.cpp/generic graph/Unity include/dep/object hashの端点資料を追加。
+- 専用driver、4token coverage gate、全ledger JSON、既存supervisorを使うユーザー実行scriptを用意。
+
+collector.cppの実行codeは変えていません。headerは提案どおりコメントを明確化。
+callerにはgraph_computeのC++例外でCPU attemptをFAILEDとして閉じてrethrowする処理を加えました。
+正常return/例外ともGPU等の完了確定はdriver側の通常sync/drain後です。例外の実model発火は未検証。
+通常APIは依然同PID/元設定。CPU abs/positive hot/ready/event/新placementには進んでいません。
+
+見てほしい具体点:
+1. driver.cppとcall_control.hの成功/失敗/例外/出力検査失敗で、finalizeとcontext破棄が適切か。
+   public decode returnがあればその値を保持。public returnなしの例外だけ-10000を使います。
+   output validityはcall完了件数とは別に判定し、完了件数だけで正常traceとしません。
+2. 現caller exception guard、CPU同期戻り、既存GPU drainの分離に誤りがないか。
+3. teacher-forced固定input、warmup/KV clear/64token prefill後のsession、4→64の予算/phase/position
+   の定義は、最初のroute sampleとして十分に明確か。自然生成/一般化/latencyの主張はしません。
+4. run_capture.pyの通常API拒否、同じprofile/vision配置、既存supervisor再利用（64GiB reserveと
+   2h上限）の範囲に見落としがないか。実modelをまだ起動していない点は維持してください。
+
+USER_RUN_JA.txtはユーザーが操作する具体的手順です。そちらで大モデル/GPUを起動する依頼では
+ありません。もし実capture結果が別途届いていないなら、model endpointは未検証として扱ってください。
+元source/rawとfailureログも省略せず共有しています。RESULTSは読む場所の案内です。

@@ -1,0 +1,428 @@
+{
+  "scope": "Relink pinned sparse-loader libllama; one route state stays in existing CPU DSO.",
+  "prior_link_sha256": "3500ced3c689c3533c8cf50e13e0ee2019df36ada5bb9993ac9889a2171efeda",
+  "baseline_relink_sha256": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26",
+  "baseline_relink_byte_identical": true,
+  "commands": [
+    [
+      "/usr/bin/c++",
+      "-fPIC",
+      "-march=ivybridge",
+      "-mtune=ivybridge",
+      "-O3",
+      "-DNDEBUG",
+      "-Wl,--dependency-file=/home/codex/projects/llm-lab/route37-integration-20261117/provenance/baseline-link.d",
+      "-shared",
+      "-Wl,-soname,libllama.so.0",
+      "-o",
+      "/home/codex/projects/llm-lab/route37-integration-20261117/provenance/baseline-relink.so",
+      "CMakeFiles/llama.dir/Unity/unity_10_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_9_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_8_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_7_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_6_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_5_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_4_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_3_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_2_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_1_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_0_cxx.cxx.o",
+      "CMakeFiles/llama.dir/llama.cpp.o",
+      "CMakeFiles/llama.dir/llama-adapter.cpp.o",
+      "CMakeFiles/llama.dir/llama-arch.cpp.o",
+      "CMakeFiles/llama.dir/llama-batch.cpp.o",
+      "CMakeFiles/llama.dir/llama-chat.cpp.o",
+      "CMakeFiles/llama.dir/llama-context.cpp.o",
+      "CMakeFiles/llama.dir/llama-cparams.cpp.o",
+      "CMakeFiles/llama.dir/llama-grammar.cpp.o",
+      "CMakeFiles/llama.dir/llama-graph.cpp.o",
+      "CMakeFiles/llama.dir/llama-hparams.cpp.o",
+      "CMakeFiles/llama.dir/llama-impl.cpp.o",
+      "CMakeFiles/llama.dir/llama-io.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-iswa.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-dsa.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-dsa-iswa.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-msa.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-dsv4.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory.cpp.o",
+      "CMakeFiles/llama.dir/llama-moe-cache.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory-hybrid.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory-hybrid-iswa.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory-hybrid-idx.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory-recurrent.cpp.o",
+      "CMakeFiles/llama.dir/llama-mmap.cpp.o",
+      "CMakeFiles/llama.dir/llama-model-loader.cpp.o",
+      "CMakeFiles/llama.dir/llama-model-saver.cpp.o",
+      "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/llama-model.cpp.o",
+      "CMakeFiles/llama.dir/llama-quant.cpp.o",
+      "CMakeFiles/llama.dir/llama-sampler.cpp.o",
+      "CMakeFiles/llama.dir/llama-vocab.cpp.o",
+      "CMakeFiles/llama.dir/unicode-data.cpp.o",
+      "CMakeFiles/llama.dir/unicode.cpp.o",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin:",
+      "../bin/libggml.so.0.28.0",
+      "../bin/libggml-cpu.so.0.28.0",
+      "../bin/libggml-cuda.so.0.28.0",
+      "../bin/libggml-base.so.0.28.0"
+    ],
+    [
+      "/usr/bin/c++",
+      "-I/home/codex/projects/llm-lab/route37-integration-20261117/route37",
+      "-DGGML_BACKEND_SHARED",
+      "-DGGML_SHARED",
+      "-DGGML_USE_CPU",
+      "-DGGML_USE_CUDA",
+      "-DLLAMA_BUILD",
+      "-DLLAMA_SHARED",
+      "-Dllama_EXPORTS",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src/.",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src/../include",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src/../include",
+      "-march=ivybridge",
+      "-mtune=ivybridge",
+      "-O3",
+      "-DNDEBUG",
+      "-fPIC",
+      "-Wmissing-declarations",
+      "-Wmissing-noreturn",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-Wcast-qual",
+      "-Wno-unused-function",
+      "-Wno-array-bounds",
+      "-Wextra-semi",
+      "-o",
+      "/home/codex/projects/llm-lab/route37-integration-20261117/route37/llama-context.cpp.o",
+      "-c",
+      "/home/codex/projects/llm-lab/route37-integration-20261117/route37/llama-context.cpp",
+      "-fno-fast-math",
+      "-ffp-contract=off"
+    ],
+    [
+      "/usr/bin/c++",
+      "-I/home/codex/projects/llm-lab/route37-integration-20261117/route37",
+      "-DGGML_BACKEND_SHARED",
+      "-DGGML_SHARED",
+      "-DGGML_USE_CPU",
+      "-DGGML_USE_CUDA",
+      "-DLLAMA_BUILD",
+      "-DLLAMA_SHARED",
+      "-Dllama_EXPORTS",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src/.",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src/../include",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src/../include",
+      "-march=ivybridge",
+      "-mtune=ivybridge",
+      "-O3",
+      "-DNDEBUG",
+      "-fPIC",
+      "-Wmissing-declarations",
+      "-Wmissing-noreturn",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-Wcast-qual",
+      "-Wno-unused-function",
+      "-Wno-array-bounds",
+      "-Wextra-semi",
+      "-o",
+      "/home/codex/projects/llm-lab/route37-integration-20261117/route37/route37-bridge.cpp.o",
+      "-c",
+      "/home/codex/projects/llm-lab/route37-integration-20261117/route37/route37-bridge.cpp",
+      "-fno-fast-math",
+      "-ffp-contract=off"
+    ],
+    [
+      "/usr/bin/c++",
+      "-fPIC",
+      "-march=ivybridge",
+      "-mtune=ivybridge",
+      "-O3",
+      "-DNDEBUG",
+      "-Wl,--dependency-file=/home/codex/projects/llm-lab/route37-integration-20261117/llama-link.d",
+      "-shared",
+      "-Wl,-soname,libllama.so.0",
+      "-o",
+      "/home/codex/projects/llm-lab/route37-integration-20261117/runtime/libllama.so.0.8.0",
+      "CMakeFiles/llama.dir/Unity/unity_10_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_9_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_8_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_7_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_6_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_5_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_4_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_3_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_2_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_1_cxx.cxx.o",
+      "CMakeFiles/llama.dir/Unity/unity_0_cxx.cxx.o",
+      "CMakeFiles/llama.dir/llama.cpp.o",
+      "CMakeFiles/llama.dir/llama-adapter.cpp.o",
+      "CMakeFiles/llama.dir/llama-arch.cpp.o",
+      "CMakeFiles/llama.dir/llama-batch.cpp.o",
+      "CMakeFiles/llama.dir/llama-chat.cpp.o",
+      "/home/codex/projects/llm-lab/route37-integration-20261117/route37/llama-context.cpp.o",
+      "CMakeFiles/llama.dir/llama-cparams.cpp.o",
+      "CMakeFiles/llama.dir/llama-grammar.cpp.o",
+      "CMakeFiles/llama.dir/llama-graph.cpp.o",
+      "CMakeFiles/llama.dir/llama-hparams.cpp.o",
+      "CMakeFiles/llama.dir/llama-impl.cpp.o",
+      "CMakeFiles/llama.dir/llama-io.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-iswa.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-dsa.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-dsa-iswa.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-msa.cpp.o",
+      "CMakeFiles/llama.dir/llama-kv-cache-dsv4.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory.cpp.o",
+      "CMakeFiles/llama.dir/llama-moe-cache.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory-hybrid.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory-hybrid-iswa.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory-hybrid-idx.cpp.o",
+      "CMakeFiles/llama.dir/llama-memory-recurrent.cpp.o",
+      "CMakeFiles/llama.dir/llama-mmap.cpp.o",
+      "CMakeFiles/llama.dir/llama-model-loader.cpp.o",
+      "CMakeFiles/llama.dir/llama-model-saver.cpp.o",
+      "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/llama-model.cpp.o",
+      "CMakeFiles/llama.dir/llama-quant.cpp.o",
+      "CMakeFiles/llama.dir/llama-sampler.cpp.o",
+      "CMakeFiles/llama.dir/llama-vocab.cpp.o",
+      "CMakeFiles/llama.dir/unicode-data.cpp.o",
+      "CMakeFiles/llama.dir/unicode.cpp.o",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin:",
+      "../bin/libggml.so.0.28.0",
+      "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0",
+      "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+      "/home/codex/projects/llm-lab/route37-integration-20261117/route37/route37-bridge.cpp.o",
+      "-Wl,--no-undefined",
+      "-Wl,-Map=/home/codex/projects/llm-lab/route37-integration-20261117/provenance/llama-link.map"
+    ]
+  ],
+  "link_cwd": "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src",
+  "reused_objects": {
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_10_cxx.cxx.o": {
+      "bytes": 191640,
+      "sha256": "c609cf6ba394442e42210234bb7b9700e96b9fe2cdaa8adc06d03cc2ee3fb31f"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_9_cxx.cxx.o": {
+      "bytes": 345680,
+      "sha256": "6fba26877a734fe6157fd9ed936df8e99d3255590eb901e724c0ba29d932cd16"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_8_cxx.cxx.o": {
+      "bytes": 297736,
+      "sha256": "5b45caa81935beba5f7a1018a0c1f9e8d55d935315ad338586fb959d70e504d3"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_7_cxx.cxx.o": {
+      "bytes": 229616,
+      "sha256": "8cee08e1158cfe3d404d48fd3514dd4862d570d14ff948a0990e0d596f435abd"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_6_cxx.cxx.o": {
+      "bytes": 353208,
+      "sha256": "ec1761b1fade20c297b0d19d400b6d067ca524736058b6314afe011a596193a4"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_5_cxx.cxx.o": {
+      "bytes": 330808,
+      "sha256": "405cabb8e1e0833ea399a2eab6f6c06b9d42e12839684b932d15e3e99dccfe8f"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_4_cxx.cxx.o": {
+      "bytes": 280816,
+      "sha256": "c1f7ed0f3c892a2fd246e0e62a0ba75bed574d0bea99d3b121bb1e52f6995d5f"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_3_cxx.cxx.o": {
+      "bytes": 473960,
+      "sha256": "4ac4611465ebeaec85b67c8bc3543323e77065d153b2607203fca28bec3e68cd"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_2_cxx.cxx.o": {
+      "bytes": 284192,
+      "sha256": "4fe7b3f8aae878e2392ffd82ef05a7f2c6d609880eab3bcbdbd6013e4d3f6f0b"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_1_cxx.cxx.o": {
+      "bytes": 576824,
+      "sha256": "2115560506d95df6f058bb40b4d8a9c58c4aa27acd4a63d4d423cb2948e6bdeb"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_0_cxx.cxx.o": {
+      "bytes": 334760,
+      "sha256": "68dee6407609dd724b72f713563788454fb75f6851e3939c506faba46a7bd283"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama.cpp.o": {
+      "bytes": 54296,
+      "sha256": "39cb6105d487e364679f9daa57ed5fedc5ce93197fa74a581499688341ec428b"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-adapter.cpp.o": {
+      "bytes": 70400,
+      "sha256": "9d10449fd92987671f506cbebfd57df526f0b50422f197b4f701f70e5489a079"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-arch.cpp.o": {
+      "bytes": 75664,
+      "sha256": "fa2e739f8e074d64b4c302533219ba058cfb03a15070c877715803abd0075e1e"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-batch.cpp.o": {
+      "bytes": 114224,
+      "sha256": "7f01ee19c365fc5adf4bb594902f895a5290512df317bdf3400168f6effbf460"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-chat.cpp.o": {
+      "bytes": 117720,
+      "sha256": "1ab7194c4953ba7991252225ab35d4490088b86be8a67b3b758a1f3c63f41e30"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-cparams.cpp.o": {
+      "bytes": 1112,
+      "sha256": "58eae8fdeff83b5b9f07ffe6750797be103b4ce6ee5039c9d966433c39be0f28"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-grammar.cpp.o": {
+      "bytes": 414160,
+      "sha256": "96a8265b12a6b267ea19e9d25ba7084d348d18f8a3cb15703df6ffe7db0b5530"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-graph.cpp.o": {
+      "bytes": 307816,
+      "sha256": "cff6658d97d3b1dfbc4c66faaa48ece2a7be7b250db094e0c82430391dcd1cdf"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-hparams.cpp.o": {
+      "bytes": 11240,
+      "sha256": "02f7a53ec98265b5c24074de23acb157bf7c1e339f3f281c99ad476fb50e34c2"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-impl.cpp.o": {
+      "bytes": 28840,
+      "sha256": "7c19de5d73468e696ebf5cbe20e476060fe03c344ab54b7c01f1389e75bc9b2c"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-io.cpp.o": {
+      "bytes": 3080,
+      "sha256": "c8e2a53e0386c8ec5fa439c04693a26b9f9375827887669c9c31dbe368bccae7"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-kv-cache.cpp.o": {
+      "bytes": 304200,
+      "sha256": "e288b11803cc8755ad2d8b19a3412d8bb612df64fc076ebec1179721eb2e0cae"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-kv-cache-iswa.cpp.o": {
+      "bytes": 62384,
+      "sha256": "39c8143b2d76c94ee2673fd832aa71e6d3e639a2f8fea7424ce78c43b4fd1d28"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-kv-cache-dsa.cpp.o": {
+      "bytes": 53512,
+      "sha256": "6e3098e18e8d4234b2a5ca252696afa883ac77d4e0e6c6275291011531934171"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-kv-cache-dsa-iswa.cpp.o": {
+      "bytes": 77680,
+      "sha256": "4abd50640999b133865d2cf985b64b339798409812a31cbd6cf3484458ce65ea"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-kv-cache-msa.cpp.o": {
+      "bytes": 60096,
+      "sha256": "d93fc009031fca6f94127c2344dbb3e7d4133f643b821416de85345335617b7b"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-kv-cache-dsv4.cpp.o": {
+      "bytes": 284664,
+      "sha256": "926e1165393d9db43e19ac30243e643c6695db53dfbf5c6d0cfcf7687ff8b0b7"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-memory.cpp.o": {
+      "bytes": 17264,
+      "sha256": "72bd042c3dbc3ddc92308f85578591120eaca27618adf8ab5f1225f8798bfb5b"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-moe-cache.cpp.o": {
+      "bytes": 55016,
+      "sha256": "84c808cc1b2ad16b444bd2a775c1e2e93863dc5aaf751d0bc197701d92106dfd"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-memory-hybrid.cpp.o": {
+      "bytes": 60792,
+      "sha256": "3d8af58276cd9b5c333d49200d1db48e20fd76f53311efcba9b32bc48bb8baf9"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-memory-hybrid-iswa.cpp.o": {
+      "bytes": 73720,
+      "sha256": "aa1b8c306cc23d7474eefe2cf93afa17b44e462804ff589af33ab013ac024338"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-memory-hybrid-idx.cpp.o": {
+      "bytes": 106840,
+      "sha256": "e19bc66fe980412fba9c7cfcf0e2b68ec1323b2e4b6c3046470e9e6b47aba860"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-memory-recurrent.cpp.o": {
+      "bytes": 75576,
+      "sha256": "5d70deae14bbefe6becf0b2ee7f3ef7309d678b9ddcc89328c99329afdd1752d"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-mmap.cpp.o": {
+      "bytes": 51024,
+      "sha256": "edc6d2474cf5f86a30673d8c210ec0d22f1d2048cab95470275f77bbcb99a628"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-model-loader.cpp.o": {
+      "bytes": 583160,
+      "sha256": "3d432ed6dde79a09d60022e80c03065e4c96c232027045634052e511ddc5083f"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-model-saver.cpp.o": {
+      "bytes": 53696,
+      "sha256": "eb5559819e22d19b7e304f310b178dac9906935249a6cdeb8ed1452f696575e2"
+    },
+    "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/llama-model.cpp.o": {
+      "bytes": 821888,
+      "sha256": "3d120fdbe3db6cf996eba841d09b7a91c9131a905ca6f583c1072fb1c88ddc3f"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-quant.cpp.o": {
+      "bytes": 380680,
+      "sha256": "3ae05e5c913fc0ca8b0df266a7bf650a8ddeb1ac0540dd3e0b5e6703bddabdbe"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-sampler.cpp.o": {
+      "bytes": 466688,
+      "sha256": "fe2af3e4d71fba8516df5fd397bafa02e3095530f68e457dd05822e3f7ae2354"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/llama-vocab.cpp.o": {
+      "bytes": 372664,
+      "sha256": "d5c39ca274d0b73e0e5f429fe925f1e0030124b0d101236444d385064429e54d"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/unicode-data.cpp.o": {
+      "bytes": 138048,
+      "sha256": "e3c465c2bf666f695b54c2ecd057311788869471cab055385bb35b7a469c39ca"
+    },
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/unicode.cpp.o": {
+      "bytes": 601440,
+      "sha256": "3ed5d04307147acf8f30054dfcd53d5d2644686ef089cec60bbb315715d2a94d"
+    }
+  },
+  "new_objects": {
+    "/home/codex/projects/llm-lab/route37-integration-20261117/route37/llama-context.cpp.o": "b7dd4d38eaaff5b4d1afd54989d26460dbba2eba6696886838a21eb77a3d04c9",
+    "/home/codex/projects/llm-lab/route37-integration-20261117/route37/route37-bridge.cpp.o": "63a0e30e00b7e3d3034316a920ff90e17e63b61bcb101230ab5121978195d891"
+  },
+  "sources": {
+    "llama-context.cpp": "1e227a17431ead6e40927f3bffde6c835fcf676190f6d0fc9bc31fb7ae9066c4",
+    "route37-bridge.cpp": "7994c7b105eae35b4e3cb27b32e9fcc9a921ffdc6e7d62a28bc34786077b2a67",
+    "route37.h": "1512fe9a3e285ffe33802289f80aa5e1ea6b4fb6030f4b8e70d51253e1abd4fa"
+  },
+  "model_sources": {
+    "src/models/deepseek41.cpp": {
+      "sha256": "7bb456802be2a753edd60194cfa8d830af3ebbbda00a4bad6b262f7e4323bffd",
+      "bytes": 50224
+    },
+    "src/models/models.h": {
+      "sha256": "7d28f36ce485af64557f45e28871e6cfdfdc795362ce5188b63226639ae9b337",
+      "bytes": 126257
+    },
+    "src/llama-graph.cpp": {
+      "sha256": "d72fa58939970f16372d36e1a401986a7b44ad1569973080467191933f9b5c74",
+      "bytes": 156373
+    }
+  },
+  "model_Unity": {
+    "file": "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_1_cxx.cxx",
+    "sha256": "a657c18343c528a9d3ba0e71f26f888eeda78c308d50bb82f4a0edaa610cebff",
+    "dependency_sha256": "c8fc7b7461d0eb9f16a6ba086f533e8b28683f24ac2ef5dbf1658baa9fbc9755",
+    "object": "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src/CMakeFiles/llama.dir/Unity/unity_1_cxx.cxx.o",
+    "object_sha256": "2115560506d95df6f058bb40b4d8a9c58c4aa27acd4a63d4d423cb2948e6bdeb",
+    "scope": "Actual include/dependency/object correspondence and preserved link inputs; not a full source rebuild."
+  },
+  "diagnostic_llama_sha256": "83bfeefe150634c56507244ed8415bc9a863b12a2ef275ad21b32ab9a020293d",
+  "runtime_libraries": {
+    "libggml-cpu.so.0.28.0": {
+      "path": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0",
+      "sha256": "602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81"
+    },
+    "libggml-cuda.so.0.28.0": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+      "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+    },
+    "libggml-base.so.0.28.0": {
+      "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+      "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+    }
+  },
+  "collector_defined_only_in_CPU": true,
+  "model_executed": false
+}

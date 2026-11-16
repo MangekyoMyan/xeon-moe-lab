@@ -1,0 +1,193 @@
+route37 collector の寿命・固定 ledger・failure/retry 監査
+対象 commit: 688683c71803ed94ac7a8e41e8e916d4e0174e6d
+担当範囲: CONSULT_PRO_JA.txt の質問1/4のうち collector 自体、CPU 同期戻り、読出し契約
+
+結論
+====
+文書化された one context / one caller / one active eval / CPU ith0 single producer
+という契約の内側で、今回読んだ collector に確定的な data race、配列の範囲外アクセス、
+overflow による既存記録上書き、failed attempt の正常 decode への紛れ込みは見つけなかった。
+これは full libllama/caller の実行統合まで証明したという意味ではない。
+
+今回の追加実行は、変更していない route37.cpp を actual archived ggml headers と
+host-buffer 判定だけの stub にリンクし、直接 hook を呼ぶ12件の小型契約試験である。
+全12件が成功した。ggml graph、数値 kernel、モデル、GPU、通常APIは実行していない。
+同梱 build script は使用していない。監査対象 source は編集していない。
+
+ASan/UBSan を有効にした。最初の実行はこの workspace の ptrace 環境により LeakSanitizer
+が起動できず終了した。初回 receipt と stderr を initial_lsan_* に保存したうえで、
+ASAN_OPTIONS=detect_leaks=0 として同一ケースを実行した。後者の終了コードは0で、stderrは空。
+leak 検査成功、TSan成功、実機 CPU backend の sanitizer 成功とは表現しない。
+
+1. happens-before を二方向に分ければ寿命は成立する
+==================================================
+route37.cpp:35–64 は同一 caller が label/call/attempt/binding を設定し、最後に
+active.store(..., release) で worker に公開する。hook は66–67行で acquire load し、
+true のときだけ68行以降の非atomic dataに触る。観測不適格なら active=false のまま。
+
+worker→caller の完了は、end_eval の94行 active.store(false, release) だけでは作れない。
+この store を「worker が書き終わったことを acquire している」と解釈してはならない。
+end_eval は header:9–11 および cpp:93 にあるように、CPU graph calls と全 hook が
+戻った後に呼ぶ API であり、その前提を本物の同期 graph return が満たす。
+
+今回の BUILD.json では -DGGML_USE_OPENMP と -fopenmp を指定している
+（17,45,68,99行）。診断版 ggml-cpu.c:3653–3671 の OpenMP parallel region 内で
+ggml_graph_compute_thread を実行し、3400行の終端 barrier を通り、parallel region を
+抜けてから3698行で戻る。ith0 の記録が並行して続いている間に end_eval が record/attempt
+を読むという経路にはなっていない。n_threads==1 は3674行で同期呼出しである。
+
+参考として非OpenMP分岐も、3686行で workers[0] を呼出しスレッド自身が同期実行し、
+終端barrierを通ってから戻る。現在ビルドの根拠には OpenMP 側を使うのが正確である。
+
+したがって次の順序で十分であり、全recordをatomic化したりhookにmutexを加える必要はない。
+  caller の label/binding 初期化
+  → active の release/acquire
+  → 単一 producer による record/attempt への書込み
+  → 同期 CPU backend の graph return
+  → caller の end_eval / ledger の参照
+
+任意の他スレッドから stats/read/close/open を同時に呼べば、非atomic state への競合を
+作ることはできる。しかし POLICY_AND_SCOPE:21–25 と header:8–11 で禁止された使い方であり、
+本レビューでは現状の到達可能なraceとして数えない。readable() の判定は汎用 concurrent
+reader lock ではない。並行リクエスト対応に将来広げる際は別設計が要る。
+
+2. CPU producer の終了と GPU tail の終了は分けてよい
+====================================================
+caller.patch:29–34 は実際の graph_compute の前後で begin/end を接続している。
+end_eval は CPU 記録の producer 終了を確定するだけで、call全体のGPU完了とはしない。
+complete_call は cpp:100–108 で caller の通常同期が完了したかを引数として受け取る。
+
+collector 自体は同期操作も CUDA status 照会もしない。synced=1 は caller の証言である。
+これは現段階の分離として妥当だが、将来driverは成功経路だけでなく llama_decode 失敗経路も
+精査する必要がある。GPU work が既に submit されている可能性のある失敗を、出力未取得のまま
+synced=1 としてはならない。成功時の通常 logits 同期と、失敗時の安全な終了処理を明示する。
+この点は現在 driver が存在しないため「現存する同期漏れバグ」とは分類しない。
+
+文言の小さな改善: header:9 の “Control/read APIs require no graph in flight” はGPU tail
+も含めて読むと、GPU tailを残してend_evalする設計説明と衝突して見える。APIごとに、
+end_eval は CPU producer 完了、complete_call は通常の全体同期完了、session再open/close/export
+はcall終了後、と書き分けると誤実装を防げる。mutex等を追加する理由ではない。
+
+3. 固定配列の境界と overflow の扱い
+===================================
+R=4096、A=512、C=128（cpp:8）。open は上限内かつ正のlimitのみ受ける（28–32）。
+calls は37行、attempts は44行、records は81行でそれぞれ書込み前に上限を確認する。
+これらの counters を変更するのは単一 caller/producer なので、この契約では == の上限判定が
+counter を飛び越える race に弱いという問題は生じない。
+
+  call上限:
+    label は0を返し、global XR_OVERFLOW と dropped+1。新callを部分的に作らない。
+  attempt上限:
+    begin は0を返し、global と現在callに XR_OVERFLOW、dropped+1。
+    そのcallにattemptがなければ complete_call で XR_NO_EVAL も付く。
+  record上限:
+    recordを上書きせず、attempt/globalに XR_OVERFLOW、dropped+1。
+    layer bitmap は先に更新されるが、end_eval は records==37 も確認するので、
+    bitmapだけ37層揃った overflow attempt を合格にしない。
+
+追加試験では record_limit=37 で最初のcallを完了させ、次callで37回hookを呼んだ。
+既存37recordがbyte一致で残り、次attemptは layers=ALL / records=0、dropped=37、
+flags=XR_OVERFLOW|XR_COVERAGE、complete_decode_attempts は1のままだった。
+
+call_limit=1 の2回目labelは拒否され、calls=1/attempts=1/records=37を保ち、
+dropped=1/flags=XR_OVERFLOWで閉じられた。attempt_limit=1 の2call目も拒否され、
+旧callは保持、2call目は XR_OVERFLOW|XR_NO_EVAL となった。
+
+小さなAPI文書上の注意: dropped は「失ったrecord数」だけのcounterではない。
+call拒否、attempt拒否、record drop を全て1ずつ足すイベント数である。エクスポータで
+missing gate数などへ直接換算してはいけない。現在は全flags/ledgerをexportする契約なので
+不正成功になるわけではないが、fieldの意味を明記しておくとよい。将来内訳が必要になった時に
+API versionを整理して dropped_calls / dropped_attempts / dropped_records を追加すればよい。
+
+4. failure / retry / phase の読出し意味
+======================================
+end_eval は graph失敗をattemptに残す（95–98）。complete_call は全attemptのflagsを
+callへORし、callのどれかが失敗ならそのcallの全attemptを successful decode に採用しない
+（103–107）。失敗attemptの後に同call内で成功attemptを実行してもcallはfailclosedになる。
+別callで再試行し、そのcallが正常なら、過去sessionのglobal errorが残っていても新しい正常
+attemptだけを complete_decode_attempts に加算できる。この挙動を追加試験で確認した。
+
+これは retry ledgerの保持と集計基準を両立している。failed attemptを削除したり、
+同callの最後のsuccessだけで古い失敗を帳消しにする修正は不要である。
+
+complete_call(synced=0) は XR_UNSYNCHRONIZED を残してcallを閉じる。
+後から complete_call(...,synced=1) を呼んでも修復できない。失敗を記録した後のcleanup
+として扱うべきで、GPU完了をpollするAPIの代用ではない（追加試験済み）。
+
+phaseは明示ラベルに依存する。warmup/prefill/unknownのT1は同じ37recordを記録しても
+decode件数に入らない。decodeでnt!=1はgeometry error、複数token prefillはscope外で
+0record/0decode件となる（cpp:49–51,64,97,107）。これはcollectorがphaseを正しく予測
+できるという意味ではなく、driverが正しいphaseを渡すことが前提である。
+
+field名の注意: attempt.caller_completed は「呼出しが何らかの結果で戻った」そのものではない。
+cpp:107 で callにflagsが一切ない時だけ1になる。failed+synced+completedのcallにも、
+attempt.caller_completed==0 があり得る。時間的終了の判定はcall.completed / synchronizedと
+合わせて行い、attempt.caller_completedは有効な完了attemptの採否だと注記するとよい。
+現状 exporter が未実装なので、この曖昧さを実害バグとは分類しない。
+
+5. registration と stale state
+===============================
+begin は37gate、host buffer、supported type、基本shape、tensor/data重複を検査し、
+mapping/geometryエラーがあれば activeを立てない（53–64）。hookでは登録したtensorに
+一致したweightの data/type/ne/nb を再照合する（76–77）。登録外のtensorでも、同一dataの
+copied aliasはmapping errorを残す（69–74）。全く新しいdataへcopyされたweightは既知層に
+対応づけず、その層が記録されなければcoverage未達になる。推測mappingは不要。
+
+追加試験では登録tensor重複とdata重複の両方で、hookを37回呼んでも0recordであり、
+XR_MAPPING|XR_COVERAGEを残した。部分的に残ったbindingを読んで古いlayerを採用しなかった。
+
+close後もAPIは保存済みrecord/ledgerを読める。新openではd全体をresetし、旧indexのreadを
+拒否することを確認した。新sessionでattempt ID/generationが1に戻るのは現行APIの仕様。
+複数sessionを同じファイルに連結する exporter は外側に session識別子を持つ必要がある。
+これはcontext解放前exportというREADME契約と整合する。以前のsessionのworkerを残したまま
+再openしてstale hookを走らせるテストは、禁止されたlifetime違反なので正常入力の証明には使わない。
+
+6. 実行した12件と証拠
+=======================
+1 phase_and_rebuild_generation: warmup/prefill/unknown/decode/decode、世代1,1,1,2,2
+2 call_limit_exact_then_overflow: call上限ちょうどとその次の拒否
+3 read_after_close_and_reopen_reset: close後read、再open reset、新session ID再開
+4 invalid_registration_duplicate_tensor: 登録tensor重複でhook非活性
+5 invalid_registration_duplicate_data: 登録data重複でhook非活性
+6 zero_attempt_success_status_is_invalid: status成功でもattemptなしはXR_NO_EVAL
+7 record_limit_overflow_preserves_old_records: 旧37record byte保持と全drop ledger
+8 attempt_limit_overflow_preserves_prior_call: attempt上限拒否と旧call保持
+9 failure_then_success_same_call_failclosed_then_retry_call: call単位失敗保持と別call retry
+10 unsynchronized_call_is_final_failure: synced=0の失敗確定と再finish拒否
+11 decode_multitoken_is_rejected: decode nt2はgeometry error
+12 prefill_multitoken_excluded_without_decode_counts: prefill nt2はscope外0record
+
+test source: collector_contract_test.cpp
+reproduction: python run_contract_test.py --repo <pinned worktree> --disable-leak-check
+output: contract_results.jsonl
+receipt: contract_receipt.json
+initial environmental failure: initial_lsan_contract_receipt.json / initial_lsan_run.stderr.txt
+
+上のtestはcollector API state machineを検査しており、同梱probeの13,320 scalar比較に
+新たな数値モデル比較を加えたものではない。世代testもrebuilt引数を指定しており、実際の
+llama graph rebuild/reuse検出まで実行検証していない。TSanも実行していない。
+
+次に必要な小さい検証は、collectorにさらに一般的な並行性testを積むことより、完全にlinkした
+診断callerでproviderの一意性とcall失敗時のcleanupを確定し、その後の限られた実graph smokeで
+37gateが実際にhookへ届くことを検査すること。source reviewの範囲を超えてモデル起動はしない。
+
+7. 対象sourceの識別
+====================
+base: archive/review-handoffs-not-for-readers/2026-11-17-route-observation/
+route37/route37.h SHA256:
+cc2df8d95cad54b4e01e37cf85f413cab722707534cf7d7fcb600b0a4a115b10
+route37/route37.cpp SHA256:
+8f8aca9be203043ea5cb5f82bfc90cdcfcd37e8ed027faaccaf6e7f5b4ec8865
+route37/probe.cpp SHA256:
+035d28c8f15ee9f7b1c5a562cce5273276e4874794de994fa04c61e60af36c33
+route37/caller.patch SHA256:
+a0fea0150f476aee21a44bfb9ac7c30b1d3737073aa1fe2405d316a7335197b4
+route37/cpu.patch SHA256:
+534ac6aa32a91d96d5a620b47484362323925082964b1945fd9cfbcbde01033a
+route37/ggml-cpu.c SHA256（SOURCE.json と一致）:
+ce6a78a1a34c0fe9623a116320b9fad8d1ae0cb83102ba9a4cb8fbd58a473988
+
+CONSULT/RESULTS/README/POLICY、header/collector/probe、bridge、caller/cpu diffを全文読了。
+CPU C全体を全面再監査した主張はしない。寿命判断に関連するdispatch、barrier、OpenMP/非OpenMP
+graph returnの部分を追加で読んだ。モデルとのidentity到達性・scheduler全体は別担当レビューと
+突き合わせる事項である。

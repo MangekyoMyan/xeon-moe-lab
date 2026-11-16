@@ -1,0 +1,258 @@
+route37 新証拠・容量・実行記録の独立監査
+====================================
+対象commit: 688683c71803ed94ac7a8e41e8e916d4e0174e6d
+対象: archive/review-handoffs-not-for-readers/2026-11-17-route-observation/
+監査日ラベル: 2026-11-17
+
+0. 判断
+-------
+保存された新しい証拠の範囲では、RESULTS/README/CONSULTの主な数量・実施範囲に矛盾は
+見つからなかった。新handoffの80ファイル、前回返却物との31ファイルの同一性、6工程の
+終了記録、source/patch/buildコマンドの系譜、17,760-byteの人工golden、13,320という
+scalar比較数は独立に照合できた。
+
+今回増えた証拠は「現在の容量screen」と「小さい実ggml graphに観測hookを加えても、
+指定fixtureの出力が変わらなかったという成功receipt」である。実モデルのroute分布、
+CPU/GPU並行実行、観測の実時間overhead、token間隔、品質の改善を示す新しい証拠はない。
+資料自体もこの区別を明示している。
+
+容量に関する次判断は明確である。保存NVML free2575MiBでは、最小native bankに対する
+既存事前条件のthreshold3083.513671875MiBにも508.513671875MiB足りない。実CUDAの
+admissionを動かした結果ではないが、このscreenでpositive hotの追加計画を進めない
+判断は支持される。既存3072/2560MiB guardを変える根拠にはならない。
+
+次に必要なのは、親のsource/lifetime reviewで必要修正を絞った上での診断libllama/driver
+接続検証である。証拠不足を理由に前のCPU性能suiteを再試行する必要はない。
+
+1. 今回の監査が実行したこと
+--------------------------
+配布Python、ELF、共有library、モデル、API、GPU query、CUDA allocationを実行していない。
+自作stdlibスクリプトで保存ファイルを読み、hash/byte比較、JSON再計算、unified patchの
+独立適用、既存build receiptからのcommand差分再構成、上限付きgzip復元を行った。
+repoは読み取りだけで、成果物はaudit/route_observation_20261117/evidence/へ書いた。
+
+再実行スクリプト: audit_route_evidence.py
+数値/検査結果: ROUTE_EVIDENCE_AUDIT.json
+参照source hash一覧: ROUTE_EVIDENCE_SOURCE_SHA256.json
+復元した人工fixture: RESTORED_ARTIFICIAL_GOLDEN.bin
+
+この監査は保存receipt同士の整合性を独立に確認するもの。実機に立ち会って6工程を再実行
+した意味ではなく、保存されていない実機ELFを独立にhashした意味でもない。
+
+2. 取り込み・manifest・source provenance
+--------------------------------------
+新handoff FILES_SHA256.jsonの79項目を全てsize/SHA照合した。manifest自身を加えて実際は
+80ファイル。欠落、余剰、digest不一致なし。
+
+incomingはschema=1/files wrapperで30項目、manifest本体を加えて31ファイル。これらは
+前回final返却directoryの31ファイルと全byte一致した。INTAKE.verified_entries=30は
+このmanifest-covered項目数であり、31との矛盾ではない。
+
+前回final ZIPは508,489 bytes、SHA256:
+b1823793c4493e1113c1ea0be5f37bdff51995a911be4a7606246f9cf0d95002
+INTAKEのzip_sha256と一致した。途中版ZIPとの取り違えはない。
+
+route37/SOURCE.jsonのbase CPU/context SHAを、同branch内の2026-11-16-currentにある
+凍結原文で再計算した。cpu.patch/caller.patchを自作のexact-context applicatorで原文へ
+適用し、出力全体が今回ggml-cpu.c/llama-context.cppとbyte一致することを確認した。
+
+CPU全体の差分はroute37.h includeと、既存host-ID境界へのith==0 record呼出しの追加だけ。
+abs候補の算術変更は入っていない。これは単なるSOURCE.json自己申告だけでなく、元source
+と現sourceの全体差分で確認している。
+
+参照:
+  route37/SOURCE.json
+  route37/cpu.patch:1–20、caller.patch:1–37
+  route37/prepare_sources.py:6–36
+  2026-11-16-current/snapshot/llm-lab/exploration-20261112/
+    mx-prepack/release-candidate-a/sources/ggml-cpu.c
+  2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/
+    source/src/llama-context.cpp
+
+3. buildと6工程の実施範囲
+------------------------
+通常buildの5コマンドは、元mx-prepack BUILD.jsonと元llama-context compile_commands.json
+から独立に再構成し、一字一句一致した。probeコマンドも元abs-operator PROBE_BUILDから、
+sanitizer4コマンドも今回通常build/probeから再構成して一致した。各source_sha256も実際の
+配布sourceに一致する。
+
+通常buildの内容:
+  - route37.cppと変更ggml-cpu.cのcompile
+  - 既存objectを再使用し、route37.oを1個追加した診断CPU共有libraryのlink
+  - llama-context.cppとroute37-bridge.cppの-fsyntax-only
+
+変更CPUの2translation unitは記録コマンド上、-march=ivybridge、-mno-avx2、-mno-fma、
+-fno-fast-math、-ffp-contract=offを使用。linkは--no-undefined。CPU libraryへのroute37.o
+追加は一度である。callerのfull linkは存在せず、動的provider一意性は次のdriver接続で
+改めて確認する必要がある。
+
+6工程は全てexit_code=0、error=null、stderr空、PID11151。開始/終了とelapsedの数値は
+互いに整合し、6工程の実行区間は重なっていない。
+
+工程                        stdoutの主旨                         保存sample/独立sensor時刻
+route37-build               診断CPU link、caller syntaxのみ      14 / 2
+route37-probe-build         実graph/collector probe build        5 / 1
+route37-golden              5graph、4,440値の人工baseline        1 / 1
+route37-check               16graph、13,320比較、9契約category    1 / 1
+route37-san-build           隔離sanitizer variants build         14 / 2
+route37-san-check           同じfixture検証のsanitizer再実行     2 / 1
+
+sanitizerはASAN/UBSANを変更CPU C/C++とprobeへ付けたもの。再使用object、base library、
+caller側はinstrumentされていない。TSanでも、任意の並列呼出しに対するrace-freedom証明でも
+ない。sanitizerの再実行を新規13,320件として合算しない点はRESULTSの記述通り。
+
+stdoutはprobe内の全need()を通過したときにだけ出る成功記録である。ただしbinaryは未添付。
+したがってlibrary/probe SHAは実行側が記録した値で、監査側でELFから再計算した値ではない。
+これはソース配布の範囲に沿った限界であり、今回の内容を否定するものではない。
+
+監視記録について:
+  - 保存sampleのMemAvailable最小は約68.0217GiB。64GiB reserveを上回る。
+  - 保存CPU最大は26℃。host counter56項目は各工程のinitialから不変。
+  - 保存API CPU cores最大は約0.01995。工程中の連続idleを証明する数字ではない。
+  - 4つの短い工程ではsensor timestampが実行開始前のまま。daemon最新値を再読したsample
+    は独立した温度観測ではない。最大10.73秒前のsensor値を含む。
+  - elapsed_sはguard/controllerの待機を含む工程時間。kernel/token/observer latencyへ
+    転用できない。
+
+新handoffには起動したguard.py自身のpath/hashとfull launcher argvが記録されていない。
+schemaは前archiveのabs-operator/guard.pyと整合するが、同一guardを使ったという再証明は
+このreceiptだけではできない。次の実行receiptへguard source hashとlauncherを足せばよく、
+既存の小試験を再実行する理由にはしない。
+
+参照: execution/*/{STATUS.json,stdout.log,stderr.log}、route37/BUILD.json、
+PROBE_BUILD.json、sanitized/BUILD.json、build*.py。
+既存guardのsampling/limits: 2026-11-16-abs-operator/guard.py:6–17,31–57。
+
+4. 13,320比較と人工goldenの意味
+----------------------------
+gzipを17,761 bytesまでしか読み出さない上限で開き、実際は17,760 bytesで終了することを
+確認した。uncompressed SHA256はCORRECTNESS.jsonと一致:
+9039af82826590d5633243c78a1e3fe48e62183ffacd10a547c7ebe5d207fe0a
+
+little-endian F32として4,440値。全て有限で、全て非zero。
+最小 -42.41020965576172、最大 41.39209747314453。
+この値域は人工goldenの内容確認であり、実モデル中間値の分布ではない。
+
+sourceから比較数を導出すると:
+  1graph = 37 nodes × 6 expert IDs × M4 = 888 scalar出力
+  5input = 4,440 scalar = 17,760 bytes
+  default-off / session観測off / session観測on の3状態
+  4,440 × 3 = 13,320 scalar出力比較
+
+13,320個の独立case、prompt、実expert route、完全FFNの検証という意味ではない。
+人工nodeはK256/M4/expert384の単一MUL_MAT_IDであり、実モデルK5120/M2304のgate/up/
+SwiGLU/down全体ではない。quant型はIQ2_S10node、IQ3_S9、IQ3_XXS9、MXFP4 9。
+重みbyteは固定seedの人工値。4型は含むが、実モデルの全入力・重み・outlierを覆わない。
+
+通常checkの実graph実行16回は、3状態×5入力=15回と、多token metadataのscope除外確認
+1回で説明できる。観測onの5graphにはwarmup、prefill T1、unknown T1、decode2回が含まれ、
+実decodeとしてcountされるのは2attemptだけ。185record=37×5をmetadata/ordered IDs/
+graph_generation=1等でチェックしている。
+
+negative_contract_cases=9は、7分類loop（欠測、重複、alias、record overflow、不正IDs、
+graph failure、unsynced finish）＋attempt overflow＋failure→retry ledgerに対応する。
+これらは主としてhookを直接呼ぶ契約fixtureで、実schedulerが9種の失敗を作ったものではない。
+strided IDsもdirect hook。多token prefill確認もnt=2というmetadataに対するscope除外であり、
+graph自体はT1のまま。この限定はREADME/RESULTSにも明記され、主張の水増しは見つからない。
+
+出力memcmpはprobe sourceにあり、成功logと整合する。ただしcandidate実行時の出力byteは
+配布されていないので、監査側がbaseline対candidateを再memcmpしたわけではない。
+今回独立に確認したgoldenは「凍結CPUの人工fixture出力」で、FP64数学参照や元モデル品質の
+正解ではない。
+
+参照: route37/probe.cpp:36–65（fixture）、75–97（byte比較）、98–127（契約fixture）。
+
+5. capacityの独立再計算と厳密guard
+---------------------------------
+CAPACITY_SNAPSHOTは返却済snapshot_capacity.pyとsource SHAが一致する。表示値からのbyte
+変換とscreen計算も再現した。GPUは指定UUID/PCI、150W/ECC Enabledの記録。
+
+表示値: total32768 / used29920 / free2575 / reserved274 MiB。
+明示free2575MiB=2,700,083,200Bを使用する。
+total-used2848MiBではない。used+free+reservedは32769MiBになり表示totalと1MiB違うが、
+MiB表記・query区間の値を完全同時の厳密byte accountingと扱う必要はない。
+
+old hot-ffn/CAPACITY.jsonのeligible0..36層で最小native expert tripletは12,072,960B。
+該当層0,1,2,3,6,7。CPU compact cache byteではなく、native3projectionを合計したpayload。
+
+既存hot-backend.cppの実guard:
+  事前: free > payload + 3072×1024²
+  post: private GPU graphの全到達H warmupとsynchronize後、free > 2560×1024²
+
+最小payloadの事前threshold = 3,233,298,432B = 3083.513671875MiB。
+保存freeとの差 = 533,215,232B = 508.513671875MiB。
+比較はstrict >なので、この不足量をちょうど取り戻すだけでは通過しない。表示丸め、別用途の
+時間変動、execution/pool allocationを含め、実測marginを後で改めて設ける必要がある。
+
+現在2575とpostguard2560の差15MiBは「割当前」の値。postguard合格ではない。そもそも事前
+screenを満たしていない。NVML値から実cudaMemGetInfo値やallocation成功を断定しない。
+
+payload0だとpositive preguard内を通らない一方、private CPU graph構築/warmupや末尾の
+cudaMemGetInfo等は残る。zero-hit dispatcherを中立なroute-only collectorとは扱えない。
+
+host MemAvailable = 73,349,971,968B = 68.31248474121094GiB。
+64GiBとの差 = 4,630,495,232B = 4.3124847412109375GiB。
+これはhost参考値で、モデルもう1個や将来の追加allocationが入るという見積もりではない。
+
+capacity query intervalは約95.30ms。full XMLは保存されず、選択値とraw stdoutのhashだけ。
+したがってraw XML parseを第三者が再実行することはできない。screenを「通さない」という
+今回の判断を覆す理由ではないが、次snapshotでは必要なraw subtreeを残すと追跡が容易。
+
+参照:
+  CAPACITY_SNAPSHOT.json
+  incoming/.../tools/snapshot_capacity.py:31–86,111–159
+  2026-11-16-current/snapshot/llm-lab/exploration-20261112/hot-ffn/
+    hot-backend.cpp:115–154、CAPACITY.json
+
+6. runtime identityと保存された証明の境界
+----------------------------------------
+PID11151、health ok、slot0 idle、config GPU37/38/39、CUDA_VISIBLE_DEVICES UUIDは各receipt
+で整合する。config SHA963b...d43、CPU backing file SHA33a9...ed3、base SHA2e13...558は
+記録上の従来runtimeに対応。plan SHAは同branchのfrequency19200.plan実体で再計算し一致した。
+
+capture_identity.py:15–21は/proc/mapsからlibrary pathを抽出し、path.statのinode/deviceを
+mapsとassertした後でpathをhashする。sourceにこの照合処理があることは直接確認した。
+しかし保存JSONにはdevice値や元maps行自体がなく、実機のbacking file/ELFも未配布なので、
+今回の監査側でinode/device比較やELF SHAを独立再計算できたとは言わない。
+また、これはrelocated in-memory ELF hashではなく、backing fileを同定したreceiptである。
+
+同一pathをhashする前後のfstat identityまで保存する方式ではないため、一般的なfile置換/
+同一inode書換えの時系列証明まで期待しない。今回のsource reviewを止める問題ではない。
+次の実機driver接続receiptでfiltered maps行、device/inode、open済fdのstatとhashを同時に
+残せば、providerの照合に必要な証拠が増える。
+
+compute-process queryはPID11151のみ、process used29520MiB。device used29920MiBとの差は
+400MiBで、二者を同一値に揃える計算はしない。capacityとidentity receiptは約337.607秒
+離れているため、完全同時snapshotでもない。
+
+FINAL_RUNTIMEはinitial identityの約795.384秒後でsame_PID、hash/source/config/plan不変、
+API_restarted=false等を記録。monitorは約6.460秒前の値、errors/active_alerts空、services active。
+ただしfinalのfull maps/start ticks/hash一覧はなくboolean receiptなので、「同じruntimeだった」
+という実行側の終了確認を独立に完全再構築できるわけではない。初期boot_id/start ticksはある。
+
+fan70%は継続policyで、今回新しくdutyを独立queryした観測値ではない。monitorにはRPM等が
+あるが、監査から新たなfan制御が行われたとは読まない。
+
+参照: capture_identity.py:11–38、IDENTITY_SNAPSHOT.json、FINAL_RUNTIME.json。
+
+7. 次の判断に効く不足だけを残す
+------------------------------
+(A) full libllama/driver link、単一route37 state、実際に解決されたCPU provider identity。
+    syntax-onlyを通ったことからruntime link/lookupも成功したと推定しない。
+
+(B) real model K5120/M2304、通常scheduler、graph reuseの37gate coverage。
+    人工small graphからの外挿はしない。ここは次のsource review後、4token smokeでまず
+    欠測/重複/drop/unknown/failure/call completionを検証する必要がある。
+
+(C) real route分布、observer overhead、CPU/GPU overlap、token間隔。
+    これらはまだ一件も増えていない。今回の成功値から性能を言わない。route-only captureと
+    GPU ready/event planを区別し、追加同期を性能比較へ紛れ込ませない。
+
+(D) positive hotのcapacity。
+    現在screenは不足。GPU37–39とreserveを維持したmemory計画を別にし、既存guardの緩和や
+    zero-hit dispatcherへの置換で測定段階を飛ばさない。
+
+raw XML、guard hash、final full identityの保存改善は、次receiptの説明力を上げる改善点。
+すでに終わったCPU/synthetic suiteをもう一度実行すべき重大失敗としては扱わない。
+source/lifetime上の修正判断は親と他review担当へ委ね、本報告の成功監査を本番採用許可や
+ユーザー方針変更へ変換しない。

@@ -1,0 +1,291 @@
+route37 caller / scheduler / CPU 境界レビュー
+対象 commit: 688683c71803ed94ac7a8e41e8e916d4e0174e6d
+担当: /root/route_integration
+
+結論
+
+指定された単一 context / caller / eval / CPU producer の範囲で、今回の
+「scheduler submission が戻ったら CPU route producer を閉じ、GPU tail の完了は
+caller が後で別に確定する」設計を否定する race は見つからなかった。
+実際にロードされている base と CPU object のソースに沿って、この境界を説明できる。
+
+ただし、まだ full libllama の link も、実モデル graph の gate identity 確認も行っていない。
+次に進めるのは隔離 link と小さい scheduler 統合試験まででよい。実機通常 API の変更、
+モデル起動、CUDA ready 計測、hot bank、guard 変更をこのレビューから追加しない。
+
+本レビューではソースと build receipt を読んだ。新しい実行試験やモデル実行をしていない。
+collector 自体の状態機械・overflow・配列境界は別担当と親の検証に委ねる。
+
+パスの略記
+
+R = /workspace/scratch/1f624f9ac929/xeon-moe-route-688683c
+N = archive/review-handoffs-not-for-readers/2026-11-17-route-observation
+H = archive/review-handoffs-not-for-readers/2026-11-16-current
+L = H/snapshot/llm-lab
+U = L/deepseek41-bringup-20261101/source
+E = L/exploration-20261112
+B = L/gpu-stream-20261103/ggml-backend.cpp
+
+略記は以下すべて R からの相対パスを指す。実ファイル SHA256 は同梱 SOURCE_MANIFEST.json。
+
+1. CPU producer の寿命について確定できること
+
+1.1 対象ライブラリの取り違えを避ける
+
+N/IDENTITY_SNAPSHOT.json:15-49 は frozen CPU、sparse-cache libllama、gpu-stream base
+の backing file hash を記録している。通常プロセスの CPU は
+33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3、base は
+2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558。
+N/route37/BUILD.json の CPU link では、診断 ggml-cpu.c.o と route37.o を新規に加え、
+CPU wrapper は E/sparse-cache/ggml-cpu.cpp.o を再利用している。
+したがって vendor の新しい一般論より、以下の実 wrapper と実 scheduler を優先した。
+
+1.2 実行鎖
+
+N/route37/llama-context.cpp:1592-1597
+  bridge_begin -> graph_compute -> end_eval。
+N/route37/llama-context.cpp:2763-2791
+  graph_compute は ggml_backend_sched_graph_compute_async を呼んで戻る。
+B:2390-2402
+  sched_graph_compute_async は必要なら allocate した後 compute_splits を直接呼ぶ。
+B:2137-2175
+  compute_splits は split を順番に処理し、CPU split も graph_compute_async を直接呼ぶ。
+B:805-807
+  backend_graph_compute_async は backend->iface.graph_compute を直接呼ぶ。
+E/sparse-cache/ggml-cpu.cpp:171-191,194-210
+  CPU graph_compute は ggml_graph_compute(cgraph,&cplan) の戻り値を直接返す。
+  CPU synchronize は NULL、CPU graph_optimize も NULL。
+N/route37/ggml-cpu.c:3624-3698
+  実 build は GGML_USE_OPENMP 有効。並列領域内で全 worker の graph 関数を実行し、
+  並列領域から出た後に return する。
+N/route37/ggml-cpu.c:3334-3406
+  各 worker の graph 末尾にも既存 barrier がある。
+
+したがって、この build の CPU split に関しては API 名に async が含まれていても
+CPU graph の計算と hook は呼出し中に終了する。GPU の非同期実行と同じ意味ではない。
+OpenMP の implicit join、および CPU runtime の既存同期を含めて読む必要がある。
+active.store(false,release) 単独が worker の書き込みを回収するという説明はしない。
+
+1.3 release/acquire の役割
+
+N/route37/route37.cpp:40-64 で label と bindings を準備し、active を release publication。
+同:66-67 の worker hook が acquire で読む。単一 producer だけが記録を書き、呼出し側は
+CPU graph が戻るまで記録状態を書き換えない。この条件と上の CPU 同期が対になる。
+実 OpenMP の ith0 は主 thread であり、非 OpenMP の実装でも workers[0] を caller が
+直接実行する (ggml-cpu.c:3682-3686)。全 worker 終了という強い境界の方で説明するのが安全。
+
+この評価は、CPU の graph_compute を後から非同期実装へ変える設計には引き継がない。
+extra backend が独自 worker を detach する等も対象外。現在の receipt からそのような
+実装は確認していない。
+
+1.4 GPU tail は残り得る
+
+B:2171-2175 は callback なしなら CUDA split を同期せず submit する。
+B:2210-2218 は event 記録後に scheduler が戻れる。
+context:2079-2091 は logits を async copy、2248-2251 は synchronize をコメントアウト。
+public llama_get_logits / llama_get_logits_ith は context:4295-4312 で synchronize する。
+context:890-895 -> B:2405-2409 が全 backend を同期する。
+
+end_eval の graph_returned は CPU 生産者が終了したという意味で適切。
+complete_call は caller が通常必要な同期を済ませたという別の意味が必要。
+後者の synchronized 引数は自己申告であり、この API が GPU completion を測定・保証する
+わけではない。
+
+2. 元 gate tensor の identity が届くか
+
+2.1 bridge の登録は名前による推測ではない
+
+N/route37/route37-bridge.cpp:7-21 は owner が一致した場合だけ model を読み、
+model.layers[0..36].ffn_gate_exps を配列に入れる。layers.size()==40、各 gate の
+ne={5120,2304,384,1} を要求する。collector は host/type/data と ne/nb を追加保存・照合
+する (route37.cpp:53-59,69-89)。複製 tensor を名前から元 layer へ戻す fallback はない。
+
+2.2 archived generic graph で確認できる経路
+
+U/src/llama-graph.cpp:2349-2352
+  separate gate/up path は build_lora_mm_id(gate_exps,...) を呼ぶ。
+U/src/llama-graph.cpp:1643-1654
+  MoE cache slots が nullptr なら ggml_mul_mat_id(ctx0,w,cur_mm,ids) として w 自体を渡す。
+  Hadamard の分岐は入力 cur 側であり、ここで w を clone しない。
+U/src/llama-graph.cpp:2537-2548
+  MoE cache がない、または対象 slot map/cache weights がないと slots は nullptr。
+N/route37/llama-context.cpp:564-566
+  moe_cache は cparams.moe_cache_size > 0 の場合に作る。
+
+CPU compact cache とここでいう MoE cache を混同しない。通常の 120 GiB compact は
+E/sparse-cache/llama-model.cpp:2085-2124 が元 tensor を cache へ渡し、元の重みを保持する。
+最終 CPU の compact lookup は N/route37/ggml-cpu.c:1868-1869、すなわち hook:1848-1849
+より後で行う。compact expert の選択は gate tensor identity を hook から隠さない。
+MXFP4 prepack も RHS の sidecar で、src0 の置き換えはここではない。
+
+2.3 scheduler の copy 条件
+
+B:1381-1399 は weight buffer に基づいて実行 backend を選ぶ。
+B:1795-1815 は source backend と実行 backend が異なり、buffer が互換でない場合だけ
+tensor_copy を作って node->src[j] を置き換える。CPU の host weight を CPU で使う
+通常 T=1 経路ではこの条件を満たさず、元 weight の pointer が維持される。
+GPU で作られた IDs/activation の CPU 向け copy と、host gate weight 自体の identity
+は別であり、前者が発生するだけでは mapping failure にならない。
+
+E/checkpoint-1600/profile.json:37,98-102,118-139 は --no-repack、CPU expert layers0-36、
+IQ/MX offload threshold64、元重み保持 compact の構成。
+N/IDENTITY_SNAPSHOT.json:60-63 は現在観測の offload threshold64 と compact env。
+B:1329-1338 は MXFP4 offload の独自 batch guard。
+E/cuda-sort/release-candidate-a/ggml-cuda.cu:6215-6233 は MMID batch=op->ne[2] とし、
+CUDA offload threshold を適用する。この T1 の weight は通常 CPU に残る。
+
+2.4 CPU extra / fusion による bypass
+
+N/route37/ggml-cpu.c:1969-1971 には hook より前の extra dispatch がある。
+U/ggml/src/ggml-cpu/traits.cpp:12-22 は extra buffer registry を巡回して compute_forward
+が true なら通常 CPU dispatch を使わない。
+E/sparse-cache/ggml-cpu.cpp:43-75 は AMX/SpacemiT/Kleidiai/REPACK が有効時のみ registry
+を作る。再利用 object の CPU_BUILD.json の command に GGML_USE_CPU_REPACK、Kleidiai、
+SpacemiT はなく、-march=ivybridge -mno-avx2 -mno-fma なので AMX 条件も満たさない。
+通常 profile の --no-repack とも整合する。receipt のとおりなら registry は空。
+単に repack.cpp.o や amx.cpp.o が link されていることから稼働すると判断しない。
+
+CPU fusion は ggml-cpu.c:3300-3331 で RMS_NORM+MUL だけ。この箇所から MMID gate が
+fusion で消える経路はない。tiled MMID の選択は既に hook を通った後にある。
+context:441-450 には ACCEL backend を列挙する一般機構もあるが、通常 snapshot の
+mapped libggml libraries に別の ACCEL provider は記録されていない。
+
+将来 extra/backend/cache を有効にした場合、identity を強引に復元せず COVERAGE を
+落とす設計を維持する。その構成の routes を今回の CPU37 baseline に混ぜない。
+
+2.5 まだ証明していない端点
+
+H/snapshot の U/src/models/deepseek41.cpp と models.h は export に含まれていない。
+E/sparse-cache/LOADER_BUILD.json:55-65 は model 実装を Unity object として再利用する。
+vendor/llama.cpp/src/models/deepseek41.cpp:833-900 には各 model.layers[il] の gate を
+generic build_moe_ffn へ渡す実装があり、期待とは整合する。しかし runtime の Unity
+object とこの vendor file の対応を、この handoff の source hash だけで認証しない。
+
+これは直ちに機能不良を意味しない。実グラフを実行したという新しい証拠もないので、
+「全37層で実際に元 pointer が届くことを確認済み」とは書かない。
+次の link receipt に actual model graph source + hash と Unity/object の対応を足し、
+最初の小さい実機 capture では37層coverageを必須にするだけでよい。
+
+3. graph reuse / generation / early failure
+
+3.1 reuse
+
+context:1534-1580 で route37_rebuilt は false から始まり、再構築分岐だけ true。
+reuse branch は res->can_reuse(gparams)、gf_res_prev_active を確認する。
+bridge は branch の外、set_inputs 後にあるため reuse でも毎回 begin_eval が走る。
+collector:45-48 は毎回別 attempt を作り、rebuilt または最初の attempt で generation を
+増やす。warmup 前に graph が作られていても session 内最初の observed graph は generation1。
+これは session 内の graph 世代であり、永続する model graph UID ではない。
+
+context:2588-2593 の出力あり/なし別 res、memory_update:993-1000、graph_reserve:2663-2671
+は active graph を無効化する。次の process_ubatch は rebuild branch に入る。
+現在の配置から、再構築後なのに generation が据え置かれる具体的な経路は見つからない。
+失敗 graph を同じ topology で再実行して generation が据え置かれても attempt は新しい。
+
+3.2 pre-bridge failure は attempt にならない
+
+context:1528-1531 memory apply失敗、1567-1576 graph build/allocation失敗は begin_eval より前。
+decode:1858-1866、1910-1913、1955-2001 の入力/メモリ/output reserve失敗も同様。
+label 済みなら call ledger は存在し、complete_call(status!=0,synced=...) が CALL_FAILED と
+NO_EVAL を残せる。少なくとも「成功 decode の欠落 route」を正常サンプルに見せない。
+
+ここでの attempt は「graph_compute へ進んだ eval」であり、process_ubatch の入口回数や
+allocation retry の試行回数そのものではない、と文書化する方が正確。
+必要なら call 側の失敗段階だけ別 manifest に記録し、重い内部 retry tracing は加えない。
+
+3.3 abort / failure
+
+CPU abort callback は ggml-cpu.c:3383-3400 で status を設定した後、既存 barrier を通って
+戻る。scheduler が error を返しても、すでに呼び出した CPU graph の hook は終了済み。
+context:1597-1601 が end_eval に graph status を伝え、その後 decode:2058-2063 が public
+status (abort=2, alloc=-2, failed=-3) に変換する。この2種類のstatusを同じenumと誤読しない。
+
+GPU split が途中にあった場合は failure return でも GPU の既投入作業を残し得る。
+次の専用 caller は success branch だけではなく error branch でも先に drain/synchronize
+を済ませ、失敗statusのまま complete_call する。失敗後に有効な logits を読めると仮定しない。
+cleanup 用の明示 synchronize を通常成功経路の推論 latency と混ぜない。
+retry は失敗 call を閉じてから新しい decode_call/attempt を用い、logical_token/position
+を同じまま保持し、失敗と成功の対応を残す。
+
+4. bridge metadata と専用 driver の要件
+
+bridge:16-21 は actual ubatch の n_tokens/n_pos/先頭 sequence/pos[0] を使う。
+U/src/llama-batch.h:41-61 で n_pos は token ごとの位置入力の個数、pos は
+[n_tokens*n_pos]。T=1、n_pos=1、sequence1 の対象では先頭だけ読む方法が正しい。
+T>1 prefill は collector が scope_t1=false として観測を止める。bridge は全 token の
+sequence を走査していないので、これを一般の multisequence validator と呼ばない。
+
+専用 driver 案は妥当。特に以下を固定する。
+
+- normal server に hook 制御や global opt-in を追加しない。
+- warmup とその同期を終えてから bounded session を開く。
+- request / sequence / decode_call / phase / logical_token を llama_decode 前に label。
+- logical_token は入力した token の識別子。今回の入力から予測された次 token と区別する。
+- prompt の最後の1 tokenも PREFILL。T=1だけを理由にDECODEへ変更しない。
+- XR_UNKNOWN は未知として保存し、decode成功分母には入れない。
+- 通常 logits取得が必要な driver なら llama_get_logits_ith の同期後に complete_call。
+  固定入力で logits を全く必要としない別 driver に同期を足すなら、その追加を明示する。
+- success と failure の双方で complete_call を必ず行い、そのあとだけ次label/read/close。
+- bool return、global flags、全call/attempt/recordsを保存する。complete countだけでは判定しない。
+- 完了・export後に context を破棄。owner の再利用前に close を確認する。
+- フルmodelの long startup と replacement diagnostic window は既存のユーザー手順を守る。
+
+最初の4 tokenで gate coverage/identity/順序/phase/position/同期を確認し、問題なければ64 token。
+64*37=2368 records、4+64を同一sessionでも2516 recordsなので4096には入る。ただし
+prefill T1、unknown T1、retryも記録するため総予算を事前に数える。上限到達時は成功扱いしない。
+実モデルの捕捉前に観測ON/OFFの人工bit一致をモデル全体のbit一致へ拡張して説明しない。
+
+5. 次の小さい検証（モデル/GPU/API実行不要）
+
+A. link と provider identity
+
+実機の既存 sparse-cache libllama link command から context.o だけ置換し bridge.o を追加。
+既存 sparse loader/model object、model Unity objects、base/CUDAは保持し、隔離出力へlink。
+route37.o は diagnostic CPU shared library にだけ入れる。libllama/driver に第二の定義を
+入れない。--no-undefined / -z defs と link map で C API の解決を確認する。
+readelf/nm で CPU に唯一の定義、libllamaに未定義参照、expected DT_NEEDED を保存する。
+実行時の loader 選択は link だけでは保証しないので、後の model-free self-check で
+全 route API pointer の dladdr provider、realpath/inode/hash を照合する。
+古い libggml-cpu.so.0 を LD_LIBRARY_PATH が先に拾わないか確認する。
+
+この self-check はモデルをロードせず、backend自動列挙もしない設計にする。
+U/src/llama.cpp:122-134 の llama_backend_init は backend_load_all を呼び得るため、
+「モデルなし=GPU APIもなし」と自動的にみなさない。GPU不使用の条件は実経路で確認する。
+
+B. actual scheduler 経由の小 fixture
+
+現在の37-node fixtureを direct CPU compute だけでなく、実 gpu-stream scheduler +
+diagnostic CPU backend1個で実行する。GPU backend を作らない。
+同一graphを2回実行し、reset/rebuild後にもう1回実行する。node->src[0] が登録したgateと
+同じpointer/dataのままか、毎回37層coverageがあるか、attempt新規・generation規則が
+一致するかを確認する。小さい人工weightsのままでよい。
+これはscheduler境界を閉じる試験であり、実llama-model graph bridgeまで動かしたとは書かない。
+
+C. caller error cleanup の短い試験
+
+実deviceを使わない fake submit/sync callbacks または既存fixtureで、以下をdriver側の
+状態機械に通す: no-eval failure -> sync/drain -> failed call -> retry成功、途中graph abort、
+unknown T1、prefill T1、正常reuse、record/attempt/call limitで停止。
+順序assertで sync前のcomplete、failed callを飛ばして次label、close忘れを検出する。
+各 negativeを direct hook / scheduler / caller のどこに通したか表で区別する。
+
+6. negative test の解釈上の注意
+
+hook は host-ID grouping の後に置かれている。ggml-cpu.c:1833-1843 は先にIDを読み、
+plain assert でrangeを確認し、row-count配列を更新する。build は -DNDEBUG。
+したがって invalidID>=384 を hookへ直接渡す試験が成功しても、同じinvalidIDを実CPU
+MMIDへ流して安全にrejectできると証明したことにはならない。先に範囲外配列アクセスが起こる。
+通常 argsort top-k が作るIDにこのinvalid値が現れるという証拠ではないため、今回の
+観測prototypeを理由に arithmetic loopを無条件に書き換える提案はしない。
+既存 -1 は grouping側でzero-fillされ、そのあとcollectorが不適格として記録する。
+
+7. 保留してよい項目
+
+bit一致は現 artificial graph の結果。実モデル品質・実routes・observer overhead・GPU
+ready・新しいCPU/GPU overlapはまだ別の測定。今回の設計をroute観測へ進めるために、
+それら全部を先に測る必要はない。小さいlink/scheduler確認が通ったあと、既存制約内の
+最初の4 token captureで端点を閉じるのが順当。
+
+runtime sourceに具体的な不正を見つけた場合と、証拠がまだ実行端点に到達していない場合は
+区別する。本レビューの主要な残件は後者であり、現在の single producer lifetime の
+設計を差し戻す根拠ではない。

@@ -1,0 +1,20 @@
+--- /home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c
++++ diagnostic/ggml-cpu.c
+@@ -5,6 +5,7 @@
+ #include "ggml-backend.h"
+ #include "iq3-cache.h"
+ #include "mx-rhs.h"
++#include "route37.h"
+ #ifndef XEON_MX_PREPACK
+ #define XEON_MX_PREPACK 1
+ #endif
+@@ -1843,6 +1844,9 @@
+             }
+         }
+     }
++
++    // Diagnostic only: registered gates, one worker, before the existing barrier.
++    if (ith == 0) xeon_route37_record_v1(src0, ids);
+ 
+     // reset current_chunk
+     for (int cur_a = ith; cur_a < n_as; cur_a += nth) {

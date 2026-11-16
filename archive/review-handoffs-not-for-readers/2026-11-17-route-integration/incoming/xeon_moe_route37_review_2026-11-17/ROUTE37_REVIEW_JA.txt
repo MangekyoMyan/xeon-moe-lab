@@ -1,0 +1,270 @@
+route37 観測試作レビュー — collectorを維持して、実callerへの接続を詰める
+2026-11-17
+対象commit: 688683c71803ed94ac7a8e41e8e916d4e0174e6d
+対象相談: archive/review-handoffs-not-for-readers/2026-11-17-route-observation/CONSULT_PRO_JA.txt
+
+総合判断
+========
+今回の試作は、GPU expert並列の検討を実測へ戻すための観測基盤として筋が通っている。
+単一context/caller/active eval/CPU producerという指定scopeでは、collectorを差し戻す
+確定的な寿命・overflow・failure混入の不具合は見つからなかった。
+次は隔離libllamaのfull linkと専用driverを完成させ、まず4tokenの実route捕捉へ進む準備を
+行うのがよい。CPU absの追加性能試験やcollectorの一般的な並行化を優先する必要はない。
+
+この判断は本番導入済み・実モデル捕捉済み・高速化達成という意味ではない。
+現状は「新しいCPU hookが小型実ggml graphの出力を変えないことを確認し、接続sourceの
+文法検査まで終えた段階」。実caller link、実モデル37gate到達、driverの同期・cleanupが
+次の具体的な残件である。[R1-R4]
+
+今回こちらで行ったこと
+======================
+GitHubの指定commitを固定して取得し、作業用worktreeを読み取り専用でレビューした。
+collector/bridge/header/probe/patchの全文、実CPU wrapper、CPU OpenMP終端、実scheduler、
+process_ubatch/decode/logits同期、generic MoE graphの関係箇所を親が直接読んだ。
+寿命・caller接続・保存証拠を3担当で並行調査し、親が全報告・試験source・結果を読んで統合した。
+
+新しく実行したのは、元route37.cppを無変更で使う12件の軽量契約試験と保存証拠の監査。
+12件はhost-buffer判定stubとdirect hookを用い、ASan/UBSan付きで成功した。
+ggmlの算術kernel、実モデル、CUDA、通常API、配布済み実機ELFはこの環境では実行していない。
+元リポジトリに変更は加えていない。コメント修正案だけを別patchとして添付した。
+
+ASan/UBSan試験の初回はptrace環境によるLeakSanitizer起動失敗。そのreceiptも保存した。
+同じ12件をdetect_leaks=0で実行した最終結果はexit0、stderr空。LeakSanitizer合格やTSan
+合格とは扱わない。この12件を既存13,320比較へ足して数値モデル検証数を増やすこともしない。
+
+1. 相談の5問への回答
+====================
+
+Q1: release/acquire + CPU同期戻りの寿命、GPU tailとの分離は成立するか
+------------------------------------------------------------------
+指定scopeでは成立すると評価する。根拠を二方向に分ける必要がある。
+
+caller -> CPU producer:
+  label、attempt、37bindingsを書いた後、active.store(release)で公開する。
+  ith0 hookはactive.load(acquire)がtrueのときだけ非atomicな本体へ進む。
+  callerはその間、bindingsやlabelを書き換えない。[R4:35-67]
+
+CPU producer -> caller:
+  こちらはend_evalのactive=false storeが保証するわけではない。
+  実CPU wrapperはggml_graph_computeの戻りを待ち、今回のOpenMP buildではparallel regionを
+  出てからCPU graph callが返る。worker関数末尾にも既存barrierがある。
+  この既存の同期境界を通った後でend_evalがrecords/attemptを読む。[R7:3334-3406,3624-3698;
+  R10:171-191]
+
+実gpu-stream schedulerはCPU splitのbackend関数をinlineに呼ぶ。名前にasyncがあっても、
+現在CPU providerのhookがscheduler return後まで動き続けるという意味ではない。
+一方、CUDA splitはsubmit後に処理が残り得るため、graph_returnedとcall completionは
+区別するべきである。[R9:805-807,2137-2175,2390-2409]
+
+実decodeはgraph return後にもlogitsのasync copyを入れ、末尾の同期は省略している。
+public llama_get_logits[_ith]が通常の同期点になる。したがって
+  CPU hook完了 -> end_eval -> 通常の出力同期 -> complete_call
+という区別は妥当。complete_callのsyncedはcallerの申告であり、collectorがGPU readyを
+測った結果ではない。[R8:2079-2091,2248-2251,4295-4312]
+
+現在のcontractでrecordsをatomic化したり、hookへmutex/barrierを追加したりする理由はない。
+他threadからopen/read/close等を同時実行する一般対応は契約外であり、その誤用を現状の
+到達可能raceとして列挙しない。将来CPU graph自体を非同期化するなら、この証明は再検討する。
+
+Q2: 元gate tensorのidentityは実graphまで届くか
+------------------------------------------------
+現source/configから届くと期待する根拠はある。ただし実モデルの端点はまだ未確認。
+
+bridgeはmodel.layers[0..36].ffn_gate_exps自体を登録し、40layersと実shapeを確認する。
+generic MoE graphではslotsなしの経路が元weight wをggml_mul_mat_idへ渡す。
+schedulerがweightを複製するのは、異なるbackend間でbufferが非互換の場合。
+CPU host weightをCPUで使う通常T1経路では元pointerを保つ説明ができる。
+GPU由来のIDs/activationをCPUへcopyすることは、weightのidentityを置換することとは別である。
+[R5:7-21; R11:1643-1654,2337-2352; R9:1795-1815]
+
+CPU compact cacheのlookupはhookより後なので、compact化が元gateをhookから隠す位置関係
+ではない。CPU extra dispatchはhook前にあるが、今回再利用wrapperのbuild flagsからは
+REPACK/Kleidiai/SpacemiT/AMXの有効化は確認されず、現profileの--no-repackとも整合する。
+単にamx/repack objectがlinkされているだけで、その経路が稼働しているとは判定しない。
+CPU fusionも読んだ範囲ではRMS_NORM+MULであり、gate MMIDを消していない。[R7; R10]
+
+actual model専用graph sourceとUnity objectの完全な対応は今回snapshotにない。
+vendorのdeepseek41.cppは期待と整合するが、実機のUnity objectと同一と断定しない。
+これは壊れている証拠ではない。次のfull link receiptへactual source/hashを追加し、
+最初の実機4tokenで37層coverageを確認すればよい。
+
+aliasを名前やdata位置から強引に元layerへ戻すfallbackは不要。
+コピーやextra backendで想定hookを迂回したなら、MAPPING/COVERAGE failureとして見える
+方が、欠測を隠して正常routing分布を作るより判断可能である。[R4:53-98]
+
+Q3: 専用driver、warmup後session、4 -> 64tokenという手順は適切か
+----------------------------------------------------------------
+適切。まずdriverをlink可能な具体物にし、成功と失敗の両経路の同期・確定・解放を作る。
+
+成功時は通常必要なlogits同期の後でcomplete_callする。失敗時は有効なlogitsを仮定せず、
+既投入作業をdrainした後、失敗statusを保存してcallを閉じる。
+固定入力でlogitsが不要な別driverへ同期を追加するなら、その追加を明示し、通常APIと
+同じlatency経路だと説明しない。[R8; integration/INTEGRATION_REVIEW_JA.txt]
+
+phaseは明示する。prefillの最後のT1、warmup T1、unknown T1をDECODEに推測変換しない。
+固定token列、開始KV状態、sequence、position、現在のinput tokenとlogical_tokenの対応を
+manifestで識別可能にする。モデル入力にprompt本文を保存する必要はない。
+
+4tokenは配線と全ledgerの確認に使う。1call=1T1attemptなら148record。
+64tokenは2368record。4+64でも2516recordなので4096枠に入るが、追加T1 phaseやretryも
+枠を使う。37recordずつなら最大110完全attemptであり、sessionを際限なく長くしない。
+64tokenは初期のroute試料で、hot集合の一般化性能や品質を結論する十分な母集団ではない。
+
+長いモデル起動と診断windowは既存のユーザー手順に従う。今回このreviewでは、APIを再起動
+したり、通常モデルと同居する二つ目のモデルを起動したりしていない。[R2]
+
+Q4: 固定buffer、ledger、failure/retry、overflowの穴はあるか
+----------------------------------------------------------
+現scopeで確定的な穴は見つからなかった。追加12契約試験がその一部を補強した。
+
+確認した動作:
+  * call/attempt/recordの上限判定は書込み前。上限時も既存recordを上書きしない。
+  * record overflowではbitmapがALLでもrecord数が足りないため合格しない。
+  * 登録tensor/data重複はhookを非活性にし、古いbindingsから記録しない。
+  * statusが成功でもattemptなしのcallはNO_EVALで不合格。
+  * 同call内にfailed attemptがあれば、その後successがあってもcall全体を不採用にする。
+  * 別callでretry成功なら、過去のglobal errorを保持したまま成功件数を増やせる。
+  * close後readは可能。再openは旧sessionをresetし、attempt/generationは1から再開する。
+  * phaseと手動rebuild指定に対する集計・世代が正しい。
+
+次のdriverで間違えやすいのはAPIの意味である。実装変更より先に次を注記するとよい。
+
+  (a) headerの「no graph in flight」はAPI別に書き分ける。
+      end_evalはCPU hook完了後ならGPU tailが残っていてよい。
+      complete_callは通常出力同期/失敗cleanup後、close/exportはcall終了後。
+  (b) complete_call(...,synced=0)はpending queryではない。callを失敗として閉じる。
+  (c) droppedはcall/attempt/record拒否イベントを混合計数する。欠測gate数ではない。
+  (d) attempt.caller_completedはflagsのないcallで採用されたことを表す。
+      failed callが時間的に戻ったことはcall.completed/synchronized/statusと併読する。
+  (e) attemptはgraph submissionへ進んだevalである。bridgeより前のbuild/alloc失敗は
+      attemptなしのfailed callとして残る。
+  (f) graph_statusはggml enum、call.statusはcaller/public decode return status。
+      session内indexとattempt IDの0-based/1-basedの違いも明示する。
+
+docs/route37_api_contract_comments.patchは、この誤読を減らすコメントだけの提案である。
+ABI、record形式、実行code、同期、配置、数値計算には変更を加えない。
+
+negative試験の境界にも注意が必要。hookは既存CPUのID grouping後なので、direct-hookで
+invalid IDをrejectできることは、同じinvalid IDを実CPU nodeへ安全に流せる証明ではない。
+実groupingのrange checkはplain assert、buildは-DNDEBUG。範囲外IDならhook前に配列へ
+触り得る。通常routerがその値を作る証拠はないため、今回これを正常経路の新規不具合と
+扱ったり、算術loopを無条件に書き換えたりする提案はしない。[R7:1826-1849]
+
+Q5: fresh容量でpositive hotを止め、route-onlyを先に閉じる判断は妥当か
+------------------------------------------------------------------
+妥当。NVMLの明示freeは2575MiB。total-usedの2848MiBと取り違えない。[R12]
+
+最小native expert 3projection payload = 12,072,960B = 11.513671875MiB。
+既存事前guardは free > payload + 3072MiB なので、最小でも
+  free > 3083.513671875MiB
+が必要。保存されたMiB表示値からのscreenでは約508.514MiB不足する。
+比較はstrict >なので、ちょうどその差を戻すだけでも不十分。
+表示単位の丸めを含むため、これは独立したbyte精度のCUDA測定結果とは扱わない。
+
+current free2575とpostguard2560の差15MiBは割当前の参考差であり、postallocation合格ではない。
+今回実cudaMemGetInfo admissionやallocationは行っていない。GPU37–39を保ち、既存guardを
+保ったまま、positive hot/ready/eventは別のメモリ計画へ分けるべきである。[R12-R13]
+
+host MemAvailableは約68.31GiB、64GiB reserveとの差は約4.31GiB。
+これもhost参考値で、二つ目のモデルや将来allocationが入る証明ではない。
+H0 dispatcherはprivate graph等を含むため、中立なroute collectorの代用にしない。
+
+2. 実行証拠の再評価
+===================
+今回の保存証拠は丁寧で、主な数量とscopeに矛盾はなかった。
+新handoffはmanifest79項目とmanifest本体の80ファイルで、全size/SHAが一致。
+incoming31ファイルは前回のfinal返却物と全byte一致し、ZIP SHAも一致した。
+両patchを凍結原文へ独立適用して、今回CPU/context sourceと全byte一致を確認した。
+CPU差分はincludeとith0 hookだけで、abs算術変更が混入していない。
+通常build5・probe1・sanitizer4のcommand系譜も保存baselineから再構成して一致した。
+[evidence/ROUTE_EVIDENCE_AUDIT.json]
+
+6実行receiptは全exit0/stderr空。ただしこれは保存receiptの整合性確認であり、こちらが
+実機6工程を再実行したという意味ではない。binaryが添付されていないため、実機ELF SHAを
+こちらで再計算した主張もしない。
+
+13,320は以下のscalar比較数である。
+  5入力 × 37nodes × 6expert IDs × 4出力 × 3観測状態 = 13,320
+3状態はdiagnostic default-off / session observing-off / observing-on。
+凍結CPU goldenは4,440 F32 = 17,760Bで、上限付き復元とSHA一致、全値有限を確認した。
+candidate出力byteは配布されていないので、こちらがcandidateとのmemcmpを再実行した
+わけではない。成功receiptとmemcmpを行うsourceが整合するという確認である。[R6]
+
+小fixtureはK256/M4、単独MUL_MAT_ID群。実モデルK5120/M2304の全FFNや回答品質の試験ではない。
+ASan/UBSanは変更CPU2 TUとprobeだけで、再利用object/base/callerは対象外。sanitizerで
+同じfixtureを再実行した回数を独立の新規13,320例として加算しない。
+
+receiptを次回改善するとよい点はある。raw XML、filtered mapsのdevice/inode、finalの
+full identity、guard source hashを保存すると第三者が再計算しやすい。現在の保存値には
+矛盾がなく、この不足を理由に過去suiteをやり直す必要はない。
+daemonの同一sensor時刻を再読したsampleは独立な温度観測ではなく、guard elapsedも推論
+latencyではない。今回これらから観測overheadや温度peakを推定していない。
+
+3. GPU expert並列という本来の目標との関係
+=======================================
+今回のroute37はGPU並列kernelの新実装でも、そのspeedup測定でもない。
+通常配置のまま、各token・各層でどの6expertがどの順序で選ばれたかを取得する準備である。
+これは次のparallel assignment評価に直接つながる。
+
+候補GPU bank B_lと、そのtokenの選択expert集合S_t,lがあれば、
+  H_t,l = | S_t,l ∩ B_l |
+を計算できる。routeを並べて保存すれば、平均hitだけでなくH=0..6の分布、連続miss、
+tokenごとの偏り、expertの同時選択が見える。
+
+例えばHが毎回3の系列と、H=0と6が交互の系列は平均H=3で同じ。しかし残るCPU仕事量、
+GPU側仕事量、各tokenの完了を支配する側は異なり得る。だから総出現頻度だけでbankを
+選ぶと、平均hitがよくても実際のlatencyがよいとは限らない。
+これは構造上の推論で、今回実routeにその偏りを観測したという主張ではない。
+
+ただしHだけでも実時間にはならない。expert/quant型ごとのCPU cost、GPU実行時間、
+転送、dispatch/scatter、共通の測定起点とready/依存関係を後で測る必要がある。
+並行処理の概念モデルでmax(C,G)を使うときも、計時境界を揃え、既に含まれた待ち時間を
+二重加算しない。route-only captureからspeedupやGPU readyを算出しない。
+
+次の順番がよい。
+  現collector -> 隔離link/driver -> 4token coverage -> 64token初期route
+  -> offline候補bank/route分析
+  -> 別途、既存GPU層を保つメモリ計画
+  -> 同一割当のserial/concurrent比較とready観測
+
+この順番ならCPU最適化で得た現baselineを保ったまま、最初に期待されていたCPU/GPU expert
+並列へ戻れる。新しいhot構成を入れるために既存GPU37–39までCPUへ戻す比較とは区別する。
+
+Open WebUIで見えた「2tokenずつ」の表示については、今回のroute証拠ではまだ原因を判断
+できない。後でengineのtoken完了、APIのSSE送信、client受信・描画の時刻を対応づければ
+切り分けられる。route採取や13,320比較がその原因調査を完了したとは扱わない。
+
+4. 返却物と最小の次段階
+======================
+実作業担当にはASTRA_ROUTE37_NEXT_ACTION_JA.txtを先に読んでもらえばよい。
+full link/provider、actual scheduler小fixture、成功/失敗cleanupの3点が次の主作業。
+その結果を示して実モデル診断windowを具体化し、4tokenの全ledgerを確認してから64へ進む。
+証拠がまだ実端点へ届いていないことと、実装に不具合があることを区別した評価である。
+
+今回確認済みの小型testを全面反復すること、禁止された並行control APIを汎用化すること、
+CPU absを再測定すること、hot memory guardを緩和することは次の必須作業に加えていない。
+
+参照source（全て指定commit固定）
+===============================
+URL prefix:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/688683c71803ed94ac7a8e41e8e916d4e0174e6d/
+
+N = archive/review-handoffs-not-for-readers/2026-11-17-route-observation/
+H = archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/
+
+[R1] N/CONSULT_PRO_JA.txt, N/RESULTS_JA.txt, N/README.txt
+[R2] N/POLICY_AND_SCOPE.txt
+[R3] N/route37/BUILD.json, SOURCE.json, PROBE_BUILD.json, sanitized/BUILD.json
+[R4] N/route37/route37.cpp, route37.h
+[R5] N/route37/route37-bridge.cpp, caller.patch
+[R6] N/route37/probe.cpp, N/CORRECTNESS.json, N/execution/*/stdout.log
+[R7] N/route37/ggml-cpu.c
+[R8] N/route37/llama-context.cpp
+[R9] H/gpu-stream-20261103/ggml-backend.cpp
+[R10] H/exploration-20261112/sparse-cache/ggml-cpu.cpp, CPU_BUILD.json
+[R11] H/deepseek41-bringup-20261101/source/src/llama-graph.cpp
+[R12] N/CAPACITY_SNAPSHOT.json, IDENTITY_SNAPSHOT.json, FINAL_RUNTIME.json
+[R13] H/exploration-20261112/hot-ffn/hot-backend.cpp, CAPACITY.json
+
+実ファイルのsize/SHA、source行番号、補助報告は同梱evidence/integration/lifetimeを参照。
+上の略記はprefixにパスを連結して参照できる。別途SOURCE_LINKS.txtに主要な完全URLを保存。

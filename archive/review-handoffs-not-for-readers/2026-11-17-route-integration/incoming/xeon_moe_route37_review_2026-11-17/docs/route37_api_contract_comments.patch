@@ -1,0 +1,63 @@
+--- a/archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/route37.h
++++ b/archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/route37.h
+@@ -5,10 +5,18 @@
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+-// Diagnostic singleton: one context, one caller, one CPU producer (ith==0).
+-// Control/read APIs require no graph in flight. end_eval requires that all CPU
+-// workers have returned; complete_call additionally requires the caller's normal
+-// end-of-decode synchronization. No API here performs synchronization for you.
++// Diagnostic singleton: one context, one controlling caller, one active eval,
++// and one CPU producer (ith==0). Control/read APIs are not concurrent-reader or
++// multi-context APIs. Never change session state or labels while a CPU producer
++// can access them; do not overlap calls in the diagnostic driver.
++// begin_eval publishes one actual graph-compute attempt. end_eval is called only
++// after synchronous CPU graph calls and every route hook have returned. A GPU
++// tail may still be pending at end_eval: it closes CPU production only.
++// complete_call follows normal successful-output synchronization, or explicit
++// draining of submitted work on an error path. Its synchronized argument is a
++// caller assertion, not a GPU completion query. No API here synchronizes work.
++// Close/export before destroying the owner, with no open call/eval and all work
++// drained. Export before reopening: open resets all session records and IDs.
+ enum xeon_route37_phase { XR_UNKNOWN=0, XR_PREFILL=1, XR_DECODE=2, XR_WARMUP=3 };
+ enum xeon_route37_error {
+     XR_MAPPING=1, XR_GEOMETRY=2, XR_IDS=4, XR_DUPLICATE=8, XR_COVERAGE=16,
+@@ -28,17 +36,28 @@
+     uint32_t request; int32_t sequence; uint32_t decode_call; uint8_t phase;
+     uint8_t reserved[3]; uint64_t logical_token;
+ };
++// id is 1-based within a session; first_record is a 0-based record index.
++// generation is session-local and changes on a reported graph rebuild.
++// graph_status is a ggml_status. graph_returned denotes CPU producer completion.
++// caller_completed is set only when the enclosing call has no error flags; it
++// does not describe every call that has returned, including failed calls.
+ struct xeon_route37_attempt {
+     struct xeon_route37_label label;
+     uint64_t id, generation, first_record, records, layers;
+     int64_t position; uint32_t context, ubatch, n_tokens, flags;
+     int32_t graph_status; uint8_t observing, scope_t1, graph_returned, caller_completed;
+ };
++// first_attempt is a 0-based ledger index (not the 1-based attempt id).
++// status is the controlling caller/public-decode return value, not ggml_status.
++// A failed call can still be completed and synchronized. Historical session
++// flags remain set even if a subsequent, separately labelled retry succeeds.
+ struct xeon_route37_call {
+     struct xeon_route37_label label;
+     uint64_t first_attempt, attempts;
+     uint32_t flags; int32_t status; uint8_t synchronized, completed; uint8_t reserved[6];
+ };
++// dropped combines rejected call labels, rejected attempts, and dropped
++// records. It is not a count of missing gate records alone.
+ struct xeon_route37_stats {
+     uint64_t records, attempts, calls, dropped, complete_decode_attempts;
+     uint32_t flags; uint8_t enabled, call_open, eval_open, observing;
+@@ -51,6 +70,8 @@
+     size_t count, int graph_rebuilt, uint32_t n_tokens, uint32_t n_positions,
+     uint32_t sequence_count, int32_t sequence, int64_t position, int pipeline_parallel);
+ int xeon_route37_end_eval_v1(const void * owner, int32_t graph_status);
++// Finalizes once, including on failure. synchronized=0 closes the call with
++// XR_UNSYNCHRONIZED; it is not a polling operation that can later be repaired.
+ int xeon_route37_complete_call_v1(const void * owner, int32_t status, int synchronized);
+ int xeon_route37_close_v1(const void * owner);
+ // Worker-only hook. No allocation, lock, clock, file I/O, or added barrier.

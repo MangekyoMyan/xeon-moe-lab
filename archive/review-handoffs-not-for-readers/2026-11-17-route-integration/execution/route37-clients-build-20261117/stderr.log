@@ -1,0 +1,27 @@
+/home/codex/projects/llm-lab/route37-integration-20261117/driver.cpp: In function ‘bool coverage(const json&, size_t)’:
+/home/codex/projects/llm-lab/route37-integration-20261117/driver.cpp:18:13: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   18 |             if(l<0||l>=37||seen[l]||r["attempt_id"]!=i+1||r["phase"]!=XR_DECODE||r["flags"]!=0)return false;seen[l]=true;
+      |             ^~
+/home/codex/projects/llm-lab/route37-integration-20261117/driver.cpp:18:109: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   18 |             if(l<0||l>=37||seen[l]||r["attempt_id"]!=i+1||r["phase"]!=XR_DECODE||r["flags"]!=0)return false;seen[l]=true;
+      |                                                                                                             ^~~~
+/home/codex/projects/llm-lab/route37-integration-20261117/driver.cpp: In destructor ‘Resources::~Resources()’:
+/home/codex/projects/llm-lab/route37-integration-20261117/driver.cpp:28:9: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   28 |         if(vision)mtmd_free(vision);if(has_batch)llama_batch_free(batch);init.reset();
+      |         ^~
+/home/codex/projects/llm-lab/route37-integration-20261117/driver.cpp:28:37: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   28 |         if(vision)mtmd_free(vision);if(has_batch)llama_batch_free(batch);init.reset();
+      |                                     ^~
+/home/codex/projects/llm-lab/route37-integration-20261117/driver.cpp: In function ‘int main(int, char**)’:
+/home/codex/projects/llm-lab/route37-integration-20261117/driver.cpp:43:86: error: ‘LLAMA_EXAMPLE_MAIN’ was not declared in this scope; did you mean ‘LLAMA_EXAMPLE_MTMD’?
+   43 |         common_params params;need(common_params_parse(args.size(),args.data(),params,LLAMA_EXAMPLE_MAIN),"model arguments");
+      |                                                                                      ^~~~~~~~~~~~~~~~~~
+      |                                                                                      LLAMA_EXAMPLE_MTMD
+Traceback (most recent call last):
+  File "/home/codex/projects/llm-lab/route37-integration-20261117/build_clients.py", line 12, in <module>
+    subprocess.run(c,check=True,timeout=180);commands.append(c)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['g++', '-std=c++17', '-O2', '-g', '-march=ivybridge', '-mtune=ivybridge', '-mno-avx2', '-mno-fma', '-fno-fast-math', '-ffp-contract=off', '-Wall', '-Wextra', '-fopenmp', '-pthread', '-I/home/codex/projects/llm-lab/route37-integration-20261117', '-I/home/codex/projects/llm-lab/route37-integration-20261117/route37', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/include', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/common', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/tools/mtmd', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann', '/home/codex/projects/llm-lab/route37-integration-20261117/driver.cpp', '-L/home/codex/projects/llm-lab/route37-integration-20261117/runtime', '-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin', '-Wl,-rpath,/home/codex/projects/llm-lab/route37-integration-20261117/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin', '-Wl,--no-as-needed', '-lllama', '-lggml-cpu', '-lggml-base', '-lggml', '-ldl', '-lllama-common', '-lmtmd', '-Wl,--no-undefined', '-o', '/home/codex/projects/llm-lab/route37-integration-20261117/driver']' returned non-zero exit status 1.

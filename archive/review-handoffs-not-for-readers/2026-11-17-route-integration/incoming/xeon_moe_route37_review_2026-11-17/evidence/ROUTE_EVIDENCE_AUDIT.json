@@ -1,0 +1,462 @@
+{
+  "schema": 1,
+  "scope": "Independent saved-evidence consistency audit; not execution reproduction",
+  "pinned_commit": "688683c71803ed94ac7a8e41e8e916d4e0174e6d",
+  "repo": "/workspace/scratch/1f624f9ac929/xeon-moe-route-688683c",
+  "handoff": "archive/review-handoffs-not-for-readers/2026-11-17-route-observation",
+  "supplied_code_executed": false,
+  "shared_library_loaded": false,
+  "model_API_or_GPU_used": false,
+  "new_performance_measurement": false,
+  "package": {
+    "manifest_entries": 79,
+    "actual_files": 80,
+    "manifest_sha256": "05c57d961d9a9bfe44d07804e4c4eb08b37b4726ae1b6df183965ada85c16caf",
+    "all_bytes_and_hashes_match": true,
+    "no_missing_or_unlisted_files": true
+  },
+  "incoming": {
+    "manifest_entries": 30,
+    "actual_files": 31,
+    "manifest_sha256": "f7ef6b8daa1c83ced1bb2b543cc4e316a39abf2baf4ed6f73a328a8616661cac",
+    "all_bytes_and_hashes_match": true,
+    "no_missing_or_unlisted_files": true,
+    "prior_all_files_byte_identical": true,
+    "prior_files_compared": 31,
+    "previous_zip_bytes": 508489,
+    "previous_zip_sha256": "b1823793c4493e1113c1ea0be5f37bdff51995a911be4a7606246f9cf0d95002",
+    "intake_zip_matches": true,
+    "count_explanation": "30 manifest-covered members plus manifest itself = 31 files"
+  },
+  "previous": {
+    "manifest_entries": 30,
+    "actual_files": 31,
+    "manifest_sha256": "f7ef6b8daa1c83ced1bb2b543cc4e316a39abf2baf4ed6f73a328a8616661cac",
+    "all_bytes_and_hashes_match": true,
+    "no_missing_or_unlisted_files": true
+  },
+  "build_and_sources": {
+    "base_source_hashes_match_export": true,
+    "generated_hashes_match": true,
+    "full_cpu_and_context_reconstructed_from_patch": true,
+    "CPU_delta": [
+      "#include \"route37.h\"",
+      "",
+      "    // Diagnostic only: registered gates, one worker, before the existing barrier.",
+      "    if (ith == 0) xeon_route37_record_v1(src0, ids);"
+    ],
+    "abs_candidate_added": false,
+    "normal_build_commands": 5,
+    "sanitizer_build_commands": 4,
+    "all_normal_probe_sanitizer_command_deltas_match_prior_receipts": true,
+    "normal_compiled_CPU_TUs": [
+      "route37.cpp",
+      "ggml-cpu.c"
+    ],
+    "caller_syntax_only": [
+      "llama-context.cpp",
+      "route37-bridge.cpp"
+    ],
+    "full_libllama_linked": false,
+    "single_route37_object_in_recorded_CPU_link": true,
+    "sanitized_translation_units": [
+      "route37.cpp",
+      "ggml-cpu.c",
+      "probe.cpp"
+    ],
+    "not_sanitized": "Reused old objects, libggml-base, caller integration; no TSan",
+    "diagnostic_CPU_library_recorded_sha256": "602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81",
+    "ELF_hashes_independently_recomputed": false,
+    "ELF_limit": "No ELF/object files are in the handoff; source hashes and recorded commands are independently checked, binary digests remain saved receipts."
+  },
+  "execution_receipts": [
+    {
+      "name": "route37-build-20261117",
+      "recorded_argv": [
+        "python3",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/build.py"
+      ],
+      "exit_code": 0,
+      "error": null,
+      "stderr_bytes": 0,
+      "stdout": "Diagnostic CPU linked; caller source syntax checked; full libllama not linked",
+      "started_unix": 1794866876.3429646,
+      "finished_unix": 1794866883.3603659,
+      "guard_wall_elapsed_s_not_inference_latency": 7.017396687995642,
+      "sample_count": 14,
+      "distinct_daemon_sensor_timestamps": 2,
+      "sensor_timestamps_in_test_window": 1,
+      "initial_sensor_age_s_at_start": 7.385624408721924,
+      "last_saved_sensor_age_s_at_finish": 4.289237022399902,
+      "saved_cpu_max_C": 26.0,
+      "saved_MemAvailable_min_bytes": 73135476736,
+      "api_cores_max": 0.019948303532471914,
+      "host_counter_fields": 56,
+      "saved_host_counters_unchanged": true
+    },
+    {
+      "name": "route37-check-20261117",
+      "recorded_argv": [
+        "env",
+        "LD_LIBRARY_PATH=/home/codex/projects/llm-lab/observation-20261117/route37/runtime:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+        "numactl",
+        "--physcpubind=0-23",
+        "--interleave=0,1",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/probe",
+        "test",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/golden.bin",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+      ],
+      "exit_code": 0,
+      "error": null,
+      "stderr_bytes": 0,
+      "stdout": {
+        "passed": true,
+        "scope": "synthetic actual-ggml plus contract tests; no model routes captured",
+        "graph_executions": 16,
+        "golden_comparisons": 13320,
+        "complete_observed_decode_attempts_in_five_graph_sequence": 2,
+        "nondecode_T1_phases_checked": 3,
+        "negative_contract_cases": 9,
+        "failed_retry_ledger_preserved": true,
+        "strided_ids_checked": true,
+        "cross_thread_execution": true
+      },
+      "started_unix": 1794867152.3786933,
+      "finished_unix": 1794867152.880668,
+      "guard_wall_elapsed_s_not_inference_latency": 0.5019693640060723,
+      "sample_count": 1,
+      "distinct_daemon_sensor_timestamps": 1,
+      "sensor_timestamps_in_test_window": 0,
+      "initial_sensor_age_s_at_start": 10.22807502746582,
+      "last_saved_sensor_age_s_at_finish": 10.73004961013794,
+      "saved_cpu_max_C": 25.0,
+      "saved_MemAvailable_min_bytes": 73346760704,
+      "api_cores_max": 0.0,
+      "host_counter_fields": 56,
+      "saved_host_counters_unchanged": true
+    },
+    {
+      "name": "route37-golden-20261117",
+      "recorded_argv": [
+        "env",
+        "LD_LIBRARY_PATH=/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+        "numactl",
+        "--physcpubind=0-23",
+        "--interleave=0,1",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/probe",
+        "golden",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/golden.bin",
+        "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0"
+      ],
+      "exit_code": 0,
+      "error": null,
+      "stderr_bytes": 0,
+      "stdout": {
+        "passed": true,
+        "scope": "synthetic frozen37-node graph",
+        "graphs": 5,
+        "values": 4440
+      },
+      "started_unix": 1794867127.9456663,
+      "finished_unix": 1794867128.4476604,
+      "guard_wall_elapsed_s_not_inference_latency": 0.5019904240034521,
+      "sample_count": 1,
+      "distinct_daemon_sensor_timestamps": 1,
+      "sensor_timestamps_in_test_window": 0,
+      "initial_sensor_age_s_at_start": 6.036770582199097,
+      "last_saved_sensor_age_s_at_finish": 6.538764715194702,
+      "saved_cpu_max_C": 24.0,
+      "saved_MemAvailable_min_bytes": 73362460672,
+      "api_cores_max": 0.0,
+      "host_counter_fields": 56,
+      "saved_host_counters_unchanged": true
+    },
+    {
+      "name": "route37-probe-build-20261117",
+      "recorded_argv": [
+        "python3",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/build_probe.py"
+      ],
+      "exit_code": 0,
+      "error": null,
+      "stderr_bytes": 0,
+      "stdout": "Built actual graph/collector probe",
+      "started_unix": 1794867077.7218995,
+      "finished_unix": 1794867080.2284362,
+      "guard_wall_elapsed_s_not_inference_latency": 2.5065324629977113,
+      "sample_count": 5,
+      "distinct_daemon_sensor_timestamps": 1,
+      "sensor_timestamps_in_test_window": 0,
+      "initial_sensor_age_s_at_start": 6.394181728363037,
+      "last_saved_sensor_age_s_at_finish": 8.900718450546265,
+      "saved_cpu_max_C": 25.0,
+      "saved_MemAvailable_min_bytes": 73265364992,
+      "api_cores_max": 0.0,
+      "host_counter_fields": 56,
+      "saved_host_counters_unchanged": true
+    },
+    {
+      "name": "route37-san-build-20261117",
+      "recorded_argv": [
+        "python3",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/build_sanitized.py"
+      ],
+      "exit_code": 0,
+      "error": null,
+      "stderr_bytes": 0,
+      "stdout": "Built isolated sanitizer variants",
+      "started_unix": 1794867219.1930323,
+      "finished_unix": 1794867226.2102146,
+      "guard_wall_elapsed_s_not_inference_latency": 7.017176527995616,
+      "sample_count": 14,
+      "distinct_daemon_sensor_timestamps": 2,
+      "sensor_timestamps_in_test_window": 1,
+      "initial_sensor_age_s_at_start": 6.2047858238220215,
+      "last_saved_sensor_age_s_at_finish": 3.0985660552978516,
+      "saved_cpu_max_C": 25.0,
+      "saved_MemAvailable_min_bytes": 73122291712,
+      "api_cores_max": 0.019950274300067676,
+      "host_counter_fields": 56,
+      "saved_host_counters_unchanged": true
+    },
+    {
+      "name": "route37-san-check-20261117",
+      "recorded_argv": [
+        "env",
+        "ASAN_OPTIONS=detect_leaks=1:halt_on_error=1",
+        "UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1",
+        "LD_LIBRARY_PATH=/home/codex/projects/llm-lab/observation-20261117/route37/sanitized:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+        "numactl",
+        "--physcpubind=0-23",
+        "--interleave=0,1",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/sanitized/probe",
+        "test",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/golden.bin",
+        "/home/codex/projects/llm-lab/observation-20261117/route37/sanitized/libggml-cpu.so.0.28.0"
+      ],
+      "exit_code": 0,
+      "error": null,
+      "stderr_bytes": 0,
+      "stdout": {
+        "passed": true,
+        "scope": "synthetic actual-ggml plus contract tests; no model routes captured",
+        "graph_executions": 16,
+        "golden_comparisons": 13320,
+        "complete_observed_decode_attempts_in_five_graph_sequence": 2,
+        "nondecode_T1_phases_checked": 3,
+        "negative_contract_cases": 9,
+        "failed_retry_ledger_preserved": true,
+        "strided_ids_checked": true,
+        "cross_thread_execution": true
+      },
+      "started_unix": 1794867300.1178331,
+      "finished_unix": 1794867301.1209426,
+      "guard_wall_elapsed_s_not_inference_latency": 1.0031025709904497,
+      "sample_count": 2,
+      "distinct_daemon_sensor_timestamps": 1,
+      "sensor_timestamps_in_test_window": 0,
+      "initial_sensor_age_s_at_start": 6.198484659194946,
+      "last_saved_sensor_age_s_at_finish": 7.201594114303589,
+      "saved_cpu_max_C": 24.0,
+      "saved_MemAvailable_min_bytes": 73037766656,
+      "api_cores_max": 0.0,
+      "host_counter_fields": 56,
+      "saved_host_counters_unchanged": true
+    }
+  ],
+  "execution_limits": [
+    "All six success receipts, empty stderr and corresponding command/source build entries agree; this audit did not reproduce their execution.",
+    "Guard wall elapsed values include controller sampling/waiting; they are not kernel, token, route-observer, or end-to-end model latencies.",
+    "Daemon sensor samples are repeated/stale within short tests. Several tests have no fresh in-run sensor timestamp; snapshots do not establish continuous peaks or continuous idleness.",
+    "New handoff does not record the invoked guard script path/hash or its complete launch argv. Its schema agrees with the archived abs-operator guard; exact guard provenance is not independently established."
+  ],
+  "correctness": {
+    "golden_bytes": 17760,
+    "golden_sha256": "9039af82826590d5633243c78a1e3fe48e62183ffacd10a547c7ebe5d207fe0a",
+    "decompression_bounded": true,
+    "restored_path": "/workspace/scratch/1f624f9ac929/audit/route_observation_20261117/evidence/RESTORED_ARTIFICIAL_GOLDEN.bin",
+    "float32_count": 4440,
+    "all_finite": true,
+    "nonzero": 4440,
+    "minimum": -42.41020965576172,
+    "maximum": 41.39209747314453,
+    "fixture": {
+      "nodes": 37,
+      "K": 256,
+      "M": 4,
+      "experts": 384,
+      "top_k": 6,
+      "threads": 12,
+      "quantization_node_counts": {
+        "IQ2_S": 10,
+        "IQ3_S": 9,
+        "IQ3_XXS": 9,
+        "MXFP4": 9
+      },
+      "inputs": 5,
+      "weights": "artificial byte fixture, not exported model weights",
+      "phases": [
+        "warmup",
+        "prefill T1",
+        "unknown T1",
+        "decode",
+        "decode"
+      ]
+    },
+    "source_derived_scalar_comparisons": 13320,
+    "formula": "5 inputs * 37 gates * 6 selected experts * 4 output values * 3 observation states = 13320",
+    "states": [
+      "diagnostic default-off",
+      "session observed=0",
+      "session observed=1"
+    ],
+    "baseline_scalars": 4440,
+    "actual_graph_runs_each_test": 16,
+    "observed_decode_attempts_in_main_five_graph_sequence": 2,
+    "negative_contract_categories": [
+      "missing",
+      "duplicate",
+      "alias mapping",
+      "record overflow",
+      "invalid IDs",
+      "graph failed",
+      "unsynchronized completion",
+      "attempt overflow",
+      "failed attempt followed by retry"
+    ],
+    "negative_categories_count": 9,
+    "negative_categories_graph_executed": false,
+    "strided_ID_test": "direct hook only",
+    "multitoken_prefill_test": "metadata nt=2, actual artificial graph remains T1",
+    "sanitizer_repeat_is_new_unique_fixture_set": false,
+    "candidate_output_bytes_exported": false,
+    "limits": [
+      "memcmp is in saved probe source and success is in logs; candidate output buffers are not exported for an independent re-comparison.",
+      "The 13320 count is scalar output comparisons, not 13320 independent model examples or routes.",
+      "The exported golden is a frozen CPU artificial fixture reference, not FP64 mathematical ground truth or original-model quality.",
+      "ASAN/UBSAN success is limited to changed TUs/probe; no TSan, full graph/caller link, actual model coverage, latency or quality conclusion."
+    ]
+  },
+  "capacity": {
+    "NVML_bytes": {
+      "total_bytes": 34359738368,
+      "used_bytes": 31373393920,
+      "free_bytes": 2700083200,
+      "reserved_bytes": 287309824
+    },
+    "reported_MiB": {
+      "total_bytes": 32768,
+      "used_bytes": 29920,
+      "free_bytes": 2575,
+      "reserved_bytes": 274
+    },
+    "total_minus_used_MiB": 2848.0,
+    "used_plus_free_plus_reserved_minus_total_MiB": 1.0,
+    "minimum_eligible_native_payload_bytes": 12072960,
+    "minimum_payload_layers": [
+      0,
+      1,
+      2,
+      3,
+      6,
+      7
+    ],
+    "strict_pre_guard_threshold_bytes": 3233298432,
+    "strict_pre_guard_threshold_MiB": 3083.513671875,
+    "NVML_screen_shortfall_to_threshold_bytes": 533215232,
+    "NVML_screen_shortfall_to_threshold_MiB": 508.513671875,
+    "NVML_screen_positive_payload_passes": false,
+    "strict_pre_guard_pass_needs_more_than_shortfall_bytes": 533215232,
+    "strict_post_guard_bytes": 2684354560,
+    "reported_current_free_minus_postguard_MiB_not_postallocation_success": 15.0,
+    "CUDA_guard_actually_evaluated": false,
+    "source_guard_operators": "free > payload + 3072 MiB; after warmup/synchronize free > 2560 MiB",
+    "zero_payload_is_neutral_route_only": false,
+    "host_MemAvailable_bytes": 73349971968,
+    "host_MemAvailable_GiB": 68.31248474121094,
+    "host_available_above_64GiB_bytes": 4630495232,
+    "host_available_above_64GiB_GiB": 4.3124847412109375,
+    "raw_XML_exported": false,
+    "raw_XML_hash_not_independently_recomputable": "bebc7e2f659c4977e5b181c73e3ad713c323bac94acba1ac92843110911b2dac",
+    "query_interval_ms": 95.299654,
+    "conclusion": "Reject positive-hot planning at this coarse snapshot; preserve 3072/2560 MiB guards. This is not an actual CUDA allocation/admission verdict.",
+    "limits": [
+      "Use explicit free; total-used and per-process used do not replace it.",
+      "MiB fields are rounded/query interval values. Their one-MiB nonclosure is not evidence of exact accounting failure.",
+      "Current free minus 2560 is before allocations, not a postallocation reserve check.",
+      "Host MemAvailable is not per-process/cgroup allocation headroom."
+    ]
+  },
+  "runtime_identity": {
+    "PID": 11151,
+    "boot_id": "7d339e93-01c8-4a05-ac97-e792b0190bde",
+    "start_ticks": 936117,
+    "config_sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+    "plan_sha256_matches_exported_plan": true,
+    "configured_GPU_layers": [
+      37,
+      38,
+      39
+    ],
+    "selected_mapped_backing_files": {
+      "libggml-cuda": {
+        "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+        "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0",
+        "inode": 13795200,
+        "bytes": 39645352
+      },
+      "libllama.so": {
+        "path": "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0",
+        "sha256": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26",
+        "inode": 13794623,
+        "bytes": 5432552
+      },
+      "libggml-cpu": {
+        "path": "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0",
+        "sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+        "inode": 13795015,
+        "bytes": 1433136
+      },
+      "libggml-base": {
+        "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+        "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+        "inode": 13141062,
+        "bytes": 916472
+      }
+    },
+    "all_mapped_file_records": 7,
+    "maps_stat_device_and_inode_assertions_in_source": true,
+    "saved_raw_maps_or_device_pairs": false,
+    "hash_scope": "Backing path inode/device checked against maps; not a relocated in-memory ELF digest.",
+    "device_used_MiB": 29920.0,
+    "process_used_MiB": 29520,
+    "device_used_minus_process_used_MiB": 400.0,
+    "capacity_to_identity_receipt_seconds": 337.6067190170288,
+    "identity_to_final_seconds": 795.3837037086487,
+    "services_active_in_both_receipts": true,
+    "final_monitor_age_s": 6.459617376327515,
+    "final_runtime_checks_are_boolean_receipts": true,
+    "not_independently_verified": [
+      "live remote process memory or file inode/device at audit time",
+      "original library binary hashes (ELFs not exported)",
+      "final full mapping/start-tick/hash list (only saved booleans)",
+      "continuous absence of API requests or process changes"
+    ],
+    "fan_scope": "70% is preserved policy; no fan write; monitor supplies RPM/duty fields, no fresh independent duty query.",
+    "next_build_provenance_need": "Future full libllama/driver receipt should record build/link commands and loaded CPU/provider identity, ensuring a single route37 state; current syntax-only receipt cannot establish this."
+  },
+  "material_gaps_for_next_decision": [
+    "No complete diagnostic libllama/driver link or runtime caller/provider identity proof. Must establish before model route capture.",
+    "No actual-model K5120/M2304 coverage or real scheduler/graph-reuse route capture. Artificial K256/M4 byte equivalence does not prove 37-layer capture.",
+    "No real route distribution, observer overhead, CPU/GPU overlap, first/streamed-token intervals or quality evidence. Do not promote these probe counts into an optimization gain.",
+    "Current coarse free memory cannot support positive hot under unchanged guards. Ready/event experiments with positive payload require a separately reviewed memory plan; no zero-payload substitute."
+  ],
+  "receipt_improvements_not_reasons_to_repeat_existing_suite": [
+    "Future guard receipt: guard source hash and full launcher argv; distinguish sample collection time from daemon sensor time.",
+    "Future identity receipt: save filtered maps device/inode + opened-file stat identity and final full start/boot/hash receipt; current data only partially allows independent backing-file recheck.",
+    "Future capacity query: retain bounded selected raw XML/subtree or machine-readable raw query result, because the current full-XML hash alone is not independently recomputable."
+  ],
+  "audit_script_sha256": "5f9c9c29d943e531ffc17bc0571aa511154ad3d644a89fc7008507c65a728a15",
+  "all_independent_checks_passed": true
+}

@@ -1,0 +1,35 @@
+ユーザー実行用: 最初の実モデルroute37採取
+========================================
+準備とモデル不要の検証は完了。実モデル起動はまだ行っていません。
+通常APIと同居させず、一旦止めて隔離driverを使います。長いload/監視はソフト側で行います。
+
+まず4tokenだけ確認する場合:
+
+  sudo systemctl stop llm-deepseek41-api.service
+  sudo python3 /home/codex/projects/llm-lab/route37-integration-20261117/run_capture.py
+
+4tokenが自動検査に通った後、同じmodelを保って64token追加まで行う場合は、二つ目のcommandを:
+
+  sudo python3 /home/codex/projects/llm-lab/route37-integration-20261117/run_capture.py --continue64
+
+に替えます。最初の4でcoverage/phase/完了/drop等の検査を外した場合は続行しません。
+APIがまだ稼働中ならscriptは自動で止めず拒否します。2つのcaptureを同時に起動しないでください。
+
+開始時に出力directoryとtail commandを表示します。例:
+  sudo tail -f /home/codex/projects/llm-lab/route37-integration-20261117/runs/<今回のrun>/server.stderr.log
+
+同じdirectoryのhealth.jsonに既存監視の直近値、RUN.jsonに全ledger、SMOKE4.jsonに4token時点の
+結果が残ります。これは回答文生成/throughputのテストではなく、固定token列のroute捕捉です。
+端末でCtrl+Cを押すと監視側が子processを止めます。通常APIは自動復帰しません。
+
+成功して終了した後、通常APIを戻すcommand:
+
+  sudo python3 /home/codex/projects/llm-lab/deepseek41-bringup-20261101/start.py
+
+保護停止の場合は出力されたSTOP_REQUESTED/health.jsonの理由を確認してください。削除して
+繰り返すことはせず、結果をこの会話に知らせてください。その他の失敗もrawを残して停止します。
+
+コード/planだけ再確認する場合（モデル起動なし）:
+  sudo python3 /home/codex/projects/llm-lab/route37-integration-20261117/run_capture.py --prepare
+
+現設定とbinaryのhashが変わっていれば拒否します。古いCPU切替scriptを使う必要はありません。

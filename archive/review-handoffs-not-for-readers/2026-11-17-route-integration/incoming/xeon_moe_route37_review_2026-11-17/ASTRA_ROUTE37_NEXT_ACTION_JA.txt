@@ -1,0 +1,156 @@
+route37: 次の一手 — 診断callerの隔離統合を完成させる
+2026-11-17
+対象: 688683c71803ed94ac7a8e41e8e916d4e0174e6d
+
+これは外部レビューと実装提案であり、新しいユーザー方針・起動許可ではない。
+現在のPOLICY_AND_SCOPEと、長いモデル起動をユーザーが行う既存手順を維持する。
+
+判断
+====
+route37のcollector設計は、one context / caller / active eval / CPU ith0 producer
+という範囲で次の隔離統合へ進めてよい。今回、差し戻しが必要な確定欠陥は見つからなかった。
+ただしfull libllama link、driverのcleanup、実モデル37gate coverageはまだ未検証。
+次の主作業はCPU性能suiteの再実行ではなく、この3点を閉じる専用driverの完成とする。
+
+優先作業1: 実libllamaの隔離linkとproviderの一意性
+================================================
+1. 実際に使用しているsparse-cache libllamaのlink系譜を基準にする。
+   診断llama-context.cppをobject化し、route37-bridge.cppを加える。
+   sparse loader/model object、model Unity object、base/CUDAの実体は対応するものを使う。
+   generic/vendor libllamaへの一括置換で通常配置や算術まで同時に変えない。
+
+2. route37.cpp/stateの定義は診断CPU libraryに1つだけ。
+   libllamaとdriverにはroute37.cppを再compile/linkしない。
+   --no-undefinedまたは-z defs、link map、DT_NEEDED、defined/undefined symbol一覧を保存する。
+   libllamaのroute API参照が、意図した診断CPU providerへ解決されることを確かめる。
+
+3. 実行時のproviderも別に確認する。
+   既存probeのggml_backend_cpu_initだけのdladdr確認を、route APIの実function pointerへ拡張。
+   path、device/inode、backing-file SHAを保存する。SONAMEが同じ旧CPUを拾わないことを確認。
+   stateの二重定義はsymbol interposition次第で隠れ得るので、runtimeの一致だけに頼らず
+   link inputと定義数も確認する。
+
+4. model-free確認はbackend初期化前に行えるよう分ける。
+   llama_backend_initにはbackend自動列挙がある。「モデルなし」だけでGPU不使用としない。
+   現時点で通常serverへglobal opt-in、env自動enable、dynamic attachを追加しない。
+
+5. 次のreceiptにはactual model graph sourceのhashとUnity/objectとの対応を追加する。
+   現snapshotにはactual source/src/models/deepseek41.cpp等がなく、vendor版と実objectの
+   同一性までは確認できない。これは機能不良の指摘ではなく、端点証拠の補完である。
+
+優先作業2: actual schedulerを通す小さいfixture
+=============================================
+既存の37-node人工fixtureを、実gpu-stream schedulerと診断CPU backend1個を通して実行する。
+GPU backend・実モデルを作らず、K256/M4程度の既存小型形状を使う。
+
+必要な確認は次に限定する。
+  - 同一graphの実行とreuseで、毎回新しいattemptが作られる。
+  - scheduler reset後のrebuildで、session内generationが進む。
+  - gateのnode->src[0] pointer/dataが登録した元weightに対応する。
+  - 37unique layers、各6unique IDs、drop/duplicate/mapping/coverage errorがない。
+  - direct CPU computeとscheduler経由のscopeを区別してreceiptへ残す。
+
+世代を手で渡すcollector単体試験は今回追加済み。実process_ubatchのrebuild検出を
+検証したことにはならないので、ここではscheduler接続という残件だけを確かめる。
+実モデルのgate到達性は後述の4tokenで最終確認する。
+
+優先作業3: driverのcallを一度だけ正しく確定する
+==============================================
+driverはone context / one sequence / sequential callerとし、通常serverとは別の入口にする。
+warmupと必要なprefillの通常同期を済ませ、採取対象の直前にbounded sessionを開く。
+
+正常経路:
+  label(request, sequence, decode_call, logical_token, explicit phase)
+  -> llama_decode(fixed T1 input)
+  -> 通常必要なlogits取得・同期と出力の有効性確認
+  -> complete_call(actual public return status, synchronized=1)
+  -> 次のlabel、またはclose/export
+
+失敗経路:
+  llama_decodeが失敗
+  -> 既にsubmitした作業があればdrain/synchronizeして寿命を閉じる
+  -> 実際の失敗statusのままcomplete_call
+  -> 失敗を保存し、停止または明示した新callでretry
+
+失敗時に有効なlogitsがあるとは仮定しない。cleanup用の同期時間は正常latencyに混ぜない。
+begin/end/completeの戻り値を全て扱い、complete成功数だけでtrace全体を合格にしない。
+
+complete_call(synchronized=0)はGPU完了のpollではない。callを失敗として閉じ、後から
+synchronized=1で呼び直しても修復しない。driverは同期後に一度だけfinalizeする。
+
+label済みでも、graph build/allocation等がbridge前に失敗したらattemptは0件になり得る。
+その場合もCALL_FAILED / NO_EVALのcallを保存する。graph_statusとpublic decode statusは
+異なるenum/値体系なので、そのまま混同しない。
+
+phase、token、exportの意味
+==========================
+- T=1はdecodeの十分条件ではない。prompt末尾1tokenはPREFILL、UNKNOWNはUNKNOWNのまま。
+- logical_tokenとpositionが何を指すかmanifestに定義する。現在入力したtokenのevalと、
+  それが予測する次tokenの表示順を混同しない。固定token列と開始KV状態を識別可能にする。
+- phase不明・scope外・失敗・dropを正常decodeの分母へ入れない。
+- attempt IDとgenerationはsessionでresetする。exportにsession IDを置く。
+- record.ordinal / first_record / call.first_attemptは0-based index、attempt.idは1-based。
+- droppedはcall拒否・attempt拒否・record dropの混合イベント数で、欠測record数専用ではない。
+- attempt.caller_completedはflagsのないcallに採用されたattemptを示す。
+  失敗したcallも時間的にはcompleted/synchronizedになり得る。call ledgerと併読する。
+- global flagsは過去の失敗を保持する。別callのretry成功で消さない。
+- 全records、attempts、calls、stats、実行manifestをexportし、context破棄前にcloseを確認。
+- native 128B structのmemdumpを新しい汎用trace形式にしない。field単位でexportする。
+
+driver単体の必要試験は、成功、pre-bridge/no-eval失敗、途中abort、失敗callを閉じてretry、
+unknown/prefill T1、上限停止の短い状態遷移に限定できる。sync callbackの呼出し順を確認する。
+collectorにmutex/汎用多context対応を足したり、禁止された並行API呼出しの試験を増やす
+必要は今回見つからなかった。
+
+4token -> 64tokenの実モデル採取
+===============================
+上のmodel-free統合が通り、既存手順による診断windowが具体化してから行う。
+通常APIと同居する二つ目の大モデルを今回のreviewから起動しない。
+長いモデル起動は既存方針どおりユーザー側の操作。起動commandは統合確認後に具体化する。
+
+最初の4tokenは性能試験ではなく配線確認とする。正常T1 callが1attemptずつの場合:
+  4 calls / 4 attempts / 148 records / 888 expert IDs
+  各attemptはlayer0..36が各1回、6IDsは範囲0..383で重複なし。
+  phase/position/sequence/logical_token、callとattemptの対応、通常同期後の完了を照合。
+  全ての想定外error/drop/coverage不足を説明できない場合は64へ進めない。
+
+その後64tokenなら2368 records / 14208 expert IDs。
+4+64を同sessionでも2516 recordsで4096に収まる。ただしwarmup/prefill T1/unknown/retryも
+recordを使う。record上限は完全37層attemptを110件しか収容しないため、総予算を事前に数える。
+64tokenは捕捉と分析の初期試料で、一般的なrouting頻度や回答品質を確定する母集団ではない。
+
+観測ON/OFFの実モデル出力同一性は次の小試験で確認できる対象だが、まだ確認済みではない。
+同一token列・同一開始状態・同一backend配置で比較し、差が出たらrouteの変化と算術の
+変化を分ける。観測default-offもhook呼出し自体は残るため、frozen baselineとは別状態。
+時間を測るなら通常logits完了までのcall wall timeを明示し、観測のための追加syncを隠さない。
+性能閾値や採用条件はこのレビューで新設しない。
+
+GPU並列への戻し方と容量
+========================
+今回のroute37は並列実行そのものを速くする変更ではなく、その次の割当評価に必要な
+tokenごとの6expert集合・順序・同時選択を、通常配置で採るための準備である。
+まず実routeを得ると、候補bankごとのH=0..6分布、連続miss、tokenごとの偏りをofflineで
+比較できる。頻度上位expertの単純集計だけでは見えないCPU側残量が分かる。
+routeだけからGPU ready時刻、重なり、speedupを算出しない。
+
+fresh receiptの明示freeは2575MiB。最小native3projection payload=12,072,960Bでも
+既存事前条件はfree > 3083.513671875MiB。表示値ベースで約508.514MiB以上不足する。
+これはNVML screenであり、実cudaMemGetInfo/admission試験ではない。
+freeとpostguard2560の差15MiBをallocation後合格と解釈しない。
+
+GPU37–39、3072/2560MiB guardを維持し、positive hotとready/eventは別のメモリ計画へ。
+H0 dispatcherを中立collectorとして代用しない。今回のsource reviewからGPU層をCPUへ
+移したり、guardを下げたりする追加方針は導かない。
+
+今回の添付
+==========
+ROUTE37_REVIEW_JA.txt: 5問への回答、判断根拠、今の到達点。
+docs/route37_api_contract_comments.patch: API注釈だけの提案。ABI・実行codeの変更なし。
+lifetime/: 元collectorを用いた追加12契約試験とその成功/初回環境失敗の全receipt。
+integration/: actual scheduler/caller/sourceの行番号付き監査。
+evidence/: 80配布ファイル、前回31ファイル、6工程、golden、capacityの独立監査。
+検証の詳しい限界、source hash、既存の数値試験との区別は各報告に保存した。
+
+必要な次返送物は、full link/provider証拠、scheduler小fixtureとdriver cleanup結果、
+実行前なら具体化済み起動手順、実行済みなら4tokenの全ledger/manifestで十分。
+既存CPU性能suiteや同じ13,320比較の全面再実行を追加要件にしない。

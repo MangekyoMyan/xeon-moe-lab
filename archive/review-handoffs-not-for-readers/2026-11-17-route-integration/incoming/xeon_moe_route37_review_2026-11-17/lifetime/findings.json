@@ -1,0 +1,169 @@
+{
+  "commit": "688683c71803ed94ac7a8e41e8e916d4e0174e6d",
+  "review_scope": "collector lifetime, registration, fixed buffer/ledger boundaries, failure/retry and read APIs; documented singleton contract",
+  "confirmed_defects": [],
+  "findings": [
+    {
+      "id": "LIFE-01",
+      "classification": "verified_source_invariant",
+      "severity": "info",
+      "title_ja": "release/acquire公開とCPU同期戻りを分ければ寿命は成立",
+      "source": [
+        "route37/route37.cpp:35-67",
+        "route37/route37.cpp:91-98",
+        "route37/ggml-cpu.c:3400",
+        "route37/ggml-cpu.c:3653-3698",
+        "route37/BUILD.json:17,45,68,99"
+      ],
+      "condition": "single caller and CPU ith0 producer; no concurrent control/read; actual CPU backend return is synchronous",
+      "note_ja": "end_eval の release store 自体は join ではない。TSanまたはfull callerのrace証明を行ったという主張ではない。"
+    },
+    {
+      "id": "LIFE-02",
+      "classification": "verified_contract_behavior",
+      "severity": "info",
+      "title_ja": "上限超過は旧記録を上書きせず失敗を残す",
+      "source": [
+        "route37/route37.cpp:28-44",
+        "route37/route37.cpp:80-98"
+      ],
+      "tests": [
+        "call_limit_exact_then_overflow",
+        "record_limit_overflow_preserves_old_records",
+        "attempt_limit_overflow_preserves_prior_call"
+      ]
+    },
+    {
+      "id": "LIFE-03",
+      "classification": "verified_contract_behavior",
+      "severity": "info",
+      "title_ja": "同callの失敗は後続successで取り消さず別call成功は計上できる",
+      "source": [
+        "route37/route37.cpp:100-108"
+      ],
+      "tests": [
+        "failure_then_success_same_call_failclosed_then_retry_call",
+        "zero_attempt_success_status_is_invalid"
+      ]
+    },
+    {
+      "id": "LIFE-04",
+      "classification": "verified_contract_behavior",
+      "severity": "info",
+      "title_ja": "登録失敗はhookを非活性にし再openは旧sessionをresetする",
+      "source": [
+        "route37/route37.cpp:28-32",
+        "route37/route37.cpp:53-64",
+        "route37/route37.cpp:110-117"
+      ],
+      "tests": [
+        "invalid_registration_duplicate_tensor",
+        "invalid_registration_duplicate_data",
+        "read_after_close_and_reopen_reset"
+      ]
+    },
+    {
+      "id": "DOC-01",
+      "classification": "documentation_recommendation",
+      "severity": "low",
+      "title_ja": "no graph in flightをCPU終了とGPU tail完了に分けて記載",
+      "source": [
+        "route37/route37.h:8-11",
+        "route37/caller.patch:29-34",
+        "README.txt:33-40"
+      ],
+      "minimal_action_ja": "end_evalのCPU完了前提、complete_callの通常全体同期前提、open/close/exportのcall終了前提をAPIごとに注記する。"
+    },
+    {
+      "id": "DOC-02",
+      "classification": "documentation_recommendation",
+      "severity": "low",
+      "title_ja": "droppedはrecord専用ではなく異種拒否イベントの合計",
+      "source": [
+        "route37/route37.cpp:37",
+        "route37/route37.cpp:44",
+        "route37/route37.cpp:81"
+      ],
+      "minimal_action_ja": "field単位を明記し欠測gate数へ直接換算しない。必要時のみversion付きAPIで内訳counterを追加する。"
+    },
+    {
+      "id": "DOC-03",
+      "classification": "driver_contract_recommendation",
+      "severity": "medium",
+      "title_ja": "synced=0のcomplete_callはpollではなく失敗確定",
+      "source": [
+        "route37/route37.cpp:100-108"
+      ],
+      "tests": [
+        "unsynchronized_call_is_final_failure"
+      ],
+      "minimal_action_ja": "driverは普通の同期を済ませて一度だけfinalizeする。失敗時もGPU submit済みなら安全なdrainを確認する。現時点のdriver実装バグという分類ではない。"
+    },
+    {
+      "id": "DOC-04",
+      "classification": "documentation_recommendation",
+      "severity": "low",
+      "title_ja": "attempt.caller_completedは正常採用可能なcallだけで1",
+      "source": [
+        "route37/route37.cpp:102-107"
+      ],
+      "minimal_action_ja": "実時間のreturnを表す単独booleanとして使用しない。call.completed/synchronized/status/flagsと合わせてexportする。"
+    }
+  ],
+  "rejected_bug_claims": [
+    {
+      "claim": "plain d fields imply a race",
+      "reason": "documented single caller/producer and CPU synchronization order plain fields; concurrent control/read misuse is excluded"
+    },
+    {
+      "claim": "same-call failed then successful attempt must count as completed decode",
+      "reason": "whole call fail-closed is deliberate; different new call is eligible"
+    },
+    {
+      "claim": "record overflow with all layer bits set counts as complete",
+      "reason": "end_eval also requires exactly 37 records and propagates overflow"
+    },
+    {
+      "claim": "generation must stay globally unique after close/open",
+      "reason": "current session reset is explicit; exporter needs outer session identifier"
+    }
+  ],
+  "validation": {
+    "cases_passed": 12,
+    "collector_source_modified": false,
+    "model_runs": 0,
+    "gpu_operations": 0,
+    "ggml_graphs_run": 0,
+    "harness": "collector_contract_test.cpp",
+    "runner": "run_contract_test.py",
+    "receipt": "contract_receipt.json",
+    "output": "contract_results.jsonl",
+    "sanitizers": [
+      "address",
+      "undefined"
+    ],
+    "leak_sanitizer": "initial environmental ptrace failure retained; final run detect_leaks=0",
+    "thread_sanitizer": "not executed",
+    "limitation": "host-buffer predicate is stubbed; direct-hook state-machine tests, not full backend/caller integration or model behavior"
+  },
+  "source_sha256": {
+    "POLICY_AND_SCOPE.txt": "6aac700f9f34c1eba63aaa3479fdfba9933f5be98088b8ec8fbe198ef8af9b0b",
+    "CONSULT_PRO_JA.txt": "9fd898c935ab248bedd7fe1ebb421b0e44887c44bd599aee68a01828ea732a2f",
+    "RESULTS_JA.txt": "124ee73e60422f22dd534b6fbc11ae22fda0aa381e984f29aa8f3c42806f2c1e",
+    "README.txt": "1cbffd13115ac1e3c784c89993fe8bb20152ee9745fb8aae9c3ffb28be0567ed",
+    "route37/route37.h": "cc2df8d95cad54b4e01e37cf85f413cab722707534cf7d7fcb600b0a4a115b10",
+    "route37/route37.cpp": "8f8aca9be203043ea5cb5f82bfc90cdcfcd37e8ed027faaccaf6e7f5b4ec8865",
+    "route37/probe.cpp": "035d28c8f15ee9f7b1c5a562cce5273276e4874794de994fa04c61e60af36c33",
+    "route37/route37-bridge.cpp": "7994c7b105eae35b4e3cb27b32e9fcc9a921ffdc6e7d62a28bc34786077b2a67",
+    "route37/route37-bridge.h": "dab141ae7e1b0e2a52e94059168797d8713680cf9b70bbe330533dc704c15076",
+    "route37/cpu.patch": "534ac6aa32a91d96d5a620b47484362323925082964b1945fd9cfbcbde01033a",
+    "route37/caller.patch": "a0fea0150f476aee21a44bfb9ac7c30b1d3737073aa1fe2405d316a7335197b4",
+    "route37/BUILD.json": "e8322467f2457b14f3782781db755cd09d32110e70e839ae13ec586d4f463f49",
+    "route37/ggml-cpu.c": "ce6a78a1a34c0fe9623a116320b9fad8d1ae0cb83102ba9a4cb8fbd58a473988"
+  },
+  "next_actions_ja": [
+    "collector一般並行化やmutex追加は不要。現在の契約をdriverに明文化する。",
+    "full診断callerで単一provider linkと成功/失敗時finalizeを確認する。",
+    "その後に実形状graphの限定smokeで37gate到達性を検査する。今回のレビュー環境からモデルを起動しない。"
+  ]
+}
