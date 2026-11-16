@@ -1,0 +1,54 @@
+公開資料を踏まえた次回方針 / 2026-11-12
+
+今回は検索と設計検討のみ。API・エンジン・モデル・設定を変更せず、ビルド、推論、ダウンロードも実行していない。以下は未実装・未測定の案。通常final構成とhot14実験構成を維持する。
+
+検索で確認したこと
+
+1. Mayaにも関連する切り分け事例がある。
+GLM5-FLASH.md 8.2.1では、同じ量子化GGUFをCPU llama.cppと別のdevice経路で比較し、Q8_1/Q8_Kの入力変換差と後続層での差の伝播を調べている。局所のdequant+FP32参照と各層の中間値を比較した点を参考にする。
+対象は別モデル・別経路で、記載された8token試験や許容値は当サーバーの品質保証にはならない。cosineやtop-1一致の閾値をそのまま採用しない。
+https://github.com/mw00/project-maya/blob/main/docs/GLM5-FLASH.md
+
+2. NVIDIA公式資料も、CPU出力との差だけでGPUの誤りを決めない扱いを説明している。演算順、融合積和、数学ライブラリの実装を区別する。
+https://docs.nvidia.com/cuda/archive/12.9.1/floating-point/index.html#verifying-gpu-results
+nvcc12.9.2のuse_fast_mathはftz=true / prec-div=false / prec-sqrt=false / fmad=trueを伴う。全部を一括で外す比較だけでは、何が効いたか分からない。
+https://docs.nvidia.com/cuda/archive/12.9.2/cuda-compiler-driver-nvcc/index.html#use-fast-math-use-fast-math
+
+3. 検索時点のllama.cpp公開CUDAにもIQ2_SとIQ3_XXSの整数除算を確認した。このサーバーの追加実装だけに生じた箇所ではない。ただし上流にあることは正確さの保証ではなく、丸め寄与は隔離して測る。
+https://github.com/ggml-org/llama.cpp/blob/master/ggml/src/ggml-cuda/vecdotq.cuh
+公開Q8_1量子化コードには、和の欄をd*sum(q)から作る処理がある。手元の凍結版は元入力の和を格納する。今回追ったIQ2_S/IQ3_XXS/IQ3_S/MXFP4のMMVQ dotはこの和の欄を読まないので、この相違を今回の解決策と取り違えない。
+https://github.com/ggml-org/llama.cpp/blob/master/ggml/src/ggml-cuda/quantize.cu
+master参照は可変。実装を採る際はcommitを固定して手元との差分を再確認する。
+
+4. llama-perplexityはPPL、保存logitsとのKL、教師token確率差等を評価できる。全文一致だけで測るより参考になる。
+https://github.com/ggml-org/llama.cpp/blob/master/tools/perplexity/README.md
+ただし当方の新経路はT=1限定。通常の複数token処理で測るだけでは新経路を通らず合格し得る。固定prefixを1tokenずつ追加し、実dispatchを確認する評価が必要。top100だけで完全KLを名乗らない。CPU baselineを教師とした一致率と、正解付き課題の品質を混同しない。
+
+次回の処理方針
+
+A. 最初は演算方式を変えず、異種CPU/GPU計算のまま品質を確認する。
+GPU計算をCPUへ合わせて粗くすることは目的にしない。手元の限定試験ではGPUの方がdequant参照に近い例がある。新しい基準は参照演算への誤差、正解付き課題、応答本文の保存、同じ入力での速度を組み合わせる。
+全体比較ではGPU層37-39のCPU移動も同時に起きている。配置変更と算術変更を別々に判定する。
+
+B. 数値差の診断は小さく分ける。
+同一の実F32中間入力、同一expert、同一重みで、量子化後の入力 -> gate/up -> SwiGLU -> down -> router加重和を比べる。
+量子化粒度256/32、scale FP32/FP16、丸め規則、IQ整数除算、expf/除算の近似を一要素ずつ変える。入力と重みを固定した局所試験を先に行い、モデル全体を繰り返しHDDから読み直す回数を抑える。
+FP64参照は量子化済み重みの復元値を基準にする。元の非量子化モデルの精度評価とは分ける。
+
+C. CPUの32要素単位の入力スケールは研究候補であり、最初から本番へ入れない。
+既存IQ compact重みを保持したまま、入力のスケールを細かくする専用dotを設計する余地がある。ただし256ごとにまとめられた整数部分和へ、32ごとの異なるscaleを一つだけ掛けることはできない。浮動小数点の変換・乗算・加算が増える可能性がある。
+CPUが遅い現状では、精度向上と引き換えにCPUをさらに遅くする変更にならないか必ず測る。ggml全体のQ8_Kブロックサイズを変更する方法はABI・形式・他kernelへ広がるため採らない。
+GPUをQ8_Kへ合わせる版は原因分離の比較候補にはなるが、GPUの方が正確な条件を悪化させる可能性がある。完全一致を得るためだけに採用しない。
+
+D. 速度改善は配置の側で進める案を優先する。
+単純な頻度/バイト数から、出現確率と実測で短縮できる待ち時間を使う配置へ発展させる。概念は「出現確率 × 全体の短縮時間 / 占有VRAM」。これは独自案で、下記論文の式そのものではない。
+CPUとGPUが並行するため、CPU時間とGPU時間を単純に足し引きせず、転送・待機・合成を含む完了時刻で評価する。GPU使用率そのものは目標にしない。
+Adaptive Expert Assignment論文の、miss expertをCPU計算とGPU転送計算へ配分し、両経路の終了を早める考え方を参考にする。token-loadで分ける効果はprefillやbatchに依存し、単一tokenのdecodeで同じ倍率が出るとは期待しない。
+https://arxiv.org/abs/2610.23006
+prefillとdecodeを別に評価し、生成だけ速くなって入力を遅くする配置を一律採用しない。今の14GiB固定案は比較用に保持する。
+
+採用を急がないもの
+CUDA全体のfast-math一括無効化、全重みのFP16展開、モデル全体の再量子化、CPU/GPUのbit完全一致のためだけの大改造。現在の問題へ直結する保証がなく、比較条件を増やしすぎる。
+
+再開時の最初の成果物
+IQ系の同一入力1層について、どの段階でどれだけ誤差が増えるかを数値で示す小さな表。それを得てから、CPUを変えるか、CUDAを変えるか、算術は維持して配置へ進むかを決める。

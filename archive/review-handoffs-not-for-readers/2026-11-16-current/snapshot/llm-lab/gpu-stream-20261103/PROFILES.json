@@ -1,0 +1,58 @@
+{
+  "original_config_sha256": "73090349bcdcebb010eb78daf888e1bc74fd7d1d3bac0cbeb024eb1e939dae77",
+  "profiles": {
+    "baseline": {
+      "file": "/home/codex/projects/llm-lab/gpu-stream-20261103/profiles/baseline.json",
+      "sha256": "6b259a5f49fe996a188ac50645e885d9c25575f36b578849776e359e65ac4a05",
+      "gpu_layers": 2,
+      "batch": 128,
+      "streaming": false,
+      "static_expert_bytes": 11076894720,
+      "registered_expert_bytes": 0
+    },
+    "gpu4-resident": {
+      "file": "/home/codex/projects/llm-lab/gpu-stream-20261103/profiles/gpu4-resident.json",
+      "sha256": "093a8667f5f0981ab5014bc91d0970f69fbd474c4c035dca1f93100a78031ac7",
+      "gpu_layers": 4,
+      "batch": 128,
+      "streaming": false,
+      "static_expert_bytes": 22366126080,
+      "registered_expert_bytes": 0
+    },
+    "gpu3-stream512": {
+      "file": "/home/codex/projects/llm-lab/gpu-stream-20261103/profiles/gpu3-stream512.json",
+      "sha256": "3c3234df8c168dcaa08cc06c341e4580bfa453b4f3467b834f08e193bc3aee32",
+      "gpu_layers": 3,
+      "batch": 512,
+      "streaming": true,
+      "static_expert_bytes": 16951541760,
+      "registered_expert_bytes": 211062620160
+    },
+    "gpu3-stream1024": {
+      "file": "/home/codex/projects/llm-lab/gpu-stream-20261103/profiles/gpu3-stream1024.json",
+      "sha256": "0051756e1ce5ef563dfd25a16c8a13c275297179007745596974fb1ea4183ec1",
+      "gpu_layers": 3,
+      "batch": 1024,
+      "streaming": true,
+      "static_expert_bytes": 16951541760,
+      "registered_expert_bytes": 211062620160
+    }
+  },
+  "library": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libllama.so.0.8.0",
+  "library_sha256": "c257a554ea28c6f744c3f8dcbfec6f767b41281f9756f397d2d354b19de22127",
+  "full_model_AB_passed": false,
+  "libraries": [
+    {
+      "file": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libllama.so.0.8.0",
+      "sha256": "c257a554ea28c6f744c3f8dcbfec6f767b41281f9756f397d2d354b19de22127"
+    },
+    {
+      "file": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+      "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+    },
+    {
+      "file": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-cpu.so.0.28.0",
+      "sha256": "ff0b0f685bc469d82bf30de0644334bd3db94c596c0e633a35ef18d7890204ce"
+    }
+  ]
+}

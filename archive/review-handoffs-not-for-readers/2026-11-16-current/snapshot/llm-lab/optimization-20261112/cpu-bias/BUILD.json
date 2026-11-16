@@ -1,0 +1,28 @@
+{
+  "command": [
+    "g++",
+    "-O3",
+    "-std=c++17",
+    "-march=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-fopenmp",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+    "/home/codex/projects/llm-lab/optimization-20261112/cpu-bias/test-bias.cpp",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-o",
+    "/home/codex/projects/llm-lab/optimization-20261112/cpu-bias/test-bias"
+  ],
+  "sources": {
+    "compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+    "biased-iq3.inc": "2105f1c46e689bc1e964caa38b77cdd6667defdb43290a89da876808f412a718",
+    "iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c"
+  },
+  "binary_sha256": "6fd9c160b0c5e99d06f7437e3bba2d7b3bf9f4a314eaba2db5e8bf840d0e599d"
+}

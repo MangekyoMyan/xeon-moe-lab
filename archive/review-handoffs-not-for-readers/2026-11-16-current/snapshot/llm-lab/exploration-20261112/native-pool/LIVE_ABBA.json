@@ -1,0 +1,140 @@
+{
+  "scope": "Graph executor OpenMP vs ggml pthread/poll0,ABBA8inputsx2;cache initialization retains OpenMP;native master-last affinity;interleave;1024batch;no row-local;equal warmup each run",
+  "ttft_measurement": "Observed streaming wall time to first received content/token",
+  "sources": {
+    "control": [
+      "/home/codex/projects/llm-lab/exploration-20261112/heldout/20261112-145828-native-control-r1/RESULT.json",
+      "/home/codex/projects/llm-lab/exploration-20261112/heldout/20261112-151701-native-control-r2/RESULT.json"
+    ],
+    "candidate": [
+      "/home/codex/projects/llm-lab/exploration-20261112/heldout/20261112-150532-native-candidate-r1/RESULT.json",
+      "/home/codex/projects/llm-lab/exploration-20261112/heldout/20261112-151010-native-candidate-r2/RESULT.json"
+    ]
+  },
+  "rows": [
+    {
+      "name": "interval-code",
+      "control_tok_s": [
+        7.596802151987112,
+        7.5995279539285585
+      ],
+      "candidate_tok_s": [
+        7.398794562048693,
+        7.4745885512940315
+      ],
+      "gain_percent": -2.127702899506334,
+      "same_output": true
+    },
+    {
+      "name": "csv-code",
+      "control_tok_s": [
+        7.671284418412417,
+        7.596721477741308
+      ],
+      "candidate_tok_s": [
+        7.431529255031992,
+        7.435156096236301
+      ],
+      "gain_percent": -2.626190081496893,
+      "same_output": true
+    },
+    {
+      "name": "japanese-process",
+      "control_tok_s": [
+        7.822431621299294,
+        7.79248331347814
+      ],
+      "candidate_tok_s": [
+        7.5688899759206265,
+        7.525247204370665
+      ],
+      "gain_percent": -3.3355828151286793,
+      "same_output": true
+    },
+    {
+      "name": "japanese-water",
+      "control_tok_s": [
+        7.446320024745174,
+        7.420360014888893
+      ],
+      "candidate_tok_s": [
+        7.251633819676241,
+        7.272760503808108
+      ],
+      "gain_percent": -2.3022770247837276,
+      "same_output": true
+    },
+    {
+      "name": "binary-search-de",
+      "control_tok_s": [
+        7.373305191756505,
+        7.321335644677719
+      ],
+      "candidate_tok_s": [
+        7.160123376048405,
+        7.257854509048512
+      ],
+      "gain_percent": -1.886028290962194,
+      "same_output": true
+    },
+    {
+      "name": "moon-phases",
+      "control_tok_s": [
+        7.499459822939716,
+        7.4691033306256855
+      ],
+      "candidate_tok_s": [
+        7.359780763305596,
+        7.273593041479206
+      ],
+      "gain_percent": -2.242277974123341,
+      "same_output": true
+    },
+    {
+      "name": "garden-fiction",
+      "control_tok_s": [
+        7.594506173995544,
+        7.491591570978908
+      ],
+      "candidate_tok_s": [
+        7.380631044727166,
+        7.371561918958824
+      ],
+      "gain_percent": -2.208813736835269,
+      "same_output": true
+    },
+    {
+      "name": "database-keys",
+      "control_tok_s": [
+        7.757272585197597,
+        7.752823113414426
+      ],
+      "candidate_tok_s": [
+        7.601977947099786,
+        7.575760580580907
+      ],
+      "gain_percent": -2.1431280311929424,
+      "same_output": true
+    }
+  ],
+  "aggregate": {
+    "control": {
+      "decode_tok_s": 7.572417423940208,
+      "sum_predicted_ms": 403569.934,
+      "mean_ttft_s": 7.756416768562303,
+      "mean_elapsed_s": 32.980039955562006,
+      "case_count": 16
+    },
+    "candidate": {
+      "decode_tok_s": 7.39405992485864,
+      "sum_predicted_ms": 413304.738,
+      "mean_ttft_s": 7.398490803373534,
+      "mean_elapsed_s": 33.230669233998924,
+      "case_count": 16
+    }
+  },
+  "aggregate_gain_percent": -2.3553574650770126,
+  "all_outputs_identical": true,
+  "comparison_accepted": true,
+  "input_sha256": "ff5aae2063471454bd7af223b57a7db2fea9bac4b6b7f19e5360d386619de42a"
+}

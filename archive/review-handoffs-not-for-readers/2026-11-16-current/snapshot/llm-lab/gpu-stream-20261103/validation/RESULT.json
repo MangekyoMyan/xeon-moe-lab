@@ -1,0 +1,139 @@
+{
+  "make-fixture": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/make_fixture",
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/tiny-moe.gguf"
+    ]
+  },
+  "list-devices": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin/llama-server",
+      "--list-devices"
+    ]
+  },
+  "loader": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/test-loader",
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/tiny-moe.gguf"
+    ]
+  },
+  "scheduler-compute": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/test-scheduler"
+    ]
+  },
+  "reserve-128": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+      "128"
+    ],
+    "result": {
+      "type": "MXFP4",
+      "tokens": 128,
+      "GPU_scheduler_bytes": 0,
+      "CPU_scheduler_bytes": 25431552,
+      "up_GPU": false,
+      "down_GPU": false,
+      "GET_ROWS_CPU": true,
+      "computed": false
+    }
+  },
+  "reserve-IQ2-128": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+      "128",
+      "IQ2"
+    ],
+    "result": {
+      "type": "IQ2_S",
+      "tokens": 128,
+      "GPU_scheduler_bytes": 0,
+      "CPU_scheduler_bytes": 25431552,
+      "up_GPU": false,
+      "down_GPU": false,
+      "GET_ROWS_CPU": true,
+      "computed": false
+    }
+  },
+  "reserve-512": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+      "512"
+    ],
+    "result": {
+      "type": "MXFP4",
+      "tokens": 512,
+      "GPU_scheduler_bytes": 0,
+      "CPU_scheduler_bytes": 101726208,
+      "up_GPU": false,
+      "down_GPU": false,
+      "GET_ROWS_CPU": true,
+      "computed": false
+    }
+  },
+  "reserve-IQ2-512": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+      "512",
+      "IQ2"
+    ],
+    "result": {
+      "type": "IQ2_S",
+      "tokens": 512,
+      "GPU_scheduler_bytes": 1552691200,
+      "CPU_scheduler_bytes": 10500096,
+      "up_GPU": true,
+      "down_GPU": true,
+      "GET_ROWS_CPU": true,
+      "computed": false
+    }
+  },
+  "reserve-1024": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+      "1024"
+    ],
+    "result": {
+      "type": "MXFP4",
+      "tokens": 1024,
+      "GPU_scheduler_bytes": 2609930240,
+      "CPU_scheduler_bytes": 21000192,
+      "up_GPU": true,
+      "down_GPU": true,
+      "GET_ROWS_CPU": true,
+      "computed": false
+    }
+  },
+  "reserve-IQ2-1024": {
+    "returncode": 0,
+    "command": [
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/reserve_probe",
+      "1024",
+      "IQ2"
+    ],
+    "result": {
+      "type": "IQ2_S",
+      "tokens": 1024,
+      "GPU_scheduler_bytes": 1654415360,
+      "CPU_scheduler_bytes": 21000192,
+      "up_GPU": true,
+      "down_GPU": true,
+      "GET_ROWS_CPU": true,
+      "computed": false
+    }
+  },
+  "registration_disabled": {
+    "returncode": 0,
+    "registration_calls": 0
+  },
+  "full_deepseek_model_loaded": false
+}

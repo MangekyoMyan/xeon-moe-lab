@@ -1,0 +1,11 @@
+--- public-baseline/accepted/overlays/ggml/src/ggml-cpu/ggml-cpu.cpp
++++ snapshot/llm-lab/exploration-20261112/sparse-cache/ggml-cpu.cpp
+@@ -659,6 +659,8 @@
+ static void * ggml_backend_cpu_get_proc_address(ggml_backend_reg_t reg, const char * name) {
+     if (strcmp(name, "xeon_iq3_cache_create_v1") == 0) return (void *) xeon_iq3_cache_create_v1;
+     if (strcmp(name, "xeon_iq3_cache_add_v1") == 0) return (void *) xeon_iq3_cache_add_v1;
++    if (strcmp(name, "xeon_iq3_cache_add_selected_v2") == 0) return (void *) xeon_iq3_cache_add_selected_v2;
++    if (strcmp(name, "xeon_iq3_cache_lookup_experts_v2") == 0) return (void *) xeon_iq3_cache_lookup_experts_v2;
+     if (strcmp(name, "xeon_iq3_cache_free_v1") == 0) return (void *) xeon_iq3_cache_free_v1;
+     if (strcmp(name, "xeon_iq3_cache_used_v1") == 0) return (void *) xeon_iq3_cache_used_v1;
+     if (strcmp(name, "xeon_iq3_cache_hits_v1") == 0) return (void *) xeon_iq3_cache_hits_v1;

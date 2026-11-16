@@ -1,0 +1,11 @@
+{
+  "purpose": "Counterevidence against claiming that ordinary child exit necessarily causes killpg ESRCH",
+  "method": "Launch one harmless Python child running os._exit(0), start_new_session=True; wait 0.1 seconds without reaping; read /proc/PID/stat; perform killpg(PID,0) (no signal delivered); reap with wait().",
+  "observed": {
+    "unreaped_child_state": "Z",
+    "group_lookup_before_reap": "present",
+    "returncode_after_wait": 0
+  },
+  "interpretation": "The fake ESRCH result proves exception handling behavior only. A natural process-group disappearance race in this single-threaded supervisor has not been established and is excluded from confirmed findings.",
+  "safety": "No model, GPU, service, guard, monitor, IPMI command, or external notification was used. Signal 0 performs existence/permission checking only."
+}

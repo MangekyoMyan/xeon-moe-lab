@@ -1,0 +1,42 @@
+{
+  "scope": "Handoff preflight checks only. Probe body, CMake, models, services, GPUs and network were not invoked.",
+  "script_sha256": "aaf692117ebd35463169a4bbfac190e87f6e8fed0f31336843348e650525ebcd",
+  "repo_commit": "4ff68eba2d8c480692511dc6d219d27a6a102866",
+  "cases": {
+    "help": {
+      "exit_code": 0,
+      "stdout": "usage: reproduce_build_review.py [-h] --repo REPO --cmake CMAKE --output\n                                 OUTPUT [--skip-cmake-configure]\n\nRead-only review of the frozen repo; all mutations stay in a\nTemporaryDirectory. No model, service, GPU, or network operation is performed.\nCMake only configures CPU targets; its small compiler-feature probes may\ncompile/run trivial programs. The UI script's two network DOWNLOAD calls are\nreplaced in an isolated copy by a deterministic failure stub. This is a\nbranch-reachability test, not a download. Requires the frozen commit with no\ntracked working-tree changes.\n\noptions:\n  -h, --help            show this help message and exit\n  --repo REPO\n  --cmake CMAKE\n  --output OUTPUT\n  --skip-cmake-configure\n",
+      "stderr": ""
+    },
+    "existing_output": {
+      "exit_code": 2,
+      "stderr": "usage: reproduce_build_review.py [-h] --repo REPO --cmake CMAKE --output\n                                 OUTPUT [--skip-cmake-configure]\nreproduce_build_review.py: error: --output must be a new file\n",
+      "bytes_preserved": true
+    },
+    "dirty_tracked_checkout": {
+      "fixture_head": "4ff68eba2d8c480692511dc6d219d27a6a102866",
+      "fixture_initial_tracked_status": "",
+      "fixture_dirty_tracked_status": " M scripts/prepare_source.py\n",
+      "exit_code": 2,
+      "stderr": "usage: reproduce_build_review.py [-h] --repo REPO --cmake CMAKE --output\n                                 OUTPUT [--skip-cmake-configure]\nreproduce_build_review.py: error: Refusing dirty tracked working tree; use a clean checkout of the frozen commit\n",
+      "probe_body_started": false,
+      "output_created": false
+    }
+  },
+  "checks": {
+    "help_succeeds": true,
+    "existing_output_rejected": true,
+    "existing_output_preserved": true,
+    "dirty_fixture_exact_commit": true,
+    "dirty_fixture_started_clean": true,
+    "dirty_fixture_has_tracked_change": true,
+    "dirty_checkout_rejected": true,
+    "probe_body_not_started": true,
+    "dirty_checkout_no_output": true,
+    "original_probe_results_preserved": true,
+    "original_repo_remains_clean": true
+  },
+  "all_passed": true,
+  "original_probe_results_sha256": "623e4a137b9cbbf9f2ea585be10208af859b9c99b48be86d637c8c55dfb4f1ad",
+  "result_saving_check": "Static confirmation only: final write now uses output.open(\"x\", encoding=\"utf-8\"); full probe body not rerun."
+}

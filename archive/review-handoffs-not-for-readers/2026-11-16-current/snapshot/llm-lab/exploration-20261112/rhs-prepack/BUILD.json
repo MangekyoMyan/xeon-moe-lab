@@ -1,0 +1,28 @@
+{
+  "command": [
+    "g++",
+    "-O3",
+    "-std=c++17",
+    "-march=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-fopenmp",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+    "/home/codex/projects/llm-lab/exploration-20261112/rhs-prepack/probe.cpp",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-o",
+    "/home/codex/projects/llm-lab/exploration-20261112/rhs-prepack/probe"
+  ],
+  "sha256": {
+    "compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+    "probe": "d9332ab23d0eea3887c2029f5600cfcaef87fb7ba687a7dc2b2fd2c6eb242905",
+    "variants.inc": "cf9bac0c82da2f6d9640f22f8ab4a857f8210594d38f502c5f87bb872fe97e72",
+    "probe.cpp": "985b2295f4a22bbb8f1ed88ef98a04a033513d977b55e5a5ab35114c00d52e1a"
+  }
+}

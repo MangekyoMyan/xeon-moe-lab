@@ -1,0 +1,39 @@
+{
+  "command": [
+    "perf",
+    "record",
+    "-q",
+    "-p",
+    "3456",
+    "-D",
+    "-1",
+    "--control",
+    "fd:20,23",
+    "--clockid",
+    "mono",
+    "-m",
+    "1024",
+    "-o",
+    "/home/codex/projects/llm-lab/optimization-20261112/runs/20261112-051506-baseline-layer-trace-code-trace-c128-n96/perf.data",
+    "-e",
+    "xo3456_28106:decode,xo3456_28106:decode_ret,xo3456_28106:cpu,xo3456_28106:cpu_ret"
+  ],
+  "controls": [
+    {
+      "command": "disable",
+      "sent": 7450.737889588,
+      "ack": 7451.404232794
+    },
+    {
+      "command": "enable",
+      "sent": 7463.702397929,
+      "ack": 7463.729411371
+    },
+    {
+      "command": "disable",
+      "sent": 7478.504111979,
+      "ack": 7478.521660744
+    }
+  ],
+  "exit": -2
+}

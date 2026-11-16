@@ -1,0 +1,445 @@
+{
+  "repo_commit": "4ff68eba2d8c480692511dc6d219d27a6a102866",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "scope": "temporary copies, no model/service/GPU/network; configure only",
+  "source_scripts_sha256": {
+    "scripts/prepare_source.py": "1a375cbacec0be8abe6121cca7905a98d3a8564d5e82d46b3d946d34385867d0",
+    "scripts/build_plan.py": "fe49db4b716c68afa980c9887e73eeeadbfb2d5a700fcdc220fd24c51fac4f66",
+    "scripts/verify_runtime.py": "d0974ff9a4100618b5e42e37b0d19a14e04081cd59e1f71f7fed3a0952e6b3e5",
+    "vendor/llama.cpp/scripts/ui-assets.cmake": "d3abf3ced6aa329a000b6c0df9c19fabfa83581d95f90b1cdd686007edb5fa8e"
+  },
+  "commands": [
+    {
+      "label": "prepare_source_fresh",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/prepare_source.py",
+        "--destination",
+        "/tmp/xeon-build-review-94t5hp3o/accepted-source"
+      ],
+      "returncode": 0,
+      "elapsed_s": 3.8766013589993236,
+      "stdout": "Accepted source reconstructed and checked: /tmp/xeon-build-review-94t5hp3o/accepted-source\nNo compilation, model startup, or deployment performed.\n",
+      "stderr": ""
+    },
+    {
+      "label": "verify_source_fresh",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/prepare_source.py",
+        "--destination",
+        "/tmp/xeon-build-review-94t5hp3o/accepted-source",
+        "--verify"
+      ],
+      "returncode": 0,
+      "elapsed_s": 0.13261637699906714,
+      "stdout": "Accepted source reconstructed and checked: /tmp/xeon-build-review-94t5hp3o/accepted-source\nNo compilation, model startup, or deployment performed.\n",
+      "stderr": ""
+    },
+    {
+      "label": "verify_changed_nonoverlay_source",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/prepare_source.py",
+        "--destination",
+        "/tmp/xeon-build-review-94t5hp3o/accepted-source",
+        "--verify"
+      ],
+      "returncode": 0,
+      "elapsed_s": 0.08563171599962516,
+      "stdout": "Accepted source reconstructed and checked: /tmp/xeon-build-review-94t5hp3o/accepted-source\nNo compilation, model startup, or deployment performed.\n",
+      "stderr": ""
+    },
+    {
+      "label": "verify_missing_nonoverlay_header",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/prepare_source.py",
+        "--destination",
+        "/tmp/xeon-build-review-94t5hp3o/accepted-source",
+        "--verify"
+      ],
+      "returncode": 0,
+      "elapsed_s": 0.0819291850002628,
+      "stdout": "Accepted source reconstructed and checked: /tmp/xeon-build-review-94t5hp3o/accepted-source\nNo compilation, model startup, or deployment performed.\n",
+      "stderr": ""
+    },
+    {
+      "label": "verify_changed_overlay_positive_control",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/prepare_source.py",
+        "--destination",
+        "/tmp/xeon-build-review-94t5hp3o/accepted-source",
+        "--verify"
+      ],
+      "returncode": 1,
+      "elapsed_s": 0.15512463000050047,
+      "stdout": "",
+      "stderr": "Prepared source mismatch\n"
+    },
+    {
+      "label": "print_build_plan",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/build_plan.py",
+        "--cuda-root",
+        "/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda"
+      ],
+      "returncode": 0,
+      "elapsed_s": 0.104063030999896,
+      "stdout": "[\n  [\n    \"cmake\",\n    \"-S\",\n    \"/workspace/scratch/1f624f9ac929/xeon-moe-lab/work/accepted-source\",\n    \"-B\",\n    \"/workspace/scratch/1f624f9ac929/xeon-moe-lab/work/build\",\n    \"-DCMAKE_BUILD_TYPE=Release\",\n    \"-DCMAKE_EXPORT_COMPILE_COMMANDS=ON\",\n    \"-DCMAKE_C_FLAGS=-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma\",\n    \"-DCMAKE_CXX_FLAGS=-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma\",\n    \"-DGGML_NATIVE=OFF\",\n    \"-DGGML_AVX=ON\",\n    \"-DGGML_F16C=ON\",\n    \"-DGGML_SSE42=ON\",\n    \"-DGGML_AVX2=OFF\",\n    \"-DGGML_FMA=OFF\",\n    \"-DGGML_BMI2=OFF\",\n    \"-DGGML_AVX_VNNI=OFF\",\n    \"-DGGML_AVX512=OFF\",\n    \"-DGGML_AVX512_VBMI=OFF\",\n    \"-DGGML_AVX512_VNNI=OFF\",\n    \"-DGGML_AVX512_BF16=OFF\",\n    \"-DGGML_CPU_REPACK=OFF\",\n    \"-DGGML_CPU_ALL_VARIANTS=OFF\",\n    \"-DGGML_OPENMP=ON\",\n    \"-DGGML_BLAS=OFF\",\n    \"-DGGML_CUDA=ON\",\n    \"-DCUDAToolkit_ROOT=/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda\",\n    \"-DCMAKE_CUDA_COMPILER=/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/bin/nvcc\",\n    \"-DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++\",\n    \"-DCMAKE_CUDA_ARCHITECTURES=70-real\",\n    \"-DCMAKE_CUDA_FLAGS=-Xcompiler=-march=ivybridge\",\n    \"-DCMAKE_BUILD_RPATH=/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib;/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib64\",\n    \"-DGGML_CUDA_GRAPHS=ON\",\n    \"-DGGML_CUDA_FA=ON\",\n    \"-DGGML_CUDA_FA_QUANTS=f16-f16\",\n    \"-DGGML_CUDA_NCCL=OFF\",\n    \"-DGGML_CUDA_NO_VMM=ON\",\n    \"-DGGML_CUDA_FORCE_MMQ=OFF\",\n    \"-DGGML_CUDA_FORCE_CUBLAS=OFF\",\n    \"-DGGML_RPC=OFF\",\n    \"-DLLAMA_BUILD_TESTS=OFF\",\n    \"-DLLAMA_BUILD_SERVER=ON\",\n    \"-DLLAMA_BUILD_UI=OFF\",\n    \"-DLLAMA_BUILD_MTMD=OFF\",\n    \"-DLLAMA_OPENSSL=OFF\"\n  ],\n  [\n    \"cmake\",\n    \"--build\",\n    \"/workspace/scratch/1f624f9ac929/xeon-moe-lab/work/build\",\n    \"-j\",\n    \"4\",\n    \"--target\",\n    \"llama-server\"\n  ]\n]\n",
+      "stderr": ""
+    },
+    {
+      "label": "ui_branch_hf_on",
+      "argv": [
+        "/workspace/scratch/1f624f9ac929/tooling/cmake/data/bin/cmake",
+        "-DBUILD_UI=OFF",
+        "-DHF_ENABLED=ON",
+        "-DHF_BUCKET=ggml-org/llama-ui",
+        "-DHF_VERSION=b1",
+        "-DLLAMA_UI_GZIP=OFF",
+        "-DUI_SOURCE_DIR=/tmp/xeon-build-review-94t5hp3o/accepted-source/tools/ui",
+        "-DUI_BINARY_DIR=/tmp/xeon-build-review-94t5hp3o/ui-on",
+        "-DLLAMA_SOURCE_DIR=/tmp/xeon-build-review-94t5hp3o/accepted-source",
+        "-P",
+        "/tmp/xeon-build-review-94t5hp3o/ui-assets-no-network.cmake"
+      ],
+      "returncode": 0,
+      "elapsed_s": 0.14935475600032078,
+      "stdout": "-- UI: downloading from b1: https://huggingface.co/buckets/ggml-org/llama-ui/resolve/b1/dist.tar.gz\n-- AUDIT_BLOCKED_DOWNLOAD https://huggingface.co/buckets/ggml-org/llama-ui/resolve/b1/dist.tar.gz.sha256?download=true\n-- UI: download dist.tar.gz.sha256 from b1 failed: offline audit mock\n-- UI: downloading from latest: https://huggingface.co/buckets/ggml-org/llama-ui/resolve/latest/dist.tar.gz\n-- AUDIT_BLOCKED_DOWNLOAD https://huggingface.co/buckets/ggml-org/llama-ui/resolve/latest/dist.tar.gz.sha256?download=true\n-- UI: download dist.tar.gz.sha256 from latest failed: offline audit mock\n-- UI: HF download failed\n-- UI: embedded 0 assets\n",
+      "stderr": "CMake Warning at /tmp/xeon-build-review-94t5hp3o/ui-assets-no-network.cmake:588 (message):\n  UI: no assets available - building without an embedded UI.  In a\n  disconnected environment, download the pre-built UI from a llama.cpp\n  release at https://github.com/ggml-org/llama.cpp/releases and extract to\n  tools/ui/dist.\n\n\n"
+    },
+    {
+      "label": "ui_branch_hf_off",
+      "argv": [
+        "/workspace/scratch/1f624f9ac929/tooling/cmake/data/bin/cmake",
+        "-DBUILD_UI=OFF",
+        "-DHF_ENABLED=OFF",
+        "-DHF_BUCKET=ggml-org/llama-ui",
+        "-DHF_VERSION=b1",
+        "-DLLAMA_UI_GZIP=OFF",
+        "-DUI_SOURCE_DIR=/tmp/xeon-build-review-94t5hp3o/accepted-source/tools/ui",
+        "-DUI_BINARY_DIR=/tmp/xeon-build-review-94t5hp3o/ui-off",
+        "-DLLAMA_SOURCE_DIR=/tmp/xeon-build-review-94t5hp3o/accepted-source",
+        "-P",
+        "/tmp/xeon-build-review-94t5hp3o/ui-assets-no-network.cmake"
+      ],
+      "returncode": 0,
+      "elapsed_s": 0.03550544800054922,
+      "stdout": "-- UI: embedded 0 assets\n",
+      "stderr": "CMake Warning at /tmp/xeon-build-review-94t5hp3o/ui-assets-no-network.cmake:588 (message):\n  UI: no assets available - building without an embedded UI.  In a\n  disconnected environment, download the pre-built UI from a llama.cpp\n  release at https://github.com/ggml-org/llama.cpp/releases and extract to\n  tools/ui/dist.\n\n\n"
+    },
+    {
+      "label": "configure_seed_nonbaseline_cache",
+      "argv": [
+        "/workspace/scratch/1f624f9ac929/tooling/cmake/data/bin/cmake",
+        "-S",
+        "/tmp/xeon-build-review-94t5hp3o/accepted-source",
+        "-B",
+        "/tmp/xeon-build-review-94t5hp3o/build-reused",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DCMAKE_C_FLAGS=-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma",
+        "-DCMAKE_CXX_FLAGS=-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma",
+        "-DGGML_NATIVE=OFF",
+        "-DGGML_AVX=ON",
+        "-DGGML_F16C=ON",
+        "-DGGML_SSE42=ON",
+        "-DGGML_AVX2=OFF",
+        "-DGGML_FMA=OFF",
+        "-DGGML_BMI2=OFF",
+        "-DGGML_AVX_VNNI=OFF",
+        "-DGGML_AVX512=OFF",
+        "-DGGML_AVX512_VBMI=OFF",
+        "-DGGML_AVX512_VNNI=OFF",
+        "-DGGML_AVX512_BF16=OFF",
+        "-DGGML_CPU_REPACK=OFF",
+        "-DGGML_CPU_ALL_VARIANTS=OFF",
+        "-DGGML_OPENMP=ON",
+        "-DGGML_BLAS=OFF",
+        "-DGGML_CUDA=OFF",
+        "-DCMAKE_BUILD_RPATH=/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib;/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib64",
+        "-DGGML_CUDA_GRAPHS=ON",
+        "-DGGML_CUDA_FA=ON",
+        "-DGGML_CUDA_FA_QUANTS=f16-f16",
+        "-DGGML_CUDA_NCCL=OFF",
+        "-DGGML_CUDA_NO_VMM=ON",
+        "-DGGML_CUDA_FORCE_MMQ=OFF",
+        "-DGGML_CUDA_FORCE_CUBLAS=OFF",
+        "-DGGML_RPC=OFF",
+        "-DLLAMA_BUILD_TESTS=OFF",
+        "-DLLAMA_BUILD_SERVER=ON",
+        "-DLLAMA_BUILD_UI=OFF",
+        "-DLLAMA_BUILD_MTMD=OFF",
+        "-DLLAMA_OPENSSL=OFF",
+        "-DGGML_SANITIZE_ADDRESS=ON",
+        "-DGGML_AMX_TILE=ON"
+      ],
+      "returncode": 0,
+      "elapsed_s": 5.721214941999278,
+      "stdout": "-- The C compiler identification is GNU 14.2.0\n-- The CXX compiler identification is GNU 14.2.0\n-- Detecting C compiler ABI info\n-- Detecting C compiler ABI info - done\n-- Check for working C compiler: /usr/bin/cc - skipped\n-- Detecting C compile features\n-- Detecting C compile features - done\n-- Detecting CXX compiler ABI info\n-- Detecting CXX compiler ABI info - done\n-- Check for working CXX compiler: /usr/bin/c++ - skipped\n-- Detecting CXX compile features\n-- Detecting CXX compile features - done\n-- llama.cpp version: 0.8.0-dev\n-- Found Git: /usr/local/bin/git (found version \"2.52.0\")\n-- The ASM compiler identification is GNU\n-- Found assembler: /usr/bin/cc\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n-- Found Threads: TRUE\n-- Warning: ccache not found - consider installing it for faster compilation or disable this warning with GGML_CCACHE=OFF\n-- CMAKE_SYSTEM_PROCESSOR: x86_64\n-- GGML_SYSTEM_ARCH: x86\n-- Found OpenMP_C: -fopenmp (found version \"4.5\")\n-- Found OpenMP_CXX: -fopenmp (found version \"4.5\")\n-- Found OpenMP: TRUE (found version \"4.5\")\n-- Including CPU backend\n-- x86 detected\n-- Adding CPU backend variant ggml-cpu: -msse4.2;-mf16c;-mavx;-mamx-tile GGML_SSE42;GGML_F16C;GGML_AVX;GGML_AMX_TILE\n-- ggml version: 0.28.0\n-- ggml commit:  unknown\n-- Generating embedded license file for target: llama-app\n-- Configuring done (4.6s)\n-- Generating done (1.0s)\n-- Build files have been written to: /tmp/xeon-build-review-94t5hp3o/build-reused\n",
+      "stderr": "CMAKE_BUILD_TYPE=Release\nfatal: not a git repository (or any parent up to mount point /)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\nfatal: not a git repository (or any parent up to mount point /)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\nCMake Warning at common/CMakeLists.txt:33 (message):\n  Git repository not found; to enable automatic generation of build info,\n  make sure Git is installed and the project is a Git repository.\n\n\n"
+    },
+    {
+      "label": "configure_plan_reusing_cache",
+      "argv": [
+        "/workspace/scratch/1f624f9ac929/tooling/cmake/data/bin/cmake",
+        "-S",
+        "/tmp/xeon-build-review-94t5hp3o/accepted-source",
+        "-B",
+        "/tmp/xeon-build-review-94t5hp3o/build-reused",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DCMAKE_C_FLAGS=-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma",
+        "-DCMAKE_CXX_FLAGS=-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma",
+        "-DGGML_NATIVE=OFF",
+        "-DGGML_AVX=ON",
+        "-DGGML_F16C=ON",
+        "-DGGML_SSE42=ON",
+        "-DGGML_AVX2=OFF",
+        "-DGGML_FMA=OFF",
+        "-DGGML_BMI2=OFF",
+        "-DGGML_AVX_VNNI=OFF",
+        "-DGGML_AVX512=OFF",
+        "-DGGML_AVX512_VBMI=OFF",
+        "-DGGML_AVX512_VNNI=OFF",
+        "-DGGML_AVX512_BF16=OFF",
+        "-DGGML_CPU_REPACK=OFF",
+        "-DGGML_CPU_ALL_VARIANTS=OFF",
+        "-DGGML_OPENMP=ON",
+        "-DGGML_BLAS=OFF",
+        "-DGGML_CUDA=OFF",
+        "-DCMAKE_BUILD_RPATH=/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib;/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib64",
+        "-DGGML_CUDA_GRAPHS=ON",
+        "-DGGML_CUDA_FA=ON",
+        "-DGGML_CUDA_FA_QUANTS=f16-f16",
+        "-DGGML_CUDA_NCCL=OFF",
+        "-DGGML_CUDA_NO_VMM=ON",
+        "-DGGML_CUDA_FORCE_MMQ=OFF",
+        "-DGGML_CUDA_FORCE_CUBLAS=OFF",
+        "-DGGML_RPC=OFF",
+        "-DLLAMA_BUILD_TESTS=OFF",
+        "-DLLAMA_BUILD_SERVER=ON",
+        "-DLLAMA_BUILD_UI=OFF",
+        "-DLLAMA_BUILD_MTMD=OFF",
+        "-DLLAMA_OPENSSL=OFF"
+      ],
+      "returncode": 0,
+      "elapsed_s": 1.1245384909998393,
+      "stdout": "-- llama.cpp version: 0.8.0-dev\n-- Warning: ccache not found - consider installing it for faster compilation or disable this warning with GGML_CCACHE=OFF\n-- CMAKE_SYSTEM_PROCESSOR: x86_64\n-- GGML_SYSTEM_ARCH: x86\n-- Including CPU backend\n-- x86 detected\n-- Adding CPU backend variant ggml-cpu: -msse4.2;-mf16c;-mavx;-mamx-tile GGML_SSE42;GGML_F16C;GGML_AVX;GGML_AMX_TILE\n-- ggml version: 0.28.0\n-- ggml commit:  unknown\n-- Generating embedded license file for target: llama-app\n-- Configuring done (0.5s)\n-- Generating done (0.6s)\n-- Build files have been written to: /tmp/xeon-build-review-94t5hp3o/build-reused\n",
+      "stderr": "CMAKE_BUILD_TYPE=Release\nfatal: not a git repository (or any parent up to mount point /)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\nfatal: not a git repository (or any parent up to mount point /)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\nCMake Warning at common/CMakeLists.txt:33 (message):\n  Git repository not found; to enable automatic generation of build info,\n  make sure Git is installed and the project is a Git repository.\n\n\n"
+    },
+    {
+      "label": "configure_plan_fresh_cache",
+      "argv": [
+        "/workspace/scratch/1f624f9ac929/tooling/cmake/data/bin/cmake",
+        "-S",
+        "/tmp/xeon-build-review-94t5hp3o/accepted-source",
+        "-B",
+        "/tmp/xeon-build-review-94t5hp3o/build-fresh",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DCMAKE_C_FLAGS=-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma",
+        "-DCMAKE_CXX_FLAGS=-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma",
+        "-DGGML_NATIVE=OFF",
+        "-DGGML_AVX=ON",
+        "-DGGML_F16C=ON",
+        "-DGGML_SSE42=ON",
+        "-DGGML_AVX2=OFF",
+        "-DGGML_FMA=OFF",
+        "-DGGML_BMI2=OFF",
+        "-DGGML_AVX_VNNI=OFF",
+        "-DGGML_AVX512=OFF",
+        "-DGGML_AVX512_VBMI=OFF",
+        "-DGGML_AVX512_VNNI=OFF",
+        "-DGGML_AVX512_BF16=OFF",
+        "-DGGML_CPU_REPACK=OFF",
+        "-DGGML_CPU_ALL_VARIANTS=OFF",
+        "-DGGML_OPENMP=ON",
+        "-DGGML_BLAS=OFF",
+        "-DGGML_CUDA=OFF",
+        "-DCMAKE_BUILD_RPATH=/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib;/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib64",
+        "-DGGML_CUDA_GRAPHS=ON",
+        "-DGGML_CUDA_FA=ON",
+        "-DGGML_CUDA_FA_QUANTS=f16-f16",
+        "-DGGML_CUDA_NCCL=OFF",
+        "-DGGML_CUDA_NO_VMM=ON",
+        "-DGGML_CUDA_FORCE_MMQ=OFF",
+        "-DGGML_CUDA_FORCE_CUBLAS=OFF",
+        "-DGGML_RPC=OFF",
+        "-DLLAMA_BUILD_TESTS=OFF",
+        "-DLLAMA_BUILD_SERVER=ON",
+        "-DLLAMA_BUILD_UI=OFF",
+        "-DLLAMA_BUILD_MTMD=OFF",
+        "-DLLAMA_OPENSSL=OFF"
+      ],
+      "returncode": 0,
+      "elapsed_s": 2.995554607001395,
+      "stdout": "-- The C compiler identification is GNU 14.2.0\n-- The CXX compiler identification is GNU 14.2.0\n-- Detecting C compiler ABI info\n-- Detecting C compiler ABI info - done\n-- Check for working C compiler: /usr/bin/cc - skipped\n-- Detecting C compile features\n-- Detecting C compile features - done\n-- Detecting CXX compiler ABI info\n-- Detecting CXX compiler ABI info - done\n-- Check for working CXX compiler: /usr/bin/c++ - skipped\n-- Detecting CXX compile features\n-- Detecting CXX compile features - done\n-- llama.cpp version: 0.8.0-dev\n-- Found Git: /usr/local/bin/git (found version \"2.52.0\")\n-- The ASM compiler identification is GNU\n-- Found assembler: /usr/bin/cc\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n-- Found Threads: TRUE\n-- Warning: ccache not found - consider installing it for faster compilation or disable this warning with GGML_CCACHE=OFF\n-- CMAKE_SYSTEM_PROCESSOR: x86_64\n-- GGML_SYSTEM_ARCH: x86\n-- Found OpenMP_C: -fopenmp (found version \"4.5\")\n-- Found OpenMP_CXX: -fopenmp (found version \"4.5\")\n-- Found OpenMP: TRUE (found version \"4.5\")\n-- Including CPU backend\n-- x86 detected\n-- Adding CPU backend variant ggml-cpu: -msse4.2;-mf16c;-mavx GGML_SSE42;GGML_F16C;GGML_AVX\n-- ggml version: 0.28.0\n-- ggml commit:  unknown\n-- Generating embedded license file for target: llama-app\n-- Configuring done (2.4s)\n-- Generating done (0.6s)\n-- Build files have been written to: /tmp/xeon-build-review-94t5hp3o/build-fresh\n",
+      "stderr": "CMAKE_BUILD_TYPE=Release\nfatal: not a git repository (or any parent up to mount point /)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\nfatal: not a git repository (or any parent up to mount point /)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\nCMake Warning at common/CMakeLists.txt:33 (message):\n  Git repository not found; to enable automatic generation of build info,\n  make sure Git is installed and the project is a Git repository.\n\n\n"
+    },
+    {
+      "label": "runtime_valid_control",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/verify_runtime.py",
+        "/tmp/xeon-build-review-94t5hp3o/runtime"
+      ],
+      "returncode": 0,
+      "elapsed_s": 0.09025195699905453,
+      "stdout": "Runtime files verified: 2\n",
+      "stderr": ""
+    },
+    {
+      "label": "runtime_corrupt_listed_file_control",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/verify_runtime.py",
+        "/tmp/xeon-build-review-94t5hp3o/runtime"
+      ],
+      "returncode": 1,
+      "elapsed_s": 0.13659532199926616,
+      "stdout": "",
+      "stderr": "Hash mismatch: bin/libfixture.so.0\n"
+    },
+    {
+      "label": "runtime_unlisted_file",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/verify_runtime.py",
+        "/tmp/xeon-build-review-94t5hp3o/runtime"
+      ],
+      "returncode": 0,
+      "elapsed_s": 0.12099968899929081,
+      "stdout": "Runtime files verified: 2\n",
+      "stderr": ""
+    },
+    {
+      "label": "runtime_empty_manifest",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-lab/scripts/verify_runtime.py",
+        "/tmp/xeon-build-review-94t5hp3o/runtime"
+      ],
+      "returncode": 0,
+      "elapsed_s": 0.07340496800134133,
+      "stdout": "Runtime files verified: 0\n",
+      "stderr": ""
+    }
+  ],
+  "prepared_tree_verification": {
+    "changed_file": "ggml/src/ggml-quants.c",
+    "original_sha256": "bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73",
+    "changed_sha256": "1f84c8831cdce64c05daad8b34005a352b926c7da8b65ea8380a95c1ab73436c",
+    "changed_nonoverlay_accepted": true,
+    "missing_header_accepted": true,
+    "changed_overlay_rejected": true,
+    "note": "Only a temporary prepared tree was modified. No changed source was compiled."
+  },
+  "plan_explicit_options": {
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+    "CMAKE_C_FLAGS": "-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma",
+    "CMAKE_CXX_FLAGS": "-march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma",
+    "GGML_NATIVE": "OFF",
+    "GGML_AVX": "ON",
+    "GGML_F16C": "ON",
+    "GGML_SSE42": "ON",
+    "GGML_AVX2": "OFF",
+    "GGML_FMA": "OFF",
+    "GGML_BMI2": "OFF",
+    "GGML_AVX_VNNI": "OFF",
+    "GGML_AVX512": "OFF",
+    "GGML_AVX512_VBMI": "OFF",
+    "GGML_AVX512_VNNI": "OFF",
+    "GGML_AVX512_BF16": "OFF",
+    "GGML_CPU_REPACK": "OFF",
+    "GGML_CPU_ALL_VARIANTS": "OFF",
+    "GGML_OPENMP": "ON",
+    "GGML_BLAS": "OFF",
+    "GGML_CUDA": "ON",
+    "CUDAToolkit_ROOT": "/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda",
+    "CMAKE_CUDA_COMPILER": "/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/bin/nvcc",
+    "CMAKE_CUDA_HOST_COMPILER": "/usr/bin/g++",
+    "CMAKE_CUDA_ARCHITECTURES": "70-real",
+    "CMAKE_CUDA_FLAGS": "-Xcompiler=-march=ivybridge",
+    "CMAKE_BUILD_RPATH": "/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib;/tmp/xeon-build-review-94t5hp3o/nonexistent-cuda/lib64",
+    "GGML_CUDA_GRAPHS": "ON",
+    "GGML_CUDA_FA": "ON",
+    "GGML_CUDA_FA_QUANTS": "f16-f16",
+    "GGML_CUDA_NCCL": "OFF",
+    "GGML_CUDA_NO_VMM": "ON",
+    "GGML_CUDA_FORCE_MMQ": "OFF",
+    "GGML_CUDA_FORCE_CUBLAS": "OFF",
+    "GGML_RPC": "OFF",
+    "LLAMA_BUILD_TESTS": "OFF",
+    "LLAMA_BUILD_SERVER": "ON",
+    "LLAMA_BUILD_UI": "OFF",
+    "LLAMA_BUILD_MTMD": "OFF",
+    "LLAMA_OPENSSL": "OFF"
+  },
+  "ui_provisioning": {
+    "test_kind": "exact script with only file(DOWNLOAD) replaced by no-network failure stub",
+    "HF_VERSION_test_value": "b1 (explicit fixture value, not a claim about the real build number)",
+    "plan_sets_build_ui_off": true,
+    "plan_sets_prebuilt_ui": null,
+    "cases": {
+      "ON": {
+        "returncode": 0,
+        "blocked_download_urls": [
+          "https://huggingface.co/buckets/ggml-org/llama-ui/resolve/b1/dist.tar.gz.sha256?download=true",
+          "https://huggingface.co/buckets/ggml-org/llama-ui/resolve/latest/dist.tar.gz.sha256?download=true"
+        ],
+        "generated_ui_cpp": true
+      },
+      "OFF": {
+        "returncode": 0,
+        "blocked_download_urls": [],
+        "generated_ui_cpp": true
+      }
+    }
+  },
+  "cache_reuse": {
+    "scope": "real prepared project, configure only; CUDA OFF due unavailable toolkit",
+    "seed_returncode": 0,
+    "rerun_returncode": 0,
+    "fresh_returncode": 0,
+    "reused": {
+      "cache": {
+        "GGML_SANITIZE_ADDRESS": "ON",
+        "GGML_AMX_TILE": "ON",
+        "LLAMA_USE_PREBUILT_UI": "ON",
+        "LLAMA_BUILD_UI": "OFF",
+        "CMAKE_C_COMPILER": "/usr/bin/cc",
+        "CMAKE_CXX_COMPILER": "/usr/bin/c++"
+      },
+      "ggml_cpu_compile_command": "/usr/bin/cc -DGGML_AMX_TILE -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/.. -I/tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/. -I/tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/ggml-cpu -I/tmp/xeon-build-review-94t5hp3o/accepted-source/xeon-local -I/tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu11 -fPIC -fsanitize=address -fno-omit-frame-pointer -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -msse4.2 -mf16c -mavx -mamx-tile -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o -c /tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/ggml-cpu/ggml-cpu.c"
+    },
+    "fresh": {
+      "cache": {
+        "GGML_SANITIZE_ADDRESS": "OFF",
+        "GGML_AMX_TILE": "OFF",
+        "LLAMA_USE_PREBUILT_UI": "ON",
+        "LLAMA_BUILD_UI": "OFF",
+        "CMAKE_C_COMPILER": "/usr/bin/cc",
+        "CMAKE_CXX_COMPILER": "/usr/bin/c++"
+      },
+      "ggml_cpu_compile_command": "/usr/bin/cc -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/.. -I/tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/. -I/tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/ggml-cpu -I/tmp/xeon-build-review-94t5hp3o/accepted-source/xeon-local -I/tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o -c /tmp/xeon-build-review-94t5hp3o/accepted-source/ggml/src/ggml-cpu/ggml-cpu.c"
+    },
+    "build_invoked": false
+  },
+  "runtime_verifier_scope": {
+    "valid_control_passed": true,
+    "corrupt_listed_file_rejected": true,
+    "unlisted_file_accepted": true,
+    "empty_manifest_accepted": true,
+    "scope": "synthetic byte/symlink fixtures; no ELF or release binary executed",
+    "interpretation": "Inventory/root-of-trust limitation, not evidence that current release is corrupt"
+  },
+  "git_status_before": "",
+  "git_status_after": "",
+  "repo_status_unchanged": true
+}

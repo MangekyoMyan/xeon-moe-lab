@@ -1,0 +1,124 @@
+追記: ユーザー起動後の読み取り確認で、本番compact64、新CPUライブラリ、26テンソル・61.699GiBの追加配置を確認。確保失敗は見つからず、残り32テンソルは設定上限による従来経路。ユーザーは少し高速化したと報告。同条件での全モデルA/Bは未実施。詳細はACTIVATION_CHECK.json。以下は組み込み時点の検証記録。
+
+CPU IQ3_XXS 4bit内部配置のエンジン統合 / 2026-11-03
+
+結論
+実戦用の別ライブラリと切り替え・復帰コマンドを用意した。
+MoE演算グラフ、小型モデルのCPU/GPU併用、GPU expert転送、終了時解放まで検証済み。
+稼働API、モデルファイル、元ソース、既存ライブラリ、本番設定は変更していない。
+DeepSeek全体の再起動は、長い起動をユーザーが行う方針に従って未実施。
+したがって、モデル全体の生成tok/sや全量キャッシュ確保はまだ未測定。
+
+1. 変更内容
+
+IQ3_XXSをCPUで単一トークン処理するときだけ、別RAM上の内部配置を使用する。
+元の格子・符号テーブル参照を事前に済ませ、16種類の符号付き係数を4bitで表す。
+これは再量子化ではない。元の値とスケールを保持し、量子化精度を落とさない。
+元98byte/256要素に対して追加配置は144byte/256要素。
+元GGUFやCPU側の元圧縮重みは残し、GPUは引き続き元のIQ3_XXSを受け取る。
+
+この追加領域はKVキャッシュではない。
+会話履歴、128k f16 KV、GPU150W/ECC、GPU常駐expert 37/38/39層、batch1024、
+IQ系512/MXFP4 1024の転送しきい値、MXFP4 hybrid4/2/1は引き継ぐ。
+複数トークンのprefillは従来のGPU/CPU経路を使用する。
+1トークンのprefill端数は生成と同じ演算形状なので本経路を使用できる。
+
+2. RAMと選択方法
+
+新プロファイルcompact64:
+  GGML_CPU_IQ3_COMPACT_MIB=65536
+  追加領域の上限64GiB。各テンソル確保前にMemAvailableの残り64GiBを要求。
+  1プロセス内の複数モデル分を合計しても64GiBを超えない。
+  確保が難しければ、確保済み分だけ使用し残りは元のCPU演算へ戻す。
+
+現モデルのCPU側IQ3_XXSは58テンソル。
+モデルの層順、gate_up/gate/up/down順に、丸ごと入るテンソルだけを採用。
+今回の64GiB枠は26テンソル、66,249,031,680 bytes = 61.69921875GiBを予定する。
+選択一覧はSELECTION.json。最初はblk.0.ffn_down_exps、最後はblk.13.ffn_gate_exps。
+頻出expertを測定して優先選択した結果ではない。LRUや実行中の再変換もない。
+この版は単純で検証しやすい固定配置とし、動的選択は追加していない。
+残り約2.30GiBは次のテンソル全体が入らないため未使用。
+
+変換はモデル読み込み時に12 workerで一度行う。全INT8テンソルの中間コピーは作らない。
+各workerが1ブロック分だけ一時展開する。元のNUMA interleave設定を引き継ぐ。
+追加領域はVRAMではなく匿名RAMで、元の重みとは別に使用量が増える。
+モデル破棄時、元のmmapやbufferより先に登録解除とmunmapを行う。
+他モデルのキャッシュを消さず、解放したアドレスを新モデルが再利用しても再変換する。
+モデルの重みは読み込み後不変、モデル寿命はその推論グラフより長い、という元エンジンと同じ契約。
+同じモデルを推論中に破棄する操作には対応しない。
+
+3. 実測結果
+
+実DeepSeek GGUFのup/down重み、48 expert分をRAMに保持し、6 expertずつ循環して選択。
+入力activationとroutingは合成データで、実ユーザーの会話ルーターではない。
+CPU NUMA interleave、12物理コア固定、poll0。1トークンのMUL_MAT_IDグラフ。
+グラフ内のQ8_K化、routing、worker同期を含める。準備とキャッシュ変換は計測外。
+各方向3プロセス、各9組ABBA。1スレッドでも別途比較。
+
+12物理コア、プロセス中央値:
+  up   元1.574ms / 候補0.961ms、各run比率中央値1.737倍、範囲1.606～1.790倍
+  down 元1.553ms / 候補1.104ms、各run比率中央値1.406倍、範囲1.362～1.410倍
+
+時間の中央値と比率の中央値はそれぞれ独立集計。範囲は信頼区間ではない。
+前段の内積単体試験の約1.8倍を、そのままグラフや全モデル速度とは扱わない。
+今回はCPUグラフへの組み込み後も改善が残ることを確認した。
+現在の64GiB枠が対象にするのは58個中26個で、他形式・GPU・同期などの時間も残る。
+上記倍率がDeepSeek全体の生成速度にそのまま掛かるわけではない。
+全量ロード後の実測は次の段階。
+
+4. 正しさと統合の検証
+
+・256条件、224,256出力のCPUグラフで元実装とbit一致。
+  K=256/512/2304/5120、行数17/129、1/12thread、1/3token。
+  F32入力のQ8_K変換、直接Q8_K、非連続入力stride、共有/個別入力、重複expert、-1 IDを含む。
+・上限不足、空きRAM予約不足、非対応layout、同じ重みの二重登録時に元経路へ戻ることを確認。
+・複数ownerの独立解放、同じ重みアドレスへの別データ再ロード、元圧縮データ不変を確認。
+・変更したCPU C/C++部分をASan/UBSanで再ビルドし、同じ256条件を通過。リーク検査も通過。
+・数MBの合成MoEモデルでCPUのみ、GPU attention + CPU expertの両方を検証。
+・512token prefillでCPUの元IQ3重みをGPUへ送る経路、続く1token decodeで追加配置を使う経路を同一モデルで検証。
+  キャッシュ無効1回 + 有効3回のlogitsがbit一致。各モデル終了後の追加使用量は0。
+・GPU登録とキャッシュの併用が成功。GGML_SCHED_DEBUGログでGPUへのexpert転送を確認。
+・本番バイナリのbackend自動検出では元CPUライブラリもdlopenされるが、選択されるCPU APIは新overlayであることを確認。
+  その検出を再現した小型モデル試験でもCPUキャッシュhitと出力一致を確認した。
+・本番llama-server --list-devicesが新libllama、新CPU、既存GPUスケジューラで起動し、PG500-216を認識。
+・既存温度ガード付きで実施。ファン・電力・ドライバー設定の変更なし。
+
+証拠:
+  VALIDATION.json / REAL_GRAPH.json / SELECTION.json
+  CPUテスト: ../iq3-plan-20261103/execution/cache-graph-final/
+  sanitizer: ../iq3-plan-20261103/execution/cache-sanitized-final/
+  本番と同じbackend検出・GPU転送: ../iq3-plan-20261103/execution/cache-loader-discovery-final/
+  test-cache-timing.cpp: 速度測定時のテストソース。
+  test-cache.cpp: その後に複数owner解放検証を加えた最終テスト。計算カーネルは同じ。
+
+5. 起動と復帰（ユーザー実行）
+
+反映（現在のAPI停止、設定切替、モデル起動要求まで行う）:
+  sudo python3 /home/codex/projects/llm-lab/iq3-cache-20261103/switch_profile.py compact64 --apply
+
+起動・温度・RAM・速度の表示:
+  sudo python3 /home/codex/projects/llm-lab/xeon_dashboard.py
+
+キャッシュの準備状況:
+  sudo journalctl -u llm-deepseek41-api.service -f -o cat
+  ログに「IQ3 cache: ready ...」が増え、最後に「complete 26 tensors, 61.699 GiB ...」を予定。
+  予約空きRAMや確保の制限にかかった場合は26個未満になり、理由とfallback数を記録する。
+
+元のGPUストリーミング設定へ戻す:
+  sudo python3 /home/codex/projects/llm-lab/iq3-cache-20261103/switch_profile.py previous --apply
+
+--applyを付けなければ確認だけで、本番設定・サービスは変更しない。
+本番設定が別途変更された場合はハッシュ不一致で止める。
+非稼働状態でstart.pyが即時失敗した場合は直前の設定に戻す。
+非同期のモデル読み込み中に失敗した場合は自動再起動せず、ログ確認後に上の復帰コマンドを使用する。
+監視の保護停止STOP_REQUESTEDが残っていた場合は自動解除しない。
+
+6. ソース・構築
+
+新規: iq3-cache.{h,cpp}, compact-kernel.inc, model-cache.h, model-cache-body.inc
+CPU変更: ggml-cpu.c.patch / ggml-cpu.cpp.patch
+モデル変更: llama-model.cpp.patch（前回のGPU登録overlayからの差分）
+構築: build.py。元のCPU hybridオブジェクトと本番モデルオブジェクトを再利用する部分ビルド。
+公開先: このディレクトリのruntimeだけ。元のソースやCUDAビルドを上書きしない。
+build.pyは新しいファイルへリンクしてatomic renameし、既存のmapped libraryを破壊しない。
+再ビルドした場合は、検証結果とプロファイルのハッシュを再作成するまで切り替え不可。

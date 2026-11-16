@@ -1,0 +1,60 @@
+{
+  "repository": "https://github.com/MangekyoMyan/xeon-moe-lab",
+  "commit": "4ff68eba2d8c480692511dc6d219d27a6a102866",
+  "scope": "Rebuild helpers, provenance, runtime verifier; no live service/model/GPU inspection",
+  "findings": [
+    {
+      "id": "BUILD-F1",
+      "priority": "P1",
+      "title": "Prepared source verification ignores non-overlay build inputs",
+      "classification": "reproduced verifier defect",
+      "confidence": "high",
+      "evidence": ["scripts/prepare_source.py:22-24", "scripts/prepare_source.py:31-33", "scripts/build_plan.py:18"],
+      "reproduction": "Actual --verify exited 0 after adding #error to temporary ggml-quants.c and after deleting include/llama.h. Altered overlay header correctly failed.",
+      "impact": "A reused prepared tree can compile a different core implementation, or fail later due missing headers, after passing the baseline preflight.",
+      "minimal_fix": "Derive and verify the complete expected prepared tree from trusted vendor manifest, ORIGINS overlays and GLUE, including missing and unexpected source files.",
+      "limitation": "No changed source was compiled; no claim that the current committed tree is corrupt."
+    },
+    {
+      "id": "BUILD-F2",
+      "priority": "P2",
+      "title": "UI build OFF leaves remote prebuilt UI provisioning ON",
+      "classification": "configuration confirmed; branch reproduced with download primitive stubbed",
+      "confidence": "high",
+      "evidence": ["scripts/build_plan.py:14", "vendor/llama.cpp/CMakeLists.txt:137-138", "vendor/llama.cpp/tools/server/CMakeLists.txt:59-61", "vendor/llama.cpp/tools/ui/CMakeLists.txt:44-56", "vendor/llama.cpp/scripts/ui-assets.cmake:443-457", "vendor/llama.cpp/scripts/ui-assets.cmake:546-592"],
+      "reproduction": "Fresh configure has BUILD_UI=OFF and USE_PREBUILT_UI=ON. Instrumented actual UI script reaches requested-version and latest checksum fetch branches; OFF/OFF reaches neither.",
+      "impact": "Unpinned external UI bytes and network availability/stale local assets can change the server build even when engine source is frozen.",
+      "minimal_fix": "Set LLAMA_USE_PREBUILT_UI=OFF as well for this external-Open-WebUI profile, or separately pin and hash UI assets without latest fallback.",
+      "limitation": "No network download or final CUDA/server build was executed. The fixture requested b1 explicitly."
+    },
+    {
+      "id": "BUILD-F3",
+      "priority": "P2",
+      "title": "Reusing work/build preserves unlisted CMake experiment options",
+      "classification": "reproduced in actual prepared-project CMake configure",
+      "confidence": "high",
+      "evidence": ["scripts/build_plan.py:9-15", "scripts/build_plan.py:23", "vendor/llama.cpp/ggml/src/CMakeLists.txt:17-19", "vendor/llama.cpp/ggml/src/ggml-cpu/CMakeLists.txt:397-407"],
+      "reproduction": "Seeded GGML_SANITIZE_ADDRESS=ON and GGML_AMX_TILE=ON remain ON after plan options reapplied; compile_commands contains -fsanitize=address and -mamx-tile. Fresh configure has both OFF.",
+      "impact": "The named frozen Ivy Bridge build can silently differ in instrumentation, ISA options and dependencies according to earlier local experiments.",
+      "minimal_fix": "Default to a new configurable build directory; validate an explicit reuse manifest; persist compiler/CMake versions, effective cache, compile commands and output hashes.",
+      "limitation": "CUDA was disabled for configure because toolkit is unavailable; target build and actual Ivy Bridge execution were not tested."
+    },
+    {
+      "id": "BUILD-F4",
+      "priority": "P2-assurance",
+      "title": "Runtime verification validates listed bytes, not trusted baseline inventory",
+      "classification": "reproduced assurance-scope limitation",
+      "confidence": "high",
+      "evidence": ["scripts/verify_runtime.py:5-12", "provenance/RUNTIME_ASSET.json", "provenance/RUNTIME_MANIFEST.json"],
+      "reproduction": "Synthetic valid listed files pass and altered listed bytes fail; an unlisted bin/libgomp.so.1 and an empty files manifest are accepted.",
+      "impact": "Success cannot alone establish expected baseline completeness or the dependencies chosen by the dynamic loader.",
+      "minimal_fix": "Verify archive hash against trusted profile, support expected-manifest/schema/inventory checks, and separately capture actual runtime DSO identities.",
+      "limitation": "No evidence the published release is corrupt. Fixture files are not executable ELF and were never loaded."
+    }
+  ],
+  "non_findings": [
+    "LLAMA_BUILD_MTMD=OFF is a standalone option; tools/server still links mtmd through the tools build.",
+    "The repo explicitly marks the full reconstructed CUDA/server build as unverified; this review does not treat that disclosure as a hidden defect."
+  ],
+  "artifacts": ["BUILD_REVIEW_JA.txt", "reproduce_build_review.py", "build_review_results.json", "findings.json"]
+}

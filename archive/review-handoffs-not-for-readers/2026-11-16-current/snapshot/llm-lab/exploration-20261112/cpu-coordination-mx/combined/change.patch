@@ -1,0 +1,84 @@
+--- a/ggml-cpu.c
++++ b/ggml-cpu.c
+@@ -1766,7 +1766,7 @@
+     const bool mx_enabled = XEON_MX_PREPACK && mx_shape && !params->use_ref;
+     const size_t mx_stride = mx_shape ? xeon_mxfp4_rhs_stride(ne10) : 0;
+     void * mx_rhs = mx_shape ? incr_ptr_aligned(&wdata_cur, mx_stride*ne11, 64) : NULL;
+-    uint8_t * mx_flags = mx_shape ? incr_ptr_aligned(&wdata_cur, ne11*nth, sizeof(int64_t)) : NULL;
++    uint64_t * mx_worker_masks = mx_shape ? incr_ptr_aligned(&wdata_cur, nth*sizeof(uint64_t), sizeof(uint64_t)) : NULL;
+ 
+     GGML_ASSERT(params->wsize >= (size_t)((char *) wdata_cur - (char *) params->wdata));
+ 
+@@ -1813,13 +1813,16 @@
+         const int first = (ith*(ne10/32))/nth;
+         const int end = ((ith+1)*(ne10/32))/nth;
+         const size_t qrow = ggml_row_size(vec_dot_type, ne10);
++        uint64_t local_mask = 0;
+         for (int64_t input=0;input<ne11;++input) {
+             const char * rhs = src1->type==vec_dot_type
+                 ? (const char *)src1->data + input*nb11
+                 : (const char *)params->wdata + input*qrow;
+-            mx_flags[input*nth+ith] = xeon_mxfp4_rhs_prepare_v1(ne10, rhs, first, end,
+-                (char *)mx_rhs + input*mx_stride);
++            if (xeon_mxfp4_rhs_prepare_v1(ne10, rhs, first, end, (char *)mx_rhs + input*mx_stride)) {
++                local_mask |= UINT64_C(1)<<input;
++            }
+         }
++        mx_worker_masks[ith] = local_mask;
+     }
+ 
+     if (ith == 0) {
+@@ -1838,27 +1841,24 @@
+                     continue;
+                 }
+ 
++                if (matrix_row_counts[i02] == 0) {
++                    atomic_int * counter = (atomic_int *)(atomic_current_chunk + i02);
++                    atomic_store_explicit(counter, nth, memory_order_relaxed);
++                }
+                 MMID_MATRIX_ROW(i02, matrix_row_counts[i02]) = (struct mmid_row_mapping) {id, iid1};
+                 matrix_row_counts[i02] += 1;
+             }
+         }
+     }
+ 
+-    // reset current_chunk
+-    for (int cur_a = ith; cur_a < n_as; cur_a += nth) {
+-        atomic_int * current_chunk_ctr = (atomic_int *)(atomic_current_chunk + cur_a);
+-        *current_chunk_ctr = nth;
+-    }
++    // Active counters are initialized by ith0 and published by this barrier.
+ 
+     ggml_barrier(params->threadpool);
+ 
+     uint64_t mx_safe_mask = 0;
+     if (mx_enabled) {
+-        for (int64_t input=0;input<ne11;++input) {
+-            bool safe=true;
+-            for (int worker=0;worker<nth;++worker) safe = safe && mx_flags[input*nth+worker]!=0;
+-            if (safe) mx_safe_mask |= UINT64_C(1)<<input;
+-        }
++        mx_safe_mask = UINT64_MAX;
++        for (int worker=0;worker<nth;++worker) mx_safe_mask &= mx_worker_masks[worker];
+     }
+ 
+     const void * const * compact_experts = (!params->use_ref && (type == GGML_TYPE_IQ3_XXS || type == GGML_TYPE_IQ2_S || type == GGML_TYPE_IQ3_S) && ids->ne[1] == 1)
+@@ -3138,7 +3138,7 @@
+                             cur = GGML_PAD(cur, 64);
+                             cur += xeon_mxfp4_rhs_stride(src1->ne[0])*src1->ne[1];
+                             cur = GGML_PAD(cur, sizeof(int64_t));
+-                            cur += src1->ne[1]*n_tasks;
++                            cur += n_tasks*sizeof(uint64_t);
+                         }
+                     } break;
+                 case GGML_OP_OUT_PROD:
+@@ -3393,7 +3393,9 @@
+     GGML_PRINT_DEBUG("thread #%d compute-done cplan %p last-graph %d\n", state->ith, (const void *)cplan, state->last_graph);
+ #endif
+ 
++#ifndef GGML_USE_OPENMP
+     ggml_barrier(state->threadpool);
++#endif
+ 
+ #ifdef GGML_USE_CPU_RISCV64_SPACEMIT
+     ggml_backend_cpu_riscv64_spacemit_clear_numa_thread_affinity_threaded(state->ith);

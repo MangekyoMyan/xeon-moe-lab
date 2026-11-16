@@ -1,0 +1,28 @@
+{
+  "command": [
+    "g++",
+    "-O2",
+    "-std=c++20",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-Wall",
+    "-Wextra",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+    "-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include",
+    "/home/codex/projects/llm-lab/exploration-20261112/hot_ffn_probe.cpp",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-L/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+    "-lggml-cuda",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-lggml",
+    "-lcudart",
+    "-ldl",
+    "-o",
+    "/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/probe"
+  ],
+  "source_sha256": "c003f6ce8ee408d8fa4a0015804e94ec4fac257da524a628d4546d5e96304b1c",
+  "binary_sha256": "58692423f097aee04d66baa90b8284cbb3f5cf1b0807edba2ce15a9abe5b3611"
+}

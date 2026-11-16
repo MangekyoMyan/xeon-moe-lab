@@ -1,0 +1,978 @@
+{
+  "reviewed_commit": "4ff68eba2d8c480692511dc6d219d27a6a102866",
+  "scope": "Public source; virtual time and synthetic hardware only",
+  "source_files": {
+    "supervisor": {
+      "path": "archive/development-history-not-for-readers/lab/deepseek41-bringup-20261101/supervise.py",
+      "sha256": "ae8f58d2cf9e70847ce219bb35fd8ac77544fdc0e435987b31316c11b904c5ed"
+    },
+    "retry_supervisor": {
+      "path": "archive/development-history-not-for-readers/lab/guard-retry-20261104/supervise.py",
+      "sha256": "ae8f58d2cf9e70847ce219bb35fd8ac77544fdc0e435987b31316c11b904c5ed"
+    },
+    "old_supervisor": {
+      "path": "archive/development-history-not-for-readers/lab/api-server-20261030/supervise.py",
+      "sha256": "117a6186f5c79dd9910e29f496b38b4f55a02a6508fcd7df98faf6f2187773e8"
+    },
+    "guard": {
+      "path": "archive/development-history-not-for-readers/lab/deepseek41-bringup-20261101/gpu_guard.py",
+      "sha256": "b9a4f123b78c125e155a8cc2710c67436d6d05ef742559240519a40309492c2d"
+    },
+    "watch": {
+      "path": "archive/development-history-not-for-readers/lab/moe-engine-20261029/watch.py",
+      "sha256": "b68bd1801403ef58fc21a3d0fc42fdff43947c953c78d5d9e99c4508b88fe3db"
+    },
+    "ipmi": {
+      "path": "archive/development-history-not-for-readers/lab/board-study-20261024/hardware_run.py",
+      "sha256": "47b0f10db706f4f0dc326194ce04aa5f8faea99cbd279e820b99882e97212e39"
+    },
+    "monitor": {
+      "path": "archive/development-history-not-for-readers/lab/thermal-monitor-20261101/monitor.py",
+      "sha256": "39df2f0ed0a5a5f8258d4599530650bde022dc0306610012794bb6559b4ed358"
+    },
+    "unit": {
+      "path": "deployment/llm-deepseek41-api.service.template",
+      "sha256": "bf69d30985bfa8e79e835b1fff9a58112418face8d1bee097539d3b59b94a3e6"
+    }
+  },
+  "supervisor_cases": {
+    "slow_fan": {
+      "mode": "slow_fan",
+      "exit_code": 0,
+      "raised": null,
+      "reachability_note": null,
+      "gpu_sample_times_seconds": [
+        0.0,
+        195.0,
+        392.0
+      ],
+      "runtime_gpu_gap_seconds": [
+        197.0
+      ],
+      "ipmi_calls": [
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x10",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 39.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x11",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 78.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x12",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 117.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x13",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 156.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x45",
+            "0x00"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 195.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x10",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 234.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x11",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 273.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x12",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 312.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x13",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 351.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x45",
+            "0x00"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 390.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x10",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 431.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x11",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 470.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x12",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 509.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x13",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 548.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x45",
+            "0x00"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 587.0
+        }
+      ],
+      "signals": [],
+      "requested_stop_times": [],
+      "stop_to_sigterm_seconds": null,
+      "pool_shutdown_calls": [
+        {
+          "wait": true
+        }
+      ],
+      "snapshot_reads": [],
+      "health_status": "exited",
+      "health_has_finished_unix": true,
+      "stop_marker_exists": false
+    },
+    "stop_during_fan": {
+      "mode": "stop_during_fan",
+      "exit_code": 0,
+      "raised": null,
+      "reachability_note": null,
+      "gpu_sample_times_seconds": [
+        0.0,
+        195.0
+      ],
+      "runtime_gpu_gap_seconds": [],
+      "ipmi_calls": [
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x10",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 39.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x11",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 78.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x12",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 117.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x13",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 156.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x45",
+            "0x00"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 195.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x10",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 234.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x11",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 273.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x12",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 312.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x13",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 351.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x45",
+            "0x00"
+          ],
+          "timeout": 40,
+          "seconds": 39.0,
+          "end": 390.0
+        }
+      ],
+      "signals": [
+        {
+          "pid": 98765,
+          "signal": 15,
+          "time": 392.0
+        }
+      ],
+      "requested_stop_times": [
+        234.0
+      ],
+      "stop_to_sigterm_seconds": 158.0,
+      "pool_shutdown_calls": [
+        {
+          "wait": true
+        }
+      ],
+      "snapshot_reads": [],
+      "health_status": "stopped_by_request",
+      "health_has_finished_unix": true,
+      "stop_marker_exists": false
+    },
+    "exit_signal_race": {
+      "mode": "exit_signal_race",
+      "exit_code": null,
+      "raised": {
+        "type": "ProcessLookupError",
+        "message": "[Errno 3] Synthetic process group exited between poll and signal"
+      },
+      "reachability_note": "ESRCH is explicitly injected. Natural reachability in this supervisor is not established; ordinary unreaped Linux child exit preserves the process group. This is not a confirmed production race.",
+      "gpu_sample_times_seconds": [
+        0.0,
+        0.0
+      ],
+      "runtime_gpu_gap_seconds": [],
+      "ipmi_calls": [
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x10",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x11",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x12",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x13",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x45",
+            "0x00"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x10",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x11",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x12",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x13",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x45",
+            "0x00"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        }
+      ],
+      "signals": [
+        {
+          "pid": 98765,
+          "signal": 15,
+          "time": 2.0
+        }
+      ],
+      "requested_stop_times": [
+        2.0
+      ],
+      "stop_to_sigterm_seconds": 0.0,
+      "pool_shutdown_calls": [],
+      "snapshot_reads": [],
+      "health_status": "running",
+      "health_has_finished_unix": false,
+      "stop_marker_exists": false
+    },
+    "normal_stop": {
+      "mode": "normal_stop",
+      "exit_code": 0,
+      "raised": null,
+      "reachability_note": null,
+      "gpu_sample_times_seconds": [
+        0.0,
+        0.0
+      ],
+      "runtime_gpu_gap_seconds": [],
+      "ipmi_calls": [
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x10",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x11",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x12",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x13",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x45",
+            "0x00"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x10",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x11",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x12",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x90",
+            "0x5a",
+            "0x03",
+            "0x13",
+            "0x01"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        },
+        {
+          "args": [
+            "raw",
+            "0x30",
+            "0x45",
+            "0x00"
+          ],
+          "timeout": 40,
+          "seconds": 0.0,
+          "end": 0.0
+        }
+      ],
+      "signals": [
+        {
+          "pid": 98765,
+          "signal": 15,
+          "time": 2.0
+        }
+      ],
+      "requested_stop_times": [
+        2.0
+      ],
+      "stop_to_sigterm_seconds": 0.0,
+      "pool_shutdown_calls": [
+        {
+          "wait": true
+        }
+      ],
+      "snapshot_reads": [],
+      "health_status": "stopped_by_request",
+      "health_has_finished_unix": true,
+      "stop_marker_exists": false
+    }
+  },
+  "bmc_cases": {
+    "healthy": {
+      "accepted": true
+    },
+    "empty_sensor_output": {
+      "accepted": true
+    },
+    "both_unavailable": {
+      "accepted": true
+    },
+    "both_nonfinite": {
+      "accepted": true
+    },
+    "missing_pch": {
+      "accepted": true
+    },
+    "bad_status_with_valid_values": {
+      "accepted": true
+    },
+    "peripheral_at_limit": {
+      "accepted": false,
+      "error": "Peripheral temperature limit"
+    },
+    "pch_at_limit": {
+      "accepted": false,
+      "error": "PCH temperature limit"
+    },
+    "ecc_in_sel": {
+      "accepted": false,
+      "error": "BMC reports an ECC event"
+    }
+  },
+  "monitor_cases": {
+    "healthy": {
+      "history": [
+        {
+          "unix": 100,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 110,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 120,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 130,
+          "events": [],
+          "recovered": []
+        }
+      ],
+      "active_alerts": [],
+      "failure_counts": {}
+    },
+    "bad_bmc_sensor_status": {
+      "history": [
+        {
+          "unix": 100,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 110,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 120,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 130,
+          "events": [],
+          "recovered": []
+        }
+      ],
+      "active_alerts": [],
+      "failure_counts": {}
+    },
+    "missing_gpu_counters": {
+      "history": [
+        {
+          "unix": 100,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 110,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 120,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 130,
+          "events": [],
+          "recovered": []
+        }
+      ],
+      "active_alerts": [],
+      "failure_counts": {}
+    },
+    "missing_board_temperature": {
+      "history": [
+        {
+          "unix": 100,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 110,
+          "events": [],
+          "recovered": []
+        },
+        {
+          "unix": 120,
+          "events": [
+            {
+              "key": "sensor:board_temperature",
+              "bad": true,
+              "recovered": false,
+              "description": "センサー取得失敗: board_temperature",
+              "value": "Board temperatures unavailable",
+              "limit": null
+            }
+          ],
+          "recovered": []
+        },
+        {
+          "unix": 130,
+          "events": [],
+          "recovered": []
+        }
+      ],
+      "active_alerts": [
+        "sensor:board_temperature"
+      ],
+      "failure_counts": {
+        "board_temperature": 4
+      }
+    },
+    "counter_cooldown_policy": {
+      "history": [
+        {
+          "unix": 100,
+          "counter": 0,
+          "events": []
+        },
+        {
+          "unix": 110,
+          "counter": 1,
+          "events": [
+            {
+              "key": "gpu:ecc_single",
+              "description": "ECC/熱制限/PCIeカウンター増加",
+              "value": 1,
+              "previous": 0,
+              "delta": 1
+            }
+          ]
+        },
+        {
+          "unix": 120,
+          "counter": 101,
+          "events": []
+        },
+        {
+          "unix": 1911,
+          "counter": 101,
+          "events": []
+        }
+      ],
+      "last_seen": 101,
+      "last_notified_at": 110
+    }
+  },
+  "assertions": {
+    "slow_ipmi_creates_197_second_runtime_gpu_gap": true,
+    "slow_ipmi_delays_synthetic_stop_158_seconds": true,
+    "gpu_snapshot_not_consulted_when_direct_queries_healthy": true,
+    "empty_na_nan_and_missing_board_sensors_pass": true,
+    "real_threshold_and_ecc_controls_reject": true,
+    "injected_esrch_raises_not_a_proven_natural_race": true,
+    "injected_esrch_leaves_running_health_and_skips_finalization": true,
+    "normal_stop_control_finalizes": true,
+    "monitor_does_not_alert_on_bad_bmc_status": true,
+    "monitor_does_not_alert_on_missing_gpu_counters": true,
+    "monitor_control_detects_missing_board_temperature": true,
+    "counter_increments_during_cooldown_not_deferred": true
+  },
+  "passed": 12,
+  "total": 12,
+  "limits": [
+    "No real latency, temperature, GPU, service, or inference measurement",
+    "Fake immediate BMC future; does not exercise real thread shutdown timing",
+    "Monitor config is explicit fixture, not current private machine config",
+    "ESRCH fault injection does not establish natural reachability; excluded from confirmed findings",
+    "Counter cooldown suppression may be intentional; treated as a policy question",
+    "Source files remain unchanged"
+  ]
+}

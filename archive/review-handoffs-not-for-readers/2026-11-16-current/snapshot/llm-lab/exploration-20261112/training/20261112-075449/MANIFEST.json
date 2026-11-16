@@ -1,0 +1,156 @@
+{
+  "config_sha256": "990e9f87a537fa4b8e49e73615c5fdf341faf409426663f018f6400e9e90e535",
+  "prompts": [
+    {
+      "name": "memory",
+      "synthetic_prompt": "Explain to a systems programmer how CPU cache locality, memory bandwidth, instruction dependencies, and NUMA placement interact when multiplying matrices. Use a concrete toy example with two CPU sockets and a batch of independent vectors. Distinguish measurements from assumptions. Discuss why adding cores sometimes helps and sometimes does not. Write several connected paragraphs with enough detail to guide a small experiment, using only general computer-science reasoning.",
+      "prompt_tokens": 83,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 83,
+        "prompt_ms": 7653.291,
+        "prompt_per_token_ms": 92.20832530120482,
+        "prompt_per_second": 10.845007722821464,
+        "predicted_n": 256,
+        "predicted_ms": 38152.744,
+        "predicted_per_token_ms": 149.61860392156862,
+        "predicted_per_second": 6.683660813492209
+      },
+      "stop_type": "limit",
+      "output_sha256": "362097a5f94ecffeadb54b757cad4f6f582ed91b96d4908a50b34eed8ea193c6"
+    },
+    {
+      "name": "python",
+      "synthetic_prompt": "Write a small Python implementation of a bounded least-recently-used cache with get and put operations, then explain its invariants. Use a dictionary and an ordered list so the example is readable without imports. Describe the empty-cache case, updating an existing key, eviction when capacity is reached, and capacity zero. Include a short example sequence and explain which key is evicted at each step. This is fictional educational code, not a production deployment.",
+      "prompt_tokens": 95,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 95,
+        "prompt_ms": 8192.421,
+        "prompt_per_token_ms": 86.2360105263158,
+        "prompt_per_second": 11.59608374618443,
+        "predicted_n": 256,
+        "predicted_ms": 37805.005,
+        "predicted_per_token_ms": 148.25492156862745,
+        "predicted_per_second": 6.7451386397118585
+      },
+      "stop_type": "limit",
+      "output_sha256": "255c799d2fa3362f5b6cd53331a330e9e530389dd855da401574a0f36f23dec0"
+    },
+    {
+      "name": "japanese-network",
+      "synthetic_prompt": "架空の家庭内ネットワークを説明してください。PCが2台とサーバーが1台あり、全て有線スイッチにつながっています。初心者向けに、IPアドレス、サブネット、デフォルトゲートウェイ、名前解決の役割を順番に説明し、同じネットワーク内の通信とインターネットへの通信を具体例で比較してください。設定変更を指示するのではなく、通信がどの順番で進むかを文章で説明してください。説明は数段落で、用語は初出時に短く定義してください。",
+      "prompt_tokens": 130,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 130,
+        "prompt_ms": 7796.742,
+        "prompt_per_token_ms": 59.974938461538464,
+        "prompt_per_second": 16.673631114124333,
+        "predicted_n": 256,
+        "predicted_ms": 37898.129,
+        "predicted_per_token_ms": 148.6201137254902,
+        "predicted_per_second": 6.728564357359172
+      },
+      "stop_type": "limit",
+      "output_sha256": "a2c7601fcd9fed493a9b4ecd67e9280e796569c93f6a9c4508a6d8b6b4f011dc"
+    },
+    {
+      "name": "math",
+      "synthetic_prompt": "Give an elementary proof that the sum of the first n odd positive integers equals n squared. Start with a geometric picture described in words, then give an algebraic induction proof. Explain the base case and the induction step separately. Include checks for n equal to 1, 2, and 5, and finish by explaining why examples alone do not prove the claim for every positive integer. Keep the derivation self-contained and use clear mathematical notation.",
+      "prompt_tokens": 92,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 92,
+        "prompt_ms": 7423.617,
+        "prompt_per_token_ms": 80.69148913043479,
+        "prompt_per_second": 12.392880721082458,
+        "predicted_n": 256,
+        "predicted_ms": 37681.44,
+        "predicted_per_token_ms": 147.77035294117647,
+        "predicted_per_second": 6.767257302268702
+      },
+      "stop_type": "limit",
+      "output_sha256": "f76353ae4ae375ea14ac15d0680cb3249f3624a8b2fea1b4fb4b6db0e8de3acb"
+    },
+    {
+      "name": "sql",
+      "synthetic_prompt": "Create a fictional SQL example with customers and orders. Show a small schema, a query for the total completed-order amount per customer, and an explanation of why a left join can preserve customers with no completed orders. Explain the difference between putting the order-status condition in the join and in the where clause. Include null handling and a stable ordering of the result. Do not connect to any real database; all names and records should be invented.",
+      "prompt_tokens": 91,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 91,
+        "prompt_ms": 7805.365,
+        "prompt_per_token_ms": 85.77324175824175,
+        "prompt_per_second": 11.658647609688979,
+        "predicted_n": 256,
+        "predicted_ms": 37800.928,
+        "predicted_per_token_ms": 148.23893333333334,
+        "predicted_per_second": 6.745866133233554
+      },
+      "stop_type": "limit",
+      "output_sha256": "2232809662ffeebfe9844864f215ebfebd2e41ee94a63e190ff793606acd664d"
+    },
+    {
+      "name": "schedule",
+      "synthetic_prompt": "Design a simple algorithm for scheduling independent jobs on two identical workers. Each job has a known duration, jobs cannot be split, and workers start together. Explain a greedy longest-job-first method, walk through durations 9, 8, 7, 6, and 4, and discuss why the heuristic is not a proof of global optimality. Include pseudocode, an invariant about assigned work, and how you would test the algorithm on edge cases. Keep the example purely hypothetical.",
+      "prompt_tokens": 102,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 102,
+        "prompt_ms": 7994.379,
+        "prompt_per_token_ms": 78.37626470588235,
+        "prompt_per_second": 12.758964767619847,
+        "predicted_n": 256,
+        "predicted_ms": 39084.19,
+        "predicted_per_token_ms": 153.27133333333333,
+        "predicted_per_second": 6.5243772481916595
+      },
+      "stop_type": "limit",
+      "output_sha256": "060e4539b1aaafff76957456c9b1326f7f2b702228c48a270bc0c56690725561"
+    },
+    {
+      "name": "japanese-story",
+      "synthetic_prompt": "短い創作を書いてください。舞台は雨の日の小さな図書館です。古い地図を整理している司書と、町の橋について調べに来た学生の会話を中心にしてください。実在の人物や地名は使わず、会話の途中で二人が地図の書き込みに気づく展開にしてください。派手な事件ではなく、観察と対話で小さな謎が解ける話にします。最初に情景を一段落書き、その後に会話と短い動作描写を交互に続けてください。",
+      "prompt_tokens": 130,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 130,
+        "prompt_ms": 7252.902,
+        "prompt_per_token_ms": 55.791553846153846,
+        "prompt_per_second": 17.92385999424782,
+        "predicted_n": 256,
+        "predicted_ms": 37684.617,
+        "predicted_per_token_ms": 147.78281176470588,
+        "predicted_per_second": 6.7666867889356554
+      },
+      "stop_type": "limit",
+      "output_sha256": "862d315533f665833bc12ba7635820506d88c94245429be9edd75a31aa0cdc69"
+    },
+    {
+      "name": "testing",
+      "synthetic_prompt": "Describe a test plan for a fictional text editor undo-and-redo feature. Define the expected behavior when edits are made, several undo actions occur, and a new edit is made before redo. Include examples for insertion, deletion, replacing a selection, empty history, and consecutive edits grouped into one action. Explain which properties can be checked automatically and which user-interface details require separate inspection. Use clear prose and small examples without depending on any particular editor implementation.",
+      "prompt_tokens": 96,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 96,
+        "prompt_ms": 8042.501,
+        "prompt_per_token_ms": 83.77605208333334,
+        "prompt_per_second": 11.93658539799995,
+        "predicted_n": 256,
+        "predicted_ms": 37772.616,
+        "predicted_per_token_ms": 148.12790588235296,
+        "predicted_per_second": 6.750922414269639
+      },
+      "stop_type": "limit",
+      "output_sha256": "c6df474886ef75c4ff1fb9402d2d682fcfc118da23f6dc6b3e45ae7ed3f575d0"
+    }
+  ],
+  "complete": true,
+  "collector_pid": 51606,
+  "aggregate_records": 111,
+  "single_token_calls_range": [
+    2040,
+    2040
+  ]
+}

@@ -1,0 +1,30 @@
+--- public-baseline/accepted/overlays/xeon-local/model-cache.h
++++ snapshot/llm-lab/exploration-20261112/sparse-cache/model-cache.h
+@@ -1,6 +1,7 @@
+ #pragma once
+ #include "ggml-backend.h"
+ #include "cache-policy.h"
++#include "selection-plan.h"
+ #include <cstdlib>
+ #include <cstring>
+ #include <stdexcept>
+@@ -11,9 +12,11 @@
+     void * owner = nullptr;
+     using create_fn = void * (*)(size_t, size_t, int);
+     using add_fn = int (*)(void *, const ggml_tensor *);
++    using add_selected_fn = int (*)(void *, const ggml_tensor *, const uint32_t *, size_t);
+     using free_fn = void (*)(void *);
+     using used_fn = size_t (*)(const void *);
+     add_fn add = nullptr;
++    add_selected_fn add_selected = nullptr;
+     free_fn release = nullptr;
+     used_fn used = nullptr;
+     cache() = default;
+@@ -26,6 +29,7 @@
+         if (!reg) throw std::runtime_error("IQ3 cache: CPU backend unavailable");
+         auto create = reinterpret_cast<create_fn>(ggml_backend_reg_get_proc_address(reg, "xeon_iq3_cache_create_v1"));
+         add = reinterpret_cast<add_fn>(ggml_backend_reg_get_proc_address(reg, "xeon_iq3_cache_add_v1"));
++        add_selected = reinterpret_cast<add_selected_fn>(ggml_backend_reg_get_proc_address(reg, "xeon_iq3_cache_add_selected_v2"));
+         release = reinterpret_cast<free_fn>(ggml_backend_reg_get_proc_address(reg, "xeon_iq3_cache_free_v1"));
+         used = reinterpret_cast<used_fn>(ggml_backend_reg_get_proc_address(reg, "xeon_iq3_cache_used_v1"));
+         if (!create || !add || !release || !used) throw std::runtime_error("IQ3 cache: matching CPU overlay required");

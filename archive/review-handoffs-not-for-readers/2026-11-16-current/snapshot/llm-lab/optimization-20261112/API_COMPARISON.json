@@ -1,0 +1,159 @@
+{
+  "comparisons": [
+    {
+      "workload": "code",
+      "context": 128,
+      "generated_tokens": 128,
+      "request_sha256": "911758f861a514c6233fe5658f59a67783fed57d31fba2b2c871ec4efe9341b0",
+      "output_identical": true,
+      "returned_tokens_identical": true,
+      "arms": {
+        "baseline": {
+          "count": 2,
+          "decode_tok_s": [
+            6.395650232665699,
+            6.425577644251689
+          ],
+          "decode_median_tok_s": 6.4106139384586935,
+          "prefill_tok_s": [
+            10.520647098701424,
+            10.339585093452483
+          ],
+          "prefill_median_tok_s": 10.430116096076954,
+          "files": [
+            "runs/20261112-055812-baseline-r2-code-plain-c128-n128/RESULT.json",
+            "runs/20261112-060237-baseline-r3-code-plain-c128-n128/RESULT.json"
+          ]
+        },
+        "cache120": {
+          "count": 3,
+          "decode_tok_s": [
+            6.691177803245232,
+            6.684363563060523,
+            6.72955034045431
+          ],
+          "decode_median_tok_s": 6.691177803245232,
+          "prefill_tok_s": [
+            10.554765917968194,
+            10.505992396452159,
+            10.500475638732448
+          ],
+          "prefill_median_tok_s": 10.505992396452159,
+          "files": [
+            "runs/20261112-060617-cache120-r3-code-plain-c128-n128/RESULT.json",
+            "runs/20261112-055053-cache120-r1-code-plain-c128-n128/RESULT.json",
+            "runs/20261112-055431-cache120-r2-code-plain-c128-n128/RESULT.json"
+          ]
+        }
+      },
+      "decode_speedup": 1.043765521910994,
+      "prefill_speedup": 1.0072747321004167
+    },
+    {
+      "workload": "count",
+      "context": 1024,
+      "generated_tokens": 96,
+      "request_sha256": "972fa1e13b762a5f328763e078deb24943e98560474c156e1134f77cfad01ee1",
+      "output_identical": true,
+      "returned_tokens_identical": true,
+      "arms": {
+        "baseline": {
+          "count": 3,
+          "decode_tok_s": [
+            6.30118886851873,
+            6.295310914472105,
+            6.318479430655786
+          ],
+          "decode_median_tok_s": 6.30118886851873,
+          "prefill_tok_s": [
+            89.00256803698753,
+            90.94615081962554,
+            86.35950737635854
+          ],
+          "prefill_median_tok_s": 89.00256803698753,
+          "files": [
+            "runs/20261112-055745-baseline-r2-count-plain-c1024-n96/RESULT.json",
+            "runs/20261112-060210-baseline-r3-count-plain-c1024-n96/RESULT.json",
+            "runs/20261112-051005-baseline-count-plain-c1024-n96/RESULT.json"
+          ]
+        },
+        "cache120": {
+          "count": 3,
+          "decode_tok_s": [
+            6.650633738888979,
+            6.609281406922603,
+            6.624109667365103
+          ],
+          "decode_median_tok_s": 6.624109667365103,
+          "prefill_tok_s": [
+            88.29551543283169,
+            89.27693356052453,
+            87.05445060352793
+          ],
+          "prefill_median_tok_s": 88.29551543283169,
+          "files": [
+            "runs/20261112-055405-cache120-r2-count-plain-c1024-n96/RESULT.json",
+            "runs/20261112-060551-cache120-r3-count-plain-c1024-n96/RESULT.json",
+            "runs/20261112-055027-cache120-r1-count-plain-c1024-n96/RESULT.json"
+          ]
+        }
+      },
+      "decode_speedup": 1.0512475987602456,
+      "prefill_speedup": 0.9920558179415453
+    },
+    {
+      "workload": "japanese",
+      "context": 128,
+      "generated_tokens": 96,
+      "request_sha256": "ef9d05e77726af7c076bccad6996a956e1813b156f4082a44d3809a90a3c0dc3",
+      "output_identical": true,
+      "returned_tokens_identical": true,
+      "arms": {
+        "baseline": {
+          "count": 2,
+          "decode_tok_s": [
+            6.452016455494432,
+            6.421870809940542
+          ],
+          "decode_median_tok_s": 6.436943632717487,
+          "prefill_tok_s": [
+            10.416109750642402,
+            10.428001007605598
+          ],
+          "prefill_median_tok_s": 10.422055379124,
+          "files": [
+            "runs/20261112-060309-baseline-r3-japanese-plain-c128-n96/RESULT.json",
+            "runs/20261112-055844-baseline-r2-japanese-plain-c128-n96/RESULT.json"
+          ]
+        },
+        "cache120": {
+          "count": 3,
+          "decode_tok_s": [
+            6.714259220727526,
+            6.749791893258365,
+            6.749185284531087
+          ],
+          "decode_median_tok_s": 6.749185284531087,
+          "prefill_tok_s": [
+            10.490846203948772,
+            10.512229747409187,
+            10.396240524496832
+          ],
+          "prefill_median_tok_s": 10.490846203948772,
+          "files": [
+            "runs/20261112-055124-cache120-r1-japanese-plain-c128-n96/RESULT.json",
+            "runs/20261112-060649-cache120-r3-japanese-plain-c128-n96/RESULT.json",
+            "runs/20261112-055502-cache120-r2-japanese-plain-c128-n96/RESULT.json"
+          ]
+        }
+      },
+      "decode_speedup": 1.0485077498933733,
+      "prefill_speedup": 1.0066005046339097
+    }
+  ],
+  "unpaired": [],
+  "scope": "Matched synthetic full-model API requests, cache_prompt=false; no claim of general workload coverage.",
+  "all_outputs_identical": true,
+  "expected_workloads_present": true,
+  "required_repetitions_complete": true
+}

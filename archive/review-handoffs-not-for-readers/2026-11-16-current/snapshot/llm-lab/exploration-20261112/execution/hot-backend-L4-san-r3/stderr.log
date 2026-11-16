@@ -1,0 +1,20 @@
+ggml_cuda_init: failed to initialize CUDA: out of memory
+ggml_backend_cuda_init: invalid device 0
+FAIL: xeon-hot: outer backends
+
+=================================================================
+==482852==ERROR: LeakSanitizer: detected memory leaks
+
+Direct leak of 152 byte(s) in 1 object(s) allocated from:
+    #0 0x7f30180f5778 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x7f3018715ddd in ggml_backend_cpu_init (/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0+0x21ddd) (BuildId: 08f3ebff14063beb3f87965932f7aea9d53c5661)
+    #2 0x5588d8d281d9 in main /home/codex/projects/llm-lab/exploration-20261112/hot-ffn/test-backend.cpp:27
+    #3 0x7f3014435ca7  (/lib/x86_64-linux-gnu/libc.so.6+0x29ca7) (BuildId: 5e5b51f4c39af9ac589408c1dc432ba390a273cc)
+
+Indirect leak of 56 byte(s) in 1 object(s) allocated from:
+    #0 0x7f30180f5778 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x7f3018715da5 in ggml_backend_cpu_init (/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0+0x21da5) (BuildId: 08f3ebff14063beb3f87965932f7aea9d53c5661)
+    #2 0x5588d8d281d9 in main /home/codex/projects/llm-lab/exploration-20261112/hot-ffn/test-backend.cpp:27
+    #3 0x7f3014435ca7  (/lib/x86_64-linux-gnu/libc.so.6+0x29ca7) (BuildId: 5e5b51f4c39af9ac589408c1dc432ba390a273cc)
+
+SUMMARY: AddressSanitizer: 208 byte(s) leaked in 2 allocation(s).

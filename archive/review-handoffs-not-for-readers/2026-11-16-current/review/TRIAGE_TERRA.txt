@@ -1,0 +1,23 @@
+2026-11-16 添付レビュー照合（読み取りのみ、親によるソース最終確認用）
+
+対象と限界
+添付は公開commit 4ff68eba2d8c480692511dc6d219d27a6a102866向け。ローカル公開HEADは5e77a90、対象commit objectはローカルに存在せず、親子関係は判定不能。HEAD履歴はe8c36eaから直線で5e77a90に至る。fetchはしていない。SOURCE_PROVENANCE.jsonの25 sourceすべてを現在の公開ツリーとSHA256照合し一致。うちarchive下14ファイルは実使用側llm-labに同名・同内容で存在し全14一致。commit不一致はファイル内容不一致を意味しない。添付script/probeは一切実行していない。以下のコード箇所は親の実読を要する案内で、11/12試験全体の監査を完了した意味ではない。
+
+各項目（公開現行＝上記SHA一致、実使用側は個別に記す）
+F1 prepared treeの非overlay欠落・変更検出: 公開helperに残存する疑い、/home/codex/projects/xeon-moe-lab/scripts/prepare_source.py:22 と :31、呼出 /home/codex/projects/xeon-moe-lab/scripts/build_plan.py:18。11/12 studyのPython/shell内にhelper参照は検索上なし。11/12に同問題があったとはいえない。対象外の全source同定は別課題。
+F2 UI download: 公開helperで設定漏れの疑い、/home/codex/projects/xeon-moe-lab/scripts/build_plan.py:14、/home/codex/projects/xeon-moe-lab/vendor/llama.cpp/CMakeLists.txt:137、/home/codex/projects/xeon-moe-lab/vendor/llama.cpp/tools/ui/CMakeLists.txt:44。11/12 buildへの適用は未確認、過去に実通信した証拠ではない。
+F3 CMake cache: 公開固定build directoryは /home/codex/projects/xeon-moe-lab/scripts/build_plan.py:9。11/12の例は /home/codex/projects/llm-lab/exploration-20261112/build_cuda_sort.py:17 が既存compile_commands参照し個別compile/link、/home/codex/projects/llm-lab/exploration-20261112/build_sparse_loader.py:11 は先行BUILD記録再利用。別経路のため添付cache再現を11/12に直接適用不可。各実効設定の検証範囲は別途要確認。
+F4 runtime manifest: 公開 /home/codex/projects/xeon-moe-lab/scripts/verify_runtime.py:5 は列挙fileの確認。11/12は別の実測記録 /home/codex/projects/llm-lab/exploration-20261112/EVENING_FINAL_STATUS.json:8 に3ライブラリのhashがある。添付のhelperが11/12に使われたことは確認できず、全依存関係の完全証明とは別である。
+M01 失敗caseがTIMINGなしで集計から落ちる: 旧試験用 /home/codex/projects/llm-lab/gpu-prefill-study-20261104/summarize.py:6 と :12, :29、および /home/codex/projects/llm-lab/gpu-prefill-study-20261104/operator_probe.cpp:91 と :99 はSHA一致。11/12最終直接ABBAは別経路 /home/codex/projects/llm-lab/exploration-20261112/compare_final_api.py:13、/home/codex/projects/llm-lab/exploration-20261112/fresh_probe.py:31 と :49、/home/codex/projects/llm-lab/exploration-20261112/analyze_heldout.py:6。M01と同じ欠落が起きたとはいえない。別の11/12まとめ /home/codex/projects/llm-lab/optimization-20261112/summarize_api.py:12 はerrorを除外し :50 で件数を確認、全attempt照合としての十分性は未監査。
+M02 return全欠落: 旧2 analyzer SHA一致、/home/codex/projects/llm-lab/decode-observation-20261103/analyze_trace.py:60 と /home/codex/projects/llm-lab/postcompact-20261103/analyze_trace.py:60。11/12 benchは旧live_probeをimportしtrace設定も持つ /home/codex/projects/llm-lab/exploration-20261112/bench_api.py:11 と :76。これだけでは旧analyze_trace使用や欠落発生は示せない。11/12対象analysis/runの特定は未完。
+M03 upper median/raw: 旧 /home/codex/projects/llm-lab/gpu-prefill-study-20261104/operator_probe.cpp:31 と :95。定義自体は正当な規約。11/12代表集計は別 /home/codex/projects/llm-lab/exploration-20261112/analyze_heldout.py:39、/home/codex/projects/llm-lab/optimization-20261112/summarize_api.py:43。旧標本の再集計不能性を11/12全測定に一般化できない。
+M04 通常/deep選択: 旧 /home/codex/projects/llm-lab/gpu-prefill-study-20261104/analyze_live.py:7 がSHA一致。11/12 Python/shellに同helper参照は検索上なし。11/12で誤選択があったという証拠はない。
+OPS-01 同期fan取得: 公開と実使用source SHA一致。インストール済みunit /etc/systemd/system/llm-deepseek41-api.service:9 は /home/codex/projects/llm-lab/deepseek41-bringup-20261101/supervise.py:133 を指定、同 :137、/home/codex/projects/llm-lab/moe-engine-20261029/watch.py:57、/home/codex/projects/llm-lab/board-study-20261024/hardware_run.py:23 が親の優先確認箇所。実際のslow-success発生・頻度・遅延は未測定。unitの現在稼働状態やPIDはこの調査では確認していない。
+OPS-02 BMC欠測: 同じ実使用supervisor SHA一致、/home/codex/projects/llm-lab/deepseek41-bringup-20261101/supervise.py:35 と :78, :103 が確認箇所。現行インストールunit経路上にあるが、異常値の実発生は未確認。GPU retry側 /home/codex/projects/llm-lab/deepseek41-bringup-20261101/gpu_guard.py:20 の別検証と混同しない。
+OPS-03 monitor通知: 実使用monitor SHA一致、unit /etc/systemd/system/xeon-watch.service:9 が同ファイルを指定。/home/codex/projects/llm-lab/thermal-monitor-20261101/monitor.py:96、:156、:170、:185 が親の確認箇所。添付は合成fixture結果であり、現在の設定と実際の欠測・通知漏れの発生を実証しない。
+
+履歴値の扱い
+添付人工probeは不具合条件下の可能性を示す。過去性能値が無効、11/12で欠損、現行APIに故障があるとは結論できない。添付側自身も公開49 RESULTのexit_code=0/errorなしと記載しraw stdout/trace欠如を限界としている。11/12最終報告の数値はこの照合だけでは再判定していない。
+
+collector独立静的確認
+/home/codex/projects/llm-lab/review-refresh-20261116/incoming/xeon-moe-peripheral-review/runtime/collect_runtime_snapshot.py のSHA256 aea26134011dfa914fed72044bad0a6277b6b3e59e7b0b147809ca0edf015765 はprovenance一致。全コードを読み、subprocess/exec、network、signal送出、対象変更処理なし。/proc/{pid}/stat/maps/exe/environおよび対応実行file/DSOを開く。environ全文を一時メモリに読むが出力はSAFE_ENVのみ（:19、:133）。出力は新規排他作成（:218）、絶対pathと選択環境値を含み得る。最大512MiB/fileの読み取りによるI/Oやatime変化の可能性、権限不足、非atomic、backing fileがsourceやメモリ内容の証明ではない制約あり。実行していない。親による全文再読・実行判断を待つ。

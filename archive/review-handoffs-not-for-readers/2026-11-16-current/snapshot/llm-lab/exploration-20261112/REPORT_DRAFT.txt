@@ -1,0 +1,33 @@
+2026-11-12 追加最適化・レポート作成用メモ（未完了）
+
+最終比較の基準
+- このstudyの開始時点は optimization-20261112/profiles/prefill64.json。
+- 既にCPU compact cache120GiB・GPU offload閾値64を含む。以前の96→120GiB改善は今回の総改善に加算しない。
+- 総改善率はbaselineと最終構成の直接ABBAで求める。個別改善率の乗算はしない。
+
+現時点の選択
+- 固定頻度plan: 同じ118.65234375GiBで19,200個のexpert内行列を選択。GPU配置ではなくCPU RAM内の展開済み重みの選択。元GGUFを保持。
+- MXFP4: 入力側の補正とscaleを再利用する。量子化形式、計算順、危険な入力の従来fallbackを保持。
+- CUDA: expert IDの安定した分類をcount/prefix/scatterで行う。expert内のtoken順を保持。
+- IQ3_XXS入力再利用: ABBA平均+0.5101%。旧MX版より速い根拠が不足し、現状は採用しない。
+- NUMA行配置: +0.6975%と小さく、構成依存が強いため標準はinterleave。
+- batch1536: 長文で速いが、日本語の出力と確率に変化。実験profileのみ、標準1024。
+- コストを加味したcache plan: frequency比+0.316%の単回差。優位と主張しない。
+
+検証結果の表現
+- 演算fixtureのbit一致と、実モデルの生成回答一致は異なる検証。
+- 旧SSE評価: UTF-8未完成時にpartial IDが省かれる実装のため、全文text SHAと観測stream ID SHA一致と表現する。全raw token一致と過大表現しない。
+- 最終fresh8問: 選択前に固定、訓練・以前の候補比較には未使用。nonstreamの全128IDsを取得して一致確認。品質を評価するデータセットではない。
+- n_gen-1をdecode stepsとして総steps/総predicted_msを集計。server定義と一致。
+- freshのprompt_ms/1000はserver入力処理時間のproxy。利用者側のstream TTFT実測とは区別する。
+- CPU perfはclientで最初のtokenを受け取ってからstopまでのwindow。task-clockを全セッションのelapsedで割ったperf表示は採用しない。CPU時間は電力ではない。
+- 6物理coreは両socket3coreずつで全メモリchannelを維持。ただしclock/chunk分割も変わるため、純粋なコア数だけの比較ではない。
+- 128k確保は128k全文の性能・品質検証とは異なる。実際に測った長さを記す。
+
+後回しの候補
+- ith0だけでcompact tableをlookupし、既存barrierでpointerを公開する案。実装可能だが保存perfではlookup/mutexの大きな費用は未確認。IQ frameworkのlookup移動による差とは別。
+- GPU閾値32: 過去に実モデルでは未測定。32..63はMMQ経路で、64以上のstable-sort改善とは別。未試験を棄却済みと書かない。
+
+最終確認待ち
+CPUcoordination ABBA、thread/wait screen、fresh baseline対最終構成ABBA、同一PIDのvision→長文→token継続、最終API/構成hash/監視状態。
+GPU150W・ECC・fan<=70を維持。公開repo、元モデル、以前の凍結結果を変更しない。

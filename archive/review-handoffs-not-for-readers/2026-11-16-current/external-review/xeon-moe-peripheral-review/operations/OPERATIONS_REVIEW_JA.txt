@@ -1,0 +1,237 @@
+xeon-moe-lab 周辺レビュー: 運用・監視・プロセス管理
+作成日: 2026-11-16
+対象公開commit: 4ff68eba2d8c480692511dc6d219d27a6a102866
+担当範囲: 数値kernel、expert配置、SSE/UI表示を除く周辺部分
+
+結論
+====
+優先して確認する価値があるのは、(1) 同期IPMI読取による監視・停止応答の長い空白、
+(2) supervisorのBMC欠測判定、(3) 独立monitorが取得した異常情報の一部を判定しない点。
+3件とも公開コード上の動作を合成入力で確認した。現在の実機で発生していると断定するものではない。
+最初に現行ファイルのSHA/差分と照合し、既に直っているものを除外してほしい。
+
+付属のoperations_probes.pyは、実コードの関数・クラス定義をASTから取り出し、仮想時計とfake I/Oで評価する。
+モデル、GPU、IPMI、systemd、本物のmonitor/guard、通知を起動しない。repoを編集しない。
+probe_results.jsonに12/12の観測assertion、入力条件、時刻、出力、8ファイルのSHA256を保存した。
+これは「12件の不具合」でも性能ベンチマークでもない。正の対照例と補助的な反証も含む。
+
+対象と既存対策の切り分け
+========================
+以下でLABは archive/development-history-not-for-readers/lab を表す。
+根拠の固定URLは以下のprefixに相対pathを付ける。
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/4ff68eba2d8c480692511dc6d219d27a6a102866/
+
+deployment/llm-deepseek41-api.service.template:8-9 は
+LAB/deepseek41-bringup-20261101/supervise.py を参照する。
+そのファイルのSHA256は
+  ae8f58d2cf9e70847ce219bb35fd8ac77544fdc0e435987b31316c11b904c5ed
+であり、LAB/guard-retry-20261104/supervise.pyとbyte一致する。
+guard-retry-20261104/STATE.json:7に適用済みと記録されたSHAとも一致する。
+gpu_guard.pyもSTATE.json:8の適用済みSHAと一致する。
+
+対して LAB/api-server-20261030/supervise.py は
+  117a6186f5c79dd9910e29f496b38b4f55a02a6508fcd7df98faf6f2187773e8
+という別ファイルである。今回の主要指摘に旧版の問題を混ぜていない。
+
+過去の「nvidia-smiが1回timeoutすると即停止」はguard-retryで対処済み。
+公開最新版ではTimeoutExpiredだけを最大3回、回復予算20秒で再試行し、実際の温度・ECC・counter異常は別扱い。
+回復中もhostと独立snapshotを確認し、直接GPU読取の回復も要求する。
+これを未修正バグとして再報告したり、実faultまで単純retryに変更したりする提案はしない。
+根拠: deepseek41-bringup-20261101/gpu_guard.py:118-153。
+
+独立monitorは別の保護停止装置ではない。
+thermal-monitor-20261101/README_JA.txt:9-11,24-32 は通知専用であることを明記する。
+snapshotの厳密検証はGpuProbeの通常成功時には走らず、GPU timeout後の回復経路で行う。
+根拠: gpu_guard.py:110-153。今回の正常GPU fixtureでもsnapshot読取回数は0だった。
+
+これらは公開テンプレートと公開archiveの参照関係であり、ユーザーの2026-11-12以降の実プロセス、
+実際にロードされたlib、現行設定、未公開修正を確認したという意味ではない。
+
+
+OPS-01: 同期fan照会が直接CPU/GPU監視と停止処理を長く止める
+========================================================
+優先度: 高。確度: 公開コードの条件付き動作として高。実機の頻度・実遅延は未測定。
+
+根拠:
+  LAB/deepseek41-bringup-20261101/supervise.py:133-154
+  LAB/moe-engine-20261029/watch.py:57-60
+  LAB/board-study-20261024/hardware_run.py:23-25
+  deployment/llm-deepseek41-api.service.template:12-13
+
+main loopは直接GPU読取、host確認、その後にfan_duty_sample()を同期実行する。
+fan_duty_sampleは4個のduty registerと1個のmodeを、5回のipmitoolで順番に読む。
+各subprocess.runにはtimeout=40があるが、5回全体の時間予算ではない。
+各照会がtimeout未満で遅く成功すると、5×40秒に近い時間が同じmain threadを占有する。
+この間は次の直接GPU/CPU確認も、通常の停止要求を受けた後のchild終了処理も進まない。
+
+再現条件と結果:
+  各IPMIは仮想時間39秒後に正常値を返す。fan raw=[102,102,102,102], mode='00'。
+  GPU/CPU温度、counter、BMC温度は常に正常。GPU照会のtimeoutは注入していない。
+  実main制御フローの実行中GPU確認は t=195秒、392秒となり、間隔は197秒だった。
+  うち195秒がfan読取、2秒が通常sleep。preflightの195秒はこのruntime間隔から除いている。
+  runtime最初のfan照会終了時にstop_requestedを立てる別条件では、残り4照会156秒とsleep2秒により、
+  supervisorがSIGTERMを出すまで158秒だった。
+  すべて仮想時計であり、実際に197秒待機したり実機温度を上げたりしていない。
+
+影響:
+  平均loop秒数が短いというだけでは、遅延時の保護監視間隔を説明できない。
+  独立monitorが通知できても、同monitorはモデルを自動停止しない。
+  systemdのテンプレートにはTimeoutStopSec=60もあるため、実運用ではこの158秒を待ち切る前に
+  service manager側の停止期限が関わり得る。「実サービスが158秒必ず走り続ける」とは解釈しない。
+  fan読取中の過熱が発生した、あるいは既存2トークン表示の原因だ、という証拠ではない。
+
+最小修正案:
+  fan/IPMIの低速読取を高速な直接GPU/CPU guardのmain loopから分離し、最新snapshotの取得時刻・
+  完了時刻・失敗を持つ。新鮮さの期限超過をguard自身が判定する。
+  collectorを分離するだけで古い正常値を無期限に使う設計にはしない。
+  1照会timeoutに加え、fan一組の合計deadlineを設け、停止要求を照会間にも確認する。
+  既にBMC用threadがあるので、IPMIを5本並列に増やすのではなく、collectorの所有者と読取頻度を整理する。
+  通常sleepを停止event待機にすると2秒分の余分な停止遅延も減らせる。
+
+再検証の受入条件:
+  fan slow-success、timeout、無応答、停止要求の各fixtureで、CPU/GPU確認間隔の上限と
+  stop-to-child-signalの上限を別々にassertする。
+  平均値に加え、最大値・期限超過回数・snapshot ageをhealthへ記録する。
+  実機へ適用する前にfake I/Oで停止期限を満たすことを確認する。
+
+関連する未測定の境界:
+  bmc_sampleはsensor listとSELの2照会で、各timeout40秒。
+  supervisor:179のpool.shutdown(wait=True)は未完了BMCを待つため、停止60秒との整合も確認対象になる。
+  今回のPool fixtureは即完了であり、このthread shutdown時間自体は再現計測していない。
+
+
+OPS-02: check_bmcが欠測・NaN・片方欠落を正常として通す
+==================================================
+優先度: 中〜高。確度: 高。両方のboard sensorが必須という前提は既存guardの別経路とも整合する。
+
+根拠:
+  LAB/deepseek41-bringup-20261101/supervise.py:35-45,78-80,103-109
+  LAB/deepseek41-bringup-20261101/gpu_guard.py:20-31,63-67
+
+check_bmcは存在する行の値を上限と比較するだけで、必要な2個のsensorが揃ったかを検査しない。
+fields[1]=='na'はskipし、NaNのfloat比較も上限以上にはならない。
+sensorのstatus列は見ない。空のsensor listが成功exitで返っても例外にならない。
+これはpreflightにも非同期BMC結果回収にも同じ関数で適用される。
+
+合成入力9例:
+  正常値                         -> 通過（対照）
+  sensor outputが空              -> 通過
+  両方na                        -> 通過
+  両方nan/NaN                   -> 通過
+  PCHだけ欠落                   -> 通過
+  正常数値だがstatus='cr'         -> 通過
+  Peripheral=45                 -> 拒否（対照）
+  PCH=55                        -> 拒否（対照）
+  SELにECC文字列                -> 拒否（対照）
+
+影響・既存coverage:
+  GPU読取がずっと正常なままboard温度の取得だけ壊れた場合、このsupervisorのboard判定は働かない。
+  独立monitorはboard欠測を連続失敗として検出する。今回も3回目で通知用alarmが開いた。
+  ただし通知は停止の代替ではなく、GpuProbeの厳密snapshot検証も通常成功時には実行されない。
+  GPU retry用snapshot validatorはboard値をnumber()で有限性確認しており、同じ方針を通常経路に
+  揃える余地がある。
+
+最小修正案:
+  sensor listを一旦構造化し、Peripheral TempとPCH Tempの存在、finiteな数値、対象sensorのstatusを
+  明示検査する。値を読めなかった状態と閾値超過を別のerror種別にする。
+  短い欠測を許容する運用なら、連続失敗数だけでなく最後の成功時刻からのdeadlineを設ける。
+  GPU timeout修正と同様、欠測だけを限定retryにし、既に観測した実温度超過は隠さない。
+  parser/validatorを共有する場合も、supervisorの停止policyとmonitorの通知policyは独立に保つ。
+
+再検証の受入条件:
+  上記9例に加え、重複sensor、無限大、空白/壊れた数値、欠測後復帰、閾値ちょうどを確認する。
+  testが単に「従来CPUと同じ」などを要求するものではなく、必要sensorの契約を確認すること。
+
+
+OPS-03: 独立monitorがbad_sensor_statusとGPU counter欠測を通知判定しない
+===================================================================
+優先度: 中。確度: 高。主に独立monitorの通知coverageの問題。
+
+根拠:
+  LAB/thermal-monitor-20261101/monitor.py:96-111（bad_sensor_statusを作成）
+  同:156-195（DetectorのBMC/failure/counter判定）
+  LAB/deepseek41-bringup-20261101/gpu_guard.py:34-41,75-78（別経路では検査）
+
+sample_bmcはstatusがok/naでないsensorをbad_sensor_statusに保存するが、Detector.updateはこのfieldを
+参照しない。GPU ECC/replayの値がNoneの場合も、counter比較から除くだけで、sensor失敗を加算しない。
+GPU/HBM温度のNoneやboard温度欠測には専用failure判定があり、これらとは扱いが異なる。
+
+再現条件と結果:
+  明示fixture: sensor_failure_samples=3、16 DIMM、正常fan/temperature、ECC mode Enabled。
+  bad_sensor_status={'12V':'cr'}を4 sample連続       -> eventなし、active alarmなし。
+  ecc_single/ecc_double/replaysを全部Noneで4 sample -> eventなし、active alarmなし。
+  対照としてPCH温度だけNoneを4 sample             -> 3回目にsensor:board_temperatureを検出。
+  fixtureのconfigはREADMEのpolicyを参照して作成し、現在の非公開config.jsonを読んだものではない。
+
+影響・限界:
+  上記情報はlatest等のraw snapshotには残り得るが、異常通知経路では見逃される。
+  これを「APIのGPU ECC監視も欠測を無視する」と広げてはいけない。
+  通常supervisorのvalidate_gpuはECC/replay値の有限性を検査するため、こちらは別に保護されている。
+  bad_sensor_statusもGPU retry時のvalidate_snapshotでは拒否される。
+  任意手動モデルやAPI停止中も稼働する独立monitorの役割として、この差を埋める価値がある。
+
+最小修正案:
+  必須GPU counterの欠測をsensor failureへ追加する。
+  bad_sensor_statusをsensor名と状態ごとの観測に変換し、対象sensorのallowlist/運用policyを明示する。
+  例えば未実装/未接続sensorまで一律critical扱いしないようにしつつ、取得済みcr状態は判定から落とさない。
+  alarm keyはsensorごとに安定させ、既存ヒステリシス・cooldownを使う。
+
+再検証の受入条件:
+  単発欠測、連続欠測、復帰、ECC無効、counter増加、bad status継続/復帰を独立に確認する。
+  通知senderはfakeとし、本番outboxやCodex queueを呼ばずにevent生成だけを評価できる。
+
+
+追加検討: 不具合と断定していないもの
+==================================
+1. counter通知のcooldown中の増分は、後からまとめて通知されない。
+   monitor.py:185-195は通知を抑制してもlast_counterを更新する。
+   t=100で0、t=110で1（delta1を通知）、t=120で101（抑制）、t=1911で101というfixtureでは、
+   後から100件分の通知は出ない。last_counter=101は記録されており、最初の異常通知も出ている。
+   「同じ項目は30分黙らせる」が意図なら正常な設計。burst総量も通知したいならpending_deltaを蓄積し、
+   cooldown終了後に集計を一度出す、というpolicyの選択肢になる。
+
+2. finally内killpgのESRCHを注入すると、pool shutdownと最終health書込が飛ぶ。
+   supervisor.py:171-185。fake killpgにProcessLookupErrorを強制注入するとhealthはrunningのまま残る。
+   ただし自然に到達する「子がpollとkillpgの間に普通に終了する競合」は今回立証できなかった。
+   無害な短命Python子をstart_new_session=Trueで終了させた補助確認では、未reapのzombieはまだprocess
+   groupに存在し、killpg(pid,0)は成功した。このため自然な終了競合という主張を撤回し、主要指摘から外した。
+   より頑健なcleanup用finallyやESRCH許容は一般的な防御改善としては考えられるが、優先順位は上記3件より低い。
+   付属JSONのESRCH caseは「例外を注入したときの動作」であり、現在の実機でその経路に入る証拠ではない。
+
+3. preloader/NUMA migrationの歴史スクリプトを、現在の起動経路と混同しない。
+   api-server-20261030/preload.py、numa_model.pyは読んだが、今回のtemplateが直接参照するsupervisorとは
+   別の履歴であり、現行で使われる前提の修正提案はしていない。モデルmmapやpage migrationの実行もしていない。
+
+
+既に良いところ
+==============
+GPU query timeoutと観測されたhardware faultを分けて扱い、retryを回数・時間で制限している。
+独立snapshotのage/boot/必須sensor/既存alarmも照合する。GPU直接読取の回復を必須にしており、
+正常snapshotだけを理由に壊れた直接読取を無期限に放置しない。
+stop要求をProbeCancelledとして扱う実装と、faultを先に観測した場合の優先順がある。
+experiment lock、環境変数の整理、recent_samplesの上限、healthの一時file置換も有用。
+今回の提案はこれらを壊さず、低速I/Oと欠測の扱いを通常経路にも揃えるもの。
+
+
+引継ぎ時の実行方法
+==================
+python3 operations_probes.py --repo /path/to/xeon-moe-lab --output new_probe_results.json
+
+想定出力: {"passed": 12, "total": 12, ...}
+標準ライブラリだけで動く。対象8ファイルのSHAが公開版と違えば実行前に停止する。
+結果保存先には必ず新規fileを指定する。既存pathは試験実行前に拒否し、最終保存も排他的な新規作成とする。
+既存のprobe_results.jsonは保存済み証拠として保持する。SHA照合はpython -Oでも省略されない。
+新しい現行版への移植時は、hashを機械的に書換える前に、変更した関数と期待結果を確認すること。
+repo内ソースをimportしてstartup codeを実行する方式ではない。
+副作用はtempdir内のfake config/health/log/lockと、指定先の結果JSONだけ。
+現在のservice開始・停止、実モデル読込、ファン変更、電力変更、通知送信は含まれない。
+
+成果物
+======
+OPERATIONS_REVIEW_JA.txt       本文
+operations_probes.py            再現用の合成試験
+probe_results.json              12観測・入力条件・仮想時刻・source hash
+linux_exit_semantics.json       ESRCH指摘候補を棄却するための補助観測
+
+このレビューだけで現在のシステムに変更を加える必要はない。
+現行版との照合が済んだ項目を、小さなpatchと合成試験で順に直すのが適切。

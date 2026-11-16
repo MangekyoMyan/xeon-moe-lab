@@ -1,0 +1,140 @@
+{
+  "scope": "A-B-B-A, eight fixed benchmark inputs x two; standard1024,sortedCUDA,MX RHS,frequency CPU cache; only CPU coordination changes",
+  "ttft_measurement": "Observed streaming wall time to first received content/token",
+  "sources": {
+    "control": [
+      "/home/codex/projects/llm-lab/exploration-20261112/heldout/20261112-135013-coord-mx-control-r1/RESULT.json",
+      "/home/codex/projects/llm-lab/exploration-20261112/heldout/20261112-140826-coord-mx-control-r2/RESULT.json"
+    ],
+    "candidate": [
+      "/home/codex/projects/llm-lab/exploration-20261112/heldout/20261112-135708-coord-mx-candidate-r1/RESULT.json",
+      "/home/codex/projects/llm-lab/exploration-20261112/heldout/20261112-140135-coord-mx-candidate-r2/RESULT.json"
+    ]
+  },
+  "rows": [
+    {
+      "name": "interval-code",
+      "control_tok_s": [
+        7.58479121492153,
+        7.559639819179748
+      ],
+      "candidate_tok_s": [
+        7.5147738092427785,
+        7.602645163254864
+      ],
+      "gain_percent": -0.1814602794827369,
+      "same_output": true
+    },
+    {
+      "name": "csv-code",
+      "control_tok_s": [
+        7.633391925278126,
+        7.607098386626037
+      ],
+      "candidate_tok_s": [
+        7.526528550270414,
+        7.569891300324221
+      ],
+      "gain_percent": -0.945836251077703,
+      "same_output": true
+    },
+    {
+      "name": "japanese-process",
+      "control_tok_s": [
+        7.7969122349759115,
+        7.7437488891166515
+      ],
+      "candidate_tok_s": [
+        7.738441644776195,
+        7.653374424874957
+      ],
+      "gain_percent": -0.9596443744912642,
+      "same_output": true
+    },
+    {
+      "name": "japanese-water",
+      "control_tok_s": [
+        7.441389898909303,
+        7.392012183893757
+      ],
+      "candidate_tok_s": [
+        7.350012602770301,
+        7.387318827939597
+      ],
+      "gain_percent": -0.6472000368507924,
+      "same_output": true
+    },
+    {
+      "name": "binary-search-de",
+      "control_tok_s": [
+        7.376729538931618,
+        7.354205003508457
+      ],
+      "candidate_tok_s": [
+        7.256445756396329,
+        7.338813621222312
+      ],
+      "gain_percent": -0.9239460098815488,
+      "same_output": true
+    },
+    {
+      "name": "moon-phases",
+      "control_tok_s": [
+        7.465492616979579,
+        7.478899713671695
+      ],
+      "candidate_tok_s": [
+        7.408000104875561,
+        7.345803225315284
+      ],
+      "gain_percent": -1.2769962284619019,
+      "same_output": true
+    },
+    {
+      "name": "garden-fiction",
+      "control_tok_s": [
+        7.439810762375717,
+        7.588660284802023
+      ],
+      "candidate_tok_s": [
+        7.5144264200938125,
+        7.408678246417836
+      ],
+      "gain_percent": -0.6963563983465648,
+      "same_output": true
+    },
+    {
+      "name": "database-keys",
+      "control_tok_s": [
+        7.781511454710788,
+        7.7069232219361465
+      ],
+      "candidate_tok_s": [
+        7.651026966104629,
+        7.729411357168085
+      ],
+      "gain_percent": -0.6975471676501033,
+      "same_output": true
+    }
+  ],
+  "aggregate": {
+    "control": {
+      "decode_tok_s": 7.556834299185035,
+      "sum_predicted_ms": 404402.145,
+      "mean_ttft_s": 7.661554697124757,
+      "mean_elapsed_s": 32.93729689556267,
+      "case_count": 16
+    },
+    "candidate": {
+      "decode_tok_s": 7.496951272525051,
+      "sum_predicted_ms": 407632.368,
+      "mean_ttft_s": 7.819334552811597,
+      "mean_elapsed_s": 33.296857021561664,
+      "case_count": 16
+    }
+  },
+  "aggregate_gain_percent": -0.7924353543975804,
+  "all_outputs_identical": true,
+  "comparison_accepted": true,
+  "input_sha256": "ff5aae2063471454bd7af223b57a7db2fea9bac4b6b7f19e5360d386619de42a"
+}

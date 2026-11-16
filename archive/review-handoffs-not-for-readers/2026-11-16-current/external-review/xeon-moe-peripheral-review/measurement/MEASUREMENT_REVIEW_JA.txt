@@ -1,0 +1,238 @@
+計測・評価ハーネスの追加レビュー
+2026-11-16 / 公開 commit 4ff68eba2d8c480692511dc6d219d27a6a102866
+
+対象
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab
+  scripts、および archive/development-history-not-for-readers/lab の測定・集計コード。
+  特に decode-observation / postcompact / gpu-prefill-study を詳細確認した。
+
+結論
+  将来の比較試験を誤って合格させる集計経路を2件、定義・再現性上の問題を2件確認した。
+  最優先は性能をさらに測ることではなく、既存の結果を集約する段階で
+  「未計測・失敗・計測記録の欠落」を成功から分けること。
+  ただし、以下は公開済みの速度向上や過去のtraceを無効と断定するものではない。
+  公開されたgpu-prefill operatorのRESULT.jsonは49件すべてexit_code=0かつerrorなし。
+  40件のtiming summaryも残っている。一方、元stdoutとlive traceはこの公開archiveにない。
+  したがって過去のraw sampleの補正、過去のreturn欠落、過去の誤選択は独立確認できない。
+
+実施方法
+  関連AGENTS.mdの現行環境保全ルールを読んだ。
+  モデル、GPU、API、サービス、perfを一度も起動していない。
+  追跡ファイルを編集していない。synthetic fixtureだけを別ディレクトリへ作成し、
+  元のPython analyzerをimportまたは無変更コピーで実行した。
+  C++は標準ライブラリのmedian関数1個だけを抜き出した小さなプログラムをコンパイルした。
+  エンジン、CUDA、モデルにはリンクしていない。
+  UTF-8 partial tokensの既知問題、平均tok/sが休止を隠す既知問題は重複させていない。
+
+成果物
+  MEASUREMENT_REVIEW_JA.txt   本文
+  probe_measurement.py       実行可能なsynthetic再現スクリプト
+  PROBE_RESULTS.json         実結果・ソースSHA256・公開receiptの確認
+  synthetic-fixtures-*/     入力trace、無変更コピー、実出力、median単体probe
+
+再現コマンド
+  python -B /path/to/probe_measurement.py --repo /path/to/xeon-moe-lab --output /path/to/new-measurement-output
+  --repo と --output は両方とも必須。各 /path/to/... を手元のパスへ置き換える。
+  --output はまだ存在しないディレクトリを指定する。既存ディレクトリは空でも拒否する。
+  対象HEADは4ff68eba2d8c480692511dc6d219d27a6a102866に固定し、実行する5ソースのSHA256も照合する。
+  HEAD不一致・ソース変更・既存出力先は、analyzer実行前に拒否する。
+  保存済みtraceを必ず用意してからanalyzeを呼ぶのでperf分岐には入らない。
+  このscriptは旧挙動の再現用であり、修正後の合格gateではない。
+  修正後コードを検証する場合は、入力fixtureを使い、修正後に期待する拒否/成功へ別途判定を設計する。
+
+======================================================================
+M01 / P1: 数値検証で落ちたcaseが集計対象から消え、suiteが合格する
+======================================================================
+
+確度
+  不具合経路はコードとsynthetic実行で確定。
+  公開済み実測へ失敗caseが混入したことは未確認。むしろ保存49receiptに失敗はない。
+
+根拠
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/summarize.py
+    6–12: 全フォルダを読むが、文字列TIMINGを含むcaseだけrowsへ追加する。
+    29: exit_code/error/passの検証対象はrowsだけ。
+    34–38: all_numeric_checks_passedは無条件にTrue。
+    13–18, 30: PMUは別配列へ入れ、traceはdroppedだけ検証する。
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/operator_probe.cpp
+    91–99: VALIDATIONを出し、!passなら例外で終了してから、合格時だけTIMINGを出す。
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/run_operator.py
+    53–63: runner自体は子の非zero終了をエラーにし、finallyで失敗receiptを残す。
+    問題はrunnerの成功扱いではなく、後段summaryがその失敗receiptを評価集合から除くこと。
+
+再現
+  A: 空operators → exit0、timing_cases=0、all_numeric_checks_passed=true。
+  B: exit1/errorあり/VALIDATION pass=false/TIMINGなしの1件
+     → exit0、timing_cases=0、all_numeric_checks_passed=true。
+  C: 成功1件＋Bの失敗1件
+     → exit0、timing_cases=1、all_numeric_checks_passed=true。
+  対照: TIMINGも残る失敗caseはassertにより拒否された。
+  数値不合格はTIMINGより前に終了するため、Bは実際のproducer順序に対応する入力。
+  結果: PROBE_RESULTS.json → prefill_summary。
+
+何の結論を変えるか
+  将来の「すべてのcaseで精度合格」「全形状を検証済み」の根拠として、このboolだけは使えない。
+  最も壊れたcaseほどTIMINGまで到達しないため、成功例だけが残る方向の選別になる。
+  過去の40件の速度・NMSEが誤りだとは、この再現からは言えない。
+
+最小修正
+  測定値の抽出より先に、全attemptのexit_code/error/VALIDATIONを検証する。
+  合格、失敗、未完了、意図的除外を別件数にする。除外は理由とcase IDを必須にする。
+  suiteの期待case manifestと、実際に完了したcase集合を照合する。
+  PMU/traceも自分のVALIDATION/exit statusを検証する。
+  空集合を「全合格」にせず、not_runかincompleteにする。
+  assertだけのrelease gateはpython -Oで消えるため、明示的な例外/非zero終了にする。
+
+確認方法
+  上記A/B/Cをすべて不合格または未完了にし、成功1件のみの対照は合格させる。
+  manifestから1件欠けた場合、重複case、壊れたJSON、PMU失敗も状態が保存されることを確認。
+  実機モデルの再実行は不要。
+
+======================================================================
+M02 / P1: traceのreturn群が丸ごと欠けるとentryも検証されず、内訳0%で成功する
+======================================================================
+
+確度
+  decodeとpostcompactの2実装でsynthetic実行により確定。
+  そのような欠落が実際の過去測定で生じた証拠はない。
+
+根拠
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/decode-observation-20261103/analyze_trace.py
+    60–72: pairedを「観測した_ret event」から逆算する。
+             この集合にないentryはstackへ入れないのでunmatchedにもならない。
+    79–84: 余った時間をotherへ割り振ればwallの総和は必ず閉じる。
+    107–115: 成功結果のunmatched_inside_ROIは0と書かれる。
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/postcompact-20261103/analyze_trace.py
+    同一内容・同一SHA256。行番号も同じ。
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/decode-observation-20261103/live_probe.py
+    69–81: cpu/copy/gpu/sync等のreturn probeを設置する意図は既知。
+    161–167: 設置したentry/return definitionをperf_probesへ保存する。
+  gpu-prefill-study-20261104/analyze_live.py:22–35にも同種のpaired推定がある。
+
+再現
+  完全な2 decode区間、1区間100ms、CPU区間40msのtraceを作った。
+  正常入力: CPU_graph=40%、other=60%、unmatched_inside_ROI=0。
+  cpu entryは残しcpu_retだけ全削除:
+    CPU_graph=0%、other=100%、cpu entry 2件、unmatched_inside_ROI=0、解析成功。
+  対照としてcpu_retを1個だけ欠落させると、未対応entryとして正しく拒否された。
+  結果: PROBE_RESULTS.json → trace_parser / postcompact_trace_parser。
+
+何の結論を変えるか
+  wall内訳の総和100%・unmatched=0だけでは「カテゴリ欠落のない計測」の証明にならない。
+  この欠落条件では、CPU削減やother増大などのボトルネック判定が全く変わり得る。
+  全decode wallやdecode境界自体はそのままなので、総時間が妥当でも検出できない。
+  イベント数が大きいことだけでも、その特定return群の欠落は排除できない。
+
+最小修正
+  対にするeventのschemaを、観測結果でなく設置probe manifestから決める。
+  entryがあるのに必要なreturnがゼロなら欠測として失敗させる。
+  全く呼ばれなかった関数のentry=return=0を無条件エラーにする必要はない。
+  ROI前後の未対応を許す現行仕様は維持し、ROI内の完全spanを検証する。
+  probeの設置と実行時ライブラリを紐づけ、必要event群・未知行・lost recordを別々に記録する。
+  集計結果へentry/return数、source hash、schemaを保存する。
+
+確認方法
+  正常・単発return欠落・全return欠落・未呼出関数・ROI境界で切れたspanのfixtureを用意。
+  全return欠落が必ず拒否され、正当な境界切れと未呼出関数は不要に落ちないことを確認する。
+  実際のprobeを追加設置せず、parserだけで検証できる。
+
+======================================================================
+M03 / P2: 10標本のupper medianを使う定義が明示されず、raw値も残らない
+======================================================================
+
+確度
+  集計規約とraw出力欠如はソースで確定。
+  upper medianは中央値の一つの規約として成立するため、「必ず計算間違い」とは扱わない。
+  公開測定で順位や改善率がどれだけ変わるかは、raw10点がないので未確定。
+
+根拠
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/operator_probe.cpp
+    31: sort後にx[x.size()/2]を返す。
+    95–99: ABBAを5回、各chunkは8compute、各群10点になる。
+           10点の第6順序統計を出し、中央値2値とratioだけを保存する。
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/before-average-tile/operator_probe.cpp
+    31,93–97も同じ規約。
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/SUMMARY.json
+    保存timing 40件すべてsamples_each=10。
+
+単体再現
+  元関数だけを抜き出して実行した。
+  人工stock=[10,11,12,13,14,20,21,22,23,24]、candidate=[18を10個]なら、
+  現規約stock=20/candidate=18、ratio=1.111111。
+  中央2点平均を使えばstock=17/candidate=18、ratio=0.944444。
+  これは規約の影響が理論上あり得ることの例であり、公開値の再計算ではない。
+  結果: PROBE_RESULTS.json → median_convention。
+
+何の結論を変えるか
+  standard medianのつもりで他のPython statistics.median集計と直接比較できない。
+  とくに小さな改善・退行の判断には、規約の一致とばらつきが必要。
+  大きな速度向上をこの一点で否定する根拠はない。
+  rawを出さないため、標準中央値・paired比率・IQR・外れ値の位置を後から検討できない。
+
+最小修正
+  10点×2群を実行順序・round番号付きで保存する。
+  upper medianを維持するならその名前・定義を明示する。
+  標準中央値を採るなら偶数時は中央2点を平均する。
+  報告するratioを「各群中央値の比」か「ペア比率の中央値」かも明示する。
+  8computeをまとめた1chunkの値である点もメタデータに残す。
+
+確認方法
+  奇数標本、偶数標本、全値同一の小さな関数試験で定義を固定する。
+  今後の1回の測定についてrawから公表aggregateを再現できることを確認する。
+  過去値は補正と称して推定しない。
+
+======================================================================
+M04 / P2: prefillの通常trace選択がdeep traceにも一致し、採用runが明示されない
+======================================================================
+
+確度
+  mode誤分類の受理はsynthetic実行で確定。
+  複数run時の先頭選択はコードで確定。過去に誤選択したかはlive生記録がなく未確認。
+
+根拠
+  /workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/analyze_live.py
+    7–8: --deepがなければ'-trace-'を名前に含む最初のfolderを選ぶ。
+         '-trace-deep-'もこの文字列を含む。
+         iterdir()に対してsort・候補数チェック・manifest mode照合がない。
+    69–78: telemetryは全live receiptから集める。
+    79–92: host内訳の採用folder/trace hashをsummaryへ保存しない。
+
+再現
+  '100-trace-deep-n2048'しかないfixtureへ、--deepなしで実行。
+  returncode0となり、deep traceから通常名LIVE_SUMMARY.jsonを作成した。
+  2候補のfixtureでもエラーにならず1つを採用した。
+  今回のfilesystemでは作成順を逆にしても同じ列挙順だったため、
+  「作成順だけで結果が変わった」とは主張しない。
+  結果: PROBE_RESULTS.json → prefill_live_selection。
+
+何の結論を変えるか
+  通常観測とdeep観測の区別、計測介入量の比較、rerun時のrun選択を信頼できなくなる条件がある。
+  traceを増やすと、再集計が意図した最新runや同条件runを使う保証がない。
+  telemetryにrun名があっても、host内訳がどのrunに対応するかは機械的に追跡できない。
+
+最小修正
+  --run-dirで入力を明示し、RESULT/manifestのmodeとrequested modeを厳密照合する。
+  自動探索なら候補がちょうど1件であることを要求し、複数時は明示選択を求める。
+  source run ID、trace SHA256、prompt/token hash、計測modeを結果へ保存する。
+  単にsortしてlatestを選ぶだけでは、条件が異なる最新runを混ぜる問題は解決しない。
+
+確認方法
+  通常だけ、deepだけ、両方、同mode複数、未知modeの5fixtureを使う。
+  通常コマンドでdeepだけの場合を拒否し、指定runだけからhost内訳を作る。
+  出力のsource ID/hashと入力が一致することを確認する。
+
+======================================================================
+評価の境界と採用順
+======================================================================
+
+1. M01とM02は、小さなfixtureで再現できる計測gateの欠陥。
+   次の最適化を自動採点する前に直す価値が高い。
+2. M03とM04は、集計規約と入力同定の修正。
+   新しい測定でrawと出典を残すコストは低く、後日の解釈のやり直しを可能にする。
+3. 現時点で「過去の主な速度向上は消える」「現在の実装は失敗caseを隠している」
+   「CPU割合の報告が誤りだった」とは結論しない。
+4. 静的確認では、ABBA順序、baselineの前後挿入、温度・ECC・同時利用の確認、
+   graph無効やsynthetic routingの制約を記す姿勢は維持すべき長所だった。
+   これらを撤去せず、完了集合・記録完全性・集計規約を補強する修正を勧める。
+
+公開repoの追跡ファイルを変更せずに調査を完了した。

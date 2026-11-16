@@ -1,0 +1,34 @@
+--- a/ggml-cuda.cu
++++ b/ggml-cuda.cu
+@@ -92,6 +92,7 @@
+ #include <cstdlib>
+ #include <string>
+ #include <vector>
++#include "sort-ids.inc"
+ 
+ static_assert(sizeof(half) == sizeof(ggml_fp16_t), "wrong fp16 size");
+ 
+@@ -2270,21 +2271,8 @@
+     CUDA_CHECK(cudaMemcpyAsync(ids_host.data(), ids->data, ggml_nbytes(ids), cudaMemcpyDeviceToHost, stream));
+     CUDA_CHECK(cudaStreamSynchronize(stream));
+ 
+-    for (int64_t i02 = 0; i02 < ne02; ++i02) { // expert matrices
+-        for (int64_t i12 = 0; i12 < ne12; ++i12) { // tokens
+-            for (int64_t iex = 0; iex < n_expert_used; ++iex) {
+-                const int32_t expert_to_use = *(const int32_t *)(ids_host.data() + i12*ids->nb[1] + iex*ids->nb[0]);
+-                assert(expert_to_use >= 0 && expert_to_use < ne02);
+-                if (expert_to_use == i02) {
+-                    ids_from_sorted_host[i12*n_expert_used + iex] = ids_to_sorted_host.size();
+-                    ids_to_sorted_host.push_back(i12*ne11 + iex % ne11);
+-                    tokens_per_expert[i02]++;
+-                    break;
+-                }
+-            }
+-        }
+-    }
+-    GGML_ASSERT(ids_to_sorted_host.size() == size_t(ne_get_rows));
++    xeon_sort_moe_ids(ids_host.data(), ids->nb[0], ids->nb[1], ne02, ne12,
++        n_expert_used, ne11, ids_to_sorted_host, ids_from_sorted_host, tokens_per_expert);
+ 
+     ids_to_sorted_host.insert(ids_to_sorted_host.end(), ids_from_sorted_host.begin(), ids_from_sorted_host.end());
+ 

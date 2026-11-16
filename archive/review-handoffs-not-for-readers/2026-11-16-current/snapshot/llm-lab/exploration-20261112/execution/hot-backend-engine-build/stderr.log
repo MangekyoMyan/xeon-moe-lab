@@ -1,0 +1,38 @@
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp: In destructor ‘{anonymous}::State::~State()’:
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp:81:9: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   81 |         if(pinned_ids)cudaFreeHost(pinned_ids);if(pinned_output)cudaFreeHost(pinned_output);if(pinned_input)cudaFreeHost(pinned_input);
+      |         ^~
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp:81:48: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   81 |         if(pinned_ids)cudaFreeHost(pinned_ids);if(pinned_output)cudaFreeHost(pinned_output);if(pinned_input)cudaFreeHost(pinned_input);
+      |                                                ^~
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp:84:9: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   84 |         if(private_gpu)ggml_backend_free(private_gpu);if(private_cpu)ggml_backend_free(private_cpu);
+      |         ^~
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp:84:55: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   84 |         if(private_gpu)ggml_backend_free(private_gpu);if(private_cpu)ggml_backend_free(private_cpu);
+      |                                                       ^~
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp: At global scope:
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp:190:1: error: ‘ggml_backend_dev_type’ does not name a type
+  190 | ggml_backend_dev_type device_type(ggml_backend_dev_t){return GGML_BACKEND_DEVICE_TYPE_ACCEL;}
+      | ^~~~~~~~~~~~~~~~~~~~~
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp: In function ‘void {anonymous}::device_props(ggml_backend_dev_t, ggml_backend_dev_props*)’:
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp:192:99: error: ‘device_type’ was not declared in this scope; did you mean ‘device_name’?
+  192 |     *props={};props->name=device_name(dev);props->description=device_description(dev);props->type=device_type(dev);props->memory_free=0;props->memory_total=0;
+      |                                                                                                   ^~~~~~~~~~~
+      |                                                                                                   device_name
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp: In lambda function:
+/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp:198:185: error: ‘device_type’ was not declared in this scope; did you mean ‘device_op’?
+  198 |     static ggml_backend_device d=[](){ggml_backend_device x{};x.iface.get_name=device_name;x.iface.get_description=device_description;x.iface.get_memory=device_memory;x.iface.get_type=device_type;x.iface.get_props=device_props;x.iface.get_buffer_type=device_buft;x.iface.supports_op=device_op;x.iface.supports_buft=device_buffer;return x;}();return d;
+      |                                                                                                                                                                                         ^~~~~~~~~~~
+      |                                                                                                                                                                                         device_op
+Traceback (most recent call last):
+  File "/home/codex/projects/llm-lab/exploration-20261112/build_hot_backend.py", line 32, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/home/codex/projects/llm-lab/exploration-20261112/build_hot_backend.py", line 16, in main
+    subprocess.run(cmd,cwd=entry['directory'],check=True,timeout=240);commands.append({'argv':cmd,'cwd':entry['directory']})
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['/usr/bin/c++', '-DGGML_BACKEND_SHARED', '-DGGML_SHARED', '-DGGML_USE_CPU', '-DGGML_USE_CUDA', '-DLLAMA_BUILD', '-DLLAMA_SHARED', '-Dllama_EXPORTS', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src/.', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/src', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src/../include', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src/../include', '-march=ivybridge', '-mtune=ivybridge', '-O3', '-DNDEBUG', '-fPIC', '-Wmissing-declarations', '-Wmissing-noreturn', '-Wall', '-Wextra', '-Wpedantic', '-Wcast-qual', '-Wno-unused-function', '-Wno-array-bounds', '-Wextra-semi', '-o', '/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/objects/hot-backend.cpp.o', '-c', '/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp', '-I/home/codex/projects/llm-lab/exploration-20261112/hot-ffn', '-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src', '-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include', '-std=c++17', '-fno-fast-math', '-ffp-contract=off']' returned non-zero exit status 1.

@@ -1,0 +1,17 @@
+--- a/ggml-cpu.c
++++ b/ggml-cpu.c
+@@ -3579,9 +3579,12 @@
+ #ifdef GGML_USE_OPENMP
+     int32_t cpumask_iter = 0;
+ 
+-    // Compute CPU masks for each thread
++    // Optional master-last affinity; arithmetic and worker indices are unchanged.
++    const char * main_last_option = getenv("GGML_CPU_MAIN_LAST");
++    const bool main_last = main_last_option && strcmp(main_last_option, "1") == 0;
+     for (int j = 0; j < tpp->n_threads; j++) {
+-        ggml_thread_cpumask_next(tpp->cpumask, workers[j].cpumask, tpp->strict_cpu, &cpumask_iter);
++        const int worker = main_last ? (j + 1) % tpp->n_threads : j;
++        ggml_thread_cpumask_next(tpp->cpumask, workers[worker].cpumask, tpp->strict_cpu, &cpumask_iter);
+     }
+ #else // GGML_USE_OPENMP
+     ggml_mutex_init(&threadpool->mutex);

@@ -1,0 +1,381 @@
+Xeon MoE Lab — 実装担当Astraへの引き継ぎ
+周辺実装のレビュー: 再構築・計測の合否判定・運用監視・実行物の同定
+作成: 2026-11-16
+
+対象repo:
+https://github.com/MangekyoMyan/xeon-moe-lab
+対象commit:
+4ff68eba2d8c480692511dc6d219d27a6a102866
+
+このファイルだけで指摘と修正方針を読めます。同名TXTを含むZIPには、詳細レビュー、
+再現スクリプト、入力fixture、実行結果JSON、実行中ライブラリの採取ツールを入れています。
+
+======================================================================
+0. 今回の結論と適用範囲
+======================================================================
+
+公開版の周辺実装について、優先度の高い検証漏れと監視の待ち時間を再現しました。
+最適化の成果を信頼して比較するために、以下を次の測定・再構築へ取り込む価値があります。
+
+最優先:
+  M01  失敗caseがTIMINGを出さないと、集計対象から消えて「全合格」になる。
+  M02  traceのreturn群が全部欠けると、対応entryも無視して内訳を受理する。
+  F1   prepared sourceの非overlay改変・欠落を--verifyが検出しない。
+  OPS-01  同期IPMI照会の遅延で、次のCPU/GPU監視と停止処理へ進めなくなる。
+
+続けて整える項目:
+  OPS-02/03  センサー欠測・異常statusを通常経路でも判定する。
+  F3  新しいbuild directoryと実効CMake設定の記録でcache残留を避ける。
+  F2  外部Open WebUI向けbuildではprebuilt UI取得もOFFにする。
+  M04  trace入力runを明示し、採用runとhashを集計へ残す。
+  M03  生の時間標本と、中央値・比率の定義を残す。
+  F4  runtime manifestの列挙照合と、期待する配布一式・実ロードの検証を分ける。
+
+ここでいう優先度は「最新版にも同じ経路が残っている場合」の順序です。
+11月12日以降の未公開実装、現行APIプロセス、最新の監視設定は今回確認していません。
+まず現行ファイルと添付source SHAを照合し、修正済みなら該当項目を完了扱いにしてください。
+
+過去の性能測定が誤りだった、現在のAPIで異常が発生している、と断定する資料ではありません。
+公開gpu-prefill archiveのRESULT.json 49件は、すべてexit_code=0かつerrorなしでした。
+40件のtiming summaryも存在します。一方、元stdoutとlive traceは公開されていないため、
+過去のraw値の再集計やreturn欠落・run誤選択の有無はここでは確かめられません。
+
+本レビューではモデル、GPU、実API、実監視サービスを起動・変更していません。
+repo追跡ファイルも変更していません。人工入力、一時コピー、fake I/O、仮想時計を使いました。
+CMakeのCPU-only configureと、その小さなcompiler probe、median関数単体のC++コンパイルは実施しました。
+CUDA/serverの再buildや実機の速度・温度測定ではありません。
+
+======================================================================
+1. 計測結果の合否判定
+======================================================================
+
+以下、LABは archive/development-history-not-for-readers/lab を表します。
+詳細と生結果は measurement/MEASUREMENT_REVIEW_JA.txt と PROBE_RESULTS.json にあります。
+
+M01 / 優先度高: TIMING未到達の失敗がsummaryから落ちる
+---------------------------------------------------
+対象:
+  LAB/gpu-prefill-study-20261104/summarize.py:6–12,29,34–38
+  同/operator_probe.cpp:91–99
+  同/run_operator.py:53–63
+
+summaryは「TIMINGを出したcase」だけrowsへ追加し、そのrowsだけのexit/error/passを検証します。
+producerは数値検証に落ちるとTIMINGを出す前に終了します。runnerはその失敗を記録しています。
+問題は後段summaryが、その失敗receiptを合否集合から落とすことです。
+
+実コードで再現:
+  空suite                            -> exit0、all_numeric_checks_passed=true
+  数値不合格1件、TIMINGなし            -> 同上、timing_cases=0
+  成功1件 + 上記失敗1件                -> 同上、timing_cases=1
+  TIMINGもある失敗case（対照）         -> 拒否
+
+最小修正:
+  全attemptの状態を先に検証し、pass/fail/incomplete/excludedを明示する。
+  期待case manifestと完了case集合を照合する。空集合を「全合格」にしない。
+  性能値の有無で合否対象を選ばない。PMU/traceにも終了状態と数値検証を適用する。
+  release gateはpython -Oで消えるassertだけに依存せず、明示的な非zero終了にする。
+
+受入条件:
+  上記の空・失敗のみ・成功と失敗の混在は不合格または未完了。
+  正常caseのみは合格。予定case欠落と意図的除外を区別できること。
+
+M02 / 優先度高: 全return欠落を「CPU 0%」として受理
+------------------------------------------------
+対象:
+  LAB/decode-observation-20261103/analyze_trace.py:60–84,107–115
+  LAB/postcompact-20261103/analyze_trace.py:同位置、同一内容
+  参考: gpu-prefill-study-20261104/analyze_live.py:22–35にも同種の推定
+
+paired集合を「観測できた_retイベント」から作るため、あるreturn群が丸ごと欠けると、
+対応entryはstackに入らずunmatchedにもなりません。残り時間はotherに入ります。
+
+人工traceを実analyzerへ入力:
+  正常: 100msのdecode中CPU40ms -> CPU40%、other60%、unmatched=0
+  cpu entryを残しcpu_retを全削除 -> CPU0%、other100%、unmatched=0、成功
+  cpu_retを1個だけ削除（対照）   -> 拒否
+decode/postcompactの両実装で再現しました。
+
+最小修正:
+  対にするschemaを、観測結果ではなく設置probe manifestから決める。
+  entryがあるのに必須returnが0なら欠測として拒否する。
+  未呼出関数のentry=return=0や、許容するROI境界切れは別に扱う。
+  categoryごとのentry/return数、lost/unknown行、入力hash、schemaを結果へ残す。
+
+受入条件:
+  正常、単発欠落、全return欠落、未呼出関数、ROI境界切れを区別する。
+  内訳の合計100%だけを完全性の根拠にしない。
+
+M03 / 優先度中: upper medianの定義とraw標本の保存
+------------------------------------------------
+対象: LAB/gpu-prefill-study-20261104/operator_probe.cpp:31,95–99
+
+ABBA×5で各群10点、median関数はsort後x[5]、つまり上側の中央値を使います。
+これは成立する規約です。「中央値が間違っている」とは扱いません。
+ただし中央2値の平均を採る集計とは一致せず、raw10点がないため過去の補正量は不明です。
+
+推奨:
+  10点×2群をround/実行順序付きで保存する。
+  upper medianを使うなら名前と式を明示する。変更するなら偶数時の規約を固定する。
+  「各群中央値の比」と「ペア比率の中央値」も区別する。
+  各点が8computeをまとめたchunkであることを残す。
+
+M04 / 優先度中: 通常trace指定がdeepにも一致する
+----------------------------------------------
+対象: LAB/gpu-prefill-study-20261104/analyze_live.py:7–8,69–92
+
+'-trace-'は'-trace-deep-'にも含まれます。deepしかない人工directoryを--deepなしで
+解析すると、deepの結果で通常名LIVE_SUMMARY.jsonが作られました。
+複数候補でも拒否せず、最初のfolderを採ります。採用traceの出典hashはsummaryにありません。
+過去に誤選択したかは未確認です。今回のfilesystemで作成順による結果反転は観測していません。
+
+推奨:
+  --run-dirを明示し、manifestのmodeと要求modeを照合する。
+  自動探索なら候補1件だけを許容。run ID、trace SHA256、prompt/token hashを結果へ残す。
+
+======================================================================
+2. 再構築と実行物の同定
+======================================================================
+
+詳細: build/BUILD_REVIEW_JA.txt、build_review_results.json、findings.json。
+F番号は詳細ファイルと共通です。
+
+F1 / 優先度高: prepared sourceの検証が一部に限られる
+---------------------------------------------------
+対象: scripts/prepare_source.py:22–33、scripts/build_plan.py:18
+
+現行--verifyが照合するのは14 overlayとroot CMakeLists＋glueです。
+一時prepared treeの非overlay ggml/src/ggml-quants.cへ#errorを追加してもexit0、
+include/llama.hを削除してもexit0でした。overlay改変は対照として拒否されました。
+この再現の変更sourceはコンパイルしていません。
+
+影響:
+  header欠落なら後でbuildが落ちます。コンパイル可能な非overlay変更なら、
+  別実装を「凍結版として検証済み」としてbuildし得ます。
+  現在の公開treeや配布binaryに誤りがある証拠ではありません。
+
+最小修正:
+  信頼する固定repoからvendor全file＋overlay＋glueの期待集合を導出し、
+  prepared全体の存在・hash・file typeを照合する。
+  追加sourceも検出する。CUDAのGLOB入力など、未列挙の追加fileがbuildへ入る場合があるためです。
+  期待manifestを同じ可変treeの自己申告だけにしない。新規destinationの利用も有効です。
+
+受入条件:
+  freshはpass。非overlay変更、header削除、追加CUDA source、overlay変更はfail。
+
+F3 / 優先度中: 既存CMakeCacheから未指定optionが残る
+-------------------------------------------------
+対象: scripts/build_plan.py:9–15,23
+
+固定work/buildを再利用する構造です。一時CPU-only configureで先に
+GGML_SANITIZE_ADDRESS=ON / GGML_AMX_TILE=ONを入れ、build_plan相当optionを再適用すると、
+両方ONが残り、生成compile commandにも-fsanitize=address / -mamx-tileが残りました。
+fresh directoryでは両方OFFです。CUDAのみOFFへ変更したconfigure試験で、target buildはしていません。
+
+推奨:
+  新規build directoryを既定とし、再利用なら実効option/コンパイラ/compile commandを照合する。
+  既存work/buildを無断で削除する方式にしない。
+  不正命令や過去性能値の変化を、このconfigure結果だけから断定しない。
+
+F2 / 優先度中: BUILD_UI=OFFだけではprebuilt UI取得が有効
+------------------------------------------------------
+対象:
+  scripts/build_plan.py:14
+  vendor/llama.cpp/CMakeLists.txt:137–138
+  vendor/llama.cpp/tools/ui/CMakeLists.txt:44–56
+  vendor/llama.cpp/scripts/ui-assets.cmake:443–457,546–592
+
+LLAMA_BUILD_UI=OFFでもLLAMA_USE_PREBUILT_UIはdefault ONです。
+実scriptのDOWNLOAD命令だけを失敗stubへ置き換えた一時コピーで、指定版→latestの
+2取得分岐に到達しました。ネットワーク取得は行っていません。両方OFFなら分岐0回でした。
+
+最小修正:
+  外部Open WebUI用profileではLLAMA_USE_PREBUILT_UI=OFFも明示する。
+  内蔵UIが必要な別profileではasset bytes/hashを固定し、latest依存を明示的に扱う。
+  実行時の--no-uiはbuild時の外部取得を止める指定ではありません。
+
+F4 / 優先度中・保証範囲: runtime manifestの列挙照合
+--------------------------------------------------
+対象: scripts/verify_runtime.py:5–12
+
+listed fileの改変は拒否しますが、人工fixtureのfiles=[]と未列挙lib追加を受理しました。
+これはRelease破損・改ざんの発見ではありません。
+
+推奨:
+  固定baselineのasset hash/期待inventory、最低限必要なfile集合、余分なfileの扱いを別途定義する。
+  「manifestに書かれたbytesと一致」「配布一式が期待通り」「実プロセスがそのDSOをロードした」
+  は別の検証として記録する。
+
+======================================================================
+3. 監視と停止応答
+======================================================================
+
+詳細: operations/OPERATIONS_REVIEW_JA.txt、probe_results.json。
+実コードの関数定義をASTから読み、fake I/Oと仮想時計で評価しました。
+12の観測assertionはすべて期待通りでした。対照と候補の反証を含み、12件の不具合という意味ではありません。
+
+対象版の同定:
+  deployment/llm-deepseek41-api.service.templateが参照するのは
+  LAB/deepseek41-bringup-20261101/supervise.pyです。
+  これはguard-retry-20261104の適用済みsupervisorとbyte一致しています。
+  古いapi-server-20261030版の問題を新しいtemplateへ混ぜていません。
+
+OPS-01 / 優先度高: 同期fan/IPMI照会が監視loopを塞ぐ
+-------------------------------------------------
+対象:
+  LAB/deepseek41-bringup-20261101/supervise.py:133–154
+  LAB/moe-engine-20261029/watch.py:57–60
+  LAB/board-study-20261024/hardware_run.py:23–25
+
+fan読取は5回の同期IPMI。timeout=40秒は1照会ごとで、一組全体のdeadlineではありません。
+各照会が仮想39秒で正常応答するfixtureでは、実行中の直接GPU確認間隔が197秒になりました。
+runtime最初のfan照会終了時に停止要求を立てると、SIGTERMまで158秒でした。
+
+この数値は仮想時計で再現した制御フローです。実機で197秒の空白が起きているとは言っていません。
+systemd templateのTimeoutStopSec=60もあるため、実サービスで158秒必ず走り続ける意味でもありません。
+2トークン表示の原因とする根拠もありません。
+
+最小修正:
+  低速IPMI collectorを直接CPU/GPU guardのloopから分離する。
+  snapshotに取得時刻・完了時刻・失敗を持ち、staleの期限をguard自身が判定する。
+  fan一組の総deadlineと、照会間の停止要求確認を設ける。
+  IPMIを無制限に並列化しない。既存BMC threadとの所有者・読取頻度を整理する。
+
+受入条件:
+  slow-success、timeout、無応答、停止要求のfixtureで、監視間隔と停止応答の上限を別々に確認する。
+  平均loop時間に加えて最大間隔・期限超過・snapshot ageを記録する。
+
+OPS-02 / 優先度中〜高: board sensorの欠測が通過
+---------------------------------------------
+対象: LAB/deepseek41-bringup-20261101/supervise.py:35–45,78–80,103–109
+
+check_bmcは空sensor出力、na、NaN、PCHのみ欠落、正常数値だがstatus=crを受理しました。
+Peripheral=45、PCH=55、SELにECCは対照として拒否しました。
+
+最小修正:
+  必須sensorの存在、有限な値、statusを明示検査し、欠測と実閾値超過を区別する。
+  欠測を短時間許容するなら、最後の成功時刻からのdeadlineを持つ。
+  GPU retry用snapshot validatorには既に有限性等の検査があるので、通常経路とも方針を揃える。
+
+独立monitorはboard欠測を通知できますが、通知専用です。
+厳密snapshot検証はGPU timeout回復経路で走り、直接GPU読取が正常な通常経路では走りません。
+
+OPS-03 / 優先度中: 独立monitorの通知対象に抜けがある
+-------------------------------------------------
+対象: LAB/thermal-monitor-20261101/monitor.py:96–111,156–195
+
+bad_sensor_status={'12V':'cr'}と、ECC/replay counter全部Noneをそれぞれ4回連続で与えても
+event/active alarmは出ませんでした。PCH欠測は対照として3回目に検出しました。
+
+最小修正:
+  必須counter欠測をsensor failureへ追加。bad_sensor_statusの対象sensorと扱いを明示して判定へ接続する。
+  未接続sensorまで無条件criticalにせず、既存ヒステリシス/cooldownを使って復帰も確認する。
+
+この問題を「APIのGPU ECC guardも欠測を無視する」と広げないでください。
+通常supervisorのvalidate_gpuはcounter欠測を拒否します。
+
+対処済み・保留:
+  単発nvidia-smi timeout即停止は公開版ですでに対処済み。新規指摘ではありません。
+  killpgのESRCH注入では最終化が飛びますが、自然な到達条件を立証できず主要指摘から外しました。
+  counter通知cooldown中の増分を後からまとめて通知するかは運用方針です。counter自体は残ります。
+
+======================================================================
+4. 添付: 実行中ライブラリの採取ツール
+======================================================================
+
+runtime/collect_runtime_snapshot.py
+
+用途:
+  再起動せず、既存PIDが実際にmappingしているlibggml* / libllama* / libmtmd*と実行fileについて、
+  backing fileのSHA256とdevice/inodeを記録します。
+  ユーザー提供の11月12日メモにあった「build/binと実際にロードされたlibggml-baseの違い」のような
+  問題を、次の測定へ紐づけるための補助です。ソースcommitやbuild flagをhashから推測しません。
+
+コマンド例（PIDは実在する対象へ置換）:
+  python3 runtime/collect_runtime_snapshot.py --pid 12345 --output runtime-snapshot-new.json
+
+実装上の確認:
+  /proc/PID/mapsのdevice/inodeと、実際に開いたfileのfstatを照合。
+  対象のmount namespace内のpathを解決。差し替え済みpathを元mappingのfileとしてhashしない。
+  削除済みfileはmap_filesを試し、権限不足ならunavailableを残す。
+  hash前後のfile metadataと、採取終端のmetadataを照合。
+  PID start time、project mappings、実行fileの同一性も前後照合。
+  空のproject mapping集合、欠けたhash、途中変更を成功扱いしない。
+  full cmdline/envを出さず、選択した環境変数だけを記録。既存出力は上書きしない。
+
+終了コード:
+  0: 記録範囲の照合がすべて成立。
+  2: 読取不能、途中変更、対象不足、出力先既存など。書けたJSONに理由を残す。
+     PID自体が読めない等、JSON作成前の失敗はstderrに理由を出します。
+  file単位の上限はdefault512MiB。超過時も勝手に別fileを採らず不完全として扱います。
+
+検証:
+  synthetic mmapの13項目を実行し、すべてpass。
+  別担当の独立確認も24項目pass。hash後に同じinodeの内容を書き換える例を拒否し、
+  mtimeを元へ戻す例でもctime差で拒否されることを確認しました。
+  初版で発見した抜けと修正後の確認は、runtime/内のJSONへ分けて保存しています。
+
+限界:
+  atomic snapshotではありません。個々の最終確認の後に生じる変更や、一時的なunload/reloadは
+  検出できない場合があります。採取時にfileを書き換えない運用と合わせて使います。
+  backing fileのhashであり、relocation後のmemoryやin-memory patchを照合しません。
+  CUDA/system DSOやモデル重みは対象外。名前prefixに一致するDSOが今回の記録範囲です。
+  envは起動時情報で、すべての設定の実効値を保証しません。
+  file hash→source commit/object/compile flagsの対応表は別に必要です。
+  model/API/サービス操作、signal、設定変更、ネットワーク通信は行いません。
+
+======================================================================
+5. 実装担当へ勧める順序
+======================================================================
+
+1. 最新版との照合
+   今回の対象commitと添付source SHAを使い、現行でも残る項目だけを選ぶ。
+   runtime snapshotとbuild manifestを次の比較のrun IDへ結びつける。
+
+2. 小さい合否判定の修正
+   M01/M02/F1はモデルを動かさずfixtureで直せる。
+   再現probeは旧挙動を確認するスクリプトなので、修正後にそのまま「全部pass」を目指さない。
+   拒否すべき入力を拒否するよう、期待結果を反転・整理したregression testへ移す。
+
+3. 監視の通常経路を整える
+   OPS-01/02/03をfake I/Oで確認し、監視間隔・欠測期限・停止応答を個別に評価する。
+   既存の温度・ECC・電力・fan方針と、GPU timeoutだけの限定retryを維持する。
+
+4. 次のbuild/測定から出典とrawを残す
+   新規build dir、実効CMake設定、source/object/DSOの対応、run選択、raw時間標本を記録する。
+   一度のend-to-end比較で複数の配置・算術・設定を同時に変えない。
+
+5. 数値・速度・表示間隔の調査へ接続
+   ユーザー提供のCPU/CUDA算術メモと今回の周辺指摘を混同しない。
+   IQ系の入力量子化差、整数除算、FP累積順の調査は別の単独実験として進める。
+   CPUとのbit一致だけで品質を判定せず、明示した参照演算への誤差とモデル品質も評価する。
+
+表示の2個ずつのまとまりについての既知の観測:
+  Open WebUI上の表示が2個ずつに見える。内部decode間隔はまだ不明。
+  別のローカルLLMでは同じ見え方にならなかった、というユーザー報告がある。
+  この観測だけでengineの2 token周期や正常/異常を決めない。
+  engineのtoken完了時刻、API SSE受信時刻、Open WebUI経由のevent時刻/表示を分けて測る価値がある。
+  SSE event数や文字列chunk数を生成token数と同一視しない。UTF-8保留やevent batchingを考慮する。
+  今回はstreamの追加実測を行っていない。
+
+======================================================================
+6. 根拠への入口
+======================================================================
+
+固定source URL prefix（以下へ相対pathを付ける）:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/4ff68eba2d8c480692511dc6d219d27a6a102866/
+
+ZIP内:
+  ASTRA_HANDOFF_JA_2026-11-16.txt  この要約と修正方針
+  README_JA.txt                  実行方法、依存、scope、ファイル構成
+  build/                        再構築・manifest監査、結果と再現コード
+  measurement/                  計測集計監査、人工入力、結果と再現コード
+  operations/                   監視監査、fake I/O試験、棄却候補の記録
+  runtime/                      読取専用採取ツール、自己試験・独立確認
+  SOURCE_PROVENANCE.json         対象repo・主要sourceのhash
+  CONTENTS_SHA256.json           添付fileのbyte照合用manifest
+
+維持したい長所:
+  原文・行番号・実行条件・測定の限界を残す姿勢、ABBA順序、baselineを前後に挟む比較、
+  GPU timeoutとhardware faultの区別、独立snapshotのage/boot確認、experiment lock、
+  bounded health history、一時fileからのhealth置換は有用です。
+  今回はその土台に、欠測・失敗の合否判定と実行物の出典を揃える提案です。

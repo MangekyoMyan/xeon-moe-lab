@@ -1,0 +1,271 @@
+Xeon MoE Lab — 再構築・再現性・検証保証の追加レビュー
+
+対象
+  公開repo: https://github.com/MangekyoMyan/xeon-moe-lab
+  固定commit: 4ff68eba2d8c480692511dc6d219d27a6a102866
+  公開baseline: 2026-11-05
+  本稿は未公開の11月12日以降の実装や現在の実機状態を確認したものではない。
+
+要点
+  再構築手順に関して、優先して直す価値があるのは次の3点。
+  1. prepared source全体が凍結版に一致する保証がない。
+  2. UIを使わないbuildでも、未固定のprebuilt UI取得へ進み得る。
+  3. 既存CMake cacheを再利用すると、指定していない実験用設定が残る。
+  runtime verifierについては、列挙されたbytesの検証と、期待するbaseline一式の
+  検証を区別する必要がある。現Releaseの破損・改ざんは発見していない。
+
+実施範囲
+  - 関連するarchive/development-history-not-for-readers/lab/AGENTS.mdを読んだ。
+    過去の休止方針は今回のユーザーの明示的なレビュー依頼と切り分け、実機の
+    model/service/GPUを起動せず、独立した一時コピーだけを変更した。
+  - repoの追跡ファイル、既存work/accepted-source、既存work/buildを変更していない。
+  - 新しいprepared sourceをTemporaryDirectory内に作成し、検証関数の挙動を試験。
+  - 実prepared projectをCPU-onlyでconfigure。CUDAがないためGGML_CUDA=OFFに
+    変更し、CUDA compiler/root設定を取り除いた。targetのbuildは一度も実行して
+    いない。CMakeの小さなcompiler-feature probeは実行される。
+  - UI provisioningは、一時コピーの2つのfile(DOWNLOAD)だけを常に失敗する
+    stubへ置換。network送信・downloadは行わず、分岐到達とfallbackを確認。
+  - runtime検証は小さな人工bytes/symlink fixture。Release ELFの実行ではない。
+  - 実試験には固定commitのclean checkoutを使用し、git statusは開始前・終了後とも
+    空文字で一致。
+
+再現物
+  reproduce_build_review.py
+  build_review_results.json
+  findings.json
+  build_probe_preflight_verification.json
+  本文: BUILD_REVIEW_JA.txt
+
+再現コマンド例
+  python3 reproduce_build_review.py --repo /path/to/xeon-moe-lab \
+    --cmake /path/to/cmake --output /path/to/new-results.json
+
+  --repoには上記commitのclean frozen checkoutを指定する。引き渡し版はHEADに加え、
+  git status --porcelain --untracked-files=noが非空ならprobe実行前に拒否する。
+  この事前チェックは追跡ファイルの変更を対象とし、未追跡ファイルは対象外である。
+  --outputは存在しないファイルを指定する。事前拒否に加え、保存時もopen("x")で
+  排他的に新規作成し、他の実行が作った結果ファイルを上書きしない。
+  TemporaryDirectoryは終了時に削除する。
+  結果JSONにはコマンド、stdout/stderr、source script SHA256、生成compile command、
+  各試験結果を保存する。--skip-cmake-configureでconfigure試験だけ省略できる。
+  上記の引き渡し用変更後は、--help、既存output拒否、dirty checkout拒否を確認した。
+  数値・configureを含むprobe本体は再実行しておらず、build_review_results.jsonは
+  元の実測記録を保持している。追加確認はbuild_probe_preflight_verification.json参照。
+
+======================================================================
+F1 / P1: prepare_source --verifyは非overlayの改変・欠落を見逃す
+分類: 実コードで再現した検証不備。現在の公開treeが壊れているという報告ではない。
+確度: 高い。
+======================================================================
+
+根拠
+  scripts/prepare_source.py:22-24
+    archive側ではORIGINS.jsonにあるoverlayだけをhash照合する。
+  scripts/prepare_source.py:31-33
+    prepared側でもそのoverlayとroot CMakeLists.txtだけをhash/内容照合する。
+  scripts/build_plan.py:18
+    --execute時の事前照合はprepare_source.py --verifyだけである。
+  scripts/verify_archive.py:30-34
+    EXPORT_MANIFESTを使う照合対象はrepo側であり、prepared treeではない。
+
+再現
+  fresh prepareとfresh --verify: exit 0。
+  一時prepared treeのggml/src/ggml-quants.c末尾に
+    #error AUDIT_REPRO_UNCHECKED_UPSTREAM
+  を追加しても --verifyはexit 0。
+  元へ戻した後、include/llama.hを削除しても --verifyはexit 0。
+  対照としてxeon-local/iq3-cache.hを変更するとexit 1で拒否された。
+
+  ggml-quants.c original SHA256:
+    bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73
+  probe modified SHA256:
+    1f84c8831cdce64c05daad8b34005a352b926c7da8b65ea8380a95c1ab73436c
+
+影響
+  prepared treeを実験後に再利用した際、実際には別の量子化/attention/CUDA/source
+  または欠けたheaderでも、事前検証が成功する。削除したheaderなら後でbuildに
+  失敗する。コンパイルできる変更なら意図しない実装をbaselineとしてbuildし得る。
+  overlayのbyte一致は保証されるが、engine source全体の一致は保証されない。
+
+最小修正案
+  1. vendor/llama.cpp以下の全fileを、信頼するEXPORT_MANIFESTと照合する。
+  2. prepared treeの期待集合をvendor file集合へ14 overlayを上書きし、root
+     CMakeLists.txtのみGLUE追加として導出する。
+  3. preparedの全fileの存在・hash・file typeを照合する。余分なbuild-input fileも
+     別途検出する（CUDA sourceはGLOBされるため、既存fileだけの照合では不足）。
+  4. prepared manifestを単に同じtreeへ自己申告で置くだけにはしない。期待hashは
+     固定repoのvendor/ORIGINS/GLUEから導出する。
+
+修正後の受け入れ試験
+  fresh tree: pass。
+  nonoverlay .c改変、header削除、追加CUDA .cu、overlay改変: すべてfail。
+  許容するgenerated fileを定義する場合はbuild directoryをsource外へ分離する。
+
+======================================================================
+F2 / P2: LLAMA_BUILD_UI=OFFでもprebuilt UI取得は有効なまま
+分類: 設定と分岐を確認、networkなしの計装コピーで再現。
+確度: 高い。実際のHF接続・asset取得成功・最終CUDA server buildは未実施。
+======================================================================
+
+根拠
+  scripts/build_plan.py:14
+    LLAMA_BUILD_UI=OFFは設定するが、LLAMA_USE_PREBUILT_UIは指定しない。
+  vendor/llama.cpp/CMakeLists.txt:137-138
+    LLAMA_BUILD_UIのdefaultはOFF、LLAMA_USE_PREBUILT_UIのdefaultはON。
+  vendor/llama.cpp/tools/server/CMakeLists.txt:59-61
+    llama-server-implはllama-ui-assetsに依存する。
+  vendor/llama.cpp/tools/ui/CMakeLists.txt:44-56
+    HF_ENABLEDにはLLAMA_USE_PREBUILT_UI、BUILD_UIにはLLAMA_BUILD_UIを別々に渡す。
+  vendor/llama.cpp/scripts/ui-assets.cmake:443-457,485-486
+    指定versionがあればそれを試し、その後latestを候補へ追加して取得する。
+  同:546-575,580-592
+    HF_ENABLEDのときdownload経路へ進み、失敗後はstale assetsまたは空UIで継続。
+
+再現
+  新規CPU-only configureでもcacheは以下になった。
+    LLAMA_BUILD_UI=OFF
+    LLAMA_USE_PREBUILT_UI=ON
+
+  実ui-assets.cmakeのdownload primitiveだけを失敗stubへ置換して実行。
+  BUILD_UI=OFF, HF_ENABLED=ON, fixture HF_VERSION=b1:
+    b1/dist.tar.gz.sha256 と latest/dist.tar.gz.sha256 の2取得分岐へ到達。
+    network送信はstubにより0回。最後は空ui.cppを生成しexit 0。
+  BUILD_UI=OFF, HF_ENABLED=OFF:
+    取得分岐0回。空ui.cppを生成しexit 0。
+  b1はfixture値であり、通常再構築が必ずb1を使うという意味ではない。
+
+影響
+  engine sourceを固定してもserver binaryへ入るUI assetが可変になり得る。
+  network可否、HF側のlatest、既存dist/stampにより結果とbuild待ち時間が変わる。
+  source付属のchecksum取得は転送整合性を確認するが、固定baselineのassetを
+  指定したことにはならない。server実行時の--offline/--no-uiではこのbuild経路を
+  無効化できない。
+
+最小修正案
+  このprofileは外部Open WebUIを使うため、build_planへ
+    LLAMA_USE_PREBUILT_UI=OFF
+  を追加し、LLAMA_BUILD_UI=OFFと併用する。
+  UIも配布したい別profileなら、asset bytes/hashを別途固定して入力manifestへ
+  含め、latest fallbackを認めない構成にする。
+
+修正後の受け入れ試験
+  networkを遮断した新規build directoryでllama-ui-assetsだけをbuildし、外部取得
+  0回、空assetsの意図どおりの生成を確認する。server全体の再buildは別のgate。
+
+======================================================================
+F3 / P2: 同じbuild_planを実行しても過去のCMake cacheで生成flagsが変わる
+分類: 実prepared projectでconfigure結果を再現。target build/推論はしていない。
+確度: 高い。
+======================================================================
+
+根拠
+  scripts/build_plan.py:9,15,23
+    build先は固定work/buildで、既存CMakeCache.txtを許容してcmake -S/-Bを再実行。
+  同:10-14
+    多くのISA設定は固定するが、GGML_AMX_TILE/INT8/BF16、sanitizer等は未指定。
+  vendor/llama.cpp/ggml/CMakeLists.txt:135-138,168-170
+    これらはCMake cache option。
+  vendor/llama.cpp/ggml/src/CMakeLists.txt:17-19
+    GGML_SANITIZE_ADDRESSは-fsanitize=address等を追加。
+  vendor/llama.cpp/ggml/src/ggml-cpu/CMakeLists.txt:397-407
+    AMX optionは-mamx-*と対応defineを追加。
+
+再現
+  source: fresh prepared tree。build_planが出力したoption群を使い、利用できない
+  CUDAのみOFFへ変更して、次の3 configureを実施した。
+    (a) 新規build AをGGML_SANITIZE_ADDRESS=ON/GGML_AMX_TILE=ONで作成。
+    (b) 同じAに、build_planのoption群を再適用（上記2指定なし）。
+    (c) 新規build Bに、同じbuild_plan option群を適用。
+  全configureはexit 0。
+  (b)は両optionがONのままで、ggml-cpu.cのcompile_commandsへ
+    -fsanitize=address -fno-omit-frame-pointer -mamx-tile -DGGML_AMX_TILE
+  が残った。(c)は両方OFFで、それらのflagsがない。
+  -march=ivybridgeと-mamx-tileが同じcommandへ混在することまで確認できる。
+
+影響
+  過去の実験buildを再利用すると、固定Ivy Bridge baselineのつもりでも違う
+  計装・ISA・link構成になり得る。再測定の比較条件が崩れる。
+  これにより実機で必ず不正命令になるとまでは検証していない。ASanを使うこと
+  自体を不具合としているのでもない。意図しない残留が問題。
+
+最小修正案
+  - frozen baseline用buildは新規directoryを既定にし、既存cacheがあれば明示的な
+    既存build再利用指定と互換manifest照合を要求する。
+  - 実験結果や他人のbuildを自動削除しない。新規directoryを選べる--build-dirがよい。
+  - compiler path/version、CMake version、全effective GGML/LLAMA option、
+    compile_commands、source manifest、生成DSO hashをbuild resultへ保存する。
+  - presetを使うだけでは、未指定cache値が消えるとは限らない。新規configureと
+    最終effective cacheの照合が必要。
+
+修正後の受け入れ試験
+  わざとAMX/ASanを有効にしたcacheへbaselineを適用した際、再利用を拒否するか、
+  effective option/compile commandがfresh baselineと一致すること。
+
+======================================================================
+F4 / P2（保証範囲）: verify_runtimeは期待baseline一式を検証するものではない
+分類: verifierの範囲を人工fixtureで再現。現Releaseの不具合は未確認。
+確度: 高い。
+======================================================================
+
+根拠
+  scripts/verify_runtime.py:5-12
+    検証対象directory自身のRUNTIME_MANIFEST.jsonを読む。列挙されたfileのhashと
+    symlinkの向きは調べるが、profile側の期待manifestと比較しない。
+    空files、重複/不足一覧、未列挙fileをrejectする処理はない。
+  provenance/RUNTIME_ASSET.json
+    配布archive全体のSHA256は別ファイルに保存されている。
+  provenance/RUNTIME_MANIFEST.json
+    公開baselineの期待集合は23 file/alias。
+
+再現
+  人工runtimeの正常なlisted file+alias: pass。
+  listed fileのbytesを変更: fail（正常に検出する対照）。
+  manifestを変えず、bin/libgomp.so.1という未列挙fileを追加: pass。
+  manifestを{"files": []}へ置換: Runtime files verified: 0、exit 0。
+  libgompという名前は探索順問題の例示用であり、実ELFは作成・実行していない。
+
+影響
+  「manifest記載bytesと一致」は確認できるが、「正しいbaseline一式である」や
+  「実行時にそのDSOが選ばれる」までを、この1コマンドのsuccessから読めない。
+  archive自体と同梱manifestを信頼する前提なら、これは比較ツールの保証範囲。
+  manifestが欠落した項目を持つ、別profileと混ざる、extra dependencyを足す等の
+  運用ミスを検出したいなら、追加のroot-of-trust/inventory照合が必要。
+
+最小修正案
+  - 配布tarのhashを、固定repoのRUNTIME_ASSET.jsonと先に比較する入口を用意。
+  - --expected-manifest等で固定repoの期待manifestを指定できるようにする。
+  - schema・非空・file名一意・期待file集合を検証する。
+  - bin内の余分なlibrary/実行fileは警告またはstrict modeでrejectする。
+    README等を無条件に異物扱いするのでなく、検証範囲を明記する。
+  - 稼働時のlink provider確認は別の観測として保存する。readelfのNEEDED/
+    RUNPATH、実行時の/proc/PID/maps、実際に選ばれたfileのhashを対応づける。
+    今回は実機processを検査していない。
+
+修正後の受け入れ試験
+  expected profileがある場合、empty manifest、別profile、欠けたrow、重複row、
+  unlisted shadow libraryを検出する。正常なsymlink chainは維持する。
+
+======================================================================
+問題として扱わなかったもの
+======================================================================
+
+1. LLAMA_BUILD_MTMD=OFFだからvision依存が抜ける、とは言えない。
+   vendor/llama.cpp/CMakeLists.txt:268-270はstandalone MTMD option。
+   tools/CMakeLists.txt:31はtoolsの一部としてmtmdを追加し、
+   tools/server/CMakeLists.txt:36-38はserverからmtmdへlinkしている。
+   その設定だけを理由にONへ変える修正は不要。
+
+2. 新しいfull CUDA/server rebuildが未検証である点はREADMEとORIGINSに明記。
+   既存Releaseの採用状態と、集約ソースからのfull rebuild検証完了を混同しない。
+   未検証を隠している、または現行serverが壊れているとは評価していない。
+
+3. overlay bytesのhash照合、sourceとbuildの分離、argv配列によるsubprocess呼出し、
+   source overwriteを拒否する基本的な配慮はある。F1はそれらを否定する話ではなく、
+   照合対象を非overlayの実際のbuild inputまで広げる提案。
+
+推奨着手順
+  1. F1のprepared全tree検証とF2のprebuilt UI無効化。
+  2. F3の新規build directoryとeffective build manifest。
+  3. F4のruntime strict/profile照合。
+  これらの変更でkernel arithmeticやmodel設定を変える必要はない。
+  実機でのbuild/起動/benchは今回行っておらず、別途の手順として扱う。

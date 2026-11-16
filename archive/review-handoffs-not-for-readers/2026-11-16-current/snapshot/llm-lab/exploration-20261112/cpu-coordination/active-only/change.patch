@@ -1,0 +1,25 @@
+--- a/ggml-cpu.c
++++ b/ggml-cpu.c
+@@ -1802,17 +1802,17 @@
+                     continue;
+                 }
+ 
++                if (matrix_row_counts[i02] == 0) {
++                    atomic_int * counter = (atomic_int *)(atomic_current_chunk + i02);
++                    atomic_store_explicit(counter, nth, memory_order_relaxed);
++                }
+                 MMID_MATRIX_ROW(i02, matrix_row_counts[i02]) = (struct mmid_row_mapping) {id, iid1};
+                 matrix_row_counts[i02] += 1;
+             }
+         }
+     }
+ 
+-    // reset current_chunk
+-    for (int cur_a = ith; cur_a < n_as; cur_a += nth) {
+-        atomic_int * current_chunk_ctr = (atomic_int *)(atomic_current_chunk + cur_a);
+-        *current_chunk_ctr = nth;
+-    }
++    // Active counters are initialized by ith0 and published by this barrier.
+ 
+     ggml_barrier(params->threadpool);
+ 

@@ -1,0 +1,117 @@
+--- a/ggml-cpu.c
++++ b/ggml-cpu.c
+@@ -4,6 +4,10 @@
+ #include "ggml-backend-impl.h"
+ #include "ggml-backend.h"
+ #include "iq3-cache.h"
++#include "mx-rhs.h"
++#ifndef XEON_MX_PREPACK
++#define XEON_MX_PREPACK 1
++#endif
+ #include "traits.h"
+ #include "ggml-cpu-impl.h"
+ #include "ggml-impl.h"
+@@ -1505,7 +1509,10 @@
+     const size_t row_size,
+     const bool src1_cont,
+     const void * wdata,
+-    const void * compact_data) {
++    const void * compact_data,
++    const void * mx_rhs,
++    const size_t mx_stride,
++    const uint64_t mx_safe_mask) {
+ 
+     GGML_TENSOR_BINARY_OP_LOCALS
+ 
+@@ -1546,8 +1553,16 @@
+ 
+                 float * dst_col = (float *) ((char *) dst->data + (i1*nb1 + i2*nb2));
+ 
+-                for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir0_end; ++ir0) {
+-                    vec_dot(ne00, &tmp[ir0 - iir0], 0, weight_data + ir0*weight_stride, 0, src1_col, 0, 1);
++                const void * prepared = mx_rhs && ((mx_safe_mask >> i11) & 1)
++                    ? (const char *)mx_rhs + i11*mx_stride : NULL;
++                if (prepared) {
++                    for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir0_end; ++ir0) {
++                        xeon_mxfp4_rhs_dot_v1(ne00, &tmp[ir0-iir0], weight_data+ir0*weight_stride, src1_col, prepared);
++                    }
++                } else {
++                    for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir0_end; ++ir0) {
++                        vec_dot(ne00, &tmp[ir0 - iir0], 0, weight_data + ir0*weight_stride, 0, src1_col, 0, 1);
++                    }
+                 }
+ 
+                 memcpy(&dst_col[iir0], tmp, (MIN(iir0 + blck_0, ir0_end) - iir0)*sizeof(float));
+@@ -1747,6 +1762,12 @@
+     // reservation is unconditional, the per expert eligibility is decided at dispatch time
+     char * tiled_scratch = incr_ptr_aligned(&wdata_cur, ggml_tiled_wdata_size(nth, dst), 64);
+ 
++    const bool mx_shape = xeon_mxfp4_rhs_shape(src0, src1, ids);
++    const bool mx_enabled = XEON_MX_PREPACK && mx_shape && !params->use_ref;
++    const size_t mx_stride = mx_shape ? xeon_mxfp4_rhs_stride(ne10) : 0;
++    void * mx_rhs = mx_shape ? incr_ptr_aligned(&wdata_cur, mx_stride*ne11, 64) : NULL;
++    uint8_t * mx_flags = mx_shape ? incr_ptr_aligned(&wdata_cur, ne11*nth, sizeof(int64_t)) : NULL;
++
+     GGML_ASSERT(params->wsize >= (size_t)((char *) wdata_cur - (char *) params->wdata));
+ 
+     if (src1->type != vec_dot_type) {
+@@ -1786,6 +1807,21 @@
+ #endif
+     }
+ 
++    if (mx_enabled) {
++        // The same worker has just quantized these blocks. Prequantized inputs
++        // use their original strides. No worker reads another worker's blocks.
++        const int first = (ith*(ne10/32))/nth;
++        const int end = ((ith+1)*(ne10/32))/nth;
++        const size_t qrow = ggml_row_size(vec_dot_type, ne10);
++        for (int64_t input=0;input<ne11;++input) {
++            const char * rhs = src1->type==vec_dot_type
++                ? (const char *)src1->data + input*nb11
++                : (const char *)params->wdata + input*qrow;
++            mx_flags[input*nth+ith] = xeon_mxfp4_rhs_prepare_v1(ne10, rhs, first, end,
++                (char *)mx_rhs + input*mx_stride);
++        }
++    }
++
+     if (ith == 0) {
+         // initialize matrix_row_counts
+         memset(matrix_row_counts, 0, n_as*sizeof(int64_t));
+@@ -1815,6 +1851,15 @@
+     }
+ 
+     ggml_barrier(params->threadpool);
++
++    uint64_t mx_safe_mask = 0;
++    if (mx_enabled) {
++        for (int64_t input=0;input<ne11;++input) {
++            bool safe=true;
++            for (int worker=0;worker<nth;++worker) safe = safe && mx_flags[input*nth+worker]!=0;
++            if (safe) mx_safe_mask |= UINT64_C(1)<<input;
++        }
++    }
+ 
+     const void * const * compact_experts = (!params->use_ref && (type == GGML_TYPE_IQ3_XXS || type == GGML_TYPE_IQ2_S || type == GGML_TYPE_IQ3_S) && ids->ne[1] == 1)
+         ? xeon_iq3_cache_lookup_experts_v2(src0) : NULL;
+@@ -1895,7 +1940,7 @@
+                     dst, src0, src1, ids, cur_a,
+                     ir0_start, ir0_end, ir1_start, ir1_end,
+                     src0_cur, matrix_rows, row_size, src1_cont, wdata,
+-                    compact_data
++                    compact_data, mx_enabled ? mx_rhs : NULL, mx_stride, mx_safe_mask
+                 );
+             }
+ 
+@@ -3089,6 +3134,12 @@
+                         // Workspace for tiled (see tiled.h)
+                         cur = GGML_PAD(cur, 64);
+                         cur += ggml_tiled_wdata_size(n_tasks, node);
++                        if (xeon_mxfp4_rhs_shape(src0, src1, ids)) {
++                            cur = GGML_PAD(cur, 64);
++                            cur += xeon_mxfp4_rhs_stride(src1->ne[0])*src1->ne[1];
++                            cur = GGML_PAD(cur, sizeof(int64_t));
++                            cur += src1->ne[1]*n_tasks;
++                        }
+                     } break;
+                 case GGML_OP_OUT_PROD:
+                     {

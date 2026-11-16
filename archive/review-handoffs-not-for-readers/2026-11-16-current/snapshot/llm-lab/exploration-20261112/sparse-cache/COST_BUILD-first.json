@@ -1,0 +1,28 @@
+{
+  "command": [
+    "g++",
+    "-I/home/codex/projects/llm-lab/exploration-20261112/sparse-cache",
+    "-O3",
+    "-std=c++17",
+    "-march=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-ffp-contract=off",
+    "-fopenmp",
+    "-I/home/codex/projects/llm-lab/iq-cache-next-20261103",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+    "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/cost-probe.cpp",
+    "-L/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-o",
+    "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/cost-probe"
+  ],
+  "source_sha256": "093a3c591d02980fa63f6711b00dd1bf77a790034d9b10f69cdf86caa0dbf132",
+  "binary_sha256": "33f116d5d5615ae17283d11d51fe4f1f825be8d4bd685f7b602ed0d1aa5d4365"
+}

@@ -1,0 +1,98 @@
+#include <cerrno>
+#include <fcntl.h>
+#include <iomanip>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <sys/stat.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <linux/mempolicy.h>
+
+namespace xeon_placement {
+static int topology_integer(const std::string & path) {
+    std::ifstream input(path); int value;
+    if (!(input >> value)) throw std::runtime_error("row-local: cannot read CPU topology");
+    return value;
+}
+
+static void validate_topology() {
+    static const bool valid = [] {
+        if (sysconf(_SC_PAGESIZE) != 4096) throw std::runtime_error("row-local: 4KiB pages required");
+        std::set<std::pair<int,int>> cores;
+        for (int cpu = 0; cpu < 12; ++cpu) {
+            const std::string root = "/sys/devices/system/cpu/cpu"+std::to_string(cpu);
+            const std::string node = root+"/node"+std::to_string(cpu<6?0:1);
+            if (access(node.c_str(),F_OK)) throw std::runtime_error("row-local: expected CPU0..5/node0 and CPU6..11/node1");
+            cores.emplace(topology_integer(root+"/topology/physical_package_id"),topology_integer(root+"/topology/core_id"));
+        }
+        if (cores.size()!=12) throw std::runtime_error("row-local: twelve distinct physical cores required");
+        unsigned long allowed=0;
+        if (syscall(SYS_get_mempolicy,nullptr,&allowed,sizeof(allowed)*8,nullptr,MPOL_F_MEMS_ALLOWED) || (allowed&3)!=3)
+            throw std::runtime_error("row-local: both memory nodes must be allowed");
+        return true;
+    }();
+    (void) valid;
+}
+
+struct options {
+    bool local=false;
+    int audit_fd=-1;
+    options() {
+        const char * mode=std::getenv("GGML_CPU_IQ_ROW_LOCAL");
+        if (mode && *mode && std::strcmp(mode,"0") && std::strcmp(mode,"1")) throw std::runtime_error("row-local: invalid mode");
+        local=mode&&std::strcmp(mode,"1")==0;
+        if (local) {
+            validate_topology();
+            if (prctl(PR_GET_THP_DISABLE,0,0,0,0)!=1) throw std::runtime_error("row-local: per-process THP disable required");
+        }
+        const char * directory=std::getenv("GGML_CPU_IQ_AUDIT_DIR");
+        if (directory && *directory) {
+            if (directory[0]!='/' || std::strlen(directory)>3500) throw std::runtime_error("row-local: invalid audit directory");
+            struct stat info{};
+            if (stat(directory,&info) || !S_ISDIR(info.st_mode)) throw std::runtime_error("row-local: audit directory missing");
+            std::string path=std::string(directory)+"/placement-"+std::to_string(getpid())+"-XXXXXX";
+            std::vector<char> name(path.begin(),path.end());name.push_back('\0');
+            audit_fd=mkstemp(name.data());
+            if (audit_fd<0) throw std::runtime_error("row-local: audit creation failed");
+            if (fcntl(audit_fd,F_SETFD,FD_CLOEXEC)) { close(audit_fd);audit_fd=-1;throw std::runtime_error("row-local: audit descriptor failed"); }
+            std::fprintf(stderr,"IQ placement audit: %s\n",name.data());
+        }
+    }
+    ~options() { if (audit_fd>=0) close(audit_fd); }
+    options(const options &)=delete;
+    options & operator=(const options &)=delete;
+};
+
+static bool bind_before_touch(const options & config,const ggml_tensor * tensor,void * data,size_t bytes,size_t slots) {
+    const bool up=std::strstr(tensor->name,"ffn_gate_exps.weight") || std::strstr(tensor->name,"ffn_up_exps.weight");
+    if (!config.local || !up || tensor->ne[0]!=5120 || tensor->ne[1]!=2304 || tensor->ne[3]!=1) return false;
+    constexpr size_t half=3317760, stride=6635520;
+    if (sysconf(_SC_PAGESIZE)!=4096 || bytes!=slots*stride || uintptr_t(data)%4096) throw std::runtime_error("row-local: unexpected allocation geometry");
+    for (size_t slot=0;slot<slots;++slot) for (int node=0;node<2;++node) {
+        unsigned long mask=1UL<<node;
+        void * address=static_cast<char *>(data)+slot*stride+size_t(node)*half;
+        if (syscall(SYS_mbind,address,half,MPOL_BIND,&mask,sizeof(mask)*8,0)) {
+            std::fprintf(stderr,"IQ row-local: mbind failed: %s\n",std::strerror(errno));
+            throw std::runtime_error("row-local: binding failed before publication");
+        }
+    }
+    return true;
+}
+
+static void audit(const options & config,const ggml_tensor * tensor,void * data,size_t bytes,size_t slots,bool bound) {
+    if (config.audit_fd<0) return;
+    std::ostringstream stream;
+    stream<<"{\"pid\":"<<getpid()<<",\"name\":"<<std::quoted(tensor->name)
+          <<",\"address\":"<<uintptr_t(data)<<",\"bytes\":"<<bytes<<",\"slots\":"<<slots
+          <<",\"k\":"<<tensor->ne[0]<<",\"rows\":"<<tensor->ne[1]
+          <<",\"policy\":\""<<(bound?"row-halves-0-1":"inherit")<<"\"}\n";
+    const std::string line=stream.str();size_t done=0;
+    while (done<line.size()) {
+        const ssize_t count=write(config.audit_fd,line.data()+done,line.size()-done);
+        if (count<0 && errno==EINTR) continue;
+        if (count<=0) throw std::runtime_error("row-local: audit write failed");
+        done+=size_t(count);
+    }
+}
+}

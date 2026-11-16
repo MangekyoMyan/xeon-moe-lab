@@ -1,0 +1,546 @@
+{
+  "scope": "Synthetic parser/aggregation inputs only; no engine benchmark.",
+  "repo_commit": "4ff68eba2d8c480692511dc6d219d27a6a102866",
+  "fixture_root": "/workspace/scratch/1f624f9ac929/audit/peripheral/measurement/synthetic-fixtures-k_sm3w38",
+  "source_files": {
+    "decode_analyzer": {
+      "path": "/workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/decode-observation-20261103/analyze_trace.py",
+      "sha256": "9b1d5485c3b0bbdc537d1a0a92bb50ab16b075d03a306c53bb4991fef4c9458d"
+    },
+    "postcompact_analyzer": {
+      "path": "/workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/postcompact-20261103/analyze_trace.py",
+      "sha256": "9b1d5485c3b0bbdc537d1a0a92bb50ab16b075d03a306c53bb4991fef4c9458d"
+    },
+    "prefill_summary": {
+      "path": "/workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/summarize.py",
+      "sha256": "d82801a05c56ff08cd6f7bf94057f1c1a893bd41cd952b2ddd5300863270696a"
+    },
+    "operator_probe": {
+      "path": "/workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/operator_probe.cpp",
+      "sha256": "7495c5818feef42ea99d30b6b3fda1718a09ad5bdeb17c6dc1de20626c7fa8ad"
+    },
+    "prefill_live_analyzer": {
+      "path": "/workspace/scratch/1f624f9ac929/xeon-moe-lab/archive/development-history-not-for-readers/lab/gpu-prefill-study-20261104/analyze_live.py",
+      "sha256": "c2e2336dbf528a6474a206c1c5772e6ccf5dc3ec23a576ea30513b0fd2b93144"
+    }
+  },
+  "trace_parser": {
+    "baseline": {
+      "accepted": true,
+      "steps": 2,
+      "CPU_wall_percent": 40.0,
+      "other_wall_percent": 60.0,
+      "unmatched_inside_ROI": 0,
+      "event_counts": {
+        "decode": 2,
+        "cpu": 2,
+        "cpu_ret": 2,
+        "decode_ret": 2
+      }
+    },
+    "all_cpu_returns_missing": {
+      "accepted": true,
+      "steps": 2,
+      "CPU_wall_percent": 0.0,
+      "other_wall_percent": 100.0,
+      "unmatched_inside_ROI": 0,
+      "event_counts": {
+        "decode": 2,
+        "cpu": 2,
+        "decode_ret": 2
+      }
+    },
+    "one_cpu_return_missing_control": {
+      "accepted": false,
+      "error": "RuntimeError: Unmatched event inside complete decode window"
+    }
+  },
+  "postcompact_trace_parser": {
+    "baseline": {
+      "accepted": true,
+      "steps": 2,
+      "CPU_wall_percent": 40.0,
+      "other_wall_percent": 60.0,
+      "unmatched_inside_ROI": 0,
+      "event_counts": {
+        "decode": 2,
+        "cpu": 2,
+        "cpu_ret": 2,
+        "decode_ret": 2
+      }
+    },
+    "all_cpu_returns_missing": {
+      "accepted": true,
+      "steps": 2,
+      "CPU_wall_percent": 0.0,
+      "other_wall_percent": 100.0,
+      "unmatched_inside_ROI": 0,
+      "event_counts": {
+        "decode": 2,
+        "cpu": 2,
+        "decode_ret": 2
+      }
+    },
+    "one_cpu_return_missing_control": {
+      "accepted": false,
+      "error": "RuntimeError: Unmatched event inside complete decode window"
+    }
+  },
+  "prefill_summary": {
+    "empty_suite": {
+      "returncode": 0,
+      "stdout": "{\n  \"timing_cases\": 0,\n  \"pmu_cases\": 0,\n  \"activity_cases\": 0,\n  \"all_numeric_checks_passed\": true,\n  \"activity_dropped\": 0\n}\n",
+      "stderr": "",
+      "attempted_cases": 0,
+      "failed_receipts": 0,
+      "timing_cases": 0,
+      "all_numeric_checks_passed": true
+    },
+    "validation_failure_before_timing": {
+      "returncode": 0,
+      "stdout": "{\n  \"timing_cases\": 0,\n  \"pmu_cases\": 0,\n  \"activity_cases\": 0,\n  \"all_numeric_checks_passed\": true,\n  \"activity_dropped\": 0\n}\n",
+      "stderr": "",
+      "attempted_cases": 1,
+      "failed_receipts": 1,
+      "timing_cases": 0,
+      "all_numeric_checks_passed": true
+    },
+    "one_good_one_failed_before_timing": {
+      "returncode": 0,
+      "stdout": "{\n  \"timing_cases\": 1,\n  \"pmu_cases\": 0,\n  \"activity_cases\": 0,\n  \"all_numeric_checks_passed\": true,\n  \"activity_dropped\": 0\n}\n",
+      "stderr": "",
+      "attempted_cases": 2,
+      "failed_receipts": 1,
+      "timing_cases": 1,
+      "all_numeric_checks_passed": true
+    },
+    "failed_with_timing_control": {
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"/workspace/scratch/1f624f9ac929/audit/peripheral/measurement/synthetic-fixtures-k_sm3w38/summary/failed_with_timing_control/summarize.py\", line 29, in <module>\n    assert all(r['exit_code']==0 and not r['error'] and r['pass'] for r in rows)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "attempted_cases": 1,
+      "failed_receipts": 1
+    }
+  },
+  "median_convention": {
+    "stock_reported": 20,
+    "candidate_reported": 18,
+    "reported_ratio": 1.1111111111111112,
+    "copied_helper": "static double median(std::vector<double> x) { std::sort(x.begin(),x.end());return x[x.size()/2]; }",
+    "stock_synthetic_samples": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "candidate_synthetic_samples": [
+      18,
+      18,
+      18,
+      18,
+      18,
+      18,
+      18,
+      18,
+      18,
+      18
+    ],
+    "stock_standard_median": 17.0,
+    "candidate_standard_median": 18.0,
+    "standard_ratio": 0.9444444444444444,
+    "scope": "Artificial sample distribution; not a correction of any archived benchmark.",
+    "compiler": "/usr/bin/g++",
+    "compile_returncode": 0
+  },
+  "prefill_live_selection": {
+    "only_deep_run_default_command": {
+      "returncode": 0,
+      "stdout": "{\n  \"ubatches\": [\n    2048\n  ],\n  \"wall_ms\": 100.0,\n  \"exclusive_host_time\": {\n    \"other\": {\n      \"ms\": 20.0,\n      \"percent\": 20.0\n    },\n    \"cpu\": {\n      \"ms\": 80.0,\n      \"percent\": 80.0\n    }\n  },\n  \"runtime_memcpy\": {},\n  \"mmid_calls\": 0,\n  \"mmid_inclusive_ms\": 0,\n  \"mmid_sort_gap_ms\": 0,\n  \"mmid_first_sync_ms\": 0,\n  \"mmid_all_sync_ms\": 0,\n  \"mmid_sort_gaps_found\": 0,\n  \"scope\": \"Host spans; synchronization includes GPU/DMA completion. Not GPU hardware kernel/DRAM counters. Routing gap includes host overhead between observed boundaries.\",\n  \"cuda_memcpy_API_service_by_direction\": {}\n}\n",
+      "stderr": "",
+      "directory_iteration_order": [
+        "100-trace-deep-n2048"
+      ],
+      "wall_ms": 100.0,
+      "cpu_ms": 80.0,
+      "summary_keys": [
+        "ubatches",
+        "wall_ms",
+        "exclusive_host_time",
+        "runtime_memcpy",
+        "mmid_calls",
+        "mmid_inclusive_ms",
+        "mmid_sort_gap_ms",
+        "mmid_first_sync_ms",
+        "mmid_all_sync_ms",
+        "mmid_sort_gaps_found",
+        "telemetry",
+        "scope",
+        "cuda_memcpy_API_service_by_direction"
+      ]
+    },
+    "normal_then_deep": {
+      "returncode": 0,
+      "stdout": "{\n  \"ubatches\": [\n    2048\n  ],\n  \"wall_ms\": 100.0,\n  \"exclusive_host_time\": {\n    \"other\": {\n      \"ms\": 60.0,\n      \"percent\": 60.0\n    },\n    \"cpu\": {\n      \"ms\": 40.0,\n      \"percent\": 40.0\n    }\n  },\n  \"runtime_memcpy\": {},\n  \"mmid_calls\": 0,\n  \"mmid_inclusive_ms\": 0,\n  \"mmid_sort_gap_ms\": 0,\n  \"mmid_first_sync_ms\": 0,\n  \"mmid_all_sync_ms\": 0,\n  \"mmid_sort_gaps_found\": 0,\n  \"scope\": \"Host spans; synchronization includes GPU/DMA completion. Not GPU hardware kernel/DRAM counters. Routing gap includes host overhead between observed boundaries.\",\n  \"cuda_memcpy_API_service_by_direction\": {}\n}\n",
+      "stderr": "",
+      "directory_iteration_order": [
+        "100-trace-n2048",
+        "200-trace-deep-n2048"
+      ],
+      "wall_ms": 100.0,
+      "cpu_ms": 40.0,
+      "summary_keys": [
+        "ubatches",
+        "wall_ms",
+        "exclusive_host_time",
+        "runtime_memcpy",
+        "mmid_calls",
+        "mmid_inclusive_ms",
+        "mmid_sort_gap_ms",
+        "mmid_first_sync_ms",
+        "mmid_all_sync_ms",
+        "mmid_sort_gaps_found",
+        "telemetry",
+        "scope",
+        "cuda_memcpy_API_service_by_direction"
+      ]
+    },
+    "deep_then_normal": {
+      "returncode": 0,
+      "stdout": "{\n  \"ubatches\": [\n    2048\n  ],\n  \"wall_ms\": 100.0,\n  \"exclusive_host_time\": {\n    \"other\": {\n      \"ms\": 60.0,\n      \"percent\": 60.0\n    },\n    \"cpu\": {\n      \"ms\": 40.0,\n      \"percent\": 40.0\n    }\n  },\n  \"runtime_memcpy\": {},\n  \"mmid_calls\": 0,\n  \"mmid_inclusive_ms\": 0,\n  \"mmid_sort_gap_ms\": 0,\n  \"mmid_first_sync_ms\": 0,\n  \"mmid_all_sync_ms\": 0,\n  \"mmid_sort_gaps_found\": 0,\n  \"scope\": \"Host spans; synchronization includes GPU/DMA completion. Not GPU hardware kernel/DRAM counters. Routing gap includes host overhead between observed boundaries.\",\n  \"cuda_memcpy_API_service_by_direction\": {}\n}\n",
+      "stderr": "",
+      "directory_iteration_order": [
+        "100-trace-n2048",
+        "200-trace-deep-n2048"
+      ],
+      "wall_ms": 100.0,
+      "cpu_ms": 40.0,
+      "summary_keys": [
+        "ubatches",
+        "wall_ms",
+        "exclusive_host_time",
+        "runtime_memcpy",
+        "mmid_calls",
+        "mmid_inclusive_ms",
+        "mmid_sort_gap_ms",
+        "mmid_first_sync_ms",
+        "mmid_all_sync_ms",
+        "mmid_sort_gaps_found",
+        "telemetry",
+        "scope",
+        "cuda_memcpy_API_service_by_direction"
+      ]
+    }
+  },
+  "archived_inventory": {
+    "operator_receipts": 49,
+    "failed_receipts": [],
+    "stdout_files_available": 0,
+    "summary_timing_cases": 40,
+    "samples_each_values": [
+      10
+    ],
+    "live_raw_directory_available": false,
+    "receipts": [
+      {
+        "folder": "1793769250740621354-IQ3_XXS-up-T256-E96-uniform-timing-0",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769300863614808-IQ3_XXS-up-T256-E96-uniform-pmu-0",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769419364066431-IQ3_XXS-up-T256-E96-uniform-pmu-1",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769483137510943-IQ3_XXS-up-T256-E96-uniform-trace-0",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769515948376327-IQ3_XXS-up-T256-E96-uniform-trace-1",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769742341046974-IQ3_XXS-up-T256-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769910214456171-IQ2_S-up-T256-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769911778139908-IQ2_S-down-T256-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769914880805038-IQ3_XXS-up-T256-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769916341925836-IQ3_XXS-down-T256-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769919408870510-IQ3_S-up-T256-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769920921746326-IQ3_S-down-T256-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769923988858342-MXFP4-up-T256-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793769925572982290-MXFP4-down-T256-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770028633989849-IQ3_XXS-up-T256-E96-uniform-pmu-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770107356099358-IQ3_XXS-up-T256-E96-uniform-pmu-0",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770198034883116-IQ3_XXS-up-T128-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770199453656759-IQ3_XXS-up-T512-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770201219588462-IQ3_XXS-up-T1024-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770204921600440-IQ3_XXS-up-T256-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770206272831615-IQ3_XXS-up-T1024-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770208579833068-IQ3_XXS-up-T32-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770209846400789-IQ3_XXS-up-T1-E6-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770210445769723-IQ3_XXS-down-T128-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770213357284989-IQ3_XXS-down-T512-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770216713221909-IQ3_XXS-down-T1024-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770220734983304-IQ3_XXS-down-T256-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770222487916620-IQ3_XXS-down-T1024-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770225043760846-IQ3_XXS-down-T32-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770226348589367-IQ3_XXS-down-T1-E6-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770226952096643-MXFP4-up-T128-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770228302935378-MXFP4-up-T512-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770230053769915-MXFP4-up-T1024-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770233261339099-MXFP4-up-T256-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770234614008893-MXFP4-up-T1024-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770236816051472-MXFP4-up-T32-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770238169727277-MXFP4-up-T1-E6-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770238769683240-MXFP4-down-T128-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770241178397609-MXFP4-down-T512-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770244035117537-MXFP4-down-T1024-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770247537567370-MXFP4-down-T256-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770249191470458-MXFP4-down-T1024-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770251697854447-MXFP4-down-T32-E96-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770253003420582-MXFP4-down-T1-E6-uniform-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770410386806845-IQ3_XXS-down-T256-E96-uniform-pmu-0",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770412101546025-IQ3_XXS-down-T256-E96-uniform-pmu-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770413355349897-IQ3_XXS-up-T256-E96-uniform-trace-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770414205453253-MXFP4-down-T1024-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      },
+      {
+        "folder": "1793770416674653132-MXFP4-up-T256-E96-skew-timing-2",
+        "exit_code": 0,
+        "error": null,
+        "stdout_exists": false
+      }
+    ]
+  }
+}

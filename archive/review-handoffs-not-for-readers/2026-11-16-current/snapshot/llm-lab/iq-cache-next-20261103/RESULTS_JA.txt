@@ -1,0 +1,188 @@
+追記: ユーザー起動後にmulti96の反映を確認。40テンソル・94.922GiB、残り40個は従来経路。新CPU/モデルライブラリ稼働、監視異常なし。ユーザーから生成速度改善とDRAM帯域約26GB/sの報告あり。今回こちらで追加の性能試験はしていないため、全モデルの正確な改善率は未確定。詳細はACTIVATION_CHECK.json。以下は準備・検証時点の記録。
+
+生成処理の再計測と、複数IQ形式のCPU事前展開 / 2026-11-03
+
+結論
+現在のcompact64は実際に有効で、同じ合成入力の過去測定との比較では生成が約9%改善した。
+CPU側expert処理が引き続き主な時間を占めるため、IQ2_S・IQ3_Sへ同じ考え方を拡張した。
+再量子化せず、元の重みを保持したままCPU用の追加配置を作る。
+実重みを使ったMoEグラフでも効果が残り、出力一致とGPU併用、寿命管理の検証を通過。
+
+新候補multi96を準備済み。実モデルの再起動・新設定の反映は未実施。
+稼働APIは従来のcompact64、PID45525のまま。元GGUF・既存エンジンは変更していない。
+長い起動はユーザー実行の方針に従い、反映・復帰コマンドを用意した。
+
+1. 現在の生成速度とボトルネック
+
+短い同一の合成入力26token、96token生成、temperature0、seed42、cache_prompt=false。
+稼働APIを再起動せず、baseline / trace+CPU sampling / baselineの順で測定した。
+ユーザー会話本文やAPIキーは記録していない。通常の長文品質試験ではない。
+
+  現在compact64: 169.719 / 172.067ms/token、約5.89 / 5.81tok/s。
+  中央値170.893ms/token。
+  同じ入力の以前の中央値186.242ms/token。比率は1.0898倍。
+
+異なる時刻の測定との比較であり、再起動を挟んだ交互A/Bではない。
+現在の3試行の出力hashは一致し、以前の同じ入力のhashとも一致した。
+計測付き試行は無計測中央値より約3.53%遅い。
+
+計測付き生成のホスト側時間:
+  CPU graph         142.16ms/token、80.62%
+  tensorコピー        4.75ms/token、 2.69%
+  コピー外CUDA同期   22.31ms/token、12.65%
+  その他              7.10ms/token
+
+CPU graphは内積、量子化の展開、CPUメモリ待ち、worker同期を含む。
+CUDA同期時間はGPU処理完了待ちも含み、全て無駄とは言えない。
+コピー時間はホストから見たサービス時間で、GPUの純粋なDMA時間ではない。
+
+全workerの実行中CPUサンプル:
+  未展開IQ3_XXS      24.84%
+  OpenMP runtime     23.48%
+  MXFP4内積          16.24%
+  IQ2_S内積          11.65%
+  展開済みIQ3_XXS    11.10%
+  IQ3_S内積           9.09%
+  その他              3.60%
+
+これはtokenの経過時間比ではない。
+OpenMPサンプルの70.52%はCPU graph外で、GPU等を待つ間のspinが多い。
+OpenMPの23.48%をそのまま回収可能な速度改善と扱わない。
+
+記録: ../postcompact-20261103/POST_PROFILE.json と runs/。
+計測用uprobeは終了時削除済み。監視異常・センサーエラーなし。
+合成リクエストにより単一slotの会話KVは置き換わっている。
+Open WebUIの保存済み会話データは変更していない。
+
+2. 今回比較した候補
+
+A) 追加RAMなし:
+  IQ3_Sの格子indexを直接ビット抽出し、符号展開のlookupと整数加算方法も変更。
+  IQ2_Sにも同様の符号展開・整数加算変更を比較。
+  bit一致したが速度は改善しなかった。採用しない。
+
+B) 追加RAMへ事前展開:
+  IQ2_S: 係数は符号込みで6種類。128byteのnibble列、FP32 d、packed scales。
+  IQ3_S: 係数は符号込みで16種類。同じ144byte/256要素の内部サイズ。
+  IQ3_XXSも従来の144byte配置を継続。
+
+  IQ2_Sは16要素ごと、IQ3_Sは32要素ごとにscaleが異なる。
+  IQ2_Sの最終0.125倍、IQ3_Sの最終1倍、IQ3_XXSの最終0.25倍を区別する。
+  符号処理、整数lane分配、FP16 scaleの値、FP32の加算順序を維持する。
+  任意の4bit形式へ再量子化する方式ではなく、この元形式を損失なく組み替える方式。
+
+元の圧縮重みはGPU転送用に残すため、RAM増加量は差分ではなく追加配置の全サイズ。
+CPUの単一token MUL_MAT_IDだけが追加配置を参照する。
+複数token prefillとGPU転送は元の圧縮形式を使う。
+新しいGPU kernel、動的expert LRU、MTP、KV形式変更は加えていない。
+
+3. 実重みのMoEグラフ比較
+
+DeepSeek実GGUFから48 expert分の重みを読み、top6を9組の測定で循環選択。
+入力activation/routingは合成、CPU12物理コア固定、NUMA interleave、poll0。
+入力のQ8_K化、routing、worker同期を含める。キャッシュ準備は計測外。
+IQ2_S/IQ3_Sは各方向3プロセス・各9組ABBA。IQ3_XXSは既存機能の回帰確認1プロセス。
+
+形式/方向        元のms   追加配置ms   各run速度比の中央値
+IQ2_S up          1.745     1.003       1.761倍
+IQ2_S down        1.712     1.152       1.478倍
+IQ3_S up          2.260     0.956       2.364倍
+IQ3_S down        2.067     1.104       1.901倍
+IQ3_XXS up        1.595     0.902       1.769倍
+IQ3_XXS down      1.551     1.102       1.408倍
+
+時間と速度比はそれぞれ独立に中央値集計。
+単体の全48 expert内積ではIQ3_Sが約2.6倍だったが、グラフの値と区別する。
+これらはモデル全体のtok/s倍率ではない。
+今のcompact64で既に高速化した処理も含むため、全てが今回の追加利益になるわけでもない。
+元のデコード実装に対する効果と、新候補のモデル全体効果を混同しない。
+詳細はREAL_GRAPH.json、VALIDATION.json。
+
+4. RAMへの配置順序
+
+元のcompact64はIQ3_XXSを層順に26テンソル入れていた。
+今回の実測ではIQ3_Sの削減時間が大きく、次にup/gateの効率が良かった。
+そのため以下の粗い優先順位を使う:
+  1) IQ3_S
+  2) IQ2_SとIQ3_XXSのup/gate（近い結果のため同順位、層順で決める）
+  3) IQ2_S down
+  4) IQ3_XXS down
+
+実装はcache-policy.hをローダーと選択一覧生成で共有し、条件の食い違いを避ける。
+このDeepSeek/Xeon構成の実測に基づく順序であり、全モデルに共通する最適解とは主張しない。
+実際のexpert使用頻度で動的に入れ替える仕組みではない。
+
+構成           IQ3_S  IQ2_S  IQ3_XXS   合計  追加RAM
+現在compact64     0      0      26       26   61.699GiB
+候補multi64       8     12       6       26   61.699GiB
+候補multi96       8     12      20       40   94.922GiB
+
+multi96では現状から約33.223GiB増える。
+対象のCPU側IQテンソルは80個で、残る40個は従来処理。
+最後の確認でMemAvailableは約125.2GiB。現在の追加領域を解放して新規配置に置き換えるため、
+他の利用量が同じなら反映後のMemAvailableは約92GiBとなる計算。
+これは見積もりで、全量起動時の実測ではない。
+
+1プロセス全体の追加配置上限は96GiB。
+各テンソル確保前にMemAvailableを読み、確保後も64GiBを残せるか確認。
+これは他プロセスとの競合やページ常駐状態の変化に対する絶対保証ではなく、確保時点の保守的な判定。
+確保や予約条件に失敗したら、確保済みだけを使用し、残りは元CPU経路へ戻して理由を記録する。
+各モデルの追加領域はmodel destruction時に解放。元mmapより先に登録解除する。
+推論中の同一モデル破棄は、元エンジン同様にサポートしない。
+
+5. 検証
+
+・IQ2_S/IQ3_Sの全grid値がnibble表現に入ることを確認。
+・計5,120個のランダム内積で元カーネルとbit一致。
+  K=256/512/768/2304/5120、有限FP16 scaleの正負・subnormal、Q8=-128を含む。
+・3形式のCPU graph 768条件、672,768出力がbit一致。
+  1/12thread、1/3token、K=256/512/2304/5120、行数17/129。
+  F32入力、Q8_K入力、非連続stride、共有/個別activation、重複expert、-1 IDを含む。
+・同じ768条件を変更CPUコードのASan/UBSanビルドで通過。リーク検査通過。
+・上限不足、空きRAM予約不足、重複登録、別ownerの解放、同じアドレスでの再読み込みを検証。
+・モデルに3形式を混在させた小型GGUFで、GPU512token prefillとCPU decodeを連続実行。
+  cacheなし1回/あり3回のlogitsがbit一致。解放後cache使用量0。
+・RAM枠に1テンソルだけ入る小型モデルでも、優先IQ3_Sだけをキャッシュし残り2個をfallback。
+  この混在でもGPU転送、decode出力一致、終了時解放が成功。
+・本番同様のbackend自動検出後、新CPUライブラリが選ばれることを確認。
+・元のllama-server --list-devicesを新overlayで実行しPG500-216を認識。
+・read-onlyのサブエージェントによる形式/符号/scale/lane・寿命・境界のレビューも実施。
+  具体的な新規不具合は検出されず、RAM予約の限定性と寿命契約は上記へ明記。
+
+6. 反映コマンド（ユーザー実行）
+
+推奨multi96:
+  sudo python3 /home/codex/projects/llm-lab/iq-cache-next-20261103/switch_profile.py multi96 --apply
+
+現在と同じRAM枠で配置効率だけを比較するmulti64:
+  sudo python3 /home/codex/projects/llm-lab/iq-cache-next-20261103/switch_profile.py multi64 --apply
+
+今回開始時点のcompact64へ戻す:
+  sudo python3 /home/codex/projects/llm-lab/iq-cache-next-20261103/switch_profile.py previous --apply
+
+各コマンドはAPIを停止し、設定を切り替え、モデル起動を要求する。
+--applyなしは確認だけ。元の設定の完全なスナップショットを保持。
+本番設定・ライブラリ・検証記録のハッシュ不一致時は適用を中止する。
+即時起動失敗かつAPI非稼働時だけ、設定を直前へ戻す。
+非同期のモデル読込失敗はログで確認し、自動再起動は行わない。
+監視によるSTOP_REQUESTEDがあれば自動解除しない。
+
+表示:
+  sudo python3 /home/codex/projects/llm-lab/xeon_dashboard.py
+
+キャッシュ完了のログはこのエンジンではserver.stderr.logへ保存される:
+  tail -f /home/codex/projects/llm-lab/deepseek41-bringup-20261101/server.stderr.log
+
+multi96正常時の予定:
+  IQ cache: complete 40 tensors, 94.922 GiB additional RAM, 40 fallback; decode only
+
+128k/f16 KV、GPU expert3層、batch1024、転送しきい値、GPU150W/ECC、ファン方針は維持する。
+
+7. 再開時に読むもの
+
+このRESULTS_JA.txt、STATE.json、VALIDATION.json、SELECTION.json、PROFILES.json。
+新コードはiq3-cache.cpp/.h、iq-small-kernels.inc、cache-policy.h、model-cache-body.inc。
+BUILD.jsonに対象ソースとライブラリのハッシュ。CPUの測定時と最終ビルドのハッシュ一致を確認済み。
+prepare_source.pyは初回生成のみで、既にBUILD.jsonが存在する場合は上書きを拒否する。
+build.pyは別runtimeへatomic renameで出力し、現在の稼働overlayを上書きしない。
+長い起動はユーザー実行。全量起動後の新候補のtok/s、実メモリ量は次回確認する。

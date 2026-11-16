@@ -1,0 +1,37 @@
+外部レビューと現行コードの照合 / 親エージェント / 2026-11-16
+
+ユーザー方針: Terraは測定ログ・レビュー結果整理と箇所案内。以下の採否判断は親がコードを実読して行った。今回修正・再現probe実行・サービス変更はしていない。
+
+添付はcommit4ff68eba2d8c480692511dc6d219d27a6a102866を対象としている。手元の公開用checkout HEADは5e77a90で、前者のgit objectは手元にない。祖先関係は未確定。
+ただし添付SOURCE_PROVENANCE.jsonの25ソースは現在の公開用checkoutとSHA一致。うちarchive14件は実使用側llm-labとも一致。この範囲ではコード上の指摘を照合できる。細部のファイル別案内はTRIAGE_TERRA.txt。
+
+現在の実サービスにも残る指摘
+  OPS-01: supervise.pyのwhile内でfan_duty_sampleを同期呼出。watch.pyは5回のipmi、hardware_run.pyは1回あたりtimeout40秒。停止フラグをfan照会の間に調べない経路を親が確認。実機で197秒の監視空白が起きたと確認した意味ではない。
+  OPS-02: check_bmcはnaをcontinueし、必須sensor集合・finite・statusを検証していない。空出力、NaN等の扱いに抜けがある。GPU retry側の独立検査と区別する。
+  OPS-03: monitorのsample_bmcはbad_sensor_statusを作るがDetector.updateが判定へ使っていない。GPU counter Noneはall_countersから除外され、温度欠測と異なりfailureへ追加されない。GPU supervisorの別guardまで欠測を見逃すという意味ではない。
+  これらは次の運用改善候補。温度・電力・ECC・fan方針を変えて解決する問題ではない。
+
+旧測定コードに残る指摘
+  M01: summarize.pyはTIMING出力のあるrowだけ合否assert対象。operatorは数値不合格ならTIMING前にthrowする。空集合all()が真になる経路もある。親実読でコード上の問題を確認。
+  M02: analyze_trace.pyのpaired集合を観測retから作るため、全return欠落時のentryがstackへ入らない。postcompact同一hash、analyze_liveにも同種構造あり。親実読で確認。
+  M03: operator_probe.cppはsort後x[size/2]のupper median。10点の定義として不正ではないが、raw標本を出力しておらず別規約への再集計が難しい。親実読で確認。
+  M04: analyze_live.pyの'-trace-'は'-trace-deep-'も包含し、next()で候補を一つ選ぶ。run identity/出典hashの明示が必要。親実読で確認。
+  上記が過去の実測で発現した証拠は今回取得していない。
+
+公開再構築helperに残る指摘
+  F1: prepare_source.py --verifyはoverlay集合とroot CMake+glueを確認し、非overlay全体の集合照合をしない。親実読で確認。
+  F2: build_plan.pyはLLAMA_BUILD_UI=OFFだけを指定。vendor CMakeのLLAMA_USE_PREBUILT_UI default ONとUI targetへの引き渡しを親が確認。今回実際に通信したとはいわない。
+  F3: build_plan.pyはwork/build固定、再利用cacheの全実効option照合なし。親実読で確認。11/12の個別object再linkは別経路。
+  F4: verify_runtime.pyはmanifest掲載fileのループで、空inventoryや未列挙file集合を拒否しない。親実読で確認。今回のruntime collectorは別の限定範囲を実観測したもの。
+
+11月12日の結果への適用範囲
+compare_final_api.py、fresh_probe.py、analyze_heldout.pyを親が確認。最終比較はrun labelを指定し、各runのcomplete/errorを検証、2+2回・ABBA順・全128token・共通入力hash・構成hash・出力hashを確認する別経路。
+したがってM01の「TIMINGなしの失敗を除外」を理由に最終+12.96%を否定できない。逆に新経路の完全な監査を終えたわけでもない。assertへの依存や期待入力集合の明示など、次の検証基盤の改善余地は残る。
+今回のsnapshotには生の保存結果を含める。自由生成の全文がhashしか残っていない試験については、その限界も維持する。
+
+次の順序
+まずこのsnapshotをレビュー対象として固定し、新状態を共有する。その版に対する提案を評価してから修正する。集計の失敗/欠測判定と監視待機の修正は、モデルを起動しない人工fixtureで検証可能。算術・expert配置の性能評価とは分けて進める。
+
+今回実行した添付コード
+親が全文静的確認し、記録採取だけを行うcollect_runtime_snapshot.pyを既存API PID11151に対し1回実行した。scope内のidentity/metadata/hash照合は合格。添付のbuild/measurement/operations再現scriptは実行していない。
+collectorはbacking fileを確認するが、relocation後メモリや全system/CUDA DSO、元ソースの完全対応を保証しない。source/build対応は別紙へ記録。

@@ -1,0 +1,39 @@
+{
+  "command": [
+    "perf",
+    "record",
+    "-q",
+    "-p",
+    "22723",
+    "-D",
+    "-1",
+    "--control",
+    "fd:20,23",
+    "--clockid",
+    "mono",
+    "-m",
+    "1024",
+    "-o",
+    "/home/codex/projects/llm-lab/optimization-20261112/runs/20261112-052531-gpu-swap16-layer-trace-code-trace-c128-n96/perf.data",
+    "-e",
+    "xo22723_28731:decode,xo22723_28731:decode_ret,xo22723_28731:cpu,xo22723_28731:cpu_ret"
+  ],
+  "controls": [
+    {
+      "command": "disable",
+      "sent": 8074.7393435,
+      "ack": 8075.405689721
+    },
+    {
+      "command": "enable",
+      "sent": 8087.686232558,
+      "ack": 8087.712756315
+    },
+    {
+      "command": "disable",
+      "sent": 8102.685051452,
+      "ack": 8102.702505461
+    }
+  ],
+  "exit": -2
+}

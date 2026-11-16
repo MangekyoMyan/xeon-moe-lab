@@ -1,0 +1,506 @@
+{
+  "operation": "Read and reformat six existing fixture logs; no new measurements",
+  "reference": "Dequantize existing GGUF weights to F32, accumulate dot products in FP64, round projection outputs to F32; SwiGLU is F32. No activation Q8 quantization in reference. Not an original unquantized model reference.",
+  "nmse_definition": "sum((result-reference)^2) / sum(reference^2); not an answer error rate or percent accuracy",
+  "scope": "Two layers, three synthetic input seeds, six fixed real experts per layer, input amplitude 0.1. H=6 means all six experts computed by GPU. Does not establish whole-model quality or isolate one arithmetic operation.",
+  "source_files": {
+    "/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/CAPACITY.json": "89cf30f32392e13e43b81a9b5e8ff55a2f696e59f9891dc99537b1ef0d385fd6",
+    "/home/codex/projects/llm-lab/exploration-20261112/hot_ffn_probe.cpp": "c003f6ce8ee408d8fa4a0015804e94ec4fac257da524a628d4546d5e96304b1c",
+    "/home/codex/projects/llm-lab/exploration-20261112/run_hot_ffn.py": "4ec1dfab92c0763a8b6815b5ed9248447feff6c254723c338abad2b3328c76ef",
+    "/home/codex/projects/llm-lab/exploration-20261112/hot-ffn/BUILD.json": "3552628b347f014e4a1bc7b7583587c3b9e20e3bc74f32de8a23ffec72a2b307"
+  },
+  "rows": [
+    {
+      "source": "/home/codex/projects/llm-lab/exploration-20261112/execution/hot-ffn-L24-s19/stdout.log",
+      "source_sha256": "b16ffc106bae55315187356ff7a08bd14a836984a49db1ef3bb3acddc71f5bdd",
+      "layer": 24,
+      "seed": 19,
+      "gate_up_down_weight_types": [
+        "MXFP4",
+        "MXFP4",
+        "MXFP4"
+      ],
+      "input_amplitude": 0.1,
+      "routes": [
+        370,
+        151,
+        3,
+        92,
+        244,
+        41
+      ],
+      "cpu_gate_up_activation_down_errors": [
+        {
+          "nmse": 1.46093850281e-05,
+          "rmse": 0.00034383262567,
+          "max_abs": 0.00147561728954,
+          "n": 13824
+        },
+        {
+          "nmse": 1.41730687605e-05,
+          "rmse": 0.000352515240271,
+          "max_abs": 0.0015957839787,
+          "n": 13824
+        },
+        {
+          "nmse": 2.86396255537e-05,
+          "rmse": 2.32537197034e-05,
+          "max_abs": 0.000215016305447,
+          "n": 13824
+        },
+        {
+          "nmse": 8.19895003796e-05,
+          "rmse": 4.46221228022e-05,
+          "max_abs": 0.000197813264094,
+          "n": 30720
+        }
+      ],
+      "gpu_activation_down_errors": [
+        {
+          "nmse": 2.86396198649e-05,
+          "rmse": 2.32537173939e-05,
+          "max_abs": 0.000215016305447,
+          "n": 13824
+        },
+        {
+          "nmse": 8.19894932831e-05,
+          "rmse": 4.46221208711e-05,
+          "max_abs": 0.000197813264094,
+          "n": 30720
+        }
+      ],
+      "cpu_down_error_vs_reference": {
+        "nmse": 8.19895003796e-05,
+        "rmse": 4.46221228022e-05,
+        "max_abs": 0.000197813264094,
+        "n": 30720
+      },
+      "gpu_down_error_vs_reference": {
+        "nmse": 8.19894932831e-05,
+        "rmse": 4.46221208711e-05,
+        "max_abs": 0.000197813264094,
+        "n": 30720
+      },
+      "gpu_down_error_vs_cpu": {
+        "nmse": 4.11963468255e-15,
+        "rmse": 3.16285244238e-10,
+        "max_abs": 3.72529029846e-09,
+        "n": 30720
+      },
+      "gpu_down_reference_nmse_divided_by_cpu": 0.9999999134462344,
+      "gpu_vs_cpu_relative_L2": 6.418438036274869e-08,
+      "serial_concurrent_byte_identical": true,
+      "gpu_scatter_byte_identical": true
+    },
+    {
+      "source": "/home/codex/projects/llm-lab/exploration-20261112/execution/hot-ffn-L24-s37/stdout.log",
+      "source_sha256": "f6328ba17aec66a1c06cda60234abdc1d1f55067c2ce245d9d5f80ea5b809786",
+      "layer": 24,
+      "seed": 37,
+      "gate_up_down_weight_types": [
+        "MXFP4",
+        "MXFP4",
+        "MXFP4"
+      ],
+      "input_amplitude": 0.1,
+      "routes": [
+        3,
+        92,
+        41,
+        370,
+        151,
+        244
+      ],
+      "cpu_gate_up_activation_down_errors": [
+        {
+          "nmse": 1.43967027993e-05,
+          "rmse": 0.000346050545153,
+          "max_abs": 0.00144573673606,
+          "n": 13824
+        },
+        {
+          "nmse": 1.42861349674e-05,
+          "rmse": 0.000352821195855,
+          "max_abs": 0.00147265195847,
+          "n": 13824
+        },
+        {
+          "nmse": 2.89159058349e-05,
+          "rmse": 2.34658352103e-05,
+          "max_abs": 0.000161158852279,
+          "n": 13824
+        },
+        {
+          "nmse": 8.25807944574e-05,
+          "rmse": 4.44737280114e-05,
+          "max_abs": 0.000201504444703,
+          "n": 30720
+        }
+      ],
+      "gpu_activation_down_errors": [
+        {
+          "nmse": 2.89159038295e-05,
+          "rmse": 2.34658343965e-05,
+          "max_abs": 0.000161158852279,
+          "n": 13824
+        },
+        {
+          "nmse": 8.25807948645e-05,
+          "rmse": 4.4473728121e-05,
+          "max_abs": 0.000201504444703,
+          "n": 30720
+        }
+      ],
+      "cpu_down_error_vs_reference": {
+        "nmse": 8.25807944574e-05,
+        "rmse": 4.44737280114e-05,
+        "max_abs": 0.000201504444703,
+        "n": 30720
+      },
+      "gpu_down_error_vs_reference": {
+        "nmse": 8.25807948645e-05,
+        "rmse": 4.4473728121e-05,
+        "max_abs": 0.000201504444703,
+        "n": 30720
+      },
+      "gpu_down_error_vs_cpu": {
+        "nmse": 4.10786662891e-15,
+        "rmse": 3.1374763909e-10,
+        "max_abs": 2.79396772385e-09,
+        "n": 30720
+      },
+      "gpu_down_reference_nmse_divided_by_cpu": 1.0000000049297177,
+      "gpu_vs_cpu_relative_L2": 6.409264098872819e-08,
+      "serial_concurrent_byte_identical": true,
+      "gpu_scatter_byte_identical": true
+    },
+    {
+      "source": "/home/codex/projects/llm-lab/exploration-20261112/execution/hot-ffn-L24-s83/stdout.log",
+      "source_sha256": "dc2527ddbcc5798c15b60afa40f561c767ac23c26e3bdafe1392fe2f0ba061bc",
+      "layer": 24,
+      "seed": 83,
+      "gate_up_down_weight_types": [
+        "MXFP4",
+        "MXFP4",
+        "MXFP4"
+      ],
+      "input_amplitude": 0.1,
+      "routes": [
+        151,
+        41,
+        3,
+        370,
+        244,
+        92
+      ],
+      "cpu_gate_up_activation_down_errors": [
+        {
+          "nmse": 1.39805092234e-05,
+          "rmse": 0.000343097801788,
+          "max_abs": 0.00151780992746,
+          "n": 13824
+        },
+        {
+          "nmse": 1.40297786019e-05,
+          "rmse": 0.00035413108919,
+          "max_abs": 0.00160825997591,
+          "n": 13824
+        },
+        {
+          "nmse": 2.71644099833e-05,
+          "rmse": 2.35552118659e-05,
+          "max_abs": 0.000198583118618,
+          "n": 13824
+        },
+        {
+          "nmse": 8.14443596505e-05,
+          "rmse": 4.62805552799e-05,
+          "max_abs": 0.00021056458354,
+          "n": 30720
+        }
+      ],
+      "gpu_activation_down_errors": [
+        {
+          "nmse": 2.71643842821e-05,
+          "rmse": 2.35552007227e-05,
+          "max_abs": 0.00019858032465,
+          "n": 13824
+        },
+        {
+          "nmse": 8.14443773241e-05,
+          "rmse": 4.62805603014e-05,
+          "max_abs": 0.00021056458354,
+          "n": 30720
+        }
+      ],
+      "cpu_down_error_vs_reference": {
+        "nmse": 8.14443596505e-05,
+        "rmse": 4.62805552799e-05,
+        "max_abs": 0.00021056458354,
+        "n": 30720
+      },
+      "gpu_down_error_vs_reference": {
+        "nmse": 8.14443773241e-05,
+        "rmse": 4.62805603014e-05,
+        "max_abs": 0.00021056458354,
+        "n": 30720
+      },
+      "gpu_down_error_vs_cpu": {
+        "nmse": 4.41528634072e-15,
+        "rmse": 3.40842569021e-10,
+        "max_abs": 2.09547579288e-09,
+        "n": 30720
+      },
+      "gpu_down_reference_nmse_divided_by_cpu": 1.0000002170021358,
+      "gpu_vs_cpu_relative_L2": 6.644762103130556e-08,
+      "serial_concurrent_byte_identical": true,
+      "gpu_scatter_byte_identical": true
+    },
+    {
+      "source": "/home/codex/projects/llm-lab/exploration-20261112/execution/hot-ffn-L4-s19/stdout.log",
+      "source_sha256": "f2b222d4fed6d0ebf014deca8bbd298571a942ba1241601e804a5f267e903c45",
+      "layer": 4,
+      "seed": 19,
+      "gate_up_down_weight_types": [
+        "IQ3_XXS",
+        "IQ3_XXS",
+        "IQ2_S"
+      ],
+      "input_amplitude": 0.1,
+      "routes": [
+        370,
+        151,
+        3,
+        92,
+        244,
+        41
+      ],
+      "cpu_gate_up_activation_down_errors": [
+        {
+          "nmse": 1.62649172564e-05,
+          "rmse": 0.000380553955974,
+          "max_abs": 0.00161748426035,
+          "n": 13824
+        },
+        {
+          "nmse": 1.61965400422e-05,
+          "rmse": 0.000380584090522,
+          "max_abs": 0.0017516091466,
+          "n": 13824
+        },
+        {
+          "nmse": 2.96991755304e-05,
+          "rmse": 2.80332396102e-05,
+          "max_abs": 0.000282045453787,
+          "n": 13824
+        },
+        {
+          "nmse": 0.000216297685232,
+          "rmse": 8.46067810087e-05,
+          "max_abs": 0.000465634278953,
+          "n": 30720
+        }
+      ],
+      "gpu_activation_down_errors": [
+        {
+          "nmse": 2.54908386764e-05,
+          "rmse": 2.59712680581e-05,
+          "max_abs": 0.000320071354508,
+          "n": 13824
+        },
+        {
+          "nmse": 9.02442368025e-05,
+          "rmse": 5.46498500097e-05,
+          "max_abs": 0.000240455847234,
+          "n": 30720
+        }
+      ],
+      "cpu_down_error_vs_reference": {
+        "nmse": 0.000216297685232,
+        "rmse": 8.46067810087e-05,
+        "max_abs": 0.000465634278953,
+        "n": 30720
+      },
+      "gpu_down_error_vs_reference": {
+        "nmse": 9.02442368025e-05,
+        "rmse": 5.46498500097e-05,
+        "max_abs": 0.000240455847234,
+        "n": 30720
+      },
+      "gpu_down_error_vs_cpu": {
+        "nmse": 0.000270554140268,
+        "rmse": 9.4624633777e-05,
+        "max_abs": 0.000415127724409,
+        "n": 30720
+      },
+      "gpu_down_reference_nmse_divided_by_cpu": 0.4172223882363993,
+      "gpu_vs_cpu_relative_L2": 0.016448530033653465,
+      "serial_concurrent_byte_identical": true,
+      "gpu_scatter_byte_identical": true
+    },
+    {
+      "source": "/home/codex/projects/llm-lab/exploration-20261112/execution/hot-ffn-L4-s37/stdout.log",
+      "source_sha256": "71b3e6259a4c55222b03b9c0d484b9fd2544a4bb7592aab2a9324ea4e03d3fc0",
+      "layer": 4,
+      "seed": 37,
+      "gate_up_down_weight_types": [
+        "IQ3_XXS",
+        "IQ3_XXS",
+        "IQ2_S"
+      ],
+      "input_amplitude": 0.1,
+      "routes": [
+        3,
+        92,
+        41,
+        370,
+        151,
+        244
+      ],
+      "cpu_gate_up_activation_down_errors": [
+        {
+          "nmse": 1.5241647327e-05,
+          "rmse": 0.00037438327194,
+          "max_abs": 0.00149770081043,
+          "n": 13824
+        },
+        {
+          "nmse": 1.54909332274e-05,
+          "rmse": 0.000374509555558,
+          "max_abs": 0.00148877501488,
+          "n": 13824
+        },
+        {
+          "nmse": 2.73314669091e-05,
+          "rmse": 2.69829704812e-05,
+          "max_abs": 0.000219939276576,
+          "n": 13824
+        },
+        {
+          "nmse": 0.000202039311843,
+          "rmse": 8.18529218547e-05,
+          "max_abs": 0.000337354838848,
+          "n": 30720
+        }
+      ],
+      "gpu_activation_down_errors": [
+        {
+          "nmse": 2.56171456396e-05,
+          "rmse": 2.61230364407e-05,
+          "max_abs": 0.000263080000877,
+          "n": 13824
+        },
+        {
+          "nmse": 9.21584343071e-05,
+          "rmse": 5.52820055724e-05,
+          "max_abs": 0.000281125772744,
+          "n": 30720
+        }
+      ],
+      "cpu_down_error_vs_reference": {
+        "nmse": 0.000202039311843,
+        "rmse": 8.18529218547e-05,
+        "max_abs": 0.000337354838848,
+        "n": 30720
+      },
+      "gpu_down_error_vs_reference": {
+        "nmse": 9.21584343071e-05,
+        "rmse": 5.52820055724e-05,
+        "max_abs": 0.000281125772744,
+        "n": 30720
+      },
+      "gpu_down_error_vs_cpu": {
+        "nmse": 0.000265256650913,
+        "rmse": 9.37782006392e-05,
+        "max_abs": 0.00045155081898,
+        "n": 30720
+      },
+      "gpu_down_reference_nmse_divided_by_cpu": 0.45614110178079675,
+      "gpu_vs_cpu_relative_L2": 0.01628670165850041,
+      "serial_concurrent_byte_identical": true,
+      "gpu_scatter_byte_identical": true
+    },
+    {
+      "source": "/home/codex/projects/llm-lab/exploration-20261112/execution/hot-ffn-L4-s83/stdout.log",
+      "source_sha256": "14c8853677f44663f528fb531320559c50005e3eb0b0876168ad7a5ac5188f2c",
+      "layer": 4,
+      "seed": 83,
+      "gate_up_down_weight_types": [
+        "IQ3_XXS",
+        "IQ3_XXS",
+        "IQ2_S"
+      ],
+      "input_amplitude": 0.1,
+      "routes": [
+        151,
+        41,
+        3,
+        370,
+        244,
+        92
+      ],
+      "cpu_gate_up_activation_down_errors": [
+        {
+          "nmse": 1.54909454918e-05,
+          "rmse": 0.000378191321143,
+          "max_abs": 0.00171059370041,
+          "n": 13824
+        },
+        {
+          "nmse": 1.54631897722e-05,
+          "rmse": 0.000374835097384,
+          "max_abs": 0.0016478151083,
+          "n": 13824
+        },
+        {
+          "nmse": 2.63976443919e-05,
+          "rmse": 2.75656368399e-05,
+          "max_abs": 0.000249251723289,
+          "n": 13824
+        },
+        {
+          "nmse": 0.000236455263877,
+          "rmse": 9.24964082255e-05,
+          "max_abs": 0.000561637803912,
+          "n": 30720
+        }
+      ],
+      "gpu_activation_down_errors": [
+        {
+          "nmse": 2.41580526883e-05,
+          "rmse": 2.63703810468e-05,
+          "max_abs": 0.000264383852482,
+          "n": 13824
+        },
+        {
+          "nmse": 9.30190787447e-05,
+          "rmse": 5.80144784733e-05,
+          "max_abs": 0.000300327432342,
+          "n": 30720
+        }
+      ],
+      "cpu_down_error_vs_reference": {
+        "nmse": 0.000236455263877,
+        "rmse": 9.24964082255e-05,
+        "max_abs": 0.000561637803912,
+        "n": 30720
+      },
+      "gpu_down_error_vs_reference": {
+        "nmse": 9.30190787447e-05,
+        "rmse": 5.80144784733e-05,
+        "max_abs": 0.000300327432342,
+        "n": 30720
+      },
+      "gpu_down_error_vs_cpu": {
+        "nmse": 0.000290017749234,
+        "rmse": 0.000102476943678,
+        "max_abs": 0.000537230633199,
+        "n": 30720
+      },
+      "gpu_down_reference_nmse_divided_by_cpu": 0.3933897567748246,
+      "gpu_vs_cpu_relative_L2": 0.017029907493407003,
+      "serial_concurrent_byte_identical": true,
+      "gpu_scatter_byte_identical": true
+    }
+  ]
+}

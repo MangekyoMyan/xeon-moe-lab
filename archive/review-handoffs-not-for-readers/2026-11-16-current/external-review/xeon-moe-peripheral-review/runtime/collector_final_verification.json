@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "verified_at_utc": "2026-11-16T06:12:24.708714+00:00",
+  "scope": "Independent synthetic data mmap only; no ELF loaded as executable code, no service/model/GPU operation, no repository edits.",
+  "collector_path": "/workspace/scratch/1f624f9ac929/audit/peripheral/root/collect_runtime_snapshot.py",
+  "collector_sha256": "aea26134011dfa914fed72044bad0a6277b6b3e59e7b0b147809ca0edf015765",
+  "previous_review_path": "/workspace/scratch/1f624f9ac929/audit/peripheral/build/collector_independent_review.json",
+  "previous_review_sha256": "b40c2a48135afe4e37254b9835b4e7e6ee32f9a19fce0226a17adfc94f162acb",
+  "project_name_matches": {
+    "libggml-base.so.0.28.0": true,
+    "libggml-cuda.so": true,
+    "libllama.so.0.8.0": true,
+    "libllama-common.so.0.8.0": true,
+    "libllama-server-impl.so": true,
+    "libmtmd.so.0.8.0": true,
+    "libc.so.6": false,
+    "libcuda.so.1": false,
+    "notlibllama.so": false,
+    "libllama.so.tmp/other": false
+  },
+  "cases": {
+    "unchanged": {
+      "verification": {
+        "process_identity_stable": true,
+        "project_mapping_snapshot_stable": true,
+        "executable_identity_stable": true,
+        "backing_file_metadata_rechecked_stable": true,
+        "project_library_hashes_complete": true,
+        "verified_for_recorded_scope": true,
+        "end_error": null
+      },
+      "backing_file": {
+        "status": "hashed",
+        "sha256": "f3336bea752b5a28743033dd2c844a4a63fba08871aaee2586a2bf2d69be83a2",
+        "size_bytes": 16384,
+        "device_major": 0,
+        "device_minor": 39,
+        "inode": 7940,
+        "mtime_ns": 1794809544596133828,
+        "ctime_ns": 1794809544596133828,
+        "path_used": "/proc/2/root/tmp/collector-final-independent-5txfw0t3/libggml-independent.so",
+        "method": "target_mount_namespace_path",
+        "prior_failed_attempts": [],
+        "final_metadata_check": {
+          "status": "unchanged"
+        }
+      },
+      "final_sha256": "f3336bea752b5a28743033dd2c844a4a63fba08871aaee2586a2bf2d69be83a2",
+      "same_device_and_inode": true,
+      "mtime_unchanged": true,
+      "ctime_unchanged": true
+    },
+    "post_hash_same_inode_overwrite": {
+      "verification": {
+        "process_identity_stable": true,
+        "project_mapping_snapshot_stable": true,
+        "executable_identity_stable": true,
+        "backing_file_metadata_rechecked_stable": false,
+        "project_library_hashes_complete": true,
+        "verified_for_recorded_scope": false,
+        "end_error": null
+      },
+      "backing_file": {
+        "status": "hashed",
+        "sha256": "f3336bea752b5a28743033dd2c844a4a63fba08871aaee2586a2bf2d69be83a2",
+        "size_bytes": 16384,
+        "device_major": 0,
+        "device_minor": 39,
+        "inode": 7940,
+        "mtime_ns": 1794809544638558573,
+        "ctime_ns": 1794809544638558573,
+        "path_used": "/proc/2/root/tmp/collector-final-independent-5txfw0t3/libggml-independent.so",
+        "method": "target_mount_namespace_path",
+        "prior_failed_attempts": [],
+        "final_metadata_check": {
+          "status": "changed",
+          "observed_signature": [
+            [
+              0,
+              39,
+              7940
+            ],
+            16384,
+            1794809544674830809,
+            1794809544674830809
+          ]
+        }
+      },
+      "final_sha256": "e33f24140499430b048f6600af4f41f3ccb0cb766d9f7661124cf8ba4b827523",
+      "same_device_and_inode": true,
+      "mtime_unchanged": false,
+      "ctime_unchanged": false
+    },
+    "post_hash_overwrite_mtime_restored": {
+      "verification": {
+        "process_identity_stable": true,
+        "project_mapping_snapshot_stable": true,
+        "executable_identity_stable": true,
+        "backing_file_metadata_rechecked_stable": false,
+        "project_library_hashes_complete": true,
+        "verified_for_recorded_scope": false,
+        "end_error": null
+      },
+      "backing_file": {
+        "status": "hashed",
+        "sha256": "f3336bea752b5a28743033dd2c844a4a63fba08871aaee2586a2bf2d69be83a2",
+        "size_bytes": 16384,
+        "device_major": 0,
+        "device_minor": 39,
+        "inode": 7940,
+        "mtime_ns": 1794809544679316683,
+        "ctime_ns": 1794809544679316683,
+        "path_used": "/proc/2/root/tmp/collector-final-independent-5txfw0t3/libggml-independent.so",
+        "method": "target_mount_namespace_path",
+        "prior_failed_attempts": [],
+        "final_metadata_check": {
+          "status": "changed",
+          "observed_signature": [
+            [
+              0,
+              39,
+              7940
+            ],
+            16384,
+            1794809544679316683,
+            1794809544707138127
+          ]
+        }
+      },
+      "final_sha256": "e33f24140499430b048f6600af4f41f3ccb0cb766d9f7661124cf8ba4b827523",
+      "same_device_and_inode": true,
+      "mtime_unchanged": true,
+      "ctime_unchanged": false
+    }
+  },
+  "checks": {
+    "project_dso_names_included": true,
+    "unrelated_names_excluded": true,
+    "unchanged:recorded_original_hash": true,
+    "unchanged:same_inode": true,
+    "unchanged:expected_final_hash": true,
+    "unchanged:expected_verification": true,
+    "unchanged:expected_metadata_result": true,
+    "unchanged:pid_maps_exe_still_stable": true,
+    "post_hash_same_inode_overwrite:recorded_original_hash": true,
+    "post_hash_same_inode_overwrite:same_inode": true,
+    "post_hash_same_inode_overwrite:expected_final_hash": true,
+    "post_hash_same_inode_overwrite:expected_verification": true,
+    "post_hash_same_inode_overwrite:expected_metadata_result": true,
+    "post_hash_same_inode_overwrite:pid_maps_exe_still_stable": true,
+    "post_hash_overwrite_mtime_restored:recorded_original_hash": true,
+    "post_hash_overwrite_mtime_restored:same_inode": true,
+    "post_hash_overwrite_mtime_restored:expected_final_hash": true,
+    "post_hash_overwrite_mtime_restored:expected_verification": true,
+    "post_hash_overwrite_mtime_restored:expected_metadata_result": true,
+    "post_hash_overwrite_mtime_restored:pid_maps_exe_still_stable": true,
+    "post_hash_overwrite_mtime_restored:mtime_restored": true,
+    "post_hash_overwrite_mtime_restored:ctime_changed": true,
+    "collector_unchanged_during_verification": true,
+    "earlier_review_preserved": true
+  },
+  "all_passed": true,
+  "limits": [
+    "Verifies the reported post-hash same-inode overwrite and DSO-name omissions only, with one unchanged control.",
+    "The collector remains a sequential observation, not an atomic snapshot; a mutation after an individual final metadata check can escape detection.",
+    "Does not establish source revision, build flags, relocated/in-memory bytes, or the user's live runtime configuration."
+  ]
+}

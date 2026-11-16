@@ -1,0 +1,4544 @@
+{
+  "label": "cpuwait-wait-t24-spin10000-r1",
+  "mode": "plain",
+  "pid": 323596,
+  "workload": "count",
+  "context": 128,
+  "tokens": 96,
+  "request": {
+    "prompt": [
+      53,
+      48819,
+      35312,
+      6951,
+      9575,
+      28,
+      455,
+      1487,
+      16765,
+      3737,
+      295,
+      6464,
+      305,
+      6579,
+      260,
+      8205,
+      294,
+      10017,
+      16,
+      455,
+      1487,
+      16765,
+      3737,
+      295,
+      6464,
+      305,
+      6579,
+      260,
+      8205,
+      294,
+      10017,
+      16,
+      455,
+      1487,
+      16765,
+      3737,
+      295,
+      6464,
+      305,
+      6579,
+      260,
+      8205,
+      294,
+      10017,
+      16,
+      455,
+      1487,
+      16765,
+      3737,
+      295,
+      6464,
+      305,
+      6579,
+      260,
+      8205,
+      294,
+      10017,
+      16,
+      455,
+      1487,
+      16765,
+      3737,
+      295,
+      6464,
+      305,
+      6579,
+      260,
+      8205,
+      294,
+      10017,
+      16,
+      455,
+      1487,
+      16765,
+      3737,
+      295,
+      6464,
+      305,
+      6579,
+      260,
+      8205,
+      294,
+      10017,
+      16,
+      455,
+      1487,
+      16765,
+      3737,
+      295,
+      6464,
+      305,
+      6579,
+      260,
+      8205,
+      294,
+      10017,
+      16,
+      455,
+      1487,
+      16765,
+      3737,
+      201,
+      41174,
+      566,
+      5767,
+      2310,
+      294,
+      4337,
+      18392,
+      14,
+      1812,
+      100396,
+      28,
+      223,
+      19,
+      14,
+      223,
+      20,
+      14,
+      223,
+      21,
+      14,
+      223,
+      22,
+      14,
+      223,
+      23,
+      14
+    ],
+    "n_predict": 96,
+    "temperature": 0,
+    "seed": 42,
+    "ignore_eos": true,
+    "cache_prompt": false,
+    "stream": true,
+    "return_tokens": true
+  },
+  "config_sha256": "3c1c11b679b78357a608bb4e418571d0e23b8a8bd456c5e3f2c789362a363cd4",
+  "libraries": [
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin/libggml.so.0.28.0",
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin/libllama-common.so.0.8.0",
+    "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin/libllama-server-impl.so",
+    "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+    "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0",
+    "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0",
+    "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0"
+  ],
+  "initial_watch": {
+    "unix": 1794460991.2688966,
+    "cpu": {
+      "hwmon2:Core 4": 31.0,
+      "hwmon2:Core 1": 25.0,
+      "hwmon2:Core 5": 30.0,
+      "hwmon2:Core 2": 31.0,
+      "hwmon2:Package id 1": 35.0,
+      "hwmon2:Core 3": 26.0,
+      "hwmon2:Core 0": 30.0,
+      "hwmon1:Core 4": 24.0,
+      "hwmon1:Core 1": 24.0,
+      "hwmon1:Core 5": 25.0,
+      "hwmon1:Core 2": 25.0,
+      "hwmon1:Package id 0": 28.0,
+      "hwmon1:Core 3": 26.0,
+      "hwmon1:Core 0": 28.0
+    },
+    "gpu": {
+      "gpu_C": 35.0,
+      "hbm_C": 34.0,
+      "power_W": 58.94,
+      "power_limit_W": 150.0,
+      "used_MiB": 30576.0,
+      "util_percent": 99.0,
+      "ecc_mode": "Enabled",
+      "ecc_single": 0.0,
+      "ecc_double": 0.0,
+      "replays": 0.0
+    },
+    "host_counters": {
+      "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+      "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+      "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+      "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+      "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+      "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+      "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+      "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+      "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+      "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+    }
+  },
+  "samples": [
+    {
+      "monotonic": 40346.027900244,
+      "phase": "prefill",
+      "watch": {
+        "unix": 1794461001.378429,
+        "cpu": {
+          "hwmon2:Core 4": 31.0,
+          "hwmon2:Core 1": 26.0,
+          "hwmon2:Core 5": 30.0,
+          "hwmon2:Core 2": 32.0,
+          "hwmon2:Package id 1": 35.0,
+          "hwmon2:Core 3": 27.0,
+          "hwmon2:Core 0": 29.0,
+          "hwmon1:Core 4": 24.0,
+          "hwmon1:Core 1": 24.0,
+          "hwmon1:Core 5": 26.0,
+          "hwmon1:Core 2": 28.0,
+          "hwmon1:Package id 0": 29.0,
+          "hwmon1:Core 3": 27.0,
+          "hwmon1:Core 0": 26.0
+        },
+        "gpu": {
+          "gpu_C": 35.0,
+          "hbm_C": 35.0,
+          "power_W": 64.86,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 99.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461002.4551766,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 3874540987.6956086,
+            "write_bytes_per_second": 55997471.30758837,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 954006021.0354283,
+                "write_bytes_per_second": 5868256.780978262
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 953230348.055504,
+                "write_bytes_per_second": 5960117.922835611
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 1013878812.8070451,
+                "write_bytes_per_second": 38245584.580053784
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 953425805.7976313,
+                "write_bytes_per_second": 5923512.023720715
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 3900179899.720628,
+            "write_bytes_per_second": 87911656.66706228,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 961749494.6205901,
+                "write_bytes_per_second": 14013011.32626146
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 961183013.0618241,
+                "write_bytes_per_second": 14015820.953333579
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 1016328521.0825605,
+                "write_bytes_per_second": 46068060.1822491
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 960918870.9556534,
+                "write_bytes_per_second": 13814764.205218134
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 7774720887.416237,
+        "write_bytes_per_second": 143909127.97465065,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 2.077552360187383
+      }
+    },
+    {
+      "monotonic": 40348.028858008,
+      "phase": "prefill",
+      "watch": {
+        "unix": 1794461001.378429,
+        "cpu": {
+          "hwmon2:Core 4": 31.0,
+          "hwmon2:Core 1": 26.0,
+          "hwmon2:Core 5": 30.0,
+          "hwmon2:Core 2": 32.0,
+          "hwmon2:Package id 1": 35.0,
+          "hwmon2:Core 3": 27.0,
+          "hwmon2:Core 0": 29.0,
+          "hwmon1:Core 4": 24.0,
+          "hwmon1:Core 1": 24.0,
+          "hwmon1:Core 5": 26.0,
+          "hwmon1:Core 2": 28.0,
+          "hwmon1:Package id 0": 29.0,
+          "hwmon1:Core 3": 27.0,
+          "hwmon1:Core 0": 26.0
+        },
+        "gpu": {
+          "gpu_C": 35.0,
+          "hbm_C": 35.0,
+          "power_W": 64.86,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 99.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461004.4561005,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 4359856426.303112,
+            "write_bytes_per_second": 47314500.257993706,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 1081176991.37288,
+                "write_bytes_per_second": 3563115.7173331915
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 1080250768.6820457,
+                "write_bytes_per_second": 3666132.5904021556
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 1117909883.540629,
+                "write_bytes_per_second": 36422395.03706697
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 1080518782.7075577,
+                "write_bytes_per_second": 3662856.913191391
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 4222456435.779138,
+            "write_bytes_per_second": 89683582.49860995,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 1047970087.5137475,
+                "write_bytes_per_second": 14245186.837165734
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 1047306110.3395147,
+                "write_bytes_per_second": 14308101.730186079
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 1080031947.8392265,
+                "write_bytes_per_second": 46969266.68589458
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 1047148290.0866494,
+                "write_bytes_per_second": 14161027.245363548
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 8582312862.082251,
+        "write_bytes_per_second": 136998082.75660366,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 2.0009335409363302
+      }
+    },
+    {
+      "monotonic": 40350.029810539,
+      "phase": "prefill",
+      "watch": {
+        "unix": 1794461001.378429,
+        "cpu": {
+          "hwmon2:Core 4": 31.0,
+          "hwmon2:Core 1": 26.0,
+          "hwmon2:Core 5": 30.0,
+          "hwmon2:Core 2": 32.0,
+          "hwmon2:Package id 1": 35.0,
+          "hwmon2:Core 3": 27.0,
+          "hwmon2:Core 0": 29.0,
+          "hwmon1:Core 4": 24.0,
+          "hwmon1:Core 1": 24.0,
+          "hwmon1:Core 5": 26.0,
+          "hwmon1:Core 2": 28.0,
+          "hwmon1:Package id 0": 29.0,
+          "hwmon1:Core 3": 27.0,
+          "hwmon1:Core 0": 26.0
+        },
+        "gpu": {
+          "gpu_C": 35.0,
+          "hbm_C": 35.0,
+          "power_W": 64.86,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 99.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461006.4570382,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 4573115516.028086,
+            "write_bytes_per_second": 43280375.26495098,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 1134765709.5857635,
+                "write_bytes_per_second": 2635570.647292437
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 1133818948.891433,
+                "write_bytes_per_second": 2655781.831080876
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 1170456920.5337884,
+                "write_bytes_per_second": 35316391.72095579
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 1134073937.0170999,
+                "write_bytes_per_second": 2672631.0656218855
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 4540665755.508272,
+            "write_bytes_per_second": 65609346.941371694,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 1127251753.160114,
+                "write_bytes_per_second": 8322611.633237079
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 1126967799.1169906,
+                "write_bytes_per_second": 8278012.693865577
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 1159529349.5034475,
+                "write_bytes_per_second": 40805993.402509265
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 1126916853.7277198,
+                "write_bytes_per_second": 8202729.211759772
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 9113781271.536358,
+        "write_bytes_per_second": 108889722.20632267,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 2.000936932376135
+      }
+    },
+    {
+      "monotonic": 40352.031356531,
+      "phase": "decode",
+      "watch": {
+        "unix": 1794461001.378429,
+        "cpu": {
+          "hwmon2:Core 4": 31.0,
+          "hwmon2:Core 1": 26.0,
+          "hwmon2:Core 5": 30.0,
+          "hwmon2:Core 2": 32.0,
+          "hwmon2:Package id 1": 35.0,
+          "hwmon2:Core 3": 27.0,
+          "hwmon2:Core 0": 29.0,
+          "hwmon1:Core 4": 24.0,
+          "hwmon1:Core 1": 24.0,
+          "hwmon1:Core 5": 26.0,
+          "hwmon1:Core 2": 28.0,
+          "hwmon1:Package id 0": 29.0,
+          "hwmon1:Core 3": 27.0,
+          "hwmon1:Core 0": 26.0
+        },
+        "gpu": {
+          "gpu_C": 35.0,
+          "hbm_C": 35.0,
+          "power_W": 64.86,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 99.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461008.4586308,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 10771929809.2899,
+            "write_bytes_per_second": 341431147.07491773,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 2691288593.5108905,
+                "write_bytes_per_second": 80583009.61217454
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 2686825323.178946,
+                "write_bytes_per_second": 77762843.64546122
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 2714403346.66731,
+                "write_bytes_per_second": 108668450.49473076
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 2679412545.9327526,
+                "write_bytes_per_second": 74416843.32255118
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 10667268176.569466,
+            "write_bytes_per_second": 346399483.65675384,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 2663049057.0790324,
+                "write_bytes_per_second": 81556890.65199685
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 2659611032.71977,
+                "write_bytes_per_second": 80957147.76494375
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 2690639513.313216,
+                "write_bytes_per_second": 111646768.75407508
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 2653968573.457446,
+                "write_bytes_per_second": 72238676.48573817
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 21439197985.859367,
+        "write_bytes_per_second": 687830630.7316716,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 0.5271408463127045
+      }
+    },
+    {
+      "monotonic": 40354.032251449,
+      "phase": "decode",
+      "watch": {
+        "unix": 1794461001.378429,
+        "cpu": {
+          "hwmon2:Core 4": 31.0,
+          "hwmon2:Core 1": 26.0,
+          "hwmon2:Core 5": 30.0,
+          "hwmon2:Core 2": 32.0,
+          "hwmon2:Package id 1": 35.0,
+          "hwmon2:Core 3": 27.0,
+          "hwmon2:Core 0": 29.0,
+          "hwmon1:Core 4": 24.0,
+          "hwmon1:Core 1": 24.0,
+          "hwmon1:Core 5": 26.0,
+          "hwmon1:Core 2": 28.0,
+          "hwmon1:Package id 0": 29.0,
+          "hwmon1:Core 3": 27.0,
+          "hwmon1:Core 0": 26.0
+        },
+        "gpu": {
+          "gpu_C": 35.0,
+          "hbm_C": 35.0,
+          "power_W": 64.86,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 99.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461010.4595172,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 15683656215.607536,
+            "write_bytes_per_second": 434845451.2985569,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3923558638.9215612,
+                "write_bytes_per_second": 106121392.62343478
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3912864043.2946134,
+                "write_bytes_per_second": 100995741.03507991
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3938914651.2117267,
+                "write_bytes_per_second": 130420981.39959748
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3908318882.179634,
+                "write_bytes_per_second": 97307336.24044476
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 15485678618.16967,
+            "write_bytes_per_second": 414534846.12482256,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3869485894.8642945,
+                "write_bytes_per_second": 98602163.23782492
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3867130789.982196,
+                "write_bytes_per_second": 99169369.9430198
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3892932780.2496295,
+                "write_bytes_per_second": 125494388.19658947
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3856129153.0735493,
+                "write_bytes_per_second": 91268924.74738838
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 31169334833.777206,
+        "write_bytes_per_second": 849380297.4233794,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 2.0009286333138334
+      }
+    },
+    {
+      "monotonic": 40356.033114193,
+      "phase": "decode",
+      "watch": {
+        "unix": 1794461011.4850326,
+        "cpu": {
+          "hwmon2:Core 4": 38.0,
+          "hwmon2:Core 1": 34.0,
+          "hwmon2:Core 5": 35.0,
+          "hwmon2:Core 2": 37.0,
+          "hwmon2:Package id 1": 38.0,
+          "hwmon2:Core 3": 34.0,
+          "hwmon2:Core 0": 36.0,
+          "hwmon1:Core 4": 32.0,
+          "hwmon1:Core 1": 33.0,
+          "hwmon1:Core 5": 30.0,
+          "hwmon1:Core 2": 32.0,
+          "hwmon1:Package id 0": 32.0,
+          "hwmon1:Core 3": 33.0,
+          "hwmon1:Core 0": 31.0
+        },
+        "gpu": {
+          "gpu_C": 34.0,
+          "hbm_C": 34.0,
+          "power_W": 47.41,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 17.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461012.4604099,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 15363562280.064814,
+            "write_bytes_per_second": 370496251.14998335,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3843095634.5689235,
+                "write_bytes_per_second": 89850591.0548371
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3833109543.0348125,
+                "write_bytes_per_second": 85072357.3878832
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3859133890.9578977,
+                "write_bytes_per_second": 114463037.58463755
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3828223211.50318,
+                "write_bytes_per_second": 81110265.12262551
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 15169545036.175701,
+            "write_bytes_per_second": 390956539.3394668,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3790611199.2279725,
+                "write_bytes_per_second": 92491886.46922873
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3787752856.988178,
+                "write_bytes_per_second": 93103055.87789826
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3814050113.478909,
+                "write_bytes_per_second": 119836449.26610869
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3777130866.480642,
+                "write_bytes_per_second": 85525147.7262311
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 30533107316.240517,
+        "write_bytes_per_second": 761452790.4894502,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 2.0008517354376636
+      }
+    },
+    {
+      "monotonic": 40358.034394818,
+      "phase": "decode",
+      "watch": {
+        "unix": 1794461011.4850326,
+        "cpu": {
+          "hwmon2:Core 4": 38.0,
+          "hwmon2:Core 1": 34.0,
+          "hwmon2:Core 5": 35.0,
+          "hwmon2:Core 2": 37.0,
+          "hwmon2:Package id 1": 38.0,
+          "hwmon2:Core 3": 34.0,
+          "hwmon2:Core 0": 36.0,
+          "hwmon1:Core 4": 32.0,
+          "hwmon1:Core 1": 33.0,
+          "hwmon1:Core 5": 30.0,
+          "hwmon1:Core 2": 32.0,
+          "hwmon1:Package id 0": 32.0,
+          "hwmon1:Core 3": 33.0,
+          "hwmon1:Core 0": 31.0
+        },
+        "gpu": {
+          "gpu_C": 34.0,
+          "hbm_C": 34.0,
+          "power_W": 47.41,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 17.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461014.4616637,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 14009359483.522038,
+            "write_bytes_per_second": 319152250.2436512,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3503658961.611437,
+                "write_bytes_per_second": 76585830.23775461
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3494573155.1967854,
+                "write_bytes_per_second": 72110593.96103124
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3521235324.0193086,
+                "write_bytes_per_second": 102003437.94214568
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3489892042.6945066,
+                "write_bytes_per_second": 68452388.10271968
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 13828053258.490166,
+            "write_bytes_per_second": 325949715.2844788,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3454795519.984984,
+                "write_bytes_per_second": 76075027.2691521
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3452197616.223834,
+                "write_bytes_per_second": 76494277.44974698
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3478928539.5708003,
+                "write_bytes_per_second": 103831734.13256949
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3442131582.710547,
+                "write_bytes_per_second": 69548676.43301022
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 27837412742.012203,
+        "write_bytes_per_second": 645101965.52813,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 2.0012544816240734
+      }
+    },
+    {
+      "monotonic": 40360.035354828,
+      "phase": "decode",
+      "watch": {
+        "unix": 1794461011.4850326,
+        "cpu": {
+          "hwmon2:Core 4": 38.0,
+          "hwmon2:Core 1": 34.0,
+          "hwmon2:Core 5": 35.0,
+          "hwmon2:Core 2": 37.0,
+          "hwmon2:Package id 1": 38.0,
+          "hwmon2:Core 3": 34.0,
+          "hwmon2:Core 0": 36.0,
+          "hwmon1:Core 4": 32.0,
+          "hwmon1:Core 1": 33.0,
+          "hwmon1:Core 5": 30.0,
+          "hwmon1:Core 2": 32.0,
+          "hwmon1:Package id 0": 32.0,
+          "hwmon1:Core 3": 33.0,
+          "hwmon1:Core 0": 31.0
+        },
+        "gpu": {
+          "gpu_C": 34.0,
+          "hbm_C": 34.0,
+          "power_W": 47.41,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 17.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461016.4626653,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 15181170946.548378,
+            "write_bytes_per_second": 265613556.70203424,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3797329307.051614,
+                "write_bytes_per_second": 63627139.788286254
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3787459946.917283,
+                "write_bytes_per_second": 58782778.0389439
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3813522172.9053183,
+                "write_bytes_per_second": 88245891.96063659
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3782859519.674164,
+                "write_bytes_per_second": 54957746.91416751
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 14993215680.565308,
+            "write_bytes_per_second": 245472306.31997424,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3745920169.200609,
+                "write_bytes_per_second": 56073180.25624877
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3744161335.065853,
+                "write_bytes_per_second": 56927757.9339809
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3770020875.0661454,
+                "write_bytes_per_second": 83473543.50998057
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3733113301.2326994,
+                "write_bytes_per_second": 48997824.619764
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 30174386627.113686,
+        "write_bytes_per_second": 511085863.0220085,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 2.0010065037495224
+      }
+    },
+    {
+      "monotonic": 40362.036237607,
+      "phase": "decode",
+      "watch": {
+        "unix": 1794461011.4850326,
+        "cpu": {
+          "hwmon2:Core 4": 38.0,
+          "hwmon2:Core 1": 34.0,
+          "hwmon2:Core 5": 35.0,
+          "hwmon2:Core 2": 37.0,
+          "hwmon2:Package id 1": 38.0,
+          "hwmon2:Core 3": 34.0,
+          "hwmon2:Core 0": 36.0,
+          "hwmon1:Core 4": 32.0,
+          "hwmon1:Core 1": 33.0,
+          "hwmon1:Core 5": 30.0,
+          "hwmon1:Core 2": 32.0,
+          "hwmon1:Package id 0": 32.0,
+          "hwmon1:Core 3": 33.0,
+          "hwmon1:Core 0": 31.0
+        },
+        "gpu": {
+          "gpu_C": 34.0,
+          "hbm_C": 34.0,
+          "power_W": 47.41,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 17.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461018.4635692,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 15345262233.014809,
+            "write_bytes_per_second": 297368010.80699325,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3838450611.8717866,
+                "write_bytes_per_second": 71618185.28930017
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3828558328.275882,
+                "write_bytes_per_second": 66758498.73289263
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3854530463.2789183,
+                "write_bytes_per_second": 96167105.58651651
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3823722829.588223,
+                "write_bytes_per_second": 62824221.19828389
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 15144763172.538378,
+            "write_bytes_per_second": 275034366.21964115,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3784145499.055965,
+                "write_bytes_per_second": 63489189.98005107
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3781791557.1577663,
+                "write_bytes_per_second": 64296687.00603842
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3807828404.2457013,
+                "write_bytes_per_second": 90798592.15863167
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3770997712.0789447,
+                "write_bytes_per_second": 56449897.074920006
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 30490025405.553185,
+        "write_bytes_per_second": 572402377.0266345,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 2.0008900896873456
+      }
+    },
+    {
+      "monotonic": 40364.037657154,
+      "phase": "decode",
+      "watch": {
+        "unix": 1794461011.4850326,
+        "cpu": {
+          "hwmon2:Core 4": 38.0,
+          "hwmon2:Core 1": 34.0,
+          "hwmon2:Core 5": 35.0,
+          "hwmon2:Core 2": 37.0,
+          "hwmon2:Package id 1": 38.0,
+          "hwmon2:Core 3": 34.0,
+          "hwmon2:Core 0": 36.0,
+          "hwmon1:Core 4": 32.0,
+          "hwmon1:Core 1": 33.0,
+          "hwmon1:Core 5": 30.0,
+          "hwmon1:Core 2": 32.0,
+          "hwmon1:Package id 0": 32.0,
+          "hwmon1:Core 3": 33.0,
+          "hwmon1:Core 0": 31.0
+        },
+        "gpu": {
+          "gpu_C": 34.0,
+          "hbm_C": 34.0,
+          "power_W": 47.41,
+          "power_limit_W": 150.0,
+          "used_MiB": 30580.0,
+          "util_percent": 17.0,
+          "ecc_mode": "Enabled",
+          "ecc_single": 0.0,
+          "ecc_double": 0.0,
+          "replays": 0.0
+        },
+        "host_counters": {
+          "/sys/devices/system/edac/mc/mc0/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc0/ue_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ce_noinfo_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_count": 0,
+          "/sys/devices/system/edac/mc/mc1/ue_noinfo_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu21/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu11/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu9/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu7/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu18/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu5/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu16/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu3/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu14/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu1/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu22/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu12/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu20/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu10/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu8/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu19/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu6/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu17/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu4/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu15/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu2/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu23/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu13/thermal_throttle/package_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/core_throttle_count": 0,
+          "/sys/devices/system/cpu/cpu0/thermal_throttle/package_throttle_count": 0
+        }
+      },
+      "imc": {
+        "unix": 1794461020.4644492,
+        "scope": "system-wide DRAM controller traffic",
+        "unit": "bytes/s",
+        "event_count": 16,
+        "status": "ok",
+        "sockets": {
+          "0": {
+            "read_bytes_per_second": 16042300555.827276,
+            "write_bytes_per_second": 317465838.70661926,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 4013308503.5688457,
+                "write_bytes_per_second": 76953616.78934187
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 4002932282.273628,
+                "write_bytes_per_second": 71804918.82053459
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 4028307135.9568696,
+                "write_bytes_per_second": 100958535.7301899
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3997752634.027933,
+                "write_bytes_per_second": 67748767.36655289
+              }
+            }
+          },
+          "1": {
+            "read_bytes_per_second": 15836479044.590666,
+            "write_bytes_per_second": 284943042.01800466,
+            "channels": {
+              "uncore_imc_0": {
+                "read_bytes_per_second": 3957031829.901366,
+                "write_bytes_per_second": 66132226.82533137
+              },
+              "uncore_imc_1": {
+                "read_bytes_per_second": 3955358865.80298,
+                "write_bytes_per_second": 67102265.23387307
+              },
+              "uncore_imc_2": {
+                "read_bytes_per_second": 3980560851.3520546,
+                "write_bytes_per_second": 93125985.3484147
+              },
+              "uncore_imc_3": {
+                "read_bytes_per_second": 3943527497.534265,
+                "write_bytes_per_second": 58582564.61038551
+              }
+            }
+          }
+        },
+        "read_bytes_per_second": 31878779600.417942,
+        "write_bytes_per_second": 602408880.7246239,
+        "running_fraction_min": 1.0,
+        "multiplexed": false,
+        "interval_seconds": 2.000886284624812
+      }
+    }
+  ],
+  "events": [
+    {
+      "time": 40351.495037058,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40351.721374,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40351.93070937,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40352.080952237,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40352.214893286,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40352.34964993,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40352.482387151,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40352.6164757,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40352.75115115,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40352.889061922,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40353.026530808,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40353.190458996,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40353.345936302,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40353.479253862,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40353.609058987,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40353.740915522,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40353.87529822,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40354.008832098,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40354.143776587,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40354.282622741,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40354.416829038,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40354.551711542,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40354.686599966,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40354.821807988,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40354.961092274,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40355.103673022,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40355.25741408,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40355.426952705,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40355.560398287,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40355.695022672,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40355.827845019,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40355.963932222,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40356.097000477,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40356.229549888,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40356.366324224,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40356.504048089,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40356.636541334,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40356.777380959,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40356.91224972,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40357.049160684,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40357.184514345,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40357.325234896,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40357.52066173,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40357.714869136,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40357.924632438,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40358.137964153,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40358.277271037,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40358.411961025,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40358.550464296,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40358.689715529,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40358.828331122,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40358.965103376,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40359.102589306,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40359.239393028,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40359.379154248,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40359.519675553,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40359.656031079,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40359.790968923,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40359.927634828,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40360.065147588,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40360.235744306,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40360.380487405,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40360.517469335,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40360.649096546,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40360.786814198,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40360.92594533,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40361.064231968,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40361.206150023,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40361.341971921,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40361.473459652,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40361.609127266,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40361.745459849,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40361.87786254,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40362.009134664,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40362.137483498,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40362.274748006,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40362.434223411,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40362.564344297,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40362.693429484,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40362.824857464,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40362.954323603,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40363.084978305,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40363.215514929,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40363.348174574,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40363.476108916,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40363.611067114,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40363.743688958,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40363.869390993,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40363.999819523,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40364.131291691,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40364.257190908,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40364.393073357,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40364.583497462,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40364.747883052,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40364.963845492,
+      "chars": 2,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40365.174300794,
+      "chars": 1,
+      "token_count": 1,
+      "stop": false
+    },
+    {
+      "time": 40365.174479797,
+      "chars": 0,
+      "token_count": 0,
+      "stop": true
+    }
+  ],
+  "error": null,
+  "benchmark_sha256": "893d240b847b395dccca580af72f752e8b1f10eac99dac172bb17af727f2ee73",
+  "actual_omp_environment": {
+    "OMP_DYNAMIC": "FALSE",
+    "OMP_THREAD_LIMIT": "24",
+    "OMP_MAX_ACTIVE_LEVELS": "1",
+    "GOMP_SPINCOUNT": "10000"
+  },
+  "instrumentation": "perf-stat and process CPU-time counters",
+  "measurement_scope": "Client-observed decode window; model process CPU counters include runtime/driver, not isolated kernel",
+  "extra_pmu_events": [],
+  "start_monotonic": 40344.027144037,
+  "first_chunk_token_count": 1,
+  "threads_begin": {
+    "start_monotonic": 40351.496536003,
+    "end_monotonic": 40351.503859841,
+    "threads": [
+      {
+        "tid": 323596,
+        "cpu_seconds": 111.66,
+        "last_cpu": 0,
+        "affinity": [
+          0
+        ]
+      },
+      {
+        "tid": 323601,
+        "cpu_seconds": 0.0,
+        "last_cpu": 21,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323602,
+        "cpu_seconds": 0.0,
+        "last_cpu": 12,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323603,
+        "cpu_seconds": 0.0,
+        "last_cpu": 2,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323607,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323608,
+        "cpu_seconds": 0.0,
+        "last_cpu": 16,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323609,
+        "cpu_seconds": 0.0,
+        "last_cpu": 18,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323610,
+        "cpu_seconds": 0.0,
+        "last_cpu": 18,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323611,
+        "cpu_seconds": 0.0,
+        "last_cpu": 18,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323612,
+        "cpu_seconds": 0.0,
+        "last_cpu": 21,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323613,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323614,
+        "cpu_seconds": 0.0,
+        "last_cpu": 18,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323615,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323616,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323617,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323618,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323619,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323620,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323621,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323622,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323623,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323624,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323625,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323626,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323627,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323628,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323629,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323630,
+        "cpu_seconds": 0.0,
+        "last_cpu": 17,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323632,
+        "cpu_seconds": 0.08,
+        "last_cpu": 13,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323773,
+        "cpu_seconds": 16.21,
+        "last_cpu": 1,
+        "affinity": [
+          1
+        ]
+      },
+      {
+        "tid": 323774,
+        "cpu_seconds": 16.08,
+        "last_cpu": 2,
+        "affinity": [
+          2
+        ]
+      },
+      {
+        "tid": 323775,
+        "cpu_seconds": 16.35,
+        "last_cpu": 3,
+        "affinity": [
+          3
+        ]
+      },
+      {
+        "tid": 323776,
+        "cpu_seconds": 16.1,
+        "last_cpu": 4,
+        "affinity": [
+          4
+        ]
+      },
+      {
+        "tid": 323777,
+        "cpu_seconds": 16.26,
+        "last_cpu": 5,
+        "affinity": [
+          5
+        ]
+      },
+      {
+        "tid": 323778,
+        "cpu_seconds": 16.28,
+        "last_cpu": 6,
+        "affinity": [
+          6
+        ]
+      },
+      {
+        "tid": 323779,
+        "cpu_seconds": 16.26,
+        "last_cpu": 7,
+        "affinity": [
+          7
+        ]
+      },
+      {
+        "tid": 323780,
+        "cpu_seconds": 16.11,
+        "last_cpu": 8,
+        "affinity": [
+          8
+        ]
+      },
+      {
+        "tid": 323781,
+        "cpu_seconds": 16.01,
+        "last_cpu": 9,
+        "affinity": [
+          9
+        ]
+      },
+      {
+        "tid": 323782,
+        "cpu_seconds": 15.84,
+        "last_cpu": 10,
+        "affinity": [
+          10
+        ]
+      },
+      {
+        "tid": 323783,
+        "cpu_seconds": 15.91,
+        "last_cpu": 11,
+        "affinity": [
+          11
+        ]
+      },
+      {
+        "tid": 323898,
+        "cpu_seconds": 1.36,
+        "last_cpu": 12,
+        "affinity": [
+          12
+        ]
+      },
+      {
+        "tid": 323899,
+        "cpu_seconds": 1.36,
+        "last_cpu": 13,
+        "affinity": [
+          13
+        ]
+      },
+      {
+        "tid": 323900,
+        "cpu_seconds": 1.36,
+        "last_cpu": 14,
+        "affinity": [
+          14
+        ]
+      },
+      {
+        "tid": 323901,
+        "cpu_seconds": 1.36,
+        "last_cpu": 15,
+        "affinity": [
+          15
+        ]
+      },
+      {
+        "tid": 323902,
+        "cpu_seconds": 1.36,
+        "last_cpu": 16,
+        "affinity": [
+          16
+        ]
+      },
+      {
+        "tid": 323903,
+        "cpu_seconds": 1.36,
+        "last_cpu": 17,
+        "affinity": [
+          17
+        ]
+      },
+      {
+        "tid": 323904,
+        "cpu_seconds": 1.46,
+        "last_cpu": 18,
+        "affinity": [
+          18
+        ]
+      },
+      {
+        "tid": 323905,
+        "cpu_seconds": 1.45,
+        "last_cpu": 19,
+        "affinity": [
+          19
+        ]
+      },
+      {
+        "tid": 323906,
+        "cpu_seconds": 1.45,
+        "last_cpu": 20,
+        "affinity": [
+          20
+        ]
+      },
+      {
+        "tid": 323907,
+        "cpu_seconds": 1.45,
+        "last_cpu": 21,
+        "affinity": [
+          21
+        ]
+      },
+      {
+        "tid": 323908,
+        "cpu_seconds": 1.46,
+        "last_cpu": 22,
+        "affinity": [
+          22
+        ]
+      },
+      {
+        "tid": 323909,
+        "cpu_seconds": 1.46,
+        "last_cpu": 23,
+        "affinity": [
+          23
+        ]
+      },
+      {
+        "tid": 323912,
+        "cpu_seconds": 0.0,
+        "last_cpu": 0,
+        "affinity": [
+          0
+        ]
+      }
+    ]
+  },
+  "threads_end": {
+    "start_monotonic": 40365.176603929,
+    "end_monotonic": 40365.18228573,
+    "threads": [
+      {
+        "tid": 323596,
+        "cpu_seconds": 124.5,
+        "last_cpu": 0,
+        "affinity": [
+          0
+        ]
+      },
+      {
+        "tid": 323601,
+        "cpu_seconds": 0.0,
+        "last_cpu": 21,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323602,
+        "cpu_seconds": 0.0,
+        "last_cpu": 12,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323603,
+        "cpu_seconds": 0.0,
+        "last_cpu": 2,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323607,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323608,
+        "cpu_seconds": 0.0,
+        "last_cpu": 16,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323609,
+        "cpu_seconds": 0.0,
+        "last_cpu": 18,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323610,
+        "cpu_seconds": 0.0,
+        "last_cpu": 18,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323611,
+        "cpu_seconds": 0.0,
+        "last_cpu": 18,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323612,
+        "cpu_seconds": 0.0,
+        "last_cpu": 21,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323613,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323614,
+        "cpu_seconds": 0.0,
+        "last_cpu": 18,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323615,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323616,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323617,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323618,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323619,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323620,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323621,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323622,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323623,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323624,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323625,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323626,
+        "cpu_seconds": 0.0,
+        "last_cpu": 11,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323627,
+        "cpu_seconds": 0.02,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323628,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323629,
+        "cpu_seconds": 0.0,
+        "last_cpu": 10,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323630,
+        "cpu_seconds": 0.0,
+        "last_cpu": 17,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323632,
+        "cpu_seconds": 0.09,
+        "last_cpu": 4,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      },
+      {
+        "tid": 323773,
+        "cpu_seconds": 26.09,
+        "last_cpu": 1,
+        "affinity": [
+          1
+        ]
+      },
+      {
+        "tid": 323774,
+        "cpu_seconds": 25.96,
+        "last_cpu": 2,
+        "affinity": [
+          2
+        ]
+      },
+      {
+        "tid": 323775,
+        "cpu_seconds": 26.22,
+        "last_cpu": 3,
+        "affinity": [
+          3
+        ]
+      },
+      {
+        "tid": 323776,
+        "cpu_seconds": 25.97,
+        "last_cpu": 4,
+        "affinity": [
+          4
+        ]
+      },
+      {
+        "tid": 323777,
+        "cpu_seconds": 26.13,
+        "last_cpu": 5,
+        "affinity": [
+          5
+        ]
+      },
+      {
+        "tid": 323778,
+        "cpu_seconds": 26.25,
+        "last_cpu": 6,
+        "affinity": [
+          6
+        ]
+      },
+      {
+        "tid": 323779,
+        "cpu_seconds": 26.24,
+        "last_cpu": 7,
+        "affinity": [
+          7
+        ]
+      },
+      {
+        "tid": 323780,
+        "cpu_seconds": 26.08,
+        "last_cpu": 8,
+        "affinity": [
+          8
+        ]
+      },
+      {
+        "tid": 323781,
+        "cpu_seconds": 25.99,
+        "last_cpu": 9,
+        "affinity": [
+          9
+        ]
+      },
+      {
+        "tid": 323782,
+        "cpu_seconds": 25.81,
+        "last_cpu": 10,
+        "affinity": [
+          10
+        ]
+      },
+      {
+        "tid": 323783,
+        "cpu_seconds": 25.87,
+        "last_cpu": 11,
+        "affinity": [
+          11
+        ]
+      },
+      {
+        "tid": 323898,
+        "cpu_seconds": 11.28,
+        "last_cpu": 12,
+        "affinity": [
+          12
+        ]
+      },
+      {
+        "tid": 323899,
+        "cpu_seconds": 11.24,
+        "last_cpu": 13,
+        "affinity": [
+          13
+        ]
+      },
+      {
+        "tid": 323900,
+        "cpu_seconds": 11.23,
+        "last_cpu": 14,
+        "affinity": [
+          14
+        ]
+      },
+      {
+        "tid": 323901,
+        "cpu_seconds": 11.23,
+        "last_cpu": 15,
+        "affinity": [
+          15
+        ]
+      },
+      {
+        "tid": 323902,
+        "cpu_seconds": 11.24,
+        "last_cpu": 16,
+        "affinity": [
+          16
+        ]
+      },
+      {
+        "tid": 323903,
+        "cpu_seconds": 11.23,
+        "last_cpu": 17,
+        "affinity": [
+          17
+        ]
+      },
+      {
+        "tid": 323904,
+        "cpu_seconds": 11.44,
+        "last_cpu": 18,
+        "affinity": [
+          18
+        ]
+      },
+      {
+        "tid": 323905,
+        "cpu_seconds": 11.43,
+        "last_cpu": 19,
+        "affinity": [
+          19
+        ]
+      },
+      {
+        "tid": 323906,
+        "cpu_seconds": 11.44,
+        "last_cpu": 20,
+        "affinity": [
+          20
+        ]
+      },
+      {
+        "tid": 323907,
+        "cpu_seconds": 11.43,
+        "last_cpu": 21,
+        "affinity": [
+          21
+        ]
+      },
+      {
+        "tid": 323908,
+        "cpu_seconds": 11.43,
+        "last_cpu": 22,
+        "affinity": [
+          22
+        ]
+      },
+      {
+        "tid": 323909,
+        "cpu_seconds": 11.4,
+        "last_cpu": 23,
+        "affinity": [
+          23
+        ]
+      },
+      {
+        "tid": 323912,
+        "cpu_seconds": 0.0,
+        "last_cpu": 0,
+        "affinity": [
+          0
+        ]
+      }
+    ]
+  },
+  "final": {
+    "tokens_predicted": 96,
+    "tokens_evaluated": 128,
+    "stop_type": "limit",
+    "tokens_cached": 223,
+    "timings": {
+      "cache_n": 0,
+      "prompt_n": 128,
+      "prompt_ms": 7466.19,
+      "prompt_per_token_ms": 58.329609375,
+      "prompt_per_second": 17.14395160048164,
+      "predicted_n": 96,
+      "predicted_ms": 13679.3,
+      "predicted_per_token_ms": 143.99263157894737,
+      "predicted_per_second": 6.944799807007669
+    }
+  },
+  "elapsed_s": 21.155166680000548,
+  "ttft_s": 7.467893020999327,
+  "output_sha256": "0b297a07fe1368d08588a091779973e23feb411ab817411ecee7b7d6d172d1fe",
+  "output_token_sha256": "e88e18a6528e2e485e7c5144a37b3adffb715bc356f914aaa758fb023d012f40",
+  "output_token_count": 96,
+  "decode_process_cpu": {
+    "begin": {
+      "user_seconds": 145.14,
+      "system_seconds": 161.14,
+      "clock_ticks": 100,
+      "monotonic": 40351.496529898
+    },
+    "end": {
+      "user_seconds": 377.37,
+      "system_seconds": 170.17,
+      "clock_ticks": 100,
+      "monotonic": 40365.174866652
+    },
+    "cpu_seconds": 241.26000000000002,
+    "observed_wall_seconds": 13.678336753997428,
+    "decoded_steps": 95,
+    "scope": "Client-observed first-token-to-stop window; excludes stream/control startup delay, may include final event delivery delay"
+  },
+  "probe_cleanup": []
+}

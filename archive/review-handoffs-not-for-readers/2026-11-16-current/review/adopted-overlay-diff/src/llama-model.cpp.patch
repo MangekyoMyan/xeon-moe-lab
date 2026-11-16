@@ -1,0 +1,52 @@
+--- public-baseline/accepted/overlays/src/llama-model.cpp
++++ snapshot/llm-lab/exploration-20261112/sparse-cache/llama-model.cpp
+@@ -2083,14 +2083,17 @@
+     load_tensors_hadamard();
+ 
+     const char * iq3_env = std::getenv("GGML_CPU_IQ3_COMPACT_MIB");
++    const char * iq_plan_env = std::getenv("GGML_CPU_IQ_PLAN");
++    if (iq_plan_env && *iq_plan_env && (!iq3_env || !*iq3_env || std::strcmp(iq3_env,"0") == 0))
++        throw std::runtime_error("IQ plan: nonzero compact cache budget required");
+     if (iq3_env && *iq3_env && std::strcmp(iq3_env, "0") != 0) {
+         // Strict bounded decimal input. This is an extra RAM budget, not VRAM or KV cache.
+         size_t mib = 0;
+         for (const char * c = iq3_env; *c; ++c) {
+-            if (*c < '0' || *c > '9' || mib > 98304) throw std::runtime_error("IQ cache: invalid MiB budget");
++            if (*c < '0' || *c > '9' || mib > 131072) throw std::runtime_error("IQ cache: invalid MiB budget");
+             mib = mib*10+size_t(*c-'0');
+         }
+-        if (mib < 1 || mib > 98304) throw std::runtime_error("IQ cache: budget must be 1..98304 MiB");
++        if (mib < 1 || mib > 131072) throw std::runtime_error("IQ cache: budget must be 1..131072 MiB");
+         pimpl->iq3_compact.init(mib*1024*1024);
+         size_t count = 0, skipped = 0;
+         LLAMA_LOG_WARN("IQ cache: preparing CPU single-token layout, budget %zu MiB; original weights retained\n", mib);
+@@ -2105,6 +2108,21 @@
+         std::stable_sort(candidates.begin(), candidates.end(), [](const ggml_tensor * a, const ggml_tensor * b) {
+             return xeon_iq_cache_priority(a->type, a->name) < xeon_iq_cache_priority(b->type, b->name);
+         });
++        const char * plan_path = iq_plan_env;
++        if (plan_path && *plan_path) {
++            if (!pimpl->iq3_compact.add_selected) throw std::runtime_error("IQ plan: v2 CPU cache overlay required");
++            const auto plan = xeon_iq3::read_plan(plan_path,candidates,mib*1024*1024);
++            for (size_t i = 0; i < candidates.size(); ++i) {
++                const auto & ids = plan.experts[i];
++                if (ids.empty()) { ++skipped; continue; }
++                const int status = pimpl->iq3_compact.add_selected(pimpl->iq3_compact.owner,candidates[i],ids.data(),ids.size());
++                if (status != 1) throw std::runtime_error("IQ plan: allocation/reserve failure; complete plan required");
++                ++count;
++                LLAMA_LOG_WARN("IQ plan: ready %s; experts %zu/%lld; total %.3f GiB\n",candidates[i]->name,ids.size(),(long long)candidates[i]->ne[2],pimpl->iq3_compact.used(pimpl->iq3_compact.owner)/1073741824.0);
++            }
++            if (pimpl->iq3_compact.used(pimpl->iq3_compact.owner) != plan.bytes) throw std::runtime_error("IQ plan: allocated byte count mismatch");
++            LLAMA_LOG_WARN("IQ plan: complete %zu tensors, %zu selected expert projections, %zu bytes; %zu entirely uncached tensors\n",count,plan.selected,plan.bytes,skipped);
++        } else {
+         for (const auto * tensor : candidates) {
+             if (low_memory) { ++skipped; continue; }
+             LLAMA_LOG_INFO("IQ cache: checking %s (%s)\n", tensor->name, ggml_type_name(tensor->type));
+@@ -2121,6 +2139,7 @@
+             }
+         }
+         LLAMA_LOG_WARN("IQ cache: complete %zu tensors, %.3f GiB additional RAM, %zu fallback; decode only\n", count, pimpl->iq3_compact.used(pimpl->iq3_compact.owner)/1073741824.0, skipped);
++        }
+     }
+ 
+     const char * expert_dma_env = std::getenv("GGML_CUDA_REGISTER_HOST");

@@ -1,0 +1,56 @@
+{
+  "cases": [
+    {
+      "workload": "count",
+      "context": 1024,
+      "baseline_prompt_ms": [
+        10910.046,
+        10763.912
+      ],
+      "ub1536_prompt_ms": [
+        10984.53,
+        11092.27
+      ],
+      "prefill_time_reduction_percent": -1.8586452921981467,
+      "same_output": true,
+      "within_profile_reproducible": true,
+      "baseline_peak_MiB": 30580.0,
+      "ub1536_peak_MiB": 30962.0
+    },
+    {
+      "workload": "code",
+      "context": 1537,
+      "baseline_prompt_ms": [
+        16453.507,
+        16361.743
+      ],
+      "ub1536_prompt_ms": [
+        12297.114,
+        12275.674
+      ],
+      "prefill_time_reduction_percent": 25.117779081372227,
+      "same_output": true,
+      "within_profile_reproducible": true,
+      "baseline_peak_MiB": 30580.0,
+      "ub1536_peak_MiB": 30962.0
+    },
+    {
+      "workload": "japanese",
+      "context": 4096,
+      "baseline_prompt_ms": [
+        31359.653,
+        31154.172
+      ],
+      "ub1536_prompt_ms": [
+        28402.211,
+        28351.746
+      ],
+      "prefill_time_reduction_percent": 9.213750718341107,
+      "same_output": false,
+      "within_profile_reproducible": true,
+      "baseline_peak_MiB": 30580.0,
+      "ub1536_peak_MiB": 30962.0
+    }
+  ],
+  "decision": "Pending output-probability/vision inspection;Japanese4096outputsareNOTbyteidentical"
+}

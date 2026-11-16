@@ -1,0 +1,11 @@
+--- a/ggml-cpu.c
++++ b/ggml-cpu.c
+@@ -1811,7 +1811,7 @@
+     // reset current_chunk
+     for (int cur_a = ith; cur_a < n_as; cur_a += nth) {
+         atomic_int * current_chunk_ctr = (atomic_int *)(atomic_current_chunk + cur_a);
+-        *current_chunk_ctr = nth;
++        atomic_store_explicit(current_chunk_ctr, nth, memory_order_relaxed);
+     }
+ 
+     ggml_barrier(params->threadpool);

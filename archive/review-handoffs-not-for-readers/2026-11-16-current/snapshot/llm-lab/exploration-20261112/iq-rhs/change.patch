@@ -1,0 +1,124 @@
+--- a/MX-baseline/ggml-cpu.c
++++ b/IQ-RHS/ggml-cpu.c
+@@ -5,6 +5,10 @@
+ #include "ggml-backend.h"
+ #include "iq3-cache.h"
+ #include "mx-rhs.h"
++#include "iq-rhs.h"
++#ifndef XEON_IQ_PREPACK
++#define XEON_IQ_PREPACK 1
++#endif
+ #ifndef XEON_MX_PREPACK
+ #define XEON_MX_PREPACK 1
+ #endif
+@@ -1512,7 +1516,10 @@
+     const void * compact_data,
+     const void * mx_rhs,
+     const size_t mx_stride,
+-    const uint64_t mx_safe_mask) {
++    const uint64_t mx_safe_mask,
++    const void * iq_rhs,
++    const size_t iq_stride,
++    const uint64_t iq_safe_mask) {
+ 
+     GGML_TENSOR_BINARY_OP_LOCALS
+ 
+@@ -1555,7 +1562,13 @@
+ 
+                 const void * prepared = mx_rhs && ((mx_safe_mask >> i11) & 1)
+                     ? (const char *)mx_rhs + i11*mx_stride : NULL;
+-                if (prepared) {
++                const void * iq_prepared = compact_data && type==GGML_TYPE_IQ3_XXS && iq_rhs && ((iq_safe_mask >> i11)&1)
++                    ? (const char *)iq_rhs + i11*iq_stride : NULL;
++                if (iq_prepared) {
++                    for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir0_end; ++ir0) {
++                        xeon_iq3_rhs_dot_v1(ne00, &tmp[ir0-iir0], weight_data+ir0*weight_stride, src1_col, iq_prepared);
++                    }
++                } else if (prepared) {
+                     for (int64_t ir0 = iir0; ir0 < iir0 + blck_0 && ir0 < ir0_end; ++ir0) {
+                         xeon_mxfp4_rhs_dot_v1(ne00, &tmp[ir0-iir0], weight_data+ir0*weight_stride, src1_col, prepared);
+                     }
+@@ -1743,6 +1756,9 @@
+     const int n_ids = ids->ne[0]; // n_expert_used
+     const int n_as  = ne02;       // n_expert
+ 
++    const void * const * compact_experts = (!params->use_ref && (type == GGML_TYPE_IQ3_XXS || type == GGML_TYPE_IQ2_S || type == GGML_TYPE_IQ3_S) && ids->ne[1] == 1)
++        ? xeon_iq3_cache_lookup_experts_v2(src0) : NULL;
++
+     void * wdata_cur = params->wdata;
+ 
+     if (src1->type != vec_dot_type) {
+@@ -1767,6 +1783,12 @@
+     const size_t mx_stride = mx_shape ? xeon_mxfp4_rhs_stride(ne10) : 0;
+     void * mx_rhs = mx_shape ? incr_ptr_aligned(&wdata_cur, mx_stride*ne11, 64) : NULL;
+     uint8_t * mx_flags = mx_shape ? incr_ptr_aligned(&wdata_cur, ne11*nth, sizeof(int64_t)) : NULL;
++
++    const bool iq_shape = xeon_iq3_rhs_shape(src0, src1, ids);
++    const bool iq_enabled = XEON_IQ_PREPACK && iq_shape && !params->use_ref && compact_experts;
++    const size_t iq_stride = iq_shape ? (size_t)ne10 : 0;
++    void * iq_rhs = iq_shape ? incr_ptr_aligned(&wdata_cur, iq_stride*ne11, 64) : NULL;
++    uint64_t * iq_worker_masks = iq_shape ? incr_ptr_aligned(&wdata_cur, nth*sizeof(uint64_t), sizeof(uint64_t)) : NULL;
+ 
+     GGML_ASSERT(params->wsize >= (size_t)((char *) wdata_cur - (char *) params->wdata));
+ 
+@@ -1822,6 +1844,23 @@
+         }
+     }
+ 
++    if (iq_enabled) {
++        GGML_ASSERT(vec_dot_type==GGML_TYPE_Q8_K);
++        const int first=(ith*(ne10/256))/nth;
++        const int end=((ith+1)*(ne10/256))/nth;
++        const size_t qrow=ggml_row_size(vec_dot_type,ne10);
++        uint64_t local_mask=0;
++        for (int64_t input=0;input<ne11;++input) {
++            const char * rhs = src1->type==vec_dot_type
++                ? (const char *)src1->data + input*nb11
++                : (const char *)params->wdata + input*qrow;
++            if (xeon_iq3_rhs_prepare_v1(ne10,rhs,first,end,(char *)iq_rhs+input*iq_stride)) {
++                local_mask |= UINT64_C(1)<<input;
++            }
++        }
++        iq_worker_masks[ith]=local_mask;
++    }
++
+     if (ith == 0) {
+         // initialize matrix_row_counts
+         memset(matrix_row_counts, 0, n_as*sizeof(int64_t));
+@@ -1861,8 +1900,11 @@
+         }
+     }
+ 
+-    const void * const * compact_experts = (!params->use_ref && (type == GGML_TYPE_IQ3_XXS || type == GGML_TYPE_IQ2_S || type == GGML_TYPE_IQ3_S) && ids->ne[1] == 1)
+-        ? xeon_iq3_cache_lookup_experts_v2(src0) : NULL;
++    uint64_t iq_safe_mask=0;
++    if (iq_enabled) {
++        iq_safe_mask=UINT64_MAX;
++        for (int worker=0;worker<nth;++worker) iq_safe_mask &= iq_worker_masks[worker];
++    }
+ 
+     for (int cur_a = 0; cur_a < n_as; ++cur_a) {
+         const int64_t cne1 = matrix_row_counts[cur_a];
+@@ -1940,7 +1982,8 @@
+                     dst, src0, src1, ids, cur_a,
+                     ir0_start, ir0_end, ir1_start, ir1_end,
+                     src0_cur, matrix_rows, row_size, src1_cont, wdata,
+-                    compact_data, mx_enabled ? mx_rhs : NULL, mx_stride, mx_safe_mask
++                    compact_data, mx_enabled ? mx_rhs : NULL, mx_stride, mx_safe_mask,
++                    iq_enabled ? iq_rhs : NULL, iq_stride, iq_safe_mask
+                 );
+             }
+ 
+@@ -3140,6 +3183,12 @@
+                             cur = GGML_PAD(cur, sizeof(int64_t));
+                             cur += src1->ne[1]*n_tasks;
+                         }
++                        if (xeon_iq3_rhs_shape(src0,src1,ids)) {
++                            cur = GGML_PAD(cur,64);
++                            cur += (size_t)src1->ne[0]*src1->ne[1];
++                            cur = GGML_PAD(cur,sizeof(uint64_t));
++                            cur += n_tasks*sizeof(uint64_t);
++                        }
+                     } break;
+                 case GGML_OP_OUT_PROD:
+                     {

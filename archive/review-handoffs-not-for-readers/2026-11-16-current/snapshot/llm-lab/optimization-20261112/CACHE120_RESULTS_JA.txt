@@ -1,0 +1,19 @@
+CPU展開キャッシュ拡張の中間検証結果
+
+この部分は実測済み。GPU短入力offload条件の追加検証は継続中。
+
+同一モデル・重み・128k f16 KV・GPU37〜39層・150W/ECC・生成12/入力24スレッド。
+変更はIQ展開キャッシュ予算96→120GiB、内部許容上限96→128GiBのみ。空きRAM64GiBの事前確認を保持。
+実際の展開40→50テンソル、94.922→118.652GiB。追加されたのは16〜20層のIQ3_XXS gate/up。
+生成演算の算術は変更なし。
+
+code input128/output128: 6.4106→6.6912tok/s (+4.38%), baseline2回/candidate3回。出力文字列・返却token列hash一致。
+count input1024/output96: 6.3012→6.6241tok/s (+5.12%), baseline3回/candidate3回。出力文字列・返却token列hash一致。
+japanese input128/output96: 6.4369→6.7492tok/s (+4.85%), baseline2回/candidate3回。出力文字列・返却token列hash一致。
+
+入力処理の改善は確認していない。今回の速度改善は生成時が中心。
+合成入力、cache_prompt=false、ignore_eos=trueでの比較。日常会話・長文128k全域・同時利用全般を保証する測定ではない。
+起動直後MemAvailable約67.96GiB。64GiBは起動時割当チェックであり、稼働中の空き容量を固定するものではない。
+768グラフ試験・672768出力ビット一致。未変更対照ソース2個の再コンパイル、元ライブラリ2個の再リンクがいずれも元とSHA256一致。
+詳細: API_COMPARISON.json, cache120/control/CHECK.json, execution/cache120-contract-and-graphs/status.json
+現在の試験状態はSTATE.json、ロールバック先はprofiles/baseline.jsonまたは検証済みprofiles/cache120.json。

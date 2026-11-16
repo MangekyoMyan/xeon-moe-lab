@@ -1,0 +1,6 @@
+from pathlib import Path
+import hashlib,json,subprocess
+R=Path(__file__).resolve().parent;O=R/'iq-rhs';BASE=R/'sparse-cache'
+prior=json.loads((BASE/'CPU_BUILD.json').read_text())['commands'];cmd=next(x.copy() for x in prior if isinstance(x,list) and '-c'in x and x[x.index('-c')+1]==str(BASE/'iq3-cache.cpp'));cmd.insert(1,'-I'+str(O));cmd[cmd.index('-c')+1]=str(O/'iq-rhs.cpp');cmd[cmd.index('-o')+1]=str(O/'iq-rhs.o');subprocess.run(cmd,check=True,timeout=180)
+test=json.loads((BASE/'TEST_BUILD.json').read_text());test=[str(O/'test-edge.cpp') if x==str(BASE/'test-sparse.cpp') else str(O/'test-edge') if x==str(BASE/'test-sparse') else x for x in test];test.insert(1,'-I'+str(O));test.insert(test.index('-lggml-cpu'),str(O/'iq-rhs.o'));test.append('-ldl');test=[x for x in test if not x.startswith('-Wl,-rpath,')]+['-Wl,-rpath,'+str(BASE/'release-v2-a')+':'+str(R.parent/'gpu-stream-20261103/runtime')+':'+str(R.parent/'deepseek41-bringup-20261101/build/bin')];subprocess.run(test,check=True,timeout=180)
+(O/'PROBE_BUILD.json').write_text(json.dumps({'compile':cmd,'test_compile':test,'sources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in O.iterdir() if p.suffix in ['.cpp','.h','.inc']}},indent=2)+'\n');print('Built IQ RHS directed-edge probe; no runtime changes')

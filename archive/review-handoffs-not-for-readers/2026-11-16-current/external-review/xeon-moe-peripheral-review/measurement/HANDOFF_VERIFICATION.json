@@ -1,0 +1,29 @@
+{
+  "help": {
+    "returncode": 0,
+    "stdout": "usage: probe_measurement.py [-h] --repo REPO --output OUTPUT\n\nReproduce known behavior of one fixed archived revision with synthetic inputs.\nNo model, GPU, service, perf command, network request, or tracked repo\nmutation. The C++ compilation below includes only a copied standard-library\nmedian helper. This is an old-behavior reproducer, NOT a post-fix acceptance\nor regression gate. Both --repo and a NEW --output directory are required.\nExisting outputs are refused.\n\noptions:\n  -h, --help       show this help message and exit\n  --repo REPO      Repository checkout at HEAD\n                   4ff68eba2d8c480692511dc6d219d27a6a102866; source hashes\n                   must also match.\n  --output OUTPUT  New output directory; must not exist, even if empty.\n",
+    "stderr": ""
+  },
+  "missing_arguments": {
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "usage: probe_measurement.py [-h] --repo REPO --output OUTPUT\nprobe_measurement.py: error: the following arguments are required: --repo, --output\n"
+  },
+  "existing_output_rejected": {
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "usage: probe_measurement.py [-h] --repo REPO --output OUTPUT\nprobe_measurement.py: error: --output already exists: /workspace/scratch/1f624f9ac929/audit/peripheral/measurement. Choose a new directory; existing results are never overwritten.\n"
+  },
+  "one_fresh_reproduction": {
+    "returncode": 0,
+    "stdout": "{\n  \"results\": \"/workspace/scratch/1f624f9ac929/audit/peripheral/measurement-handoff-verify-af1edd5048/PROBE_RESULTS.json\",\n  \"fixtures\": \"/workspace/scratch/1f624f9ac929/audit/peripheral/measurement-handoff-verify-af1edd5048/synthetic-fixtures-mgdecq_0\",\n  \"probe_checks_completed\": true,\n  \"model_or_service_started\": false,\n  \"is_post_fix_acceptance_gate\": false\n}\n",
+    "stderr": ""
+  },
+  "existing_results_and_fixtures_preserved": true,
+  "preserved_files_checked": 42,
+  "same_key_findings_as_original": true,
+  "fresh_output": "/workspace/scratch/1f624f9ac929/audit/peripheral/measurement-handoff-verify-af1edd5048",
+  "script_sha256": "95a75301f782b155fe24ec33d6c63488cabbdb4bf133a10d2c1e373d8b88a9b9",
+  "original_results_sha256": "5aa2aaf2f18e30d6826fdd96748e79b52eea4c64d75fb96336cde3d42dea93bf",
+  "expected_head": "4ff68eba2d8c480692511dc6d219d27a6a102866"
+}

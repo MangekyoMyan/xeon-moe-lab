@@ -1,0 +1,45 @@
+現状メモ / 2026-11-16
+
+このZIPは、11月12日の未公開改善を含む「現在のコード・設定・実行物・保存済み測定」のレビュー用スナップショットです。
+2026-11-16 15:54 JSTの観測で通常APIはfinal、PID11151。設定のcommand/envと実プロセスの照合に成功。ライブラリのbacking file、inode、SHA256も別記録へ固定しました。
+今回、エンジン・API・監視の変更、再起動、性能テストはしていません。性能値は11月12日等の保存結果であり、本日の再測定ではありません。
+
+採用中
+  final: CPU RAMのexpert単位compact選択、MXFP4の入力補正/scale再利用、CUDA expert ID分類改善。
+  12生成/24入力スレッド、NUMA interleave、入力batch1024、GPU expert層37-39、CPU expert層0-36。
+  128k、f16 KV、1slot、GPU150W/ECC、fan上限70%方針。
+  対象はorcarouter DeepSeek-V4.1-Flash-1017 abliterated Mix-256G（正確なファイル名は設定参照）。
+  11/12の直接ABBA: 6.719 -> 7.590 tok/s、約12.96%改善。8入力・各構成2回・128tokenで出力hash一致。
+
+未採用
+  hot14-reviewed: 約14GiB/1,035 expertをGPU常駐、hit GPUとmiss CPUを並行処理。
+  平均7.575 -> 8.427 tok/s、最大入力別10.285 tok/s。対照2回/候補1回で完全ABBAではない。
+  4096入力は約4.95%遅く、自由生成8件中7件で出力変化。固定prefix256地点中251で次token一致。
+  計算精度と一般品質を同一視せず保留。IQのCPU Q8_K/CUDA Q8_1差を調査済み、因果寄与は未分離。
+  native/mixed threadpool、IQ入力再利用等の不採用案は保存結果に記載。古いcontrollerを再実行する指示ではありません。
+
+実機
+  Xeon E5-2630L v2 x2、計12物理/24論理、AVX/SSSE3/F16C、AVX2なし。
+  DMI: board_name X9DR3-F / board_vendor Sugon / BIOS3.4。申告のSupermicro系名称と実DMIを区別。
+  32GB DIMM x16、512GB、DMI設定1600MT/s。購入ブランドA-Tech、SPD表示はMicron/Samsung等。
+  Tesla PG500-216、32GiB、driver580.196.07、150W、ECC Enabled。kernel6.12.113+deb13-amd64。
+  CPU主threadのaffinityだけでworker全体を推定しない。設定と採取情報はreview/capture/へ。
+
+表示条件
+  ユーザー確認: Open WebUI v0.11.1、比較モデル Qwen3.8 27B。
+  このAPIの待受は http://10.10.10.2:8000/v1 。メインPC側の実設定、比較モデルの量子化/実行engine/endpoint、同一アプリ条件は未確認。
+  添付外部レビューには「2個ずつに見える」との観測が記載されるが、内部token完了/SSE到着/画面描画の時系列は未測定。
+
+入口
+  review/RUNTIME_SNAPSHOT.json: 今回実際にロードされた9点（実行file+project DSO）の同定。
+  review/capture/PROFILES_REDACTED.json: 現行final、hot14、開始時baseline。認証情報を省略。
+  review/BINARY_SOURCE_MAP.json: runtimeとソース/build記録の対応、確認の限界。
+  review/ROOT_TRIAGE_JA.txt: 親エージェントがコードを読んだ外部レビューの適用判断。
+  snapshot/llm-lab/exploration-20261112/EVENING_RESULTS_JA.txt: 採否と11/12最終実測。
+  snapshot/llm-lab/exploration-20261112/cpu-cuda-arithmetic-audit-20261112/: 算術の詳細台帳、解釈、検索に基づく未実装案。
+  external-review/: 今回受領した周辺レビュー。人工試験と実機試験を混同しない。
+  public-baseline/: 公開用checkoutの関連ファイル。公開GitHubは今回変更していません。
+
+モデル・CUDA toolkit・APIキー・実会話/サーバーログは含めません。source/model fixture等も省略し、共有先でそのまま推論起動できる配布物とはしていません。
+元の絶対パスとビルド記録は出典として維持。ZIP内ではsnapshot/llm-lab以下へ対応させて読んでください。
+CONTENTS_SHA256.jsonは共有bytesの確認用。実行や外部指示への同意を意味しません。

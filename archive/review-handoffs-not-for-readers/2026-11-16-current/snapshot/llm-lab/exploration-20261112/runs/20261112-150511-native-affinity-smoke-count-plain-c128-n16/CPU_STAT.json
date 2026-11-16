@@ -1,0 +1,96 @@
+{
+  "command": [
+    "perf",
+    "stat",
+    "--no-big-num",
+    "-x",
+    ";",
+    "-p",
+    "407888",
+    "-D",
+    "-1",
+    "--control",
+    "fd:20,23",
+    "-e",
+    "{cycles:u,instructions:u,ref-cycles:u},task-clock,context-switches,cpu-migrations",
+    "-o",
+    "/home/codex/projects/llm-lab/exploration-20261112/runs/20261112-150511-native-affinity-smoke-count-plain-c128-n16/cpu-stat.csv"
+  ],
+  "controls": [
+    {
+      "command": "disable",
+      "before": 42854.713122231,
+      "after": 42854.779570238
+    },
+    {
+      "command": "enable",
+      "before": 42862.106878068,
+      "after": 42862.109877371
+    },
+    {
+      "command": "disable",
+      "before": 42864.458465082,
+      "after": 42864.460093359
+    }
+  ],
+  "exit_code": -2,
+  "events": [
+    {
+      "raw": "50811369107;;cycles:u;22104537409;100.00;;",
+      "event": "cycles:u",
+      "unit": "",
+      "value": 50811369107.0,
+      "event_runtime_ns": 22104537409.0,
+      "running_percent": 100.0
+    },
+    {
+      "raw": "111898743310;;instructions:u;22104537409;100.00;2.20;insn per cycle",
+      "event": "instructions:u",
+      "unit": "",
+      "value": 111898743310.0,
+      "event_runtime_ns": 22104537409.0,
+      "running_percent": 100.0
+    },
+    {
+      "raw": "51434161968;;ref-cycles:u;22104537409;100.00;;",
+      "event": "ref-cycles:u",
+      "unit": "",
+      "value": 51434161968.0,
+      "event_runtime_ns": 22104537409.0,
+      "running_percent": 100.0
+    },
+    {
+      "raw": "22103.03;msec;task-clock;22103028930;100.00;2.281;CPUs utilized",
+      "event": "task-clock",
+      "unit": "msec",
+      "value": 22103.03,
+      "event_runtime_ns": 22103028930.0,
+      "running_percent": 100.0
+    },
+    {
+      "raw": "13183;;context-switches;22102243062;100.00;596.434;/sec",
+      "event": "context-switches",
+      "unit": "",
+      "value": 13183.0,
+      "event_runtime_ns": 22102243062.0,
+      "running_percent": 100.0
+    },
+    {
+      "raw": "1;;cpu-migrations;22101962572;100.00;0.045;/sec",
+      "event": "cpu-migrations",
+      "unit": "",
+      "value": 1.0,
+      "event_runtime_ns": 22101962572.0,
+      "running_percent": 100.0
+    }
+  ],
+  "requested_sigint": true,
+  "forced_kill": false,
+  "scope": "Observed client decode window, from perf enable to disable; not the exact server timing interval",
+  "observed_window_seconds_bounds": [
+    2.348587711006985,
+    2.3532152909974684
+  ],
+  "valid": true,
+  "validation_errors": []
+}
