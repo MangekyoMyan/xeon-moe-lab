@@ -1,0 +1,259 @@
+{
+  "commit": "7d8b077afcf1258602366245f1567e820255defa",
+  "findings": [
+    {
+      "id": "CPU-CURRENT-VERDICT",
+      "status": "No confirmed reachable current-profile correctness defect found",
+      "confidence": "bounded static review and standalone synthetic tests; not a proof of all backend behavior",
+      "priority": "assessment",
+      "evidence": [
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/row-local/iq3-cache.cpp",
+          "lines": "78-147,158-191"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/row-local/iq3-cache.h",
+          "lines": "9-17"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/sparse-cache/selection-plan.h",
+          "lines": "23-107"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c",
+          "lines": "1765-1865"
+        }
+      ],
+      "limits": [
+        "No model/API/backend-parallel execution in this review",
+        "No claim about end-to-end output quality",
+        "Future in-place weight mutation/live eviction requires new lifetime/invalidation contract"
+      ]
+    },
+    {
+      "id": "CPU-MX-CONTRACT",
+      "status": "Independent newly compiled current-source probe passed",
+      "priority": "verified",
+      "result": "mx_contract_run_v2/RESULT.json",
+      "bit_exact_outputs": 28672,
+      "unsafe_rejections": 800,
+      "partition_canary_checks": 29472,
+      "shape_checks": 5,
+      "seed": 20261116,
+      "k": [
+        32,
+        64,
+        96,
+        160,
+        256,
+        2304,
+        5120
+      ],
+      "rounding_modes": 4,
+      "ftz_daz_modes": 2,
+      "partition_workers": [
+        1,
+        3,
+        12,
+        24
+      ],
+      "local_cpu": "AMD EPYC 9V74 80-Core Processor",
+      "timing_performed": false,
+      "evidence": [
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.cpp",
+          "lines": "17-39"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.h",
+          "lines": "9-24"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-math.inc",
+          "lines": "9-55"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c",
+          "lines": "1798-1822,1853-1861"
+        }
+      ],
+      "limits": [
+        "Prequantized Q8_0 inputs; F32 quantizer not independently tested",
+        "Partition API invoked sequentially, not actual concurrent backend workers",
+        "Extreme exponent cases can yield Inf/NaN output; bit identity is not a numerical-quality metric",
+        "Initial probe link failed due missing harness table, fixed in v2; not engine defect"
+      ]
+    },
+    {
+      "id": "CPU-MIXED-LAYOUT",
+      "status": "New current-plan capacity analysis; implementation candidate, speed unmeasured",
+      "priority": "P1 experimental after real-host cost measurement",
+      "evidence": [
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/row-local/iq3-cache.cpp",
+          "lines": "28,71-73,105-107,122-143,184-191"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/sparse-cache/selection-plan.h",
+          "lines": "70-83"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c",
+          "lines": "1523,1874-1943"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/sparse-cache/model-cache.h",
+          "lines": "36"
+        }
+      ],
+      "result": "CACHE_BUDGET_ANALYSIS.json",
+      "proposal": "Keep the same 19200 selected projections and choose a small subset for a 160/176B layout under existing configured-budget slack; mixed descriptors and v3 exact-byte plan required.",
+      "current_payload_GiB": 118.65234375,
+      "configured_budget_GiB": 120,
+      "global_hard_cap_GiB": 128,
+      "all_current_projections_new_layout_GiB": 134.20761108398438,
+      "payload_slack_only_upgrade_constraint": "n_IQ3 + 2*n_IQ2 <= 1962",
+      "same_payload_new_only_max_training_coverage": 0.9495169526143791,
+      "current_training_coverage": 0.9707046568627451,
+      "break_even": "sum_U f_i*(t144_i-tnew_i) > sum_E f_i*(traw_i-t144_i) + delta_activation_prep + delta_dispatch_and_bandwidth_interference; add raw-to-new savings for newly cached items",
+      "limits": [
+        "Coverage optimum is in-sample count optimum over two item-cost groups, not a speed optimum",
+        "All-new at fixed payload loses 20747 cached assignments over 2040 observed calls",
+        "A single idle MemAvailable snapshot does not establish loader/runtime peak headroom",
+        "Metadata/sidecar/loader peak outside theoretical packed-payload upgrade count",
+        "No live cache replacement under current raw-pointer ownership contract",
+        "Earlier EPYC 1.16-1.22x dot result excluded activation conversion and is not current Xeon end-to-end speedup"
+      ]
+    },
+    {
+      "id": "CPU-GATE-UP-SHARING",
+      "status": "Source-level opportunity; benefit unmeasured",
+      "priority": "P2 profile first",
+      "evidence": [
+        {
+          "path": "snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-graph.cpp",
+          "lines": "2336-2352"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c",
+          "lines": "1773-1853"
+        }
+      ],
+      "proposal": "For guarded T=1 same input/version/IDs/backend/quantized-type, share Q8 preparation and row map across CPU gate/up, beginning with same dot kernels and per-row accumulation order.",
+      "training_gate_up_pairs_by_type": {
+        "iq3_xxs": 21,
+        "iq2_s": 6,
+        "iq3_s": 1,
+        "mxfp4": 9
+      },
+      "limits": [
+        "Input preparation may be tiny relative to weight dot work",
+        "Requires explicit same-execution shared-scratch lifetime; raw buffer pointer reuse across tokens is unsafe",
+        "Already rejected coordination edits are a reason to measure first",
+        "Not proposed as an automatic code change"
+      ]
+    },
+    {
+      "id": "CPU-NUMA-DISPATCH",
+      "status": "Resolved: no demonstrated current NUMA mismatch",
+      "priority": "verified interpretation",
+      "evidence": [
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c",
+          "lines": "1888-1951,3582-3585,3660-3666"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/row-local/placement.inc",
+          "lines": "19-47,67-79"
+        },
+        {
+          "path": "snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama.cpp",
+          "lines": "137-146"
+        }
+      ],
+      "current_T1_nth12": {
+        "gate_up_rows": 2304,
+        "gate_up_chunks": 12,
+        "gate_up_rows_per_worker": 192,
+        "down_rows": 5120,
+        "down_chunks": 80,
+        "down_chunk_rows": 64
+      },
+      "conclusions": [
+        "External numactl interleave does not enable ggml internal NUMA strategy",
+        "Final no --numa is consistent with cost-probe ggml_numa=false",
+        "Compiled row-local support is not an active final policy",
+        "Main thread CPU0 is not whole-process placement",
+        "IMC throughput alone is not proof of pure bandwidth saturation"
+      ]
+    },
+    {
+      "id": "CPU-NO-DUPLICATE-PROPOSALS",
+      "status": "Already adopted or measured/rejected; not new proposals",
+      "priority": "retained decisions",
+      "evidence": [
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/RESULTS_JA.txt",
+          "lines": "31-71"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/hybrid-pool/DECISION.json",
+          "lines": "1-30"
+        },
+        {
+          "path": "snapshot/llm-lab/exploration-20261112/native-poll/LIVE_ABBA.json",
+          "lines": "scope and aggregate_gain_percent"
+        }
+      ],
+      "items": [
+        "Projection sparse plan adopted",
+        "MX RHS correction/scale adopted",
+        "row-local +0.6975% not default",
+        "IQ RHS +0.5101% not shown to beat prior MX baseline",
+        "Combined counter/barrier/mask -0.7924% rejected",
+        "Native poll0 -2.3554% decode not adopted",
+        "Native poll50 +3.0883% is vs native poll0, not direct proof over OpenMP",
+        "Hybrid pool -0.1104% and slower prefill rejected",
+        "24 threads/PASSIVE/spin10000 did not beat 12 default",
+        "Small valueprior single-run difference not strong evidence",
+        "Loop unroll reduction slower"
+      ]
+    },
+    {
+      "id": "CPU-INPUT-ABS-HYPOTHESIS",
+      "status": "arithmetic validated on synthetic fixtures; performance inconclusive; not a deployment recommendation",
+      "priority": "exploratory; no adoption on present evidence",
+      "report": "CPU_ABS_RHS_ADDENDUM_JA.txt",
+      "result": "IQ_ABS_RHS_ANALYSIS.json",
+      "representative_correctness": {
+        "bit_exact_outputs": 61440,
+        "unsafe_rejections": 4800,
+        "stored_bias_variant_bit_checks": 20480
+      },
+      "unchanged_weight_bytes_per_block": 144,
+      "additional_rhs_bytes_per_block": 256,
+      "limits": [
+        "Single-thread synthetic arrays; not dual-Xeon inference",
+        "Unpinned and not OS isolated; no LLC eviction",
+        "Initial wall ratios wildly unstable; focused thread CPU ratios still broad",
+        "No established advantage over already tested bias62 sidecar",
+        "Input preparation included once per matrix traversal; common F32 quantization excluded",
+        "No new raw model/runtime files or shipped ELF executed"
+      ]
+    }
+  ],
+  "new_execution_scope": [
+    "Newly compiled standalone CPU synthetic MX arithmetic/partition probe",
+    "Read-only Python recomputation of saved census and plan",
+    "New input-abs standalone experiment described separately in follow-up artifact"
+  ],
+  "not_executed": [
+    "Packaged ELF",
+    "Model loading",
+    "API/server/controller",
+    "GPU work",
+    "Heavy performance benchmark"
+  ],
+  "source_manifest": "CPU_SOURCE_MANIFEST.json",
+  "narrative": "CPU_REVIEW_JA.txt"
+}

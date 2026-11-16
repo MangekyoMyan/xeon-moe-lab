@@ -1,0 +1,120 @@
+Open WebUI v0.11.1 と2個ずつに見える表示の切り分け
+2026-11-16（JST）
+
+今回得られた情報
+================
+共有CURRENT_NOTE_JA.txtに、ユーザー確認情報としてOpen WebUI v0.11.1と記載されている。
+稼働コンテナのimage digestや独自改変の有無をこちらで観測したわけではない。
+比較モデル名はユーザー申告のQwen3.8 27B。比較モデルの量子化、実行engine、endpoint、
+同一アプリ条件、モデルごとの設定はまだ未確認である。
+実エンジンのtoken完了、HTTP SSE到着、Open WebUIのevent送出、ブラウザ描画の時系列は未採取。
+
+以前の別versionの読解をそのまま適用せず、公式v0.11.1 tagをGitHub pluginで取得して確認した。
+tagが指すcommit: d3e8bf3405e848cfba377814d0aa7ba7290e414d
+middleware.py blob SHA: cc5f57e0c320c2b75e106af409e67bea791ee898
+main.py blob SHA: c84a394b870d56457079f1d01cc2583f5981c9c5
+env.py blob SHA: b17df7340ab5532270dd6dfdddb1a19fc65e02c5
+取得したbytesについてGit blob SHAを独立照合して一致。
+
+公式source（固定commit）:
+https://github.com/open-webui/open-webui/blob/d3e8bf3405e848cfba377814d0aa7ba7290e414d/backend/open_webui/utils/middleware.py
+https://github.com/open-webui/open-webui/blob/d3e8bf3405e848cfba377814d0aa7ba7290e414d/backend/open_webui/main.py
+https://github.com/open-webui/open-webui/blob/d3e8bf3405e848cfba377814d0aa7ba7290e414d/backend/open_webui/env.py
+
+確認した実装
+============
+env.py:1049–1057
+  CHAT_RESPONSE_STREAM_DELTA_CHUNK_SIZEのdefaultは1。空・整数として不正な値も1へ戻す。
+
+main.py:1146–1178,1264
+  global defaultのmodel paramsへper-model paramsを重ね、その後request paramsを扱う。
+  stream_delta_chunk_sizeについては、model_info_paramsの値がtruthyなら最終的にそちらを採る。
+  その値をmetadata.paramsへ渡す。モデル設定とrequest設定を単純な三者maxと説明しない。
+
+middleware.py:4637–4644
+  実効chunk数はmax(CHAT_RESPONSE_STREAM_DELTA_CHUNK_SIZE,
+                    int(metadata.params.stream_delta_chunk_size or 1))。
+  そのため環境側が2なら、request側を1にするだけでは必ずしも1にならない。
+
+middleware.py:4671–4747,5389–5407
+  同じ種類・item/output/content等のkeyのdeltaは文字列を連結し、delta_countを増やす。
+  指定countに達したときにevent_emitterへ送る。
+  key/種類の変化、非delta event、stream末尾では残りをflushする。
+  このbatcherの中に経過時間によるflush処理はない。
+  Chat Completions入力もresponse.output_text.delta等へ組み立ててこのqueueを通る。
+
+合成再現
+========
+probe_openwebui_batching.pyは上記4 helperのAST定義だけをそのまま取り出して評価する。
+emitter/saveだけfakeにし、時計は与えた整数。HTTP、DB、実Open WebUI、ブラウザ、モデルは起動しない。
+
+入力: 130msおきにA/B/C/D/E/Fの6文字列delta。
+実効count=1: 出力130,260,390,520,650,780ms、A/B/C/D/E/F。
+実効count=2: 出力260,520,780ms、AB/CD/EF。
+環境2・metadata1でも後者。全文は全条件でABCDEF。
+種類変化時のflushと、奇数個の末尾flushも確認した。7項目すべてpass。
+1個だけ入力してfinishを5000msにしたfixtureでは、finish前の出力は0件。
+これはhelperの制御フローの再現であり、実機で5秒待つ測定ではない。
+
+結論の範囲
+==========
+v0.11.1に、この見え方を作り得る具体的なbatch経路がある。
+ただしユーザーの実効chunk数が2であるとは未確認。defaultは1なので、versionだけで原因確定はできない。
+入力は文字列deltaであり、model token、TCP packet、SSE event、browser frameの個数とは同一ではない。
+別モデルが滑らかだった観測は有用だが、モデル別設定・tokenization・送り方が違い得るので、
+UI側とengine側のどちらかをこの観測だけで除外しない。
+
+llama-server側にも別のまとまりがある
+===================================
+今回snapshotの source/tools/server/server-context.cpp:2137–2185 は、末尾UTF-8が未完成なら
+部分応答を保留し、完成後に未送信文字列をまとめて送る。
+同:2364–2368はcontentを未送信文字列から作る一方、partial.tokensは現在の1 IDのみを入れる。
+このためpartialのtokens配列長だけから、そのcontentに対応する全生成token数を数えない。
+server-task.cpp:1052–1065のnative応答には累計tokens_predictedと、指定時のtimingsがある。
+累計値の差分と到着時刻を記録すれば、送信のまとまりを調べる助けになる。
+ただし累計timingsから、保留されていた各tokenの個別完了時刻を復元できるわけではない。
+
+最初に取るとよい最小の記録
+========================
+1. 使用したOpen WebUIの実効chunk値
+   環境値、global model defaults、当該model params、request params、最終metadata値。
+   API keyや全文envは不要。モデル間の違いもここで確認する。
+
+2. engineへ直接送ったstreaming応答
+   同じ凍結入力、同じ生成上限・sampling・cache条件で、native /completionを1本計測。
+   request開始、header完成、各body readの時刻とbyte数、各SSE完成時刻を区別する。
+   native tokens_predictedの累計、timings、content byte/文字数を記録。
+   SSE件数やpartial.tokens.lengthを生成token数の代用品にしない。
+
+3. Open WebUI内部の受信と送出
+   upstream body_iteratorで受けた時刻、queue後event_emitterで出した時刻を同じrequest IDに紐づける。
+   event ID/種類、文字列長、必要ならhashを記録する。生の会話全文は不要。
+   Open WebUIのHTTP互換APIを叩くだけで、通常UI用のこのbatch経路を必ず通るとは仮定しない。
+
+4. ブラウザのevent受信と描画
+   event handlerと次の描画callbackの時刻を別々に記録する。
+   異なるPCのmonotonic時刻は直接引き算せず、各段階の間隔・seq IDから対応を調べる。
+
+見る指標:
+  最初の可視content到着、空/制御event、event間隔p50/p95/max、同body readに入ったevent数、
+  tokens_predictedのjump、短い間隔と長い間隔の交互性、chunk数分布、request wall。
+  平均tok/sは別の指標として残す。平均値だけから表示の規則性を推定しない。
+  period2が実engineのtoken完了にも残る場合に、decode内部の層別時間・routing・同期・KV処理を調べる。
+
+切り分けの読み方:
+  engine側SSEは均等、Open WebUI送出からまとまる -> batch/中継段階を重点確認。
+  nativeの累計tokenが2以上jumpする -> UTF-8等の送信保留も調べる。内部生成周期と即断しない。
+  serverで記録したtoken完了から交互になる -> engine内部の区間traceを取る。
+  event到着は均等で画面だけまとまる -> 描画側を確認する。
+
+今回の保存final試験は非stream要求であり、ttft_sもprompt_ms/1000のproxyである。
+finalの+12.96%が再現できたことと、この表示問題の解決・原因特定は別の結果。
+
+再現コマンド
+============
+公式sourceを固定commitから取得した後:
+python3 probe_openwebui_batching.py --source /path/to/middleware.py --output /path/to/new-batching-results.json
+
+exact blob SHAを要求し、出力は新規fileのみ。
+添付OPENWEBUI_V0111_BATCHING_RESULTS.jsonは上記の合成再現結果。
+直接SSE recorderを使う場合はstreaming/README_JA.txtの対象範囲も参照する。

@@ -1,0 +1,357 @@
+CPU 側の現行版レビューと次の実験候補
+対象 commit: 7d8b077afcf1258602366245f1567e820255defa
+対象 handoff: archive/review-handoffs-not-for-readers/2026-11-16-current
+調査日: 2026-11-16
+
+追記: 本文完成後に「入力absを先計算しweight144Bを維持する」別案を局所検証しました。
+CPU_ABS_RHS_ADDENDUM_JA.txt を参照してください。算術一致は確認、性能は判定保留です。
+本文のmixed-weight案と混同しないよう、追加試験の範囲と生データを分離しています。
+
+0. 結論
+
+現行 CPU の採用箇所には、この調査で再現できた correctness 不具合はありません。
+特に MXFP4 の入力補正・scale sidecar は、参照演算の順序を守る部分と、
+-128 / 非有限 scale を元経路へ戻す部分が明確です。実際の現在の source を
+新規にコンパイルし、28,672 出力の bit 一致、800 の unsafe 分類、29,472 の
+partition/canary 確認を通しました。ただし、これは prequantized Q8_0 を使った
+単体 API 試験であり、全 backend を並列実行した試験でも回答品質評価でもありません。
+
+今後の有力な CPU 実験は、前回の unsigned-activation prototype をそのまま
+全面導入することではなく、144-byte 現行形式と 160/176-byte 候補形式の
+projection 単位の混在です。現在の 19,200 projection を全部候補形式へ移すと
+134.207611 GiB になり、configured 120 GiB と global hard cap 128 GiB の両方を
+超えます。現 payload と configured budget の差 1.34765625 GiB だけを使うなら、
+payload の理論上は IQ3 projection 最大 1,962 件、または IQ2 最大 981 件を、
+既存の cache coverage を減らさず upgrade できます。実機での便益は未測定です。
+
+row-local、IQ3 入力 sidecar、native/hybrid pool、barrier/counter の削減、
+24 threads や PASSIVE は、既に実験または棄却されています。新規案として
+繰り返しません。CPU gate/up 間の入力準備の共有は別の候補ですが、準備時間を
+先に計測する低優先の調査課題です。内積時間が大半なら、これだけでは大きく伸びません。
+
+1. 対象の同定と証拠の位置
+
+以下では H を handoff の root、E を H/snapshot/llm-lab/exploration-20261112 とする。
+現在の CPU DSO は mx-prepack/release-candidate-a の libggml-cpu.so であり、
+row-local source が link されていることと、row-local policy が有効なことは別です。
+review/capture/PROFILES_REDACTED.json:9-16,96-107 の current/final は、
+numactl --physcpubind=0-23 --interleave=0,1、decode 12 threads、batch 24 threads、
+GGML_CPU_IQ3_COMPACT_MIB=122880、frequency19200.plan を指定しています。
+GGML_CPU_IQ_ROW_LOCAL は指定されていません。通常 API は OpenMP executor です。
+
+実使用 source の対応は review/BINARY_SOURCE_MAP.json と
+review/adopted-overlay-diff/INDEX.json に基づきます。中心となる source は次の通りです。
+
+  E/mx-prepack/release-candidate-a/sources/ggml-cpu.c
+    e8fdf3d424463f9852fa774d9de6057dce35855a872936bda87d12d3d756e3a8
+  E/mx-prepack/release-candidate-a/sources/mx-rhs.cpp
+    1a6ebc4650fd58a6ccabea5fcf3f5fd52d38b6537f0a4ac2c0bfd6b67091123c
+  E/mx-prepack/release-candidate-a/sources/mx-rhs.h
+    06f481d18e0d079b083b905c474de1aaf8db625a3398d7fb6c7bad0a4bbd6d62
+  E/mx-prepack/release-candidate-a/sources/mx-math.inc
+    15fc828d91312ed6edbba454e97e26aa546d31db179e5f1b9648406312c79c0b
+  E/row-local/iq3-cache.cpp
+    2e1dde95812671f12eacdddb83e181154db1927907933f71478221f006ecc15e
+  E/row-local/compact-kernel.inc
+    16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1
+  E/row-local/iq-small-kernels.inc
+    847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c
+  H/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/arch/x86/quants.c
+    a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7
+
+CPU DSO SHA256 は
+33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3。
+CPU arithmetic source と上記 compact kernel 2 本は前回公開版と同一です。
+全 source/保存結果の使用分は CPU_SOURCE_MANIFEST.json に収録しています。
+配布 ELF は実行していません。今回作った standalone probe だけを実行しました。
+
+2. MXFP4 sidecar: 正しさ、境界、並列契約
+
+2.1 何を再利用するか
+
+mx-rhs.cpp:17-33 は Q8_0 の各 32 入力について、8 個の int16 correction と
+FP16→FP32 scale を作ります。sidecar は 20 bytes/32 values、各 input row を
+64-byte に丸めます（mx-rhs.h:22-24）。元の Q8_0 はそのまま保持します。
+mx-math.inc:11 は MXFP4 整数値へ +12 の bias を加えた lookup table を使い、
+unsigned weight × signed input の SSSE3 maddubs を使ってから correction を引きます。
+これはモデル量子化や activation quantizer の変更ではありません。
+
+安全な入力範囲は qs=-127..127。bias 後 weight は 0..24 なので、maddubs の
+2 要素和は絶対値 6,096 以下、対応する 4 要素和は 12,192 以下です。
+correction の 4 要素和は絶対値 6,096 以下です。独立に最大値を見積もっても
+差は 18,288 以下であり、int16 の飽和・wrap を起こしません。
+実際の差は元の signed weight -12..12 との同じ整数和です。
+
+FP32 の 8 lane 累積と水平和を保持し、奇数 block の tail は scalar 演算と
+乗算順を明示して残しています（mx-math.inc:28-55）。
+-128 や scale の Inf/NaN を見つけた worker は unsafe を返し、全 worker の
+flag が safe な input だけを fast path に通します（mx-rhs.cpp:25-33、
+ggml-cpu.c:1855-1861）。これは元経路との互換性のための fallback です。
+
+2.2 parallel preparation に読み取り競合があるか
+
+ggml-cpu.c:1798-1803 の quantize block 区間と、1810-1822 の prepare 区間は、
+MXFP4 の K が 32 の倍数なら同じです。各 worker は自分が書いた Q8_0 block だけを
+barrier 前に読み、その block に対応する correction/scale のみを書きます。
+1853 の既存 barrier が全 worker の出力と flags を公開します。
+従って「quantize と sidecar の間に追加 barrier がない」だけでは race ではありません。
+shape guard は T=1、x の後ろ 2 軸が 1、input row 数 1..64、K>0/int 範囲/32 整列
+です（mx-rhs.h:18-20）。64-bit safe mask の上限とも一致しています。
+workspace の reservation と compute の layout の対応も静的に照合しました。
+
+2.3 独立再コンパイル試験
+
+mx_contract_probe.cpp と run_mx_contract_probe.py は上記 source そのものを使用します。
+参照 C source と candidate C++ source を -O3 -march=ivybridge -mno-avx2 -mno-fma
+-fno-fast-math -ffp-contract=off で別 object にコンパイルし、必要な dot だけを link。
+FP16/E8M0 の lookup table は元 header の変換関数で初期化しました。
+配布 DSO、モデル、GPU、API、既存 controller は使用していません。
+実行 CPU はこの環境の AMD EPYC 9V74 です。Ivy Bridge の性能値は得ていません。
+
+再現 seed: 20261116。
+K: 32,64,96,160,256,2304,5120。
+各 K で 128 組の weight/Q8_0 合成データ。weight exponent は 0..255、nibble は乱数。
+Q8 scale は有限 FP16 bit pattern から選び、正負と subnormal を含む。
+FTZ/DAZ off/on × MXCSR rounding 4 種 × partition 数 1,3,12,24 を実行。
+unsafe case は最後の block に -128、±Inf、正負 NaN scale を配置。
+shape guard も 1/64/65 input rows、T=2、K 非整列を確認。
+
+結果: bit 一致 28,672、unsafe 分類 800、partition/canary 確認 29,472、shape 5、全 pass。
+保存: mx_contract_run_v2/RESULT.json。
+初回の mx_contract_run は試験 harness の FP16 table 定義不足で link に失敗しています。
+修正後の v2 が上の成功記録であり、この link failure は engine の不具合ではありません。
+
+試験の限界: partition API を順次呼んでおり、実 worker を同時実行した backend race
+試験ではありません。F32→Q8_0 quantize 自体や API 全体も動かしていません。
+bit 一致は指定合成データの結果で、全 finite/exceptional 入力に対する証明ではありません。
+保存済み sanitizer/graph 試験は参考証拠として読んだもので、今回の独立再実行ではありません。
+
+3. sparse CPU cache: 現在の設計をどう評価するか
+
+selection-plan.h:23-83 は inventory、type、shape、unique/sorted expert IDs、
+宣言 bytes、overflow、budget を検証します。read_plan:86-107 は regular file、
+O_NOFOLLOW、1 MiB 上限も持ちます。llama-model.cpp:2112-2124 は plan 使用時に
+全 allocation の成功と bytes 完全一致を要求し、途中まで別構成として起動しません。
+
+iq3-cache.cpp:78-147 は source expert ID と packed slot を分離し、pointer 配列を
+original expert ID で引く設計です。配列 metadata、packing、配置 audit が完了した後に
+registry に公開します。eligible は host weight/contiguous shape/type を要求します。
+lookup は type、ne、nb も照合します（同:62-68,172-191）。
+
+raw pointer の lookup が lock 解放後も使用されますが、iq3-cache.h:9 の ABI 契約は
+owner が全 graph より長生きすることです。現モデルの immutable weight lifetime で
+これを満たす使用まで use-after-free と判定する根拠はありません。
+将来、online model reload・weight in-place mutation・live cache eviction を追加するなら、
+今の pointer+shape 検証だけでは不十分です。その時に generation/epoch/所有権を拡張します。
+現行 profile に到達可能な concurrent free バグは見つけていません。
+
+training census と frequency19200.plan を再集計すると、対象 IQ は 80 tensors×384。
+全 30,720 expert projections から 19,200 を選び、payload は 127,401,984,000 B
+=118.65234375 GiB。type 別件数は IQ3_XXS 13,766、IQ2_S 3,454、IQ3_S 1,980。
+全 eligible assignments 979,200 に対し cache assignments 950,514、coverage 97.0704657%。
+全 projection が同じ 46,080 blocks×144 B なので、同容量で「訓練中の hit 件数」を
+最大化するなら frequency 順は厳密な最適解です。実際の plan の hit 数もその値と一致します。
+
+ただし、これは training と評価が同一 census の in-sample 値です。
+census 自体が CPU single-token calls と possible prefill tails を含み、GPU37–39 は含みません。
+実リクエストの heldout hit、layer ごとの latency、遅い token の tail は分かりません。
+97.07% を一般的な hit 率・latency 改善率・回答精度と解釈しないでください。
+また xeon_iq3_cache_hits_v1 は worker/operator lookup の回数です。実行した expert の
+cached fraction を求める計数器ではありません（iq3-cache.cpp:184-193）。
+
+4. 次の優先候補: 形式の選択と RAM 配分を一緒に最適化する
+
+4.1 前回 prototype と今回 iq-rhs 棄却案の違い
+
+前回ローカルに作った unsigned-activation prototype は weight 側へ correction を保存し、
+activation を unsigned に変換して signed weight と組み合わせます。IQ3_XXS/IQ3_S は
+160 B/block、IQ2_S は 176 B/block でした。今回の iq-rhs は weight を bias し、
+activation 側に correction を作る別案です。後者の +0.51% という保存結果は、
+前者の候補を測定した結果ではありません。
+一方、前回 EPYC の単体 dot 約 1.16–1.22x は activation 変換を timing 外に置いた局所値です。
+それを現 Xeon の end-to-end gain として使えません。現 compact kernel は source 同一なので、
+候補自体は残りますが、現在の sparse plan の RAM 制約で再評価する必要があります。
+
+4.2 全面変更の費用を厳密に再集計
+
+現在と同じ 19,200 projection を全て候補形式へ変えると 144,104,325,120 B
+=134.20761108398438 GiB。現 payload より 15.555267333984375 GiB 多くなります。
+configured budget は 120 GiB、CPU registry の global hard cap は 128 GiB です。
+hard cap は iq3-cache.cpp:28,71-73,105、loader の数値上限は llama-model.cpp:2091-2097。
+
+同じ予算で「全て新形式にして、training hit が最大になる projection を選び直す」場合:
+
+  予算                      最大 hit 選択数   training coverage   現 plan との差
+  118.65234375 GiB           16,985            94.9516953%         -2.1187704 pp
+  configured 120 GiB         17,179            95.1718750%         -1.8985907 pp
+  global hard cap 128 GiB    18,318            96.3174020%         -0.7530637 pp
+
+最大化は近似 greedy ではありません。全 projection の block 数は 46,080 で共通なので、
+737,280 B=46,080×16 B を 1 単位とすると、160 B 形式は 10 単位、176 B は 11 単位です。
+各 cost group を frequency 順に並べた prefix sum を用意し、11 単位 group の採用件数を
+全列挙して、残余容量を 10 単位 group の上位で埋め、hit の最大値を取っています。
+同 cost 内は count の大きい item が常に有利なので、この二つの cost group と目的関数では
+厳密解です。最速 plan の解ではありません。time benefit と raw fallback cost を入れていません。
+同額118.652GiB の解は現選択の 2,215 projection を落とし、新規追加は 0。
+落ちる assignment は 20,747 回、観測 call 2,040 回当たり 10.170098 件です。
+
+4.3 まず現 coverage を減らさない混在実験
+
+configured 120 GiB − 実 payload 118.65234375 GiB =1.34765625 GiB
+=1,447,034,880 B が既存の budget 内の差分です。
+IQ3 の 144→160 は 737,280 B/projection、IQ2 の 144→176 は 1,474,560 B/projection。
+従って n_IQ3+2*n_IQ2<=1962 の upgrade は、packed payload の理論上、evict なしで収まります。
+全て IQ3 なら 1,962 projection、全て IQ2 なら 981 projection。
+このモデル形状では各形式の projection サイズも 4096 の倍数なので、page 丸めは増えません。
+descriptor metadata、activation sidecar、allocator/loader peak はこの上限に含みません。
+
+現在の ABI は expert→const void* で、row stride は (K/256)*144 に固定されています
+（ggml-cpu.c:1523、iq3-cache.cpp:136-143、selection-plan.h:70-73）。
+混在は設定変更だけではできません。実装するなら v3 plan と descriptor を追加し、
+{pointer, layout kind, row stride} を各 expert に持たせ、expert の chunk に入る前に
+dot と stride を選ぶ形が考えられます。block 内に毎回 branch を増やす必要はありません。
+legacy v1 lookup は heterogeneous layout に対して返さず、新 API を明示して使います。
+parser の exact-byte accounting と registry の publish-after-complete を維持します。
+row-local の固定 144 B geometry はそのままでは使えないので、最初の混在試験は
+現行と同じ interleave に限定し、row-local を使う場合は別途 geometry を更新します。
+
+現 registry は duplicate source を拒否し、owner lifetime で pointer の有効性を保証します。
+最初の試験は新しいプロセスの load 時に選択した形式へ直接 pack する静的構成です。
+稼働 graph の最中に既存 pointer を差し替える構想ではありません。
+144 B の cache を全作成してから追加候補を全重複保存する実装は peak RAM を増やすので避けます。
+
+保存時点の MemAvailable は 68.4148979 GiB、loader reserve は 64 GiB。
+差は 4.4148979 GiB しかありません。available_memory と allocation ごとの reserve check は
+iq3-cache.cpp:52-60,105-107、reserve の指定は model-cache.h:36。
+この reserve は allocation 前の観測条件であり、運転中の minimum を予約するものではありません。
+単一 idle snapshot を peak headroom と扱わず、全量変更のために cap を増やす案は勧めません。
+小さな混在実験でも実ロード peak と長文時 peak を別に測ります。
+
+4.4 採用判断に必要な損益分岐
+
+f_i を projection i の観測 call 当たり実行頻度、t144_i を現在の compact 時間、
+tnew_i を候補形式の時間、traw_i を uncached fallback 時間とします。
+retained+upgraded 集合を U、evicted 集合を E とすると、直列加算モデルで利益が出る条件は
+
+  Σ(U) f_i (t144_i − tnew_i)
+    > Σ(E) f_i (traw_i − t144_i) + Δactivation preparation + Δdispatch/帯域干渉
+
+です。新たに cached にする projection がある場合は、その raw→new の便益を左辺に加えます。
+同予算の全面新形式案では、もし miss penalty が全て b ms と仮定すれば、右辺の追加 miss は
+観測 call 当たり 10.170098*b ms です。この仮定は explanatory model で、wall 実測ではありません。
+実際は type と up/gate/down で penalty が異なり、同時 GPU 実行や帯域干渉もあります。
+evict なしの小規模混在ならこの追加 miss 項を 0 にして評価できる点が利点です。
+
+候補の順位付けは frequency だけでなく
+  f_i*(t144_i−tnew_i) / additional_bytes_i
+を用います。ただし、同じ activation を共有する準備費用は projection 毎に二重計上しないこと。
+前回 valueprior は「どれを cache するか」の別実験でした。今回は「同じ cached projection を
+どの format で保持するか」まで含む別問題です。新しい実機 cost 測定が必要です。
+
+5. 低優先候補: CPU gate/up の共通入力準備
+
+H/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-graph.cpp:2336-2352 は、
+同一 cur と selected_experts に対し up と gate の MUL_MAT_ID を別々に作ります。
+現 CPU は operator 毎に quantize、matrix-row mapping、counter reset を実行します。
+training census の CPU37層では gate/up の type と count が全層で一致していました
+（IQ3_XXS 21層、IQ2_S 6層、IQ3_S 1層、MXFP4 9層）。
+
+T=1 かつ同一 activation/version、ID、backend、必要 quantized type が一致する場合に、
+Q8 入力と row mapping、MX sidecar を gate/up 間で共有する余地があります。
+重みの並び替えや加算順の変更を伴わず、同じ row-dot を二つの出力へ使う設計から始められます。
+GPU の gate/up fusion を CPU で実行済みと解釈しないこと。
+
+ただし gate/up の F32 activation は 5,120 要素だけです。重み内積に比べて小さいので、
+まず quantize・prepare・mapping・barrier・dot を stage 別に測り、削除できる時間の上限を出します。
+費用が小さければ優先度を落とします。pointer の一致だけで token 間に cache すると、
+同じ buffer が次 token で更新されるため誤ります。初期実装は同一 graph execution 内の
+明示的な fused op / shared scratch lifetime とし、fallback と partial-hot の ID マスクも検証します。
+既存の combined barrier 削減 -0.79% はこの実験そのものではありませんが、
+小さな coordination 最適化がそのまま wall gain にならないという強い注意材料です。
+
+6. CPU/NUMA: 誤った前提を除いた結果
+
+numactl --interleave=0,1 は外部の memory policy です。ggml 内の NUMA strategy とは別です。
+final に --numa はなく、llama.cpp:137-146 は DISABLED 時に backend numa_init を呼びません。
+従って cost-probe の ggml_numa=false を見て「実運用と違う」だけとは判定できません。
+
+現行 T=1、12 workers で up/gate は M=2304。ggml-cpu.c:1888-1905 では初期 chunk 数36が
+nth*4=48 未満なので 12 fixed chunks（192 rows/worker）になります。
+down は M=5120、80 chunks なので、最初の12 chunk後は atomic counter から 64-row chunk を取ります。
+そのため up/gate の前後 row halves と NUMA socket を合わせる専用 row-local 実験は筋が通りますが、
+down に同じ row固定前提を適用すると dynamic scheduling と食い違います。
+現在の placement.inc:67-79 は up/gate の指定形状だけを bind し、down は対象外です。
+
+OpenMP の workers は ggml-cpu.c:3582-3585 で cpumask を割り当て、3660-3666 で
+parallel region 内の各 thread へ適用します。main CPU0 の一枚の snapshot だけでは、
+全 worker が socket0 に偏るとは言えません。THREAD_AFFINITY と cpu-wait の実 worker 記録が必要です。
+hot backend の private CPU pool も、現在は同じ OpenMP CPU DSO を使います。
+private pool の CPU0..11 指定は現ホストの12物理coreに対応しますが、ホスト交換時の一般性はありません。
+
+12 default の IMC 31.37 GB/s、24 default の 31.27 GB/s と、24 のほぼ倍の CPU time は、
+SMT追加が有益でない保存結果と整合します。しかし IMC は system-wide の観測値で、
+理論帯域との比較だけで純粋な bandwidth saturation を証明しません。
+PASSIVE の CPU time 減少も電力削減の測定ではありません。
+hardware 改変・THP・huge page・NUMA固定を推す根拠として過大解釈しません。
+
+7. 既に試した案の採否台帳
+
+  案                                保存結果/状態                        今回の扱い
+  projection単位CPU compact選択      採用、同RAMでcoverage改善            既存の基準
+  MXFP4 correction/scale再利用        採用、実モデルABBA +3.19%           独立境界検証を追加
+  cost/valueprior CPU plan           frequency比 +0.316% 単回             優位未証明、新規扱いしない
+  NUMA row-local                    ABBA +0.6975%                       defaultはinterleave
+  IQ3_XXS activation sidecar         同framework ABBA +0.5101%            旧MX版超え未証明
+  active-counter/barrier/MX-mask組合せ ABBA -0.7924%                      棄却、単純再提案しない
+  native pthread poll0              decode -2.3554%、stream TTFT改善      default不採用
+  native poll50 vs poll0            decode +3.0883%                      OpenMP比の直接勝利ではない
+  hybrid pool (batch native)         decode -0.1104%、長文も遅い          不採用
+  main worker配置回転                decode 約+0.60%                      不採用、GPU locality純効果でない
+  24threads/PASSIVE/spin10000         平均で12 defaultを上回らず           現行維持
+  loop unroll縮小                    遅くなった                           棄却
+
+根拠は E/RESULTS_JA.txt:31-71、各 LIVE_ABBA.json、hybrid-pool/DECISION.json。
+RESULTS_JA は16時checkpointで、その後の native-poll/hybrid の記録とは区別しました。
+個々の改善率は異なる control/run なので加算・乗算しません。
+
+8. 次の実機試験を行う場合の順序
+
+第一段階: 現行 profile の heldout routing census と sampled stage timing。
+  同じ訓練データの97.07%から一般化せず、layer/type/shapeごとの cached/raw 発火数と
+  dot・準備・barrier時間を観測します。request textやtoken IDを保存しなくても可能です。
+  計測そのものの overhead を on/off の対比較で確認します。
+
+第二段階: unsigned candidate の現在の real-shape comparison。
+  既存 raw/144B/new形式を、Ivy Bridge、K5120×M2304およびK2304×M5120、12 workersで比較。
+  activation conversionを含む版とdot単体版を別に記録します。LLCで温めた単一expertだけでなく、
+  384 bank、6 unique experts、mixed raw/cached、偏ったhot distributionを分けます。
+  current payloadと新payloadを等しく扱うこと。bit一致と数値精度は別に判定します。
+
+第三段階: 同一19200 selectionで一部のみupgradeするmixed v3 candidate。
+  まず既存budget slack以下、base配置とhot配置を変えず、同一入力のCPU出力一致を確認。
+  通常APIとのABBAで総decode時間、TTFT、inter-token tail、MemAvailable/peakRSSを記録します。
+  候補が勝たなければ変更を採用しません。単体1.2xやtrainingcoverageだけで結論を出しません。
+
+第四段階: 準備/coordinationが無視できない場合だけgate/up sharingを実装して独立比較。
+  形式変更・配置変更・CPU/GPU担当変更を同時に混ぜず、原因を切り分けます。
+
+9. 再現物と実施しなかったこと
+
+  CPU_REVIEW_JA.txt                   このレビュー
+  CPU_FINDINGS.json                   判定/優先順位/根拠の機械可読版
+  CPU_SOURCE_MANIFEST.json            使用source/保存結果のSHA256
+  analyze_cache_budget.py             census/planの読み取り専用再集計
+  CACHE_BUDGET_ANALYSIS.json           coverage/予算/混在上限の独立数値
+  mx_contract_probe.cpp               合成入力のsource
+  run_mx_contract_probe.py            新規compileと実行のlauncher
+  mx_contract_run_v2/RESULT.json       成功試験の全command/output/sourcehash
+
+再集計:
+  python3 analyze_cache_budget.py --snapshot /ABS/HANDOFF --output /ABS/NEW_BUDGET.json
+再コンパイル試験（C/C++ compiler、x86 AVX/F16C対応CPUが必要）:
+  python3 run_mx_contract_probe.py --snapshot /ABS/HANDOFF --output /ABS/NEW_PROBE_DIR
+outputは新規pathを指定してください。
+
+今回、現行APIの停止/再起動、モデル読込、GPU操作、設定更新、既存controller実行、
+追跡repo sourceの変更、配布ELFの実行、実機性能benchmarkは行っていません。
+単体試験で検証したCPU算術を、モデル全体の品質・速度・並列安全性の保証へ拡張しません。

@@ -1,0 +1,98 @@
+2026-11-16 測定資料整理 — 親担当への引継ぎ
+
+結論: 144 B weight を維持する abs(input) sidecar は、局所算術が検証された新候補。
+実機での短い standalone probe は価値があるが、EPYC での値は優位の証明ではない。
+Pro に事前に具体案を相談し、測定を相談材料として整理してから本体統合を検討する。
+以下は実験提案であり、この整理作業では code・build・benchmark・API を実行していない。
+
+出典 root R = /home/codex/projects/llm-lab/optimization-20261116/incoming/xeon_moe_review_2026-11-16
+レビュー対象 commit 7d8b077afcf1258602366245f1567e820255defa。
+
+1. 新候補と既試行の区別
+
+* abs-input: compact kernel の maddubs(abs(weight),sign(input,weight)) を
+  maddubs(abs(input),sign(weight,input)) に変える。weight は 144 B/256 values、
+  Q8_K を残したまま入力 256 values 当たり abs sidecar 256 B を追加する。
+  K5120 は input 一本当たり 5120 B、K2304 は 2304 B。cache payload、selection、
+  coverage は変えない。安全域は Q8整数 -127..127 と有限scale。-128・非有限は
+  現行経路に fallback する必要があり、probe の直接 dot は unsafe input を受けない。
+  同じ FP32 累積順と丸め順を保持。算術成立と高速化は別問題。
+* 独立 EPYC 合成 fixture は IQ3_XXS/IQ2_S/IQ3_S、K256/512/768/2304/5120、
+  各型・K 512 組、FTZ/DAZ 2通り×丸め4通りで 61,440 bit一致、unsafe 4,800件
+  拒否。再測定版は同じ fixture family の反復であり件数を加算しない。保存済み
+  bias62 は IQ3_XXS のみ 20,480 bit一致。参照: R/cpu/CPU_ABS_RHS_ADDENDUM_JA.txt、
+  R/cpu/IQ_ABS_RHS_ANALYSIS.json、R/cpu/iq_abs_run/RESULT.json、
+  R/cpu/iq_abs_timing_run/RESULT.json（source hash、command、個々の出力・時刻）。
+* 既存 IQ3_XXS bias62 activation sidecar は別手法: lookup weight に +62、input に
+  correction を用意する。実モデル同 framework ABBA +0.5101% で旧MX版超え未証明、
+  不採用。新 abs 側の採否としてこの結果を流用しない。
+* unsigned-activation prototype は別の 160 B (IQ3) / 176 B (IQ2) weight layout。
+  旧 EPYC dot 約1.16–1.22x は activation変換除外。未測定の mixed format は新候補だが、
+  weight144B を保つ abs と区別。19,200 projection 全変換は 134.208 GiB、120 GiB
+  設定・128 GiB hard cap 超過。現 118.652 GiB との差 1.348 GiB は理論 payload のみで
+  IQ3 1,962 または IQ2 981 projection まで、metadata/peak 等は別。R/cpu/CPU_REVIEW_JA.txt。
+* row-local +0.6975%、coordination/MX-mask組合せ -0.7924%、native pthread poll0
+  decode -2.3554%、hybrid pool -0.1104%、24 threads/PASSIVE、unroll縮小は既試行。
+  値は異なる control として扱い加算しない。MX correction は既採用、ABBA +3.19%。
+  CPU gate/up 入力共有は別の未実装候補、まず preparation の上限を測る低優先事項。
+
+2. EPYC timing の限界
+
+初回 K2304/5120、rows256/8192、合成・単一thread、準備を各 matrix traversal に含み、
+共通 F32→Q8量子化を除外、各 arm 32768 dot、warmup除き4 pair。affinity 固定・OS隔離・
+LLC eviction・実 routing なし。wall pair は一部 0.962〜77.356 と暴れ、比較に使えない。
+追加 focused K5120/rows8192 の thread CPU 比 current/candidate は次の4 pair:
+ IQ3_XXS 1.059613, 1.063933, 1.110250, 0.805526 (median 1.061773)
+ IQ2_S   0.790561, 1.039216, 1.136152, 1.193011 (median 1.087684)
+ IQ3_S   1.166127, 1.009860, 1.534339, 1.080770 (median 1.123449)
+Wall と thread CPU は近いが幅広く、descheduleだけが原因とも断定できない。IQ3_S の
+4点全て1超でも一般化せず、Ivy Bridge speedup や bias62 への優位を主張しない。
+
+3. Ivy Bridge で初めに短く試す条件（実施前に Pro 相談）
+
+まず既存 R/cpu/run_iq_abs_rhs_probe.py の test → --phase bench --focused を同じ新規
+output で使う最小診断。test が全件 passし、生成binary SHAが一致した場合のみ bench。
+focused は3型すべて、K5120、rows8192、入力一本、単一threadの現行144B vs abs。
+同 source/flags/seed を記録し、利用可能な物理CPUへの affinity と同条件の暖機、
+clock wall/thread CPU を記録。対象環境の負荷や CPU配置を併記し、強い干渉があれば
+有効な速度結果とはしない。これは up/gate の K5120 は含むが rows8192 は実 M2304 で
+はなく、実モデル・12 worker・6 expert の代表値ではない。focused は bias62 を測らない。
+bench 通常モードは K2304/5120 × rows256/8192 の3型に加えて IQ3_XXS bias62 を含む。
+両 mode は synthetic input 一本であり、複数入力や 12 worker を測ったことにしない。
+
+順序の根拠: IQ3_XXS は選択済み 13,766/19,200 projection と最大、IQ2_S は 3,454、
+IQ3_S は 1,980（training plan 数、runtime 発火率ではない）。既存 fixture は全3型を
+一度に出すため恣意的に IQ3_S のみ選ばない。焦点検査後、Pro に条件変更を相談し、
+K5120×M2304 up/gate と K2304×M5120 down、各3型、12 workers を現行・abs・
+IQ3_XXS bias62 で比較する。1入力の up/gate と down の6入力を区別、各 sidecar の
+準備を該当 traversal に含め、共通 quantize を等しく扱い、dot単体と総時間を分ける。
+384 bank、6 unique experts、hot/冷・raw/cached mix、同じ配置は次段階の代表性検証。
+これらの実形状・6入力・12 worker は既存 focused probe の結果ではなく、追加 harness が必要。
+
+進行判断: correctness と unsafe 拒否が全 pass でなければ直ちに保留。各 arm の実測値、
+pair 比を全件保存し、warmup除外・ABBA/BAAB順を明示、準備込みの差がノイズ幅を
+越えて再現するかを見る。局所比較が一貫して不利、あるいは幅が差より大きければ
+統合しない／保留。何%なら採用という事後調整は避け、測定前に有意な最小効果と再測定
+条件を Pro と合意。局所で勝っても現実的な multiworker mix で再現しなければ見送り。
+本体に進む場合は安全fallback、workspace/lifetime、complete-block partition、既存
+barrier の publish、64-input guard の検証が必須。最終的には独立した実モデル ABBA で
+出力一致・decode時間・TTFT・tail・メモリ等を評価する。局所速度は採用決定ではない。
+
+4. GPU と coverage は性能実装から独立
+
+R/gpu/GPU_REANALYSIS.json は positive pilot 全 53,240 layer calls で H2/H4/H5 が
+19,434 (36.50%)、H6 0.438%。複数 workload 混合の集計で個別 routing・本番代表性を
+示さない。GPU transfer削減の計算は仮説上の byte 上限で speedup ではない。H2/4/5 の
+coverageを独立 fixture で改善しても性能最適化として同時に扱わない。CPU/GPU の IQ2_S、
+IQ3_XXS 整数 truncation の構成例は algebraic reachability であり実発生頻度や品質影響の
+測定ではない。IQ3_S coverage も別の correctness 評価にする。
+
+保存済み final ABBA の再集計は各 arm 16 requests、2,032 decode steps、6.7194→7.5902
+steps/s (+12.960%)、全32 receipt と入力 manifest、出力hash一致。HTTP wall token rate
+は +9.706%、prompt時間 proxy は streaming TTFT そのものではない。8 fresh prompts は
+その後の選択で再使用され、次の blind holdout ではない。hot14 は別構成かつ出力差があり
+比較設計も異なる。数値と全生データ参照は R/evidence/REANALYSIS.json の final、hot14、
+experimental_design、source_files。fixture の追加 coverage と以前の性能主張を混ぜない。
+
+生データの完全な commands、stdout、値、source hashes は上記 RESULT.json と再集計 JSON に
+残存。今回の整理は読み取りと本ファイル作成のみで、追加の測定・本体変更は行っていない。

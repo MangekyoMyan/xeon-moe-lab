@@ -1,0 +1,405 @@
+GPU / hot expert 常駐経路の現行ソースレビュー
+2026-11-16 / commit 7d8b077afcf1258602366245f1567e820255defa
+
+0. 結論と優先順位
+
+採用済みCUDA ID分類の改善は、演算値を変えずに旧O(experts*tokens*top-k)走査を
+O(experts+tokens*top-k)へ減らす妥当な変更だった。今回、採用helperそのものを使う
+既存host試験をこの端末で再実行し、release/ASAN+UBSANとも3,024条件、
+11,436,944個のindex/count値、6つの不正ID拒否を通過した。
+
+未採用hot14では、slotとexpert IDの対応、native weightの複製、CPU missとGPU hitの
+合成、router重みの適用順を追跡した範囲で、新しい誤配線は確認していない。
+ただしGPU/modelをこの端末で実行したわけではなく、数値・全入力・raceの保証ではない。
+性能上の最優先候補は、count/byteの詰め方を高度化することより、全40層の
+CPU/GPU完了時間とCPU compactを共同で扱う配置目的への変更である。
+
+現在の14 GiB案はtraining hit 202,749件。全14,208候補を用いたfractional-knapsack
+上界は202,758.256538件だった。同じ候補集合・同じbyte制約・同じhit数目的を
+維持する限り、どんな整数solverでも改善は最大9件（10件未満）である。
+上界の相対改善は0.00456552%、全training assignmentに対するcoverage差は
+0.00204393 percentage pointsに過ぎない。より良いsolverより目的関数と観測範囲が重要。
+
+提案順序:
+  1) 実入力・層・H別にCPU miss終了/GPU hit終了/同期・転送を測る。
+     その結果と全40層routingを使い、配置とCPU compactを共同最適化する。
+  2) 同じ3 GPU層・同じCPU compactを保持する既存hot-small案で交絡を分離する。
+     容量は条件付き候補であり、既存reserve guardを緩めず実機で確認する。
+  3) H=2/4/5およびIQ3_Sの実GPU numerical/scatter coverageを埋める。
+  4) GPU hit出力をGPUに残す設計を、実際の待ち時間が支配的な場合に検討する。
+  5) finalのprefillには分類結果再利用を検討する。T=1 hot14の改善とは別経路。
+  別軸: CPU/CUDA算術の一要因比較。配置性能と一緒に変更しない。
+
+1. 読み方、範囲、再現性
+
+固定作業tree:
+  /workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077
+以下のSはその中の
+  archive/review-handoffs-not-for-readers/2026-11-16-current
+X = S/snapshot/llm-lab/exploration-20261112
+U = S/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src
+B = S/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp
+
+主な入口はS/START_HERE.txt、S/review/CURRENT_NOTE_JA.txt、
+S/review/BINARY_SOURCE_MAP.json、S/review/adopted-overlay-diff/INDEX.json。
+このレビューでの変更はaudit成果物だけ。古いcontroller、通常API、モデル、
+配布ELF、CUDA、GPU設定は起動・実行・変更していない。
+
+現在finalのCUDA libraryはcuda-sort/release-candidate-aで、差替えは
+ggml-cuda.cuとsort-ids.inc。quantize/mmvq等は元objectを再利用している。
+共通scheduler/base libraryはbuild/binの想像上の版ではなく、実mapsで確認された
+gpu-stream-20261103/runtime版に対応するBを読んだ。
+hot14用libllamaは通常finalに未採用。以降、両経路を混同しない。
+Source→binaryの関係は保存build記録と実maps/hashに依拠し、全objectの独立再ビルドを
+行ったという意味ではない。親レビューで配布/実行物manifestを独立照合済み。
+
+再現コードrecompute_gpu_review.pyは、保存記録の再集計、現行gridによる算術例、
+fractional上界を標準Pythonだけで再計算する。--host-sortを付けた場合だけ、
+既存index unit testを一時dirでコンパイルし実行する。推論ベンチマークではない。
+結果と読んだsourceのSHA256はGPU_REANALYSIS.json。
+
+2. 採用済みCUDA stable分類
+
+根拠:
+  X/cuda-sort/release-candidate-a/sort-ids.inc:1–31
+  X/cuda-sort/release-candidate-a/ggml-cuda.cu:2170–2344
+  X/cuda-sort/test-sort.cpp:17–49
+
+helperはexpert別件数→prefix offsets→token/slot順の安定scatterを行う。
+旧コードと同じexpert/token/slot順、from_sorted、to_sorted、件数を作る。
+IDのstrideをmemcpyで読むため、非連続/offset付きIDも扱っている。
+各token内の重複は初回だけ数える。その後のGGML_ASSERT(total==tokens*used)が
+重複や範囲外IDを拒否し、-DNDEBUGでも黙って後段へ流さない。
+
+今回の新規host実行:
+  g++ Debian14.2.0、-std=c++17 -O2 -DNDEBUG: pass
+  -O1 -g -DNDEBUG -fsanitize=address,undefined -fno-omit-frame-pointer: pass
+  各3,024条件、11,436,944値の一致、不正ID拒否6件。
+  LeakSanitizerはこの端末のptrace環境で起動後にfatalとなったので、理由を記録して
+  detect_leaks=0で再実行した。ASANの範囲検査とUBSANは残した。leak検査の証明ではない。
+  testとhelperを原文コピーして使い、エンジンのELFやモデルはロードしていない。
+
+保存された実GPU試験X/cuda-sort/gpu-20261112-115341/RESULT.jsonでは88条件で
+stock/control/candidateの出力hash一致。LIVE_ABBA.jsonの同一条件ABBAでは入力
+128/1024/4096の時間短縮4.43/4.49/5.61%、出力同一。decodeは16 tokenなので、
+長時間decode性能の証明へ拡張しない。
+
+この分類helperはT=1 quantized MMVQの早期return(ggml-cuda.cu:2214–2222)の
+後にあるfallback用。hot14 T=1をさらに高速化する案として再提案しない。
+同様にCUDA Graph、条件付きgate/up/SwiGLU融合は現在のコードに既に存在する。
+Voltaだから常にCUDA Graphが無効、H=6だからMMVQ token batch上限を超える、と
+考えるのも誤り。Hはexpert slot数であり、ここでのtoken次元ne[2]は1である。
+
+prefill側の継続候補:
+同じroutingに対するcount/from_sortedはgate/up/downで共通。
+to_sortedは入力列数（gate/up=1、down=top-k）に依存するため、その部分は分ける。
+明示的なrouting世代・shape・stride・生存期間を持つ再利用をまず測る。
+pointerのみをkeyにするとallocator再利用や次の入力の同じaddressで壊れ得る。
+host GEMM loopはtokens_per_expertから各slice形状を作る(2293–2338)ので、単に
+sortをGPUへ移すだけではhost依存と同期を全て消せない。grouped/dynamic GEMMまで
+変える案は大きな別実装になる。またschedulerのweight splitを越えた再利用が必要か
+測らないと、graph_compute単位cacheを作ってもgate/up/down間を拾えない。
+
+3. hot backendの実行・所有権・合成を追った結果
+
+根拠: X/hot-ffn/hot-backend.cpp
+
+入力契約と配置:
+  91–113: planは40層/384 expert/5120×2304、型、native bytes、sorted unique ID、
+          clampを検証。CPU residentでない層にhot選択を置くことは拒否する。
+  117–119: private CPU backend +12 threads、strict CPU0–11、poll0。
+  120–154: private CUDA backend、pinned staging、selected native weight bank、
+           H別graphを確保・warmup。元weightを残し、bankのpaddingはゼロにする。
+  137–141: selected global expert→local expertの順でnative bytesを複製する。
+  143–148: 到達可能な全H=1..min(6,resident)を3回ずつwarmupする。
+
+1 tokenの演算:
+  156–167: F32入力/host buffer/geometryと重複なしの6 IDを検証。
+           hot_slotsで元slotを保存し、GPU用にはlocal ID、CPU用にはhit=-1を置く。
+  168:     H<6ならCPU graphへF32入力とmasked IDsを渡す。
+  169–172: H>0ならpinned入力/IDsをH2D、GPU graphをasync起動、D2Hをenqueue。
+  174:     H<6ならCPU graphを計算し6 slot分をhost dstへコピー。
+  175:     GPUを完了待ちし、hot_slotsの元位置だけをGPU出力で上書きする。
+
+GPUを先にenqueueしてCPUを計算するので、CPU miss/GPU hitを重ねる構造である。
+実際に何ms重なったかはsource順だけでは証明しない。H=0ではGPU起動なし、H=6では
+CPU計算なし。CPU masked slotに古い値が残る可能性があっても、全hot slotは使用前に
+GPU値で上書きされる。この箇所を未初期化値の使用と断定する根拠はなかった。
+
+重み適用と加算:
+  X/hot-ffn/llama-graph.cpp:2320–2327はT=1、対象architecture/形状、bias/scale/
+  LoRA/moe-cache/custom precisionなどの対応条件を狭く検証する。
+  2506–2509は元のrouter重みを外側GPUで適用し、2520–2537は元slot順でview/add。
+  返したGPU slotがrouter weightと別expertへずれる構造にはなっていない。
+  weight_before_ffn時は入力列数が6になり、hot_buildの列数1制限でfallbackする。
+  T>1も既存graphへfallbackし、hot bankを利用しない。
+
+所有権:
+  original weightはmodel所有のまま。private graph/weight bankはLayerが所有する。
+  custom nodeのuserdataはLayerで、backend側でownerを確認(183–188)。
+  execution_mutexはshared pinned stagingとprivate graphの並行上書きを防ぐ。
+  destructorはprivate GPU完了待ちの後にgraph/weight/staging/backendを解放(74–88)。
+  failed computeもprivate GPU完了待ち後にfailureを返す(188)。
+  one context制限とprivate poolを外して汎用化するのは追加設計が必要。
+
+通常CPU poolへの変更やCPU mask拡大を無条件には勧めない。CPU担当の照合では
+現在のCPU0–11は12物理coreに対応し、NUMAの--numaが有効な前提も成り立たない。
+gate/upとdownではCPU chunk構成も異なり、HだけでCPU時間を一律線形化できない。
+
+4. 保存試験が保証する部分、未確認部分
+
+X/hot-ffn/test-backend.cpp:42,77–94はresident=0/1/3/6、H=0/1/3/6、
+CPU入力/GPU入力/GPU中間値、各3repeatを試す。Layer4と24それぞれ90条件。
+native resident bytes一致、cold slot一致、GPU tailへの*.5、finite、CPUとの差NMSE、
+counter/lifecycleを検査している。normalとsanitizerの記録がある。
+sanitizerは全ての再利用済みGGML/CUDA objectをinstrumentした意味ではない。
+
+未確認:
+  H=2/4/5の混合routing・scatterを実入力付きで同じ強さで比較していない。
+  H別graphのzero warmupは存在するが、nonzero実入力/CPU合成のnumerical coverageに
+  置き換えられない。
+  IQ3_Sを含む実expertの同等numerical backend試験がない。
+  両層・3 seed・人工振幅0.1だけで全40層の実中間値、長文、外れ値を覆わない。
+
+MODEL_PILOT_RESULTS.jsonの40層×1,331回を再集計すると:
+  H                 0       1       2       3      4      5     6
+  layer calls   12,278  11,094  12,174  10,201  5,577  1,683   233
+合計53,240回。H=2/4/5は19,434回=36.5026%。H=6は0.437641%。
+従って未確認Hは稀な端だけではない。ただし不具合が36.5%発生するという意味ではない。
+層37–39は全てH=0（selected=0）。hit98,166 / total319,440 =30.73065%。
+0–36層だけなら98,166 /295,482 =33.22233%。training44.76881%と40層30.73%を
+同じ分母として比較しない。分母を揃えてもrouting差は残る。
+このhistはfreegen/fixedprefix/長文/visionを含むpilot全体で、各promptの速度差との
+対応を復元できない。実際のgenerated token数と同一視することも避ける。
+
+既存all-miss ABBAは同じbinary・同じGPU37–39・同じCPU配置を保持した対照。
+出力全一致、7.575479→7.493691 tok/s（-1.07965%）で、dispatcherの費用はゼロではない。
+一方hot14の7.575479→8.427404（+11.2458%）はcandidate1回、control2回が先にあり、
+8 prompt中7つで生成列が変わっている。さらにGPU37–39をCPUへ戻し、CPU compactも
+変更した。同じ仕事に対するhot cacheだけの因果的11.25%とは言えない。
+4096 inputの32,354.376→33,955.445ms（+4.9485%）もこの配置変更と同時である。
+
+5. 配置目的を変える理由と具体案
+
+X/prepare_hot_plans.py:17–37は0–36層のmarginal expert frequencyだけをcount/byteで
+rankし、予算に入るものを選ぶ。37–39層のtraining censusはない。
+51–58はGPU選択と重なったCPU compactを削除するが、空いた分を補充しない。
+14 GiBではCPU compact2,402 projection slots=15,938,519,040 Bが外れ、
+19,200→16,798 slotsになる。この余裕が全て追加cacheとして使えると決めつけては
+いけない。37–39をCPUへ戻す元weight/ページ常駐の増分と共通RAM予算で判断する。
+
+実際の目標の一例（推論設計、実測済みmodelではない）:
+  L(layer, route tuple, GPU selection, CPU compact)
+    = ingress/dispatch
+      + max(CPU miss completion, GPU hit completion including relevant transfers)
+      + join/tail
+token latencyの期待値/分位点を40層分で評価し、prefill/visionの制約も別に置く。
+router6個の同時出現と、CPU/GPUのどちらが待たせるかで追加1 expertの価値が変わる。
+CPUが終了済みでGPU待ちなら、hitを増やしても必ず速くなるとは限らない。
+typeとlayer、projection別CPU compact残存、missの行分配、H=0→1の起動固定費、
+H=5→6でCPU経路を丸ごと省ける境界も含める。
+
+count以外のvalueを既に試した事実:
+  X/plans/VALUE_PRIOR_MANIFEST.jsonはCPU compactについて
+  measured_saved_ms_per_expert*(training_count+uniform_expected_count)を使用。
+  HELDOUT_VALUE_PRIOR_R1.jsonでは+0.3162%、同等と解釈され未採用。
+これはCPU-onlyのprojection別案であり、GPU hit/miss max・6 tupleの共起・全40層
+配置・transfer固定費を扱っていない。「単純なコスト重み付けを初めて提案」とは言わず、
+共同完了時間目的を別の仮説として試す。
+
+routing traceには実入力token列だけでなく層・選ばれた6 global IDs・phaseを残す。
+全40層を観測する（CPU関数だけでカウントすると常駐GPU層が抜ける）。
+少なくともteacher-forced token列を揃えて候補を比較し、その場合もhidden stateが
+変わるので、pure arithmetic切り分けは保存F32入力を同じexpertへ渡して行う。
+routeが変わる配置候補の外挿は実機確認を要し、旧histだけで新配置のgainを断定しない。
+
+whole-layer GPU residencyも候補集合に含める。最後の3層を全て外す／全て保持する
+二択に固定せず、1–2層保持と残りのhot bankの併用も考えられる。ただし未観測の
+37–39のfrequencyを都合よく推定せず、prefillとGPU共通bufferの費用も測る。
+
+fractional上界（既存hit目的に限定）:
+  8 GiB: greedy152,939、relaxed上界152,939.68148。整数目的なので既に最適と証明。
+ 14 GiB: greedy202,749、relaxed上界202,758.25654。改善は最大9件。
+ 16 GiB: greedy215,635、relaxed上界215,644.19648。改善は最大9件。
+この証明はlatency最適性を意味しない。8 GiBにももっと速い同hit配置があり得る。
+0.5 GiBでは相対gap上界1.03694%なので、小容量まで同じtiny gapと一般化しない。
+
+6. 既存3常駐層を残した小容量cacheの実現性
+
+X/prepare_hot_profiles.py:16,22–27にhot-smallが既にある。
+0.5 GiB planを追加し、CPU37/GPU37–39とfinalのfrequency19200 CPU compactを維持。
+CPU overlapの削除はcpu_layers==40の場合だけで、hot-smallには実施しない。
+生成記録はあるが、今回読んだ保存資料にhot-smallの実switch/benchmark証拠はない。
+
+CAPACITY.jsonのnative bytes:
+  旧GPU layer37: 5.47119140625 GiB
+  旧GPU layer38: 4.844970703125 GiB
+  旧GPU layer39: 5.47119140625 GiB
+  3層合計      : 16,951,541,760 B =15.787353515625 GiB
+  hot14 payload: 15,030,927,360 B =13.998641967773438 GiB /1,035 triplets
+  hot-small    : 530,196,480 B =505.634765625 MiB /38 triplets
+
+CALIBRATED_CAPACITY.jsonのCUDA total32,494.125 MiBと、checkpoint-1600/
+FINAL_STATUS.jsonの高い観測used30,628 MiBを使うと、小容量payload追加後の差は
+1,360.490234375 MiB。従来の768 MiB余裕をさらに引けば592.490234375 MiB。
+これが新しいprivate graph/workspaceなどの追加費用を受け持つ条件付き枠である。
+14 GiB全量と旧3層を同時に入れる余地はない。
+
+以下の理由で「hot-smallが現在の128k+visionでも収まる」とはまだ言えない:
+  ・S/review/capture/CURRENT_STATE.jsonのGPU queryはtotal/power/ECC等のみ。
+    current used/freeがない。idle29,942 MiBの別記録を最大負荷freeと扱わない。
+  ・hot-backend.cpp:124は起動前free>payload+3,072 MiB、151はbank/graph確保後の
+    pre-vision free>2,560 MiBを要求する。上のfinal usedは別段階であり、直接代入して
+    guard通過を証明できない。既存guardを緩めない。
+  ・131,072 context予約とfull128kの実負荷peakは違う。保存のlong trialは16k。
+  ・private bank allocator padding、全H graph、CUDA pool、vision後の増分を含める。
+
+実機確認順は、startup前後/vision後/代表長文後のfree/peakを保存し、guard通過を
+確認した上でsame-binary hot-disabled→hot-miss→hot-smallのbalanced比較を行う。
+zero-hitならdispatcherだけの対照、small-hitでは元3層を動かさない因果分離になる。
+T>1のhot bank利用は現状ないため、resident3層保持でprefill退行が消えるかが有用な観測。
+
+7. transfer/syncの候補はbyte量より待ち時間で選ぶ
+
+現在はouter GPU由来のF32入力をhostへ移し、private GPUへ再アップロードする。
+hit出力はprivate GPU→hostへ戻し、CPU missと6 slotに合成してouter GPUへ送る。
+cuda-sort/release-candidate-a/ggml-cuda.cu:6209–6212ではCUDA host bufferをGPUの
+直接演算bufferとして許すのはintegrated deviceだけで、対象Voltaのtailはcopyを要する。
+B:2095–2134のcopy_inputはdestination backendにasync copy ifaceがなければ
+sourceをsynchronizeしてcopyする。hot backendのifaceにはasync copy/eventsがない。
+さらにB:2148–2155の一部同期はallocatorがsplit間で領域を再利用するためである。
+同じGPUだからと同期を削るだけでは、入力未完了や次graphによる上書きを起こし得る。
+
+候補: 出力tensorをGPU側所有にして、CPU miss slotだけをuploadし、GPU hitは同じ
+slotへ残す。router重みは既存outer GPU側のままとし、元のslot/add順も保つ。
+inputについてもCPU用host写しとGPU用originalを扱い、privateへの戻しuploadを省く。
+必要なのはbuffer ownership、scheduler placement、stream間event wait、pinned staging
+の再使用寿命、例外時drainまで含む設計。単なるcudaStreamSynchronize削除ではない。
+
+旧pilotのhistからのbyte計算（新しい性能予測ではない）:
+  完全な40層T1 passあたりhot assignments=98,166/1,331 ≈73.75。
+  hit出力往復削減の上限=2*H*5120*4の合計 ≈3,020,946 B =2.881 MiB/pass。
+  private inputへの戻しupload削減上限 ≈630,279 B =0.601 MiB/pass。
+巨大なweight転送を丸ごと消す話ではない。主な利益があるならAPI/launch/syncの
+固定費や完了待ちを減らす部分なので、まず実timelineで測る。
+H=0の多い層にも全slot uploadやdispatchがある点は同時に見る。
+T1 passにはprefill tail等が混じり得るためgenerated tokenあたりと呼ばない。
+
+8. CPU/CUDA算術は未解決の独立軸
+
+現行対応を原文で確認:
+  U/ggml-cuda/quantize.cu:84–100は32要素amax/127、roundf(x/d)、
+  FP16のdとsumをmake_half2へ格納。
+  557–571はtype_src0未使用の汎用Q8_1 writer。
+  U/ggml-cuda/vecdotq.cuh:327/1228/1266/1309はMXFP4/IQ2_S/IQ3_XXS/IQ3_Sの
+  scaleを__low2floatで読む。これら4種のMMVQ dotはhighのsumを使わない。
+  1226のIQ2_S、1265のIQ3_XXSに整数除算が残る。
+  U/ggml-common.h:257–269ではblock_q8_1=FP16*2+int8*32=36 byte。
+
+従って、既存36 byteのmetadata4 byteを専用FP32 scaleにする案も、IQ整数除算を
+float側へ移す案も、今回の現行採用binaryに実装済みとは扱えない。
+旧レビュー/arithmetic-auditからの継続候補であり、新しく発見した最適化とは言わない。
+WEB_NEXT_STEPS_JA.txt:34–41にもscale精度・整数除算を一つずつ変える検証方針がある。
+
+36 byte専用案の実装注意:
+Q8_1全体のsum欄を無条件に潰さない。別の量子化型はsum補正を読む。
+対象4型/T1専用のwriter/reader/dispatchを対で定義し、両者のlayout認識を揃える。
+global block_q8_1の意味を隠れて変えるとfallback/MMQ/他の型が破損し得る。
+gate/up融合時も両consumerが専用layoutを読むこと、別typeなら非融合経路のwriterを
+含めること、zero/小scale/大scale/round境界/非finite方針を確認する。
+sum warp reductionが不要になり得るが、register/命令/速度の改善はGPU実測事項。
+これだけでCPU Q8_Kの256要素粒度との差が解消するわけではない。
+
+整数切捨てについての現行source/gridへの独立追証（旧例を再確認）:
+  IQ2_S: grid index2 byte0=25、q8唯一の非ゼロ値127、両nibble0、weight d=1、
+         activation d=1なら現式396、復元weightによる正確なdot396.875。
+  IQ3_XXS: grid index5 byte0=62、同様にls0なら現式1968、正確なdot1968.5。
+  q8=-127の場合、現式-396/-1968、正確なdot-396.875/-1968.5。
+  入力amax=127なのでQ8 scale=1で、これらのq8は実際に生成可能な値である。
+  Pythonの//を負のC++除算の代用にせず、符号とabsを使う0方向切捨てを実装した。
+
+IQ2_Sの正確なunscaled numeratorは
+  N=(2*ls0+1)*sumi0+(2*ls1+1)*sumi1、結果N/8。
+現式の差は最大7/8で上の例が達成する。
+内側の/2による最大1/2の差を外側/4で割った1/8と、外側整数/4の最大3/4を
+足すと7/8になる。これはPythonの負数floorによる差ではない。
+IQ3_XXSのgridは全て偶数（4,12,20,28,36,44,52,62）なのでsumiは偶数。
+正確なnumeratorはN=(2*ls+1)*sumi、結果N/4。
+最初のsumi/2は割り切れるが、最終除算は最大1/2を失い上の例が達成する。
+これはscale適用前・32 activation dot単位の上界。この切捨て成分にweight scaleと
+activation scaleが掛かり、別途FP32丸め等もある。全projection/非線形/モデル誤差の
+上界ではない。
+
+abs(q8)<=127の条件ではNの絶対値上界はIQ2_S5,417,312、IQ3_XXS7,811,008。
+int32内に収まり、FP32でも整数を正確に表せる範囲なので、Nを整数で作りFP32へ
+変換後に1/8や1/4を適用する小さな比較kernelを試せる。
+残りのFP32丸め/scale近似を含めて常に全モデル誤差が減るという証明ではない。
+実modelでこの剰余がどれだけ出るか、NMSE/回答品質への寄与は引き続き未測定。
+
+保存の限定IQ fixtureではGPUの参照NMSEがCPUより小さい。参照は量子化済みGGUFを
+F32展開しFP64内積したもので、量子化前原モデルではない。
+CPU bit一致のためにGPUを粗くする目的は置かない。
+実中間F32を固定し、入力量子化→gate/up→SwiGLU→down→router和を比較し、
+1要因ずつ変更して参照誤差と演算時間を測る。その後に正解付き課題等で品質を見る。
+
+9. 次の実装/測定に渡す判定条件
+
+A. 全40層共同配置（性能、優先度高）
+  追加で必要: 各層の6 tuple、phase、CPU compact状態、H別CPU/GPU完了とjoin。
+  実装前に旧配置/新候補の期待完了時間を計算し、別prompt/別言語でcross-check。
+  棄却条件: held-out実測でtotal latency/分位点が改善しない、prefill/visionが制約を
+  越える、routing変化により外挿が崩れる。hit率改善だけで採用しない。
+
+B. hot-small同配置比較（因果分離、優先度高）
+  既存profileを使い、reserve guardを維持。startup/vision/長文の実peakを先に確認。
+  same-binary balanced順で測る。CPUmiss時間とGPUhit時間の境界を記録する。
+  棄却条件: guard不通過、full機能の余裕不足、稀なhitがdispatcher費用を回収しない。
+
+C. H2/4/5 +IQ3_S（correctness、並行実施）
+  input leaf CPU/GPU、GPU intermediate、全6 slot位置、repeated H transitions、
+  selected global IDとbank local IDの非自明な対応を含める。
+  同一F32入力/weightでserialとconcurrent、native bytes、cold slot、GPU tailを確認。
+  参照NMSEとCPUとの差を別々に記録し、CPU不一致だけを即failureにしない。
+
+D. GPU側slot合成（性能、timelineに待ちがある場合）
+  event所有権図とbuffer lifetimeを先に記述。CPU/GPU元slot順を維持。
+  棄却条件: 部分転送やevent overheadが増える、host buffer再使用race、量子化・
+  reduction順を同時に変えて因果が不明になる、総時間が変わらない。
+
+E. prefillのroute maps再利用（採用finalにも適用候補）
+  最初にfallback呼出し回数とsort/copy/sync時間を計測。generation keyを明示。
+  棄却条件: host count依存やscheduler splitが支配的で再利用hitがない、mapping
+  lifetime保持でVRAMが増える、現在の安定orderを変える必要が出る。
+
+F. Q8専用FP32 scale /整数除算変更（算術、継続候補）
+  配置・GPU power・CPU kernelを固定。2変更を別々に試す。
+  棄却条件: 参照誤差が対象実入力で改善しない、実時間や品質が悪化する、
+  他のQ8 consumerやfallbackへの漏れがある。bit一致だけの採否基準にしない。
+
+測定はCPU側monotonic timestampとCUDA eventを使い分ける。hot backend内の
+wall timeだけをGPU演算時間と呼ばない。CUDA event区間は同じstreamのH2D/graph/
+D2Hを分け、host CPU区間とjoin待ちを対応させる。計測あり/なしのoverheadも比較する。
+通常APIの平均tok/sやOpen WebUI表示だけからH別交互待ちの原因を断定しない。
+現在finalにhot14は未採用なので、hot14の挙動を現行UIの2 token表示の原因としない。
+
+10. 主要source SHA256（その他はGPU_REANALYSIS.json）
+
+X/hot-ffn/hot-backend.cpp
+  919d933fcf05ef0241022f756b5fb7c83a7084b413987bf1620b98b11a06dab6
+X/cuda-sort/release-candidate-a/ggml-cuda.cu
+  2cdc72370dcb884fcbac85cf2757ef1259265c5181558b1e1eb933157a72d3d0
+X/cuda-sort/release-candidate-a/sort-ids.inc
+  1309f2d6d7c0a54b2021da780adf6a4ccc6de3bc51be7d81162c6d14614218da
+B
+  002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd
+U/ggml-common.h
+  0061131b615c5721fc88a78feeb22c1f8c450f1c2646a317d80796a653bf595c
+U/ggml-quants.c
+  bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73
+U/ggml-cuda/quantize.cu
+  ff7a578d98937554775931f696e25d171eec9d763c445115fc6ef0b119601a0a
+U/ggml-cuda/vecdotq.cuh
+  5e6882fe30b86f2f1ba294542ec88866c962e8f90500d4e035882eff3942f975
+
+実機へ渡す際はこのcommitとhashを対応付け、通常APIの現在の配置・負荷・mapsを
+確認してから具体的な比較を準備する。この報告自体は実機変更/採用の実施記録ではない。

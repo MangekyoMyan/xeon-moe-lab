@@ -1,0 +1,486 @@
+{
+  "upstream_repository": "https://github.com/open-webui/open-webui",
+  "commit": "d3e8bf3405e848cfba377814d0aa7ba7290e414d",
+  "version": "v0.11.1",
+  "middleware_blob_sha": "cc5f57e0c320c2b75e106af409e67bea791ee898",
+  "middleware_sha256": "cb8e89e81623dcdfcdefe5f672ba47fac3f3e4f9bc9f98cd373b29cebf0ae971",
+  "helper_source_lines": {
+    "get_response_delta_key": [
+      4671,
+      4681
+    ],
+    "get_response_data_with_full_output_index": [
+      4683,
+      4689
+    ],
+    "flush_pending_delta_data": [
+      4691,
+      4708
+    ],
+    "queue_pending_delta_data": [
+      4710,
+      4736
+    ]
+  },
+  "cases": {
+    "env1_metadataNone": {
+      "environment_size": 1,
+      "metadata_size": null,
+      "effective_size": 1,
+      "input_fragments": 6,
+      "emissions": [
+        {
+          "at_ms": 130,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "A"
+            }
+          }
+        },
+        {
+          "at_ms": 260,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "B"
+            }
+          }
+        },
+        {
+          "at_ms": 390,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "C"
+            }
+          }
+        },
+        {
+          "at_ms": 520,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "D"
+            }
+          }
+        },
+        {
+          "at_ms": 650,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "E"
+            }
+          }
+        },
+        {
+          "at_ms": 780,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "F"
+            }
+          }
+        }
+      ],
+      "emissions_before_finish": [
+        {
+          "at_ms": 130,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "A"
+            }
+          }
+        },
+        {
+          "at_ms": 260,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "B"
+            }
+          }
+        },
+        {
+          "at_ms": 390,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "C"
+            }
+          }
+        },
+        {
+          "at_ms": 520,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "D"
+            }
+          }
+        },
+        {
+          "at_ms": 650,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "E"
+            }
+          }
+        },
+        {
+          "at_ms": 780,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "F"
+            }
+          }
+        }
+      ],
+      "save_calls": [
+        130,
+        260,
+        390,
+        520,
+        650,
+        780
+      ],
+      "joined_text": "ABCDEF"
+    },
+    "env1_metadata2": {
+      "environment_size": 1,
+      "metadata_size": 2,
+      "effective_size": 2,
+      "input_fragments": 6,
+      "emissions": [
+        {
+          "at_ms": 260,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "AB"
+            }
+          }
+        },
+        {
+          "at_ms": 520,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "CD"
+            }
+          }
+        },
+        {
+          "at_ms": 780,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "EF"
+            }
+          }
+        }
+      ],
+      "emissions_before_finish": [
+        {
+          "at_ms": 260,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "AB"
+            }
+          }
+        },
+        {
+          "at_ms": 520,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "CD"
+            }
+          }
+        },
+        {
+          "at_ms": 780,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "EF"
+            }
+          }
+        }
+      ],
+      "save_calls": [
+        260,
+        520,
+        780
+      ],
+      "joined_text": "ABCDEF"
+    },
+    "env2_metadata1": {
+      "environment_size": 2,
+      "metadata_size": 1,
+      "effective_size": 2,
+      "input_fragments": 6,
+      "emissions": [
+        {
+          "at_ms": 260,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "AB"
+            }
+          }
+        },
+        {
+          "at_ms": 520,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "CD"
+            }
+          }
+        },
+        {
+          "at_ms": 780,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "EF"
+            }
+          }
+        }
+      ],
+      "emissions_before_finish": [
+        {
+          "at_ms": 260,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "AB"
+            }
+          }
+        },
+        {
+          "at_ms": 520,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "CD"
+            }
+          }
+        },
+        {
+          "at_ms": 780,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "EF"
+            }
+          }
+        }
+      ],
+      "save_calls": [
+        260,
+        520,
+        780
+      ],
+      "joined_text": "ABCDEF"
+    },
+    "type_change_flush": {
+      "environment_size": 1,
+      "metadata_size": 2,
+      "effective_size": 2,
+      "input_fragments": 2,
+      "emissions": [
+        {
+          "at_ms": 260,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "A"
+            }
+          }
+        },
+        {
+          "at_ms": 261,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.reasoning_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "B"
+            }
+          }
+        }
+      ],
+      "emissions_before_finish": [
+        {
+          "at_ms": 260,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "A"
+            }
+          }
+        }
+      ],
+      "save_calls": [
+        260,
+        261
+      ],
+      "joined_text": "AB"
+    },
+    "one_fragment_waits_until_finish": {
+      "environment_size": 1,
+      "metadata_size": 2,
+      "effective_size": 2,
+      "input_fragments": 1,
+      "emissions": [
+        {
+          "at_ms": 5000,
+          "event": {
+            "type": "response:completion",
+            "data": {
+              "type": "response.output_text.delta",
+              "item_id": "synthetic-item",
+              "output_index": 0,
+              "content_index": 0,
+              "delta": "A"
+            }
+          }
+        }
+      ],
+      "emissions_before_finish": [],
+      "save_calls": [
+        5000
+      ],
+      "joined_text": "A"
+    }
+  },
+  "checks": {
+    "size1_emits_each_fragment": true,
+    "size2_emits_pairs": true,
+    "environment_can_prevent_metadata_size1": true,
+    "all_regular_text_equal": true,
+    "type_change_flushes_pending": true,
+    "final_flush_preserves_odd_fragment": true,
+    "no_emission_before_end_without_next_delta": true
+  },
+  "all_passed": true,
+  "scope": "Exact AST helper definitions with fake emitter/save and virtual timestamps; no server, network, rendering or model test.",
+  "limits": [
+    "This does not identify the user's effective chunk setting.",
+    "Fragments are not model tokens, SSE events, or browser frames.",
+    "Only the helper batching layer is exercised; other buffering remains unmeasured."
+  ]
+}

@@ -1,0 +1,16 @@
+2026-11-16 CPU candidate screening before an engine integration proposal
+
+Baseline: active final profile, config SHA256 963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43.
+The attached Pro review/probe is evidence and a proposal, not deployment instructions. Parent inspected the supplied runner and C++ before executing them.
+
+Stage 1: run the supplied standalone correctness probe unchanged on the actual Xeon. Compile flags are Ivy Bridge, AVX2/FMA off, fast-math off and FP contraction off. Pin the process to CPU3 and allocate memory on NUMA node0. No model weights or GPU are used.
+
+Stage 2: if correctness passes, execute the supplied bench mode (all16 case/variant combinations). It includes current versus abs for all3 IQ types and saved bias62 for IQ3_XXS, K2304/5120, rows256/8192. Candidate preparation is inside the timed traversal; common F32-to-Q8 quantization is excluded on both sides. Preserve all raw values. This is single-thread synthetic work, not an engine or model speed claim.
+
+Screening rule fixed before seeing timings: advance a type/shape only if the paired-median gain is at least3% and all4 retained pair ratios exceed1.00, with agreement between wall and thread CPU time. This is a practical screen, not a statistical confidence claim. Near-zero or inconsistent results are held, and clear regressions are rejected. No post-hoc blanket deployment based on the best case.
+
+If any candidate survives, repeat the same measured shape/focused supplied probe on a second physical core/socket with local allocation to check that it is not a single-core accident. If no candidate survives and cases consistently regress, do not expand into a backend implementation.
+
+The existing API stays loaded and idle during local screening; before/after idle checks and available monitor state are recorded. API interference, hardware-counter changes, errors, or prolonged test runtime invalidate the run. This does not claim OS isolation. No busy monitoring by the language model.
+
+Integration is a separate decision: write a concrete source/dispatch/workspace/fallback/validation proposal and publish it for the user's GPT Pro consultation before changing the engine. Proposed performance tests must cover actual shapes,12 workers and the6-input down path; the supplied single-input probe does not cover them.

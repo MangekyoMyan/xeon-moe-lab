@@ -1,0 +1,1313 @@
+{
+  "scope": "Synthetic standalone current-compact versus experimental abs-input and saved bias62 input-sidecar; no engine backend or model",
+  "platform": "Linux-6.12.113+deb13-amd64-x86_64-with-glibc2.41",
+  "cpu": "Intel(R) Xeon(R) CPU E5-2630L v2 @ 2.40GHz",
+  "source_sha256": {
+    "/home/codex/projects/llm-lab/optimization-20261116/incoming/xeon_moe_review_2026-11-16/cpu/iq_abs_rhs_probe.cpp": "8db9910ab7f9ef2d4473535f5ce82b73de98a4377f1d350173b52a8fd2684cac",
+    "snapshot/llm-lab/exploration-20261112/row-local/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+    "snapshot/llm-lab/exploration-20261112/row-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+    "snapshot/llm-lab/exploration-20261112/iq-rhs/iq-rhs.cpp": "1c5bdbe5550a8caa43866da134f19d7d2c1d1c89a0cead146fbf9d5fba8a02ec",
+    "snapshot/llm-lab/exploration-20261112/iq-rhs/iq-rhs.h": "393a6e194044b051ae42d8194d14ffa8b559b0d5ae067648da94f0c6d4c7c891",
+    "snapshot/llm-lab/exploration-20261112/iq-rhs/iq-math.inc": "0d66382960acea25f228fcf46096029ee9597d43c964fe67f88e0d57e42e744d",
+    "snapshot/llm-lab/exploration-20261112/iq-rhs/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1"
+  },
+  "commands": [
+    {
+      "argv": [
+        "c++",
+        "-O3",
+        "-std=gnu++17",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-I/home/codex/projects/xeon-moe-review-20261116/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/home/codex/projects/xeon-moe-review-20261116/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "-I/home/codex/projects/xeon-moe-review-20261116/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+        "-I/home/codex/projects/xeon-moe-review-20261116/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/row-local",
+        "-I/home/codex/projects/xeon-moe-review-20261116/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs",
+        "/home/codex/projects/llm-lab/optimization-20261116/incoming/xeon_moe_review_2026-11-16/cpu/iq_abs_rhs_probe.cpp",
+        "/home/codex/projects/xeon-moe-review-20261116/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/iq-rhs.cpp",
+        "-lm",
+        "-o",
+        "/home/codex/projects/llm-lab/optimization-20261116/abs-original-xeon/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/home/codex/projects/llm-lab/optimization-20261116/abs-original-xeon/probe",
+        "test"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"correctness\",\"type\":1,\"mxcsr\":8115,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":2560}\n{\"kind\":\"correctness\",\"type\":2,\"mxcsr\":8115,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":3,\"mxcsr\":8115,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":1,\"mxcsr\":16307,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":2560}\n{\"kind\":\"correctness\",\"type\":2,\"mxcsr\":16307,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":3,\"mxcsr\":16307,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":1,\"mxcsr\":24499,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":2560}\n{\"kind\":\"correctness\",\"type\":2,\"mxcsr\":24499,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":3,\"mxcsr\":24499,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":1,\"mxcsr\":32691,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":2560}\n{\"kind\":\"correctness\",\"type\":2,\"mxcsr\":32691,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":3,\"mxcsr\":32691,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":1,\"mxcsr\":40945,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":2560}\n{\"kind\":\"correctness\",\"type\":2,\"mxcsr\":40945,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":3,\"mxcsr\":40945,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":1,\"mxcsr\":49137,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":2560}\n{\"kind\":\"correctness\",\"type\":2,\"mxcsr\":49137,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":3,\"mxcsr\":49137,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":1,\"mxcsr\":57329,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":2560}\n{\"kind\":\"correctness\",\"type\":2,\"mxcsr\":57329,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":3,\"mxcsr\":57329,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":1,\"mxcsr\":65521,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":2560}\n{\"kind\":\"correctness\",\"type\":2,\"mxcsr\":65521,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n{\"kind\":\"correctness\",\"type\":3,\"mxcsr\":65521,\"bit_exact_outputs\":2560,\"unsafe_rejections\":200,\"stored_bias_variant_bit_checks\":0}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/home/codex/projects/llm-lab/optimization-20261116/abs-original-xeon/probe",
+        "bench"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"microbench\",\"type\":1,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":256,\"weight_payload_bytes\":331776,\"sidecar_bytes\":2304,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[266.969757,267.023285,267.137451,267.247375,266.857727,267.044067,266.892212,267.080597],\"candidate_ns_per_dot\":[256.674713,256.266846,256.221558,256.374725,256.203430,256.282013,256.186218,256.220947],\"paired_speedups\":[1.041041,1.042506,1.041789,1.042087],\"paired_median_speedup\":1.041938,\"current_thread_cpu_ns_per_dot\":[266.941010,266.989655,267.110474,267.218292,266.829529,267.015228,266.864594,266.956238],\"candidate_thread_cpu_ns_per_dot\":[256.430389,256.236053,256.192108,256.348053,256.174866,256.253723,256.158569,256.194305],\"thread_cpu_paired_speedups\":[1.041478,1.042511,1.041793,1.041901],\"thread_cpu_paired_median_speedup\":1.041847}\n{\"kind\":\"microbench\",\"type\":2,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":256,\"weight_payload_bytes\":331776,\"sidecar_bytes\":2304,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[309.621674,308.044739,307.539062,308.976807,307.835388,308.385101,308.301086,307.940186],\"candidate_ns_per_dot\":[293.553558,293.792450,293.022064,293.755768,294.706848,293.284607,293.341339,293.278625],\"paired_speedups\":[1.051623,1.050680,1.048009,1.050495],\"paired_median_speedup\":1.050588,\"current_thread_cpu_ns_per_dot\":[309.586639,308.016693,307.510101,308.226929,307.805969,308.359833,308.118042,307.913971],\"candidate_thread_cpu_ns_per_dot\":[293.524139,293.659485,292.992737,293.727264,294.678314,293.261536,293.217224,293.254517],\"thread_cpu_paired_speedups\":[1.051806,1.049456,1.048008,1.050404],\"thread_cpu_paired_median_speedup\":1.049930}\n{\"kind\":\"microbench\",\"type\":3,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":256,\"weight_payload_bytes\":331776,\"sidecar_bytes\":2304,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[280.652771,279.665100,280.445221,280.328094,280.168427,279.743073,279.961609,279.681610],\"candidate_ns_per_dot\":[264.949188,264.671875,265.226288,264.935425,264.834564,265.072418,265.379822,265.236115],\"paired_speedups\":[1.057960,1.057740,1.056622,1.054705],\"paired_median_speedup\":1.057181,\"current_thread_cpu_ns_per_dot\":[280.625061,279.642120,279.935608,279.772583,280.145020,279.720459,279.939331,279.656433],\"candidate_thread_cpu_ns_per_dot\":[264.925537,264.648132,265.202637,264.912323,264.806030,265.047424,265.257507,265.211761],\"thread_cpu_paired_speedups\":[1.057959,1.055824,1.056642,1.054907],\"thread_cpu_paired_median_speedup\":1.056233}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"stored_iq_rhs_bias62\",\"n\":2304,\"rows\":256,\"weight_payload_bytes\":331776,\"sidecar_bytes\":2304,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[272.488800,272.393799,273.127747,272.037415,272.192566,272.033783,271.958405,272.144073],\"candidate_ns_per_dot\":[260.370178,261.565002,260.616821,260.395813,261.055481,260.310791,260.891144,260.370819],\"paired_speedups\":[1.043966,1.046357,1.043846,1.043818],\"paired_median_speedup\":1.043906,\"current_thread_cpu_ns_per_dot\":[272.450073,272.366333,273.096283,272.012573,272.168335,272.009216,271.934174,272.116974],\"candidate_thread_cpu_ns_per_dot\":[260.346527,261.236115,260.587646,260.370300,261.029938,260.287659,260.752106,260.347900],\"thread_cpu_paired_speedups\":[1.044545,1.046359,1.043850,1.044044],\"thread_cpu_paired_median_speedup\":1.044294}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":8192,\"weight_payload_bytes\":10616832,\"sidecar_bytes\":2304,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[280.259064,278.151398,276.473389,280.248993,281.791077,279.725159,278.076019,277.458801],\"candidate_ns_per_dot\":[265.206116,264.444977,264.822083,265.854462,266.840027,268.602356,266.137665,265.701874],\"paired_speedups\":[1.054299,1.049080,1.048696,1.044553],\"paired_median_speedup\":1.048888,\"current_thread_cpu_ns_per_dot\":[280.225098,278.123322,276.436981,280.221039,281.752808,279.697693,278.048431,277.431366],\"candidate_thread_cpu_ns_per_dot\":[265.073914,264.416962,264.784912,265.818970,266.813110,268.574829,266.095917,265.665436],\"thread_cpu_paired_speedups\":[1.054501,1.049103,1.048680,1.044604],\"thread_cpu_paired_median_speedup\":1.048891}\n{\"kind\":\"microbench\",\"type\":2,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":8192,\"weight_payload_bytes\":10616832,\"sidecar_bytes\":2304,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[305.551483,263.906006,263.764740,276.638336,267.906128,270.045898,270.469788,265.937195],\"candidate_ns_per_dot\":[296.363953,252.112823,251.895111,271.198273,254.429657,268.271301,253.450317,252.317688],\"paired_speedups\":[1.038253,1.033091,1.029177,1.060579],\"paired_median_speedup\":1.035672,\"current_thread_cpu_ns_per_dot\":[305.523651,263.882294,263.733185,276.599548,267.875061,270.009735,270.439850,265.907684],\"candidate_thread_cpu_ns_per_dot\":[296.235382,252.082184,251.841980,271.137817,254.395660,268.222504,253.422882,252.289917],\"thread_cpu_paired_speedups\":[1.038460,1.033181,1.029212,1.060577],\"thread_cpu_paired_median_speedup\":1.035821}\n{\"kind\":\"microbench\",\"type\":3,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":8192,\"weight_payload_bytes\":10616832,\"sidecar_bytes\":2304,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[239.574310,240.004211,241.135254,239.803772,240.221802,240.829529,240.002716,239.694977],\"candidate_ns_per_dot\":[227.840424,226.642456,226.583405,226.759644,226.701019,226.405212,228.530731,228.009399],\"paired_speedups\":[1.055218,1.060872,1.061674,1.050724],\"paired_median_speedup\":1.058045,\"current_thread_cpu_ns_per_dot\":[239.544708,239.973083,241.101685,239.779266,239.689880,240.804871,239.969513,239.665039],\"candidate_thread_cpu_ns_per_dot\":[227.802612,226.608124,226.560516,226.735413,226.677856,226.371460,228.492950,227.975433],\"thread_cpu_paired_speedups\":[1.055252,1.060854,1.060579,1.050751],\"thread_cpu_paired_median_speedup\":1.057916}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"stored_iq_rhs_bias62\",\"n\":2304,\"rows\":8192,\"weight_payload_bytes\":10616832,\"sidecar_bytes\":2304,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[235.375397,235.653412,237.027740,233.495483,235.801727,235.550781,236.287170,235.401031],\"candidate_ns_per_dot\":[225.979584,223.110443,223.566711,222.701935,224.283569,224.457611,226.680908,225.574249],\"paired_speedups\":[1.048852,1.054350,1.050388,1.042969],\"paired_median_speedup\":1.049620,\"current_thread_cpu_ns_per_dot\":[235.339050,235.624237,236.998077,233.462952,235.765625,235.264984,236.260010,235.365021],\"candidate_thread_cpu_ns_per_dot\":[225.943939,223.083923,223.542725,222.670532,224.247406,224.429779,224.427948,224.297089],\"thread_cpu_paired_speedups\":[1.048851,1.054341,1.049821,1.051033],\"thread_cpu_paired_median_speedup\":1.050427}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":256,\"weight_payload_bytes\":737280,\"sidecar_bytes\":5120,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[499.011475,505.904358,517.716339,514.934296,512.198181,498.089111,500.423035,497.116272],\"candidate_ns_per_dot\":[482.240082,496.242493,495.689423,495.975067,494.982605,477.525085,477.338257,480.155548],\"paired_speedups\":[1.027015,1.041331,1.038848,1.041823],\"paired_median_speedup\":1.040089,\"current_thread_cpu_ns_per_dot\":[498.987335,505.884583,517.693176,513.990143,512.176361,498.068329,500.394714,497.091949],\"candidate_thread_cpu_ns_per_dot\":[482.216370,496.216797,495.665344,495.672363,494.958374,477.480499,477.316559,480.129883],\"thread_cpu_paired_speedups\":[1.027022,1.040698,1.038877,1.041820],\"thread_cpu_paired_median_speedup\":1.039788}\n{\"kind\":\"microbench\",\"type\":2,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":256,\"weight_payload_bytes\":737280,\"sidecar_bytes\":5120,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[573.207214,574.759888,576.193207,584.114471,577.494629,578.491425,576.647217,578.717865],\"candidate_ns_per_dot\":[554.428009,551.120911,552.700684,550.776550,553.990936,551.967590,559.212372,557.058533],\"paired_speedups\":[1.038368,1.051501,1.045235,1.035022],\"paired_median_speedup\":1.041801,\"current_thread_cpu_ns_per_dot\":[573.185333,574.733276,576.064178,584.091431,577.474426,577.304871,576.625763,578.697113],\"candidate_thread_cpu_ns_per_dot\":[554.405182,551.098145,552.674072,550.750916,553.967651,551.945160,559.187073,557.033844],\"thread_cpu_paired_speedups\":[1.038367,1.051413,1.044187,1.035031],\"thread_cpu_paired_median_speedup\":1.041277}\n{\"kind\":\"microbench\",\"type\":3,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":256,\"weight_payload_bytes\":737280,\"sidecar_bytes\":5120,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[523.298492,521.596954,525.689423,529.015076,522.216766,528.478638,526.795074,525.004486],\"candidate_ns_per_dot\":[498.582764,497.084564,509.826935,506.040863,497.764343,499.883972,506.397736,500.816711],\"paired_speedups\":[1.049442,1.038230,1.053172,1.044266],\"paired_median_speedup\":1.046854,\"current_thread_cpu_ns_per_dot\":[521.820801,521.574768,525.667236,528.990234,522.176086,526.977081,526.774689,524.962219],\"candidate_thread_cpu_ns_per_dot\":[498.561188,497.063385,509.804230,505.592102,497.398895,499.860229,505.219177,500.793488],\"thread_cpu_paired_speedups\":[1.047981,1.038666,1.052037,1.045451],\"thread_cpu_paired_median_speedup\":1.046716}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"stored_iq_rhs_bias62\",\"n\":5120,\"rows\":256,\"weight_payload_bytes\":737280,\"sidecar_bytes\":5120,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[503.712280,506.093170,504.269928,507.339661,502.899902,503.441803,503.856506,504.078674],\"candidate_ns_per_dot\":[476.220245,475.873352,475.826874,481.759521,478.726685,480.421631,476.794434,475.854279],\"paired_speedups\":[1.060616,1.056416,1.049203,1.058034],\"paired_median_speedup\":1.057225,\"current_thread_cpu_ns_per_dot\":[503.691101,506.071289,504.250153,507.310394,502.878265,503.417664,503.834412,504.057526],\"candidate_thread_cpu_ns_per_dot\":[476.198578,475.853607,475.808502,480.689362,478.608582,480.400024,476.773651,475.820221],\"thread_cpu_paired_speedups\":[1.060617,1.057567,1.049309,1.058050],\"thread_cpu_paired_median_speedup\":1.057808}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":8192,\"weight_payload_bytes\":23592960,\"sidecar_bytes\":5120,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[506.787018,506.691956,507.622467,507.360291,506.847931,507.672272,514.251129,510.260803],\"candidate_ns_per_dot\":[492.168304,493.673615,492.453156,494.662659,494.089325,491.802734,495.576294,495.070526],\"paired_speedups\":[1.028034,1.028231,1.029038,1.034185],\"paired_median_speedup\":1.028634,\"current_thread_cpu_ns_per_dot\":[506.672729,506.604370,507.519104,507.240051,506.776123,507.587860,514.146851,510.121887],\"candidate_thread_cpu_ns_per_dot\":[492.094391,493.619232,492.356659,491.769806,494.007782,491.714722,495.487366,494.982452],\"thread_cpu_paired_speedups\":[1.027963,1.031127,1.029056,1.034124],\"thread_cpu_paired_median_speedup\":1.030092}\n{\"kind\":\"microbench\",\"type\":2,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":8192,\"weight_payload_bytes\":23592960,\"sidecar_bytes\":5120,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[589.413727,597.014618,587.843750,587.400787,586.504333,586.963898,587.429321,586.318451],\"candidate_ns_per_dot\":[571.954071,563.954224,568.096191,562.150909,564.661865,563.894318,564.417114,564.220490],\"paired_speedups\":[1.044475,1.039812,1.039796,1.039969],\"paired_median_speedup\":1.039890,\"current_thread_cpu_ns_per_dot\":[589.334961,591.223053,586.348999,587.238831,586.424591,586.849640,587.330933,586.236053],\"candidate_thread_cpu_ns_per_dot\":[571.877441,563.834595,564.295197,562.049652,564.583710,563.835022,564.326385,564.107025],\"thread_cpu_paired_speedups\":[1.039487,1.041944,1.039751,1.039997],\"thread_cpu_paired_median_speedup\":1.039874}\n{\"kind\":\"microbench\",\"type\":3,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":8192,\"weight_payload_bytes\":23592960,\"sidecar_bytes\":5120,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[537.623566,538.943695,536.576935,536.540375,537.683014,536.379211,537.613617,536.789795],\"candidate_ns_per_dot\":[513.099426,514.398773,515.102722,513.204590,511.977173,513.081421,512.330566,515.851410],\"paired_speedups\":[1.047756,1.043576,1.047806,1.044955],\"paired_median_speedup\":1.046355,\"current_thread_cpu_ns_per_dot\":[537.526428,536.215668,536.468933,536.456146,537.612061,536.278442,537.536011,536.677124],\"candidate_thread_cpu_ns_per_dot\":[513.027374,514.325562,514.975006,513.137939,511.883606,512.975952,512.251251,513.297150],\"thread_cpu_paired_speedups\":[1.045154,1.043587,1.047842,1.047452],\"thread_cpu_paired_median_speedup\":1.046303}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"stored_iq_rhs_bias62\",\"n\":5120,\"rows\":8192,\"weight_payload_bytes\":23592960,\"sidecar_bytes\":5120,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[520.095093,521.552643,528.315002,522.782471,520.483917,520.093719,518.934326,519.590912],\"candidate_ns_per_dot\":[490.600281,508.588226,497.585175,494.284180,491.352722,494.839355,492.372772,497.836334],\"paired_speedups\":[1.042494,1.059714,1.055147,1.048794],\"paired_median_speedup\":1.051970,\"current_thread_cpu_ns_per_dot\":[519.063690,518.703247,528.193848,521.521088,519.836334,519.949249,518.844421,519.501770],\"candidate_thread_cpu_ns_per_dot\":[490.486511,508.521027,496.891663,494.235107,491.274231,493.688232,492.281067,494.906403],\"thread_cpu_paired_speedups\":[1.038798,1.059113,1.055660,1.051823],\"thread_cpu_paired_median_speedup\":1.053741}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/home/codex/projects/llm-lab/optimization-20261116/abs-socket1-xeon/probe",
+        "bench"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"kind\":\"microbench\",\"type\":1,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":256,\"weight_payload_bytes\":331776,\"sidecar_bytes\":2304,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[249.285797,248.731445,248.769318,249.355316,251.593231,249.191193,248.781433,248.582703],\"candidate_ns_per_dot\":[240.960175,240.306763,240.799225,240.078125,240.326416,240.266876,240.096802,240.482483],\"paired_speedups\":[1.034805,1.035866,1.042013,1.034926],\"paired_median_speedup\":1.035396,\"current_thread_cpu_ns_per_dot\":[248.948090,248.696594,248.743011,249.232880,248.969513,249.159637,248.757324,248.556396],\"candidate_thread_cpu_ns_per_dot\":[240.930634,240.174744,240.670990,240.052429,240.299683,240.140137,239.974152,240.457458],\"thread_cpu_paired_speedups\":[1.034378,1.035889,1.036819,1.035139],\"thread_cpu_paired_median_speedup\":1.035514}\n{\"kind\":\"microbench\",\"type\":2,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":256,\"weight_payload_bytes\":331776,\"sidecar_bytes\":2304,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[298.665039,298.509857,298.952087,298.872650,299.909698,298.818390,298.763397,298.656738],\"candidate_ns_per_dot\":[285.750763,285.887238,289.377075,285.999451,286.338074,287.278107,285.592194,286.219147],\"paired_speedups\":[1.044673,1.039015,1.043778,1.044785],\"paired_median_speedup\":1.044226,\"current_thread_cpu_ns_per_dot\":[298.633759,298.481171,298.917297,298.845276,299.783081,298.694489,298.736023,298.631012],\"candidate_thread_cpu_ns_per_dot\":[285.624207,285.761780,285.436432,285.724030,285.701630,285.964874,285.466278,285.812622],\"thread_cpu_paired_speedups\":[1.045029,1.046576,1.046900,1.045666],\"thread_cpu_paired_median_speedup\":1.046121}\n{\"kind\":\"microbench\",\"type\":3,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":256,\"weight_payload_bytes\":331776,\"sidecar_bytes\":2304,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[260.959625,262.067383,261.063141,261.692108,268.318268,268.482422,268.297913,269.627869],\"candidate_ns_per_dot\":[248.187744,248.059814,248.025909,247.933441,256.638031,255.136322,255.123199,254.714172],\"paired_speedups\":[1.053964,1.054028,1.048901,1.055093],\"paired_median_speedup\":1.053996,\"current_thread_cpu_ns_per_dot\":[260.936035,261.612030,261.037811,261.663422,268.177277,268.444153,268.271759,268.540619],\"candidate_thread_cpu_ns_per_dot\":[248.163544,248.015686,247.999176,247.903107,256.508698,255.007385,255.091858,254.588287],\"thread_cpu_paired_speedups\":[1.053144,1.054041,1.049080,1.053234],\"thread_cpu_paired_median_speedup\":1.053189}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"stored_iq_rhs_bias62\",\"n\":2304,\"rows\":256,\"weight_payload_bytes\":331776,\"sidecar_bytes\":2304,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[258.429077,258.356476,258.948761,258.105896,257.896545,257.960510,258.271912,258.196411],\"candidate_ns_per_dot\":[243.151672,243.251770,243.296570,243.223206,243.317078,243.408325,243.403900,243.811737],\"paired_speedups\":[1.062463,1.062762,1.059852,1.060041],\"paired_median_speedup\":1.061252,\"current_thread_cpu_ns_per_dot\":[258.382996,258.333069,258.922882,258.082703,257.872894,257.938354,258.248596,258.171051],\"candidate_thread_cpu_ns_per_dot\":[243.128052,243.228333,243.272827,243.199463,243.294006,243.381042,243.374573,243.782288],\"thread_cpu_paired_speedups\":[1.062423,1.062765,1.059868,1.060069],\"thread_cpu_paired_median_speedup\":1.061246}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":8192,\"weight_payload_bytes\":10616832,\"sidecar_bytes\":2304,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[258.335571,260.049896,258.135529,257.958771,258.281128,258.502075,258.691406,258.713989],\"candidate_ns_per_dot\":[249.471130,252.088623,249.509674,249.356110,249.192749,249.554993,249.392426,249.149567],\"paired_speedups\":[1.033547,1.034535,1.036161,1.037837],\"paired_median_speedup\":1.035348,\"current_thread_cpu_ns_per_dot\":[258.311829,260.018677,258.111115,257.912933,258.256592,258.478302,258.668457,258.688599],\"candidate_thread_cpu_ns_per_dot\":[249.444336,252.055573,249.485229,249.332245,249.165588,249.529419,249.368622,249.127136],\"thread_cpu_paired_speedups\":[1.033561,1.034495,1.036174,1.037836],\"thread_cpu_paired_median_speedup\":1.035334}\n{\"kind\":\"microbench\",\"type\":2,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":8192,\"weight_payload_bytes\":10616832,\"sidecar_bytes\":2304,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[312.805267,312.648163,275.965057,258.293610,258.479553,258.502319,276.619629,263.106415],\"candidate_ns_per_dot\":[298.344604,300.869019,246.000458,245.949280,245.995148,265.202576,265.545929,258.396088],\"paired_speedups\":[1.043790,1.086003,1.011315,1.030126],\"paired_median_speedup\":1.036958,\"current_thread_cpu_ns_per_dot\":[312.768433,312.620483,275.931732,258.266388,258.455658,258.470062,276.585205,263.070465],\"candidate_thread_cpu_ns_per_dot\":[298.303070,300.831787,245.978546,245.925262,245.972961,265.154205,265.492889,258.355286],\"thread_cpu_paired_speedups\":[1.043820,1.085981,1.011345,1.030176],\"thread_cpu_paired_median_speedup\":1.036998}\n{\"kind\":\"microbench\",\"type\":3,\"variant\":\"experimental_input_abs\",\"n\":2304,\"rows\":8192,\"weight_payload_bytes\":10616832,\"sidecar_bytes\":2304,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[229.781647,231.877472,230.628571,229.527527,229.477051,229.523682,229.302856,231.258423],\"candidate_ns_per_dot\":[217.598999,218.936890,217.759003,217.415985,217.719635,217.598755,217.584076,217.850189],\"paired_speedups\":[1.057551,1.057405,1.054402,1.057706],\"paired_median_speedup\":1.057478,\"current_thread_cpu_ns_per_dot\":[229.750153,231.843292,230.601013,229.495728,229.453827,229.500977,229.273254,230.828064],\"candidate_thread_cpu_ns_per_dot\":[217.565125,218.909882,217.735321,217.384827,217.685242,217.576385,217.554108,217.816803],\"thread_cpu_paired_speedups\":[1.057548,1.057402,1.054434,1.056803],\"thread_cpu_paired_median_speedup\":1.057102}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"stored_iq_rhs_bias62\",\"n\":2304,\"rows\":8192,\"weight_payload_bytes\":10616832,\"sidecar_bytes\":2304,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[221.948730,221.556335,222.068665,223.123138,222.172943,221.996735,221.319946,221.604218],\"candidate_ns_per_dot\":[207.666931,207.927643,207.574036,207.524475,210.285187,207.597137,207.961639,208.525421],\"paired_speedups\":[1.067158,1.072497,1.062906,1.063476],\"paired_median_speedup\":1.065317,\"current_thread_cpu_ns_per_dot\":[221.909760,221.532684,222.034698,223.098145,222.141418,221.967804,221.289001,221.581512],\"candidate_thread_cpu_ns_per_dot\":[207.634705,207.904022,207.544678,207.501617,210.250732,207.573761,207.931305,208.498383],\"thread_cpu_paired_speedups\":[1.067151,1.072490,1.062909,1.063494],\"thread_cpu_paired_median_speedup\":1.065322}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":256,\"weight_payload_bytes\":737280,\"sidecar_bytes\":5120,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[479.428253,478.868927,480.070740,479.348206,479.022888,479.216827,480.660919,479.683014],\"candidate_ns_per_dot\":[464.498840,464.456360,464.364746,466.104004,464.342224,465.360199,464.257141,464.286438],\"paired_speedups\":[1.031586,1.031114,1.030695,1.034248],\"paired_median_speedup\":1.031350,\"current_thread_cpu_ns_per_dot\":[479.409821,478.851227,479.522614,479.329468,479.004486,479.199280,479.703857,479.660736],\"candidate_thread_cpu_ns_per_dot\":[464.476593,464.423065,464.344635,465.145020,464.322266,465.337799,464.236389,464.265869],\"thread_cpu_paired_speedups\":[1.031609,1.031590,1.030703,1.033239],\"thread_cpu_paired_median_speedup\":1.031599}\n{\"kind\":\"microbench\",\"type\":2,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":256,\"weight_payload_bytes\":737280,\"sidecar_bytes\":5120,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[591.508484,597.655792,570.207916,570.600525,564.816315,579.883240,567.774628,562.220978],\"candidate_ns_per_dot\":[548.334656,554.518921,548.675598,544.795959,542.756195,560.917755,541.185760,539.986572],\"paired_speedups\":[1.078261,1.043290,1.037172,1.045158],\"paired_median_speedup\":1.044224,\"current_thread_cpu_ns_per_dot\":[591.384155,597.591034,570.084747,570.577332,564.792480,579.858917,567.652893,562.198944],\"candidate_thread_cpu_ns_per_dot\":[548.314148,552.389557,548.651794,544.773346,542.729675,560.893768,541.080597,539.020477],\"thread_cpu_paired_speedups\":[1.080196,1.043201,1.037176,1.046061],\"thread_cpu_paired_median_speedup\":1.044631}\n{\"kind\":\"microbench\",\"type\":3,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":256,\"weight_payload_bytes\":737280,\"sidecar_bytes\":5120,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[500.459930,499.545105,500.786987,501.577850,499.433838,499.687866,502.937561,504.257141],\"candidate_ns_per_dot\":[477.071655,477.198639,477.841858,476.968750,476.919098,476.986664,477.524536,477.016602],\"paired_speedups\":[1.047926,1.049805,1.047401,1.055161],\"paired_median_speedup\":1.048866,\"current_thread_cpu_ns_per_dot\":[499.935181,499.524170,500.766541,499.799927,499.413910,499.668610,502.904755,500.057037],\"candidate_thread_cpu_ns_per_dot\":[477.051514,477.179321,477.360413,476.948853,476.898254,476.967407,477.501862,476.997375],\"thread_cpu_paired_speedups\":[1.047398,1.048472,1.047404,1.050773],\"thread_cpu_paired_median_speedup\":1.047938}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"stored_iq_rhs_bias62\",\"n\":5120,\"rows\":256,\"weight_payload_bytes\":737280,\"sidecar_bytes\":5120,\"traversals_per_arm\":128,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[476.825134,476.930054,476.995178,476.183380,476.800262,478.827301,484.802612,477.207428],\"candidate_ns_per_dot\":[444.891113,444.023468,443.983551,443.876068,445.109039,443.770264,452.366638,444.972534],\"paired_speedups\":[1.072944,1.073569,1.075093,1.072070],\"paired_median_speedup\":1.073256,\"current_thread_cpu_ns_per_dot\":[476.804199,476.911316,476.975891,476.165375,476.779724,477.300568,483.916779,477.189087],\"candidate_thread_cpu_ns_per_dot\":[444.023865,444.004089,443.962891,443.853271,445.086548,443.750916,450.412872,444.950500],\"thread_cpu_paired_speedups\":[1.073970,1.073580,1.073402,1.073425],\"thread_cpu_paired_median_speedup\":1.073503}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":8192,\"weight_payload_bytes\":23592960,\"sidecar_bytes\":5120,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[496.333832,493.023315,494.716187,493.765503,493.783417,493.916473,493.741852,493.428101],\"candidate_ns_per_dot\":[481.900055,482.208130,479.781128,479.618103,479.813324,479.445984,480.222382,482.954559],\"paired_speedups\":[1.026189,1.030313,1.029648,1.024910],\"paired_median_speedup\":1.027919,\"current_thread_cpu_ns_per_dot\":[493.178070,492.937531,494.637909,493.681671,493.704926,493.842316,493.680054,493.355804],\"candidate_thread_cpu_ns_per_dot\":[481.767120,482.133118,479.701141,479.548431,479.744354,479.346649,480.101715,480.009338],\"thread_cpu_paired_speedups\":[1.023047,1.030305,1.029670,1.028043],\"thread_cpu_paired_median_speedup\":1.028857}\n{\"kind\":\"microbench\",\"type\":2,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":8192,\"weight_payload_bytes\":23592960,\"sidecar_bytes\":5120,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[582.608887,578.860779,581.063202,577.930450,578.352570,579.675049,582.215973,579.188843],\"candidate_ns_per_dot\":[556.969879,556.896271,556.113464,557.103210,557.259552,556.283020,555.855988,556.262115],\"paired_speedups\":[1.042737,1.041121,1.039949,1.044318],\"paired_median_speedup\":1.041929,\"current_thread_cpu_ns_per_dot\":[579.521484,578.781982,581.001343,577.844391,578.288666,579.623749,579.137268,578.067841],\"candidate_thread_cpu_ns_per_dot\":[555.938416,556.839569,556.044250,557.034210,557.188965,556.205292,555.762909,556.193359],\"thread_cpu_paired_speedups\":[1.040912,1.041118,1.039984,1.040693],\"thread_cpu_paired_median_speedup\":1.040802}\n{\"kind\":\"microbench\",\"type\":3,\"variant\":\"experimental_input_abs\",\"n\":5120,\"rows\":8192,\"weight_payload_bytes\":23592960,\"sidecar_bytes\":5120,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[519.099792,518.984314,519.601685,530.709229,541.352692,521.728363,546.864777,522.516235],\"candidate_ns_per_dot\":[496.563721,498.612427,495.432159,495.453674,515.991455,524.275787,507.956177,501.961487],\"paired_speedups\":[1.043116,1.059972,1.021931,1.058879],\"paired_median_speedup\":1.050998,\"current_thread_cpu_ns_per_dot\":[519.038300,518.899780,519.540131,530.637421,541.296539,518.637573,546.816711,522.415710],\"candidate_thread_cpu_ns_per_dot\":[496.497467,498.523071,495.371521,495.397614,515.916107,524.190338,507.881531,501.896515],\"thread_cpu_paired_speedups\":[1.043132,1.059962,1.019063,1.058879],\"thread_cpu_paired_median_speedup\":1.051005}\n{\"kind\":\"microbench\",\"type\":1,\"variant\":\"stored_iq_rhs_bias62\",\"n\":5120,\"rows\":8192,\"weight_payload_bytes\":23592960,\"sidecar_bytes\":5120,\"traversals_per_arm\":4,\"preparation_once_per_matrix_included\":true,\"current_ns_per_dot\":[500.017334,499.223328,497.231720,495.990143,495.614563,496.104645,495.267456,495.301300],\"candidate_ns_per_dot\":[463.473236,462.238373,461.890106,462.029449,465.877625,463.907959,464.242401,461.651825],\"paired_speedups\":[1.079430,1.075009,1.066611,1.069851],\"paired_median_speedup\":1.072430,\"current_thread_cpu_ns_per_dot\":[499.954071,499.150604,497.167603,495.898560,495.518463,495.293304,495.190308,495.248108],\"candidate_thread_cpu_ns_per_dot\":[463.404846,462.182831,461.840698,461.919952,461.560394,460.820038,464.172272,461.584351],\"thread_cpu_paired_speedups\":[1.079427,1.075025,1.074190,1.069869],\"thread_cpu_paired_median_speedup\":1.074608}\n",
+      "stderr": ""
+    }
+  ],
+  "test_passed": true,
+  "probe_sha256": "7792627fb883ee37fc5bf0cacac9eb80d9387a953b64ab26e1190db66a4d420a",
+  "correctness_rows": [
+    {
+      "kind": "correctness",
+      "type": 1,
+      "mxcsr": 8115,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 2560
+    },
+    {
+      "kind": "correctness",
+      "type": 2,
+      "mxcsr": 8115,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 3,
+      "mxcsr": 8115,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 1,
+      "mxcsr": 16307,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 2560
+    },
+    {
+      "kind": "correctness",
+      "type": 2,
+      "mxcsr": 16307,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 3,
+      "mxcsr": 16307,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 1,
+      "mxcsr": 24499,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 2560
+    },
+    {
+      "kind": "correctness",
+      "type": 2,
+      "mxcsr": 24499,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 3,
+      "mxcsr": 24499,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 1,
+      "mxcsr": 32691,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 2560
+    },
+    {
+      "kind": "correctness",
+      "type": 2,
+      "mxcsr": 32691,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 3,
+      "mxcsr": 32691,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 1,
+      "mxcsr": 40945,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 2560
+    },
+    {
+      "kind": "correctness",
+      "type": 2,
+      "mxcsr": 40945,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 3,
+      "mxcsr": 40945,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 1,
+      "mxcsr": 49137,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 2560
+    },
+    {
+      "kind": "correctness",
+      "type": 2,
+      "mxcsr": 49137,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 3,
+      "mxcsr": 49137,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 1,
+      "mxcsr": 57329,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 2560
+    },
+    {
+      "kind": "correctness",
+      "type": 2,
+      "mxcsr": 57329,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 3,
+      "mxcsr": 57329,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 1,
+      "mxcsr": 65521,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 2560
+    },
+    {
+      "kind": "correctness",
+      "type": 2,
+      "mxcsr": 65521,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    },
+    {
+      "kind": "correctness",
+      "type": 3,
+      "mxcsr": 65521,
+      "bit_exact_outputs": 2560,
+      "unsafe_rejections": 200,
+      "stored_bias_variant_bit_checks": 0
+    }
+  ],
+  "totals": {
+    "bit_exact_outputs": 61440,
+    "unsafe_rejections": 4800,
+    "stored_bias_variant_bit_checks": 20480
+  },
+  "benchmark_passed": true,
+  "benchmark_rows": [
+    {
+      "kind": "microbench",
+      "type": 1,
+      "variant": "experimental_input_abs",
+      "n": 2304,
+      "rows": 256,
+      "weight_payload_bytes": 331776,
+      "sidecar_bytes": 2304,
+      "traversals_per_arm": 128,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        249.285797,
+        248.731445,
+        248.769318,
+        249.355316,
+        251.593231,
+        249.191193,
+        248.781433,
+        248.582703
+      ],
+      "candidate_ns_per_dot": [
+        240.960175,
+        240.306763,
+        240.799225,
+        240.078125,
+        240.326416,
+        240.266876,
+        240.096802,
+        240.482483
+      ],
+      "paired_speedups": [
+        1.034805,
+        1.035866,
+        1.042013,
+        1.034926
+      ],
+      "paired_median_speedup": 1.035396,
+      "current_thread_cpu_ns_per_dot": [
+        248.94809,
+        248.696594,
+        248.743011,
+        249.23288,
+        248.969513,
+        249.159637,
+        248.757324,
+        248.556396
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        240.930634,
+        240.174744,
+        240.67099,
+        240.052429,
+        240.299683,
+        240.140137,
+        239.974152,
+        240.457458
+      ],
+      "thread_cpu_paired_speedups": [
+        1.034378,
+        1.035889,
+        1.036819,
+        1.035139
+      ],
+      "thread_cpu_paired_median_speedup": 1.035514
+    },
+    {
+      "kind": "microbench",
+      "type": 2,
+      "variant": "experimental_input_abs",
+      "n": 2304,
+      "rows": 256,
+      "weight_payload_bytes": 331776,
+      "sidecar_bytes": 2304,
+      "traversals_per_arm": 128,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        298.665039,
+        298.509857,
+        298.952087,
+        298.87265,
+        299.909698,
+        298.81839,
+        298.763397,
+        298.656738
+      ],
+      "candidate_ns_per_dot": [
+        285.750763,
+        285.887238,
+        289.377075,
+        285.999451,
+        286.338074,
+        287.278107,
+        285.592194,
+        286.219147
+      ],
+      "paired_speedups": [
+        1.044673,
+        1.039015,
+        1.043778,
+        1.044785
+      ],
+      "paired_median_speedup": 1.044226,
+      "current_thread_cpu_ns_per_dot": [
+        298.633759,
+        298.481171,
+        298.917297,
+        298.845276,
+        299.783081,
+        298.694489,
+        298.736023,
+        298.631012
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        285.624207,
+        285.76178,
+        285.436432,
+        285.72403,
+        285.70163,
+        285.964874,
+        285.466278,
+        285.812622
+      ],
+      "thread_cpu_paired_speedups": [
+        1.045029,
+        1.046576,
+        1.0469,
+        1.045666
+      ],
+      "thread_cpu_paired_median_speedup": 1.046121
+    },
+    {
+      "kind": "microbench",
+      "type": 3,
+      "variant": "experimental_input_abs",
+      "n": 2304,
+      "rows": 256,
+      "weight_payload_bytes": 331776,
+      "sidecar_bytes": 2304,
+      "traversals_per_arm": 128,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        260.959625,
+        262.067383,
+        261.063141,
+        261.692108,
+        268.318268,
+        268.482422,
+        268.297913,
+        269.627869
+      ],
+      "candidate_ns_per_dot": [
+        248.187744,
+        248.059814,
+        248.025909,
+        247.933441,
+        256.638031,
+        255.136322,
+        255.123199,
+        254.714172
+      ],
+      "paired_speedups": [
+        1.053964,
+        1.054028,
+        1.048901,
+        1.055093
+      ],
+      "paired_median_speedup": 1.053996,
+      "current_thread_cpu_ns_per_dot": [
+        260.936035,
+        261.61203,
+        261.037811,
+        261.663422,
+        268.177277,
+        268.444153,
+        268.271759,
+        268.540619
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        248.163544,
+        248.015686,
+        247.999176,
+        247.903107,
+        256.508698,
+        255.007385,
+        255.091858,
+        254.588287
+      ],
+      "thread_cpu_paired_speedups": [
+        1.053144,
+        1.054041,
+        1.04908,
+        1.053234
+      ],
+      "thread_cpu_paired_median_speedup": 1.053189
+    },
+    {
+      "kind": "microbench",
+      "type": 1,
+      "variant": "stored_iq_rhs_bias62",
+      "n": 2304,
+      "rows": 256,
+      "weight_payload_bytes": 331776,
+      "sidecar_bytes": 2304,
+      "traversals_per_arm": 128,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        258.429077,
+        258.356476,
+        258.948761,
+        258.105896,
+        257.896545,
+        257.96051,
+        258.271912,
+        258.196411
+      ],
+      "candidate_ns_per_dot": [
+        243.151672,
+        243.25177,
+        243.29657,
+        243.223206,
+        243.317078,
+        243.408325,
+        243.4039,
+        243.811737
+      ],
+      "paired_speedups": [
+        1.062463,
+        1.062762,
+        1.059852,
+        1.060041
+      ],
+      "paired_median_speedup": 1.061252,
+      "current_thread_cpu_ns_per_dot": [
+        258.382996,
+        258.333069,
+        258.922882,
+        258.082703,
+        257.872894,
+        257.938354,
+        258.248596,
+        258.171051
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        243.128052,
+        243.228333,
+        243.272827,
+        243.199463,
+        243.294006,
+        243.381042,
+        243.374573,
+        243.782288
+      ],
+      "thread_cpu_paired_speedups": [
+        1.062423,
+        1.062765,
+        1.059868,
+        1.060069
+      ],
+      "thread_cpu_paired_median_speedup": 1.061246
+    },
+    {
+      "kind": "microbench",
+      "type": 1,
+      "variant": "experimental_input_abs",
+      "n": 2304,
+      "rows": 8192,
+      "weight_payload_bytes": 10616832,
+      "sidecar_bytes": 2304,
+      "traversals_per_arm": 4,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        258.335571,
+        260.049896,
+        258.135529,
+        257.958771,
+        258.281128,
+        258.502075,
+        258.691406,
+        258.713989
+      ],
+      "candidate_ns_per_dot": [
+        249.47113,
+        252.088623,
+        249.509674,
+        249.35611,
+        249.192749,
+        249.554993,
+        249.392426,
+        249.149567
+      ],
+      "paired_speedups": [
+        1.033547,
+        1.034535,
+        1.036161,
+        1.037837
+      ],
+      "paired_median_speedup": 1.035348,
+      "current_thread_cpu_ns_per_dot": [
+        258.311829,
+        260.018677,
+        258.111115,
+        257.912933,
+        258.256592,
+        258.478302,
+        258.668457,
+        258.688599
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        249.444336,
+        252.055573,
+        249.485229,
+        249.332245,
+        249.165588,
+        249.529419,
+        249.368622,
+        249.127136
+      ],
+      "thread_cpu_paired_speedups": [
+        1.033561,
+        1.034495,
+        1.036174,
+        1.037836
+      ],
+      "thread_cpu_paired_median_speedup": 1.035334
+    },
+    {
+      "kind": "microbench",
+      "type": 2,
+      "variant": "experimental_input_abs",
+      "n": 2304,
+      "rows": 8192,
+      "weight_payload_bytes": 10616832,
+      "sidecar_bytes": 2304,
+      "traversals_per_arm": 4,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        312.805267,
+        312.648163,
+        275.965057,
+        258.29361,
+        258.479553,
+        258.502319,
+        276.619629,
+        263.106415
+      ],
+      "candidate_ns_per_dot": [
+        298.344604,
+        300.869019,
+        246.000458,
+        245.94928,
+        245.995148,
+        265.202576,
+        265.545929,
+        258.396088
+      ],
+      "paired_speedups": [
+        1.04379,
+        1.086003,
+        1.011315,
+        1.030126
+      ],
+      "paired_median_speedup": 1.036958,
+      "current_thread_cpu_ns_per_dot": [
+        312.768433,
+        312.620483,
+        275.931732,
+        258.266388,
+        258.455658,
+        258.470062,
+        276.585205,
+        263.070465
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        298.30307,
+        300.831787,
+        245.978546,
+        245.925262,
+        245.972961,
+        265.154205,
+        265.492889,
+        258.355286
+      ],
+      "thread_cpu_paired_speedups": [
+        1.04382,
+        1.085981,
+        1.011345,
+        1.030176
+      ],
+      "thread_cpu_paired_median_speedup": 1.036998
+    },
+    {
+      "kind": "microbench",
+      "type": 3,
+      "variant": "experimental_input_abs",
+      "n": 2304,
+      "rows": 8192,
+      "weight_payload_bytes": 10616832,
+      "sidecar_bytes": 2304,
+      "traversals_per_arm": 4,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        229.781647,
+        231.877472,
+        230.628571,
+        229.527527,
+        229.477051,
+        229.523682,
+        229.302856,
+        231.258423
+      ],
+      "candidate_ns_per_dot": [
+        217.598999,
+        218.93689,
+        217.759003,
+        217.415985,
+        217.719635,
+        217.598755,
+        217.584076,
+        217.850189
+      ],
+      "paired_speedups": [
+        1.057551,
+        1.057405,
+        1.054402,
+        1.057706
+      ],
+      "paired_median_speedup": 1.057478,
+      "current_thread_cpu_ns_per_dot": [
+        229.750153,
+        231.843292,
+        230.601013,
+        229.495728,
+        229.453827,
+        229.500977,
+        229.273254,
+        230.828064
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        217.565125,
+        218.909882,
+        217.735321,
+        217.384827,
+        217.685242,
+        217.576385,
+        217.554108,
+        217.816803
+      ],
+      "thread_cpu_paired_speedups": [
+        1.057548,
+        1.057402,
+        1.054434,
+        1.056803
+      ],
+      "thread_cpu_paired_median_speedup": 1.057102
+    },
+    {
+      "kind": "microbench",
+      "type": 1,
+      "variant": "stored_iq_rhs_bias62",
+      "n": 2304,
+      "rows": 8192,
+      "weight_payload_bytes": 10616832,
+      "sidecar_bytes": 2304,
+      "traversals_per_arm": 4,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        221.94873,
+        221.556335,
+        222.068665,
+        223.123138,
+        222.172943,
+        221.996735,
+        221.319946,
+        221.604218
+      ],
+      "candidate_ns_per_dot": [
+        207.666931,
+        207.927643,
+        207.574036,
+        207.524475,
+        210.285187,
+        207.597137,
+        207.961639,
+        208.525421
+      ],
+      "paired_speedups": [
+        1.067158,
+        1.072497,
+        1.062906,
+        1.063476
+      ],
+      "paired_median_speedup": 1.065317,
+      "current_thread_cpu_ns_per_dot": [
+        221.90976,
+        221.532684,
+        222.034698,
+        223.098145,
+        222.141418,
+        221.967804,
+        221.289001,
+        221.581512
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        207.634705,
+        207.904022,
+        207.544678,
+        207.501617,
+        210.250732,
+        207.573761,
+        207.931305,
+        208.498383
+      ],
+      "thread_cpu_paired_speedups": [
+        1.067151,
+        1.07249,
+        1.062909,
+        1.063494
+      ],
+      "thread_cpu_paired_median_speedup": 1.065322
+    },
+    {
+      "kind": "microbench",
+      "type": 1,
+      "variant": "experimental_input_abs",
+      "n": 5120,
+      "rows": 256,
+      "weight_payload_bytes": 737280,
+      "sidecar_bytes": 5120,
+      "traversals_per_arm": 128,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        479.428253,
+        478.868927,
+        480.07074,
+        479.348206,
+        479.022888,
+        479.216827,
+        480.660919,
+        479.683014
+      ],
+      "candidate_ns_per_dot": [
+        464.49884,
+        464.45636,
+        464.364746,
+        466.104004,
+        464.342224,
+        465.360199,
+        464.257141,
+        464.286438
+      ],
+      "paired_speedups": [
+        1.031586,
+        1.031114,
+        1.030695,
+        1.034248
+      ],
+      "paired_median_speedup": 1.03135,
+      "current_thread_cpu_ns_per_dot": [
+        479.409821,
+        478.851227,
+        479.522614,
+        479.329468,
+        479.004486,
+        479.19928,
+        479.703857,
+        479.660736
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        464.476593,
+        464.423065,
+        464.344635,
+        465.14502,
+        464.322266,
+        465.337799,
+        464.236389,
+        464.265869
+      ],
+      "thread_cpu_paired_speedups": [
+        1.031609,
+        1.03159,
+        1.030703,
+        1.033239
+      ],
+      "thread_cpu_paired_median_speedup": 1.031599
+    },
+    {
+      "kind": "microbench",
+      "type": 2,
+      "variant": "experimental_input_abs",
+      "n": 5120,
+      "rows": 256,
+      "weight_payload_bytes": 737280,
+      "sidecar_bytes": 5120,
+      "traversals_per_arm": 128,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        591.508484,
+        597.655792,
+        570.207916,
+        570.600525,
+        564.816315,
+        579.88324,
+        567.774628,
+        562.220978
+      ],
+      "candidate_ns_per_dot": [
+        548.334656,
+        554.518921,
+        548.675598,
+        544.795959,
+        542.756195,
+        560.917755,
+        541.18576,
+        539.986572
+      ],
+      "paired_speedups": [
+        1.078261,
+        1.04329,
+        1.037172,
+        1.045158
+      ],
+      "paired_median_speedup": 1.044224,
+      "current_thread_cpu_ns_per_dot": [
+        591.384155,
+        597.591034,
+        570.084747,
+        570.577332,
+        564.79248,
+        579.858917,
+        567.652893,
+        562.198944
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        548.314148,
+        552.389557,
+        548.651794,
+        544.773346,
+        542.729675,
+        560.893768,
+        541.080597,
+        539.020477
+      ],
+      "thread_cpu_paired_speedups": [
+        1.080196,
+        1.043201,
+        1.037176,
+        1.046061
+      ],
+      "thread_cpu_paired_median_speedup": 1.044631
+    },
+    {
+      "kind": "microbench",
+      "type": 3,
+      "variant": "experimental_input_abs",
+      "n": 5120,
+      "rows": 256,
+      "weight_payload_bytes": 737280,
+      "sidecar_bytes": 5120,
+      "traversals_per_arm": 128,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        500.45993,
+        499.545105,
+        500.786987,
+        501.57785,
+        499.433838,
+        499.687866,
+        502.937561,
+        504.257141
+      ],
+      "candidate_ns_per_dot": [
+        477.071655,
+        477.198639,
+        477.841858,
+        476.96875,
+        476.919098,
+        476.986664,
+        477.524536,
+        477.016602
+      ],
+      "paired_speedups": [
+        1.047926,
+        1.049805,
+        1.047401,
+        1.055161
+      ],
+      "paired_median_speedup": 1.048866,
+      "current_thread_cpu_ns_per_dot": [
+        499.935181,
+        499.52417,
+        500.766541,
+        499.799927,
+        499.41391,
+        499.66861,
+        502.904755,
+        500.057037
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        477.051514,
+        477.179321,
+        477.360413,
+        476.948853,
+        476.898254,
+        476.967407,
+        477.501862,
+        476.997375
+      ],
+      "thread_cpu_paired_speedups": [
+        1.047398,
+        1.048472,
+        1.047404,
+        1.050773
+      ],
+      "thread_cpu_paired_median_speedup": 1.047938
+    },
+    {
+      "kind": "microbench",
+      "type": 1,
+      "variant": "stored_iq_rhs_bias62",
+      "n": 5120,
+      "rows": 256,
+      "weight_payload_bytes": 737280,
+      "sidecar_bytes": 5120,
+      "traversals_per_arm": 128,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        476.825134,
+        476.930054,
+        476.995178,
+        476.18338,
+        476.800262,
+        478.827301,
+        484.802612,
+        477.207428
+      ],
+      "candidate_ns_per_dot": [
+        444.891113,
+        444.023468,
+        443.983551,
+        443.876068,
+        445.109039,
+        443.770264,
+        452.366638,
+        444.972534
+      ],
+      "paired_speedups": [
+        1.072944,
+        1.073569,
+        1.075093,
+        1.07207
+      ],
+      "paired_median_speedup": 1.073256,
+      "current_thread_cpu_ns_per_dot": [
+        476.804199,
+        476.911316,
+        476.975891,
+        476.165375,
+        476.779724,
+        477.300568,
+        483.916779,
+        477.189087
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        444.023865,
+        444.004089,
+        443.962891,
+        443.853271,
+        445.086548,
+        443.750916,
+        450.412872,
+        444.9505
+      ],
+      "thread_cpu_paired_speedups": [
+        1.07397,
+        1.07358,
+        1.073402,
+        1.073425
+      ],
+      "thread_cpu_paired_median_speedup": 1.073503
+    },
+    {
+      "kind": "microbench",
+      "type": 1,
+      "variant": "experimental_input_abs",
+      "n": 5120,
+      "rows": 8192,
+      "weight_payload_bytes": 23592960,
+      "sidecar_bytes": 5120,
+      "traversals_per_arm": 4,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        496.333832,
+        493.023315,
+        494.716187,
+        493.765503,
+        493.783417,
+        493.916473,
+        493.741852,
+        493.428101
+      ],
+      "candidate_ns_per_dot": [
+        481.900055,
+        482.20813,
+        479.781128,
+        479.618103,
+        479.813324,
+        479.445984,
+        480.222382,
+        482.954559
+      ],
+      "paired_speedups": [
+        1.026189,
+        1.030313,
+        1.029648,
+        1.02491
+      ],
+      "paired_median_speedup": 1.027919,
+      "current_thread_cpu_ns_per_dot": [
+        493.17807,
+        492.937531,
+        494.637909,
+        493.681671,
+        493.704926,
+        493.842316,
+        493.680054,
+        493.355804
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        481.76712,
+        482.133118,
+        479.701141,
+        479.548431,
+        479.744354,
+        479.346649,
+        480.101715,
+        480.009338
+      ],
+      "thread_cpu_paired_speedups": [
+        1.023047,
+        1.030305,
+        1.02967,
+        1.028043
+      ],
+      "thread_cpu_paired_median_speedup": 1.028857
+    },
+    {
+      "kind": "microbench",
+      "type": 2,
+      "variant": "experimental_input_abs",
+      "n": 5120,
+      "rows": 8192,
+      "weight_payload_bytes": 23592960,
+      "sidecar_bytes": 5120,
+      "traversals_per_arm": 4,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        582.608887,
+        578.860779,
+        581.063202,
+        577.93045,
+        578.35257,
+        579.675049,
+        582.215973,
+        579.188843
+      ],
+      "candidate_ns_per_dot": [
+        556.969879,
+        556.896271,
+        556.113464,
+        557.10321,
+        557.259552,
+        556.28302,
+        555.855988,
+        556.262115
+      ],
+      "paired_speedups": [
+        1.042737,
+        1.041121,
+        1.039949,
+        1.044318
+      ],
+      "paired_median_speedup": 1.041929,
+      "current_thread_cpu_ns_per_dot": [
+        579.521484,
+        578.781982,
+        581.001343,
+        577.844391,
+        578.288666,
+        579.623749,
+        579.137268,
+        578.067841
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        555.938416,
+        556.839569,
+        556.04425,
+        557.03421,
+        557.188965,
+        556.205292,
+        555.762909,
+        556.193359
+      ],
+      "thread_cpu_paired_speedups": [
+        1.040912,
+        1.041118,
+        1.039984,
+        1.040693
+      ],
+      "thread_cpu_paired_median_speedup": 1.040802
+    },
+    {
+      "kind": "microbench",
+      "type": 3,
+      "variant": "experimental_input_abs",
+      "n": 5120,
+      "rows": 8192,
+      "weight_payload_bytes": 23592960,
+      "sidecar_bytes": 5120,
+      "traversals_per_arm": 4,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        519.099792,
+        518.984314,
+        519.601685,
+        530.709229,
+        541.352692,
+        521.728363,
+        546.864777,
+        522.516235
+      ],
+      "candidate_ns_per_dot": [
+        496.563721,
+        498.612427,
+        495.432159,
+        495.453674,
+        515.991455,
+        524.275787,
+        507.956177,
+        501.961487
+      ],
+      "paired_speedups": [
+        1.043116,
+        1.059972,
+        1.021931,
+        1.058879
+      ],
+      "paired_median_speedup": 1.050998,
+      "current_thread_cpu_ns_per_dot": [
+        519.0383,
+        518.89978,
+        519.540131,
+        530.637421,
+        541.296539,
+        518.637573,
+        546.816711,
+        522.41571
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        496.497467,
+        498.523071,
+        495.371521,
+        495.397614,
+        515.916107,
+        524.190338,
+        507.881531,
+        501.896515
+      ],
+      "thread_cpu_paired_speedups": [
+        1.043132,
+        1.059962,
+        1.019063,
+        1.058879
+      ],
+      "thread_cpu_paired_median_speedup": 1.051005
+    },
+    {
+      "kind": "microbench",
+      "type": 1,
+      "variant": "stored_iq_rhs_bias62",
+      "n": 5120,
+      "rows": 8192,
+      "weight_payload_bytes": 23592960,
+      "sidecar_bytes": 5120,
+      "traversals_per_arm": 4,
+      "preparation_once_per_matrix_included": true,
+      "current_ns_per_dot": [
+        500.017334,
+        499.223328,
+        497.23172,
+        495.990143,
+        495.614563,
+        496.104645,
+        495.267456,
+        495.3013
+      ],
+      "candidate_ns_per_dot": [
+        463.473236,
+        462.238373,
+        461.890106,
+        462.029449,
+        465.877625,
+        463.907959,
+        464.242401,
+        461.651825
+      ],
+      "paired_speedups": [
+        1.07943,
+        1.075009,
+        1.066611,
+        1.069851
+      ],
+      "paired_median_speedup": 1.07243,
+      "current_thread_cpu_ns_per_dot": [
+        499.954071,
+        499.150604,
+        497.167603,
+        495.89856,
+        495.518463,
+        495.293304,
+        495.190308,
+        495.248108
+      ],
+      "candidate_thread_cpu_ns_per_dot": [
+        463.404846,
+        462.182831,
+        461.840698,
+        461.919952,
+        461.560394,
+        460.820038,
+        464.172272,
+        461.584351
+      ],
+      "thread_cpu_paired_speedups": [
+        1.079427,
+        1.075025,
+        1.07419,
+        1.069869
+      ],
+      "thread_cpu_paired_median_speedup": 1.074608
+    }
+  ]
+}

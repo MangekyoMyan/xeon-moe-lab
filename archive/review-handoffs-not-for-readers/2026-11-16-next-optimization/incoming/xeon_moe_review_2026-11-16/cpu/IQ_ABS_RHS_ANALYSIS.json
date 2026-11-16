@@ -1,0 +1,107 @@
+{
+  "status": "arithmetic validated on synthetic fixtures; performance inconclusive; not a deployment recommendation",
+  "representative_correctness": {
+    "bit_exact_outputs": 61440,
+    "unsafe_rejections": 4800,
+    "stored_bias_variant_bit_checks": 20480
+  },
+  "do_not_add_run_counts": "Initial and timer-added runs repeat the same fixture family; totals reported once.",
+  "weight_bytes_per_block": 144,
+  "additional_input_sidecar_bytes_per_256_values": 256,
+  "payload_coverage_changed": false,
+  "new_backend_integration_performed": false,
+  "local_cpu": "AMD EPYC 9V74 80-Core Processor",
+  "flags": [
+    "-O3",
+    "-std=gnu++17",
+    "-march=ivybridge",
+    "-mtune=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off"
+  ],
+  "safe_input_contract": "Q8_K integer values -127..127, finite Q8 scale, valid packed compact weights; unsafe inputs require current-kernel fallback",
+  "initial_run": "iq_abs_run/RESULT.json",
+  "focused_run": "iq_abs_timing_run/RESULT.json",
+  "focused_diagnostic": [
+    {
+      "type": "IQ3_XXS",
+      "k": 5120,
+      "rows": 8192,
+      "wall_paired_median_speedup": 1.06328,
+      "wall_paired_speedups": [
+        1.058327,
+        1.068233,
+        1.110167,
+        0.80557
+      ],
+      "thread_cpu_paired_median_speedup": 1.061773,
+      "thread_cpu_paired_speedups": [
+        1.059613,
+        1.063933,
+        1.11025,
+        0.805526
+      ]
+    },
+    {
+      "type": "IQ2_S",
+      "k": 5120,
+      "rows": 8192,
+      "wall_paired_median_speedup": 1.084053,
+      "wall_paired_speedups": [
+        0.790558,
+        1.039485,
+        1.128621,
+        1.19253
+      ],
+      "thread_cpu_paired_median_speedup": 1.087684,
+      "thread_cpu_paired_speedups": [
+        0.790561,
+        1.039216,
+        1.136152,
+        1.193011
+      ]
+    },
+    {
+      "type": "IQ3_S",
+      "k": 5120,
+      "rows": 8192,
+      "wall_paired_median_speedup": 1.123414,
+      "wall_paired_speedups": [
+        1.166158,
+        1.009795,
+        1.534102,
+        1.080669
+      ],
+      "thread_cpu_paired_median_speedup": 1.123449,
+      "thread_cpu_paired_speedups": [
+        1.166127,
+        1.00986,
+        1.534339,
+        1.08077
+      ]
+    }
+  ],
+  "source_versions": [
+    {
+      "artifact": "iq_abs_rhs_probe_initial.cpp",
+      "role": "Initial test and wall-only benchmark",
+      "sha256": "2e3ca4d9e60fec9dbb994e7599e111d262a804e1a467c87199b8b7170f300e62"
+    },
+    {
+      "artifact": "iq_abs_rhs_probe.cpp",
+      "role": "Timer-added version; final reproducible source",
+      "sha256": "8db9910ab7f9ef2d4473535f5ce82b73de98a4377f1d350173b52a8fd2684cac"
+    }
+  ],
+  "limits": [
+    "Single-thread synthetic arrays; not dual-Xeon inference",
+    "Unpinned and not OS isolated; no LLC eviction",
+    "Initial wall ratios wildly unstable; focused thread CPU ratios still broad",
+    "No established advantage over already tested bias62 sidecar",
+    "Input preparation included once per matrix traversal; common F32 quantization excluded",
+    "No new raw model/runtime files or shipped ELF executed"
+  ],
+  "decision": "Do not claim a fixed speedup. Stop optional local timing after the focused diagnostic. Preserve as an arithmetic-valid fixed-payload hypothesis only."
+}

@@ -1,0 +1,113 @@
+{
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "source_sha256": {
+    "snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/arch/x86/quants.c": "a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7",
+    "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.cpp": "1a6ebc4650fd58a6ccabea5fcf3f5fd52d38b6537f0a4ac2c0bfd6b67091123c",
+    "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.h": "06f481d18e0d079b083b905c474de1aaf8db625a3398d7fb6c7bad0a4bbd6d62",
+    "snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-math.inc": "15fc828d91312ed6edbba454e97e26aa546d31db179e5f1b9648406312c79c0b",
+    "/workspace/scratch/1f624f9ac929/audit/current_20261116/cpu/mx_contract_probe.cpp": "27e1bf8039f92c9947023c2aaeb6fe730d1c74f42946a033375174bcfebf919a"
+  },
+  "commands": [
+    {
+      "argv": [
+        "cc",
+        "-O3",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-std=gnu11",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources",
+        "-c",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/arch/x86/quants.c",
+        "-o",
+        "/workspace/scratch/1f624f9ac929/audit/current_20261116/cpu/mx_contract_run_v2/reference.o"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "c++",
+        "-O3",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-std=gnu++17",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources",
+        "-c",
+        "/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.cpp",
+        "-o",
+        "/workspace/scratch/1f624f9ac929/audit/current_20261116/cpu/mx_contract_run_v2/mx.o"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "c++",
+        "-O3",
+        "-march=ivybridge",
+        "-mtune=ivybridge",
+        "-mno-avx2",
+        "-mno-fma",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-std=gnu++17",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+        "-I/workspace/scratch/1f624f9ac929/xeon-moe-current-7d8b077/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources",
+        "/workspace/scratch/1f624f9ac929/audit/current_20261116/cpu/mx_contract_probe.cpp",
+        "/workspace/scratch/1f624f9ac929/audit/current_20261116/cpu/mx_contract_run_v2/reference.o",
+        "/workspace/scratch/1f624f9ac929/audit/current_20261116/cpu/mx_contract_run_v2/mx.o",
+        "-Wl,--gc-sections",
+        "-lm",
+        "-o",
+        "/workspace/scratch/1f624f9ac929/audit/current_20261116/cpu/mx_contract_run_v2/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/workspace/scratch/1f624f9ac929/audit/current_20261116/cpu/mx_contract_run_v2/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"scope\":\"Newly compiled current MXFP4 prepare/dot plus pinned CPU reference, synthetic data only; sequential partition coverage, not concurrent backend execution\",\"bit_exact_outputs\":28672,\"unsafe_rejections\":800,\"partition_checks\":29472,\"shape_checks\":5,\"rounding_modes\":4,\"ftz_daz_modes\":2,\"canaries_intact\":true,\"passed\":true}\n",
+      "stderr": ""
+    }
+  ],
+  "passed": true,
+  "observations": {
+    "scope": "Newly compiled current MXFP4 prepare/dot plus pinned CPU reference, synthetic data only; sequential partition coverage, not concurrent backend execution",
+    "bit_exact_outputs": 28672,
+    "unsafe_rejections": 800,
+    "partition_checks": 29472,
+    "shape_checks": 5,
+    "rounding_modes": 4,
+    "ftz_daz_modes": 2,
+    "canaries_intact": true,
+    "passed": true
+  }
+}

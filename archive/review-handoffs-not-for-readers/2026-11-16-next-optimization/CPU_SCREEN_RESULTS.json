@@ -1,0 +1,738 @@
+{
+  "scope": "Two physical cores on different sockets, sequential single-thread synthetic screens, memory local to each socket; not 12-worker or whole-model performance.",
+  "sources": [
+    {
+      "path": "/home/codex/projects/llm-lab/optimization-20261116/abs-original-xeon/RESULT.json",
+      "sha256": "2afa67c2e4556c4746fdacaf9f9fea4fda3b4f4c48df00adfb03095b95789d7c",
+      "binary_sha256": "7792627fb883ee37fc5bf0cacac9eb80d9387a953b64ab26e1190db66a4d420a"
+    },
+    {
+      "path": "/home/codex/projects/llm-lab/optimization-20261116/abs-socket1-xeon/RESULT.json",
+      "sha256": "d948e23badc7b8634472369819b74e6f8ac6b108915231fb3dceea9c2e1cb3ce",
+      "binary_sha256": "7792627fb883ee37fc5bf0cacac9eb80d9387a953b64ab26e1190db66a4d420a"
+    }
+  ],
+  "correctness_unique_family": {
+    "bit_exact_outputs": 61440,
+    "unsafe_rejections": 4800,
+    "saved_bias_checks": 20480
+  },
+  "abs_cases": 12,
+  "abs_cases_screen_pass_both": 11,
+  "rows": [
+    {
+      "type": "IQ3_XXS",
+      "variant": "experimental_input_abs",
+      "K": 2304,
+      "rows": 256,
+      "wall_speedup_percent": [
+        4.193800000000003,
+        3.5395999999999983
+      ],
+      "thread_cpu_speedup_percent": [
+        4.184699999999997,
+        3.5514000000000046
+      ],
+      "raw_wall_pairs": [
+        [
+          1.041041,
+          1.042506,
+          1.041789,
+          1.042087
+        ],
+        [
+          1.034805,
+          1.035866,
+          1.042013,
+          1.034926
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.041478,
+          1.042511,
+          1.041793,
+          1.041901
+        ],
+        [
+          1.034378,
+          1.035889,
+          1.036819,
+          1.035139
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_XXS",
+      "variant": "experimental_input_abs",
+      "K": 2304,
+      "rows": 8192,
+      "wall_speedup_percent": [
+        4.888800000000004,
+        3.5347999999999935
+      ],
+      "thread_cpu_speedup_percent": [
+        4.889100000000002,
+        3.5333999999999977
+      ],
+      "raw_wall_pairs": [
+        [
+          1.054299,
+          1.04908,
+          1.048696,
+          1.044553
+        ],
+        [
+          1.033547,
+          1.034535,
+          1.036161,
+          1.037837
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.054501,
+          1.049103,
+          1.04868,
+          1.044604
+        ],
+        [
+          1.033561,
+          1.034495,
+          1.036174,
+          1.037836
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_XXS",
+      "variant": "experimental_input_abs",
+      "K": 5120,
+      "rows": 256,
+      "wall_speedup_percent": [
+        4.008900000000004,
+        3.134999999999999
+      ],
+      "thread_cpu_speedup_percent": [
+        3.9787999999999935,
+        3.1598999999999933
+      ],
+      "raw_wall_pairs": [
+        [
+          1.027015,
+          1.041331,
+          1.038848,
+          1.041823
+        ],
+        [
+          1.031586,
+          1.031114,
+          1.030695,
+          1.034248
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.027022,
+          1.040698,
+          1.038877,
+          1.04182
+        ],
+        [
+          1.031609,
+          1.03159,
+          1.030703,
+          1.033239
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_XXS",
+      "variant": "experimental_input_abs",
+      "K": 5120,
+      "rows": 8192,
+      "wall_speedup_percent": [
+        2.863400000000005,
+        2.7919000000000027
+      ],
+      "thread_cpu_speedup_percent": [
+        3.0092000000000008,
+        2.885699999999991
+      ],
+      "raw_wall_pairs": [
+        [
+          1.028034,
+          1.028231,
+          1.029038,
+          1.034185
+        ],
+        [
+          1.026189,
+          1.030313,
+          1.029648,
+          1.02491
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.027963,
+          1.031127,
+          1.029056,
+          1.034124
+        ],
+        [
+          1.023047,
+          1.030305,
+          1.02967,
+          1.028043
+        ]
+      ],
+      "passes_practical_screen_both_sockets": false,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_XXS",
+      "variant": "stored_iq_rhs_bias62",
+      "K": 2304,
+      "rows": 256,
+      "wall_speedup_percent": [
+        4.3906,
+        6.125200000000008
+      ],
+      "thread_cpu_speedup_percent": [
+        4.4294000000000056,
+        6.124599999999991
+      ],
+      "raw_wall_pairs": [
+        [
+          1.043966,
+          1.046357,
+          1.043846,
+          1.043818
+        ],
+        [
+          1.062463,
+          1.062762,
+          1.059852,
+          1.060041
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.044545,
+          1.046359,
+          1.04385,
+          1.044044
+        ],
+        [
+          1.062423,
+          1.062765,
+          1.059868,
+          1.060069
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_XXS",
+      "variant": "stored_iq_rhs_bias62",
+      "K": 2304,
+      "rows": 8192,
+      "wall_speedup_percent": [
+        4.962,
+        6.531700000000007
+      ],
+      "thread_cpu_speedup_percent": [
+        5.0427,
+        6.53220000000001
+      ],
+      "raw_wall_pairs": [
+        [
+          1.048852,
+          1.05435,
+          1.050388,
+          1.042969
+        ],
+        [
+          1.067158,
+          1.072497,
+          1.062906,
+          1.063476
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.048851,
+          1.054341,
+          1.049821,
+          1.051033
+        ],
+        [
+          1.067151,
+          1.07249,
+          1.062909,
+          1.063494
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_XXS",
+      "variant": "stored_iq_rhs_bias62",
+      "K": 5120,
+      "rows": 256,
+      "wall_speedup_percent": [
+        5.722500000000008,
+        7.325599999999999
+      ],
+      "thread_cpu_speedup_percent": [
+        5.780800000000008,
+        7.35030000000001
+      ],
+      "raw_wall_pairs": [
+        [
+          1.060616,
+          1.056416,
+          1.049203,
+          1.058034
+        ],
+        [
+          1.072944,
+          1.073569,
+          1.075093,
+          1.07207
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.060617,
+          1.057567,
+          1.049309,
+          1.05805
+        ],
+        [
+          1.07397,
+          1.07358,
+          1.073402,
+          1.073425
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_XXS",
+      "variant": "stored_iq_rhs_bias62",
+      "K": 5120,
+      "rows": 8192,
+      "wall_speedup_percent": [
+        5.197000000000007,
+        7.242999999999999
+      ],
+      "thread_cpu_speedup_percent": [
+        5.374100000000004,
+        7.460800000000001
+      ],
+      "raw_wall_pairs": [
+        [
+          1.042494,
+          1.059714,
+          1.055147,
+          1.048794
+        ],
+        [
+          1.07943,
+          1.075009,
+          1.066611,
+          1.069851
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.038798,
+          1.059113,
+          1.05566,
+          1.051823
+        ],
+        [
+          1.079427,
+          1.075025,
+          1.07419,
+          1.069869
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ2_S",
+      "variant": "experimental_input_abs",
+      "K": 2304,
+      "rows": 256,
+      "wall_speedup_percent": [
+        5.058800000000008,
+        4.42260000000001
+      ],
+      "thread_cpu_speedup_percent": [
+        4.993000000000003,
+        4.612100000000008
+      ],
+      "raw_wall_pairs": [
+        [
+          1.051623,
+          1.05068,
+          1.048009,
+          1.050495
+        ],
+        [
+          1.044673,
+          1.039015,
+          1.043778,
+          1.044785
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.051806,
+          1.049456,
+          1.048008,
+          1.050404
+        ],
+        [
+          1.045029,
+          1.046576,
+          1.0469,
+          1.045666
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ2_S",
+      "variant": "experimental_input_abs",
+      "K": 2304,
+      "rows": 8192,
+      "wall_speedup_percent": [
+        3.5671999999999926,
+        3.6958000000000046
+      ],
+      "thread_cpu_speedup_percent": [
+        3.5821000000000103,
+        3.6998000000000086
+      ],
+      "raw_wall_pairs": [
+        [
+          1.038253,
+          1.033091,
+          1.029177,
+          1.060579
+        ],
+        [
+          1.04379,
+          1.086003,
+          1.011315,
+          1.030126
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.03846,
+          1.033181,
+          1.029212,
+          1.060577
+        ],
+        [
+          1.04382,
+          1.085981,
+          1.011345,
+          1.030176
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ2_S",
+      "variant": "experimental_input_abs",
+      "K": 5120,
+      "rows": 256,
+      "wall_speedup_percent": [
+        4.180099999999998,
+        4.422400000000004
+      ],
+      "thread_cpu_speedup_percent": [
+        4.127700000000001,
+        4.463100000000009
+      ],
+      "raw_wall_pairs": [
+        [
+          1.038368,
+          1.051501,
+          1.045235,
+          1.035022
+        ],
+        [
+          1.078261,
+          1.04329,
+          1.037172,
+          1.045158
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.038367,
+          1.051413,
+          1.044187,
+          1.035031
+        ],
+        [
+          1.080196,
+          1.043201,
+          1.037176,
+          1.046061
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ2_S",
+      "variant": "experimental_input_abs",
+      "K": 5120,
+      "rows": 8192,
+      "wall_speedup_percent": [
+        3.988999999999998,
+        4.1929000000000105
+      ],
+      "thread_cpu_speedup_percent": [
+        3.9873999999999965,
+        4.0802000000000005
+      ],
+      "raw_wall_pairs": [
+        [
+          1.044475,
+          1.039812,
+          1.039796,
+          1.039969
+        ],
+        [
+          1.042737,
+          1.041121,
+          1.039949,
+          1.044318
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.039487,
+          1.041944,
+          1.039751,
+          1.039997
+        ],
+        [
+          1.040912,
+          1.041118,
+          1.039984,
+          1.040693
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_S",
+      "variant": "experimental_input_abs",
+      "K": 2304,
+      "rows": 256,
+      "wall_speedup_percent": [
+        5.718099999999993,
+        5.399599999999993
+      ],
+      "thread_cpu_speedup_percent": [
+        5.623299999999998,
+        5.318899999999993
+      ],
+      "raw_wall_pairs": [
+        [
+          1.05796,
+          1.05774,
+          1.056622,
+          1.054705
+        ],
+        [
+          1.053964,
+          1.054028,
+          1.048901,
+          1.055093
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.057959,
+          1.055824,
+          1.056642,
+          1.054907
+        ],
+        [
+          1.053144,
+          1.054041,
+          1.04908,
+          1.053234
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_S",
+      "variant": "experimental_input_abs",
+      "K": 2304,
+      "rows": 8192,
+      "wall_speedup_percent": [
+        5.80449999999999,
+        5.747799999999992
+      ],
+      "thread_cpu_speedup_percent": [
+        5.791600000000008,
+        5.710199999999999
+      ],
+      "raw_wall_pairs": [
+        [
+          1.055218,
+          1.060872,
+          1.061674,
+          1.050724
+        ],
+        [
+          1.057551,
+          1.057405,
+          1.054402,
+          1.057706
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.055252,
+          1.060854,
+          1.060579,
+          1.050751
+        ],
+        [
+          1.057548,
+          1.057402,
+          1.054434,
+          1.056803
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_S",
+      "variant": "experimental_input_abs",
+      "K": 5120,
+      "rows": 256,
+      "wall_speedup_percent": [
+        4.685399999999995,
+        4.886600000000008
+      ],
+      "thread_cpu_speedup_percent": [
+        4.671599999999998,
+        4.793800000000004
+      ],
+      "raw_wall_pairs": [
+        [
+          1.049442,
+          1.03823,
+          1.053172,
+          1.044266
+        ],
+        [
+          1.047926,
+          1.049805,
+          1.047401,
+          1.055161
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.047981,
+          1.038666,
+          1.052037,
+          1.045451
+        ],
+        [
+          1.047398,
+          1.048472,
+          1.047404,
+          1.050773
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    },
+    {
+      "type": "IQ3_S",
+      "variant": "experimental_input_abs",
+      "K": 5120,
+      "rows": 8192,
+      "wall_speedup_percent": [
+        4.635499999999992,
+        5.09980000000001
+      ],
+      "thread_cpu_speedup_percent": [
+        4.630299999999998,
+        5.100499999999997
+      ],
+      "raw_wall_pairs": [
+        [
+          1.047756,
+          1.043576,
+          1.047806,
+          1.044955
+        ],
+        [
+          1.043116,
+          1.059972,
+          1.021931,
+          1.058879
+        ]
+      ],
+      "raw_thread_cpu_pairs": [
+        [
+          1.045154,
+          1.043587,
+          1.047842,
+          1.047452
+        ],
+        [
+          1.043132,
+          1.059962,
+          1.019063,
+          1.058879
+        ]
+      ],
+      "passes_practical_screen_both_sockets": true,
+      "engine_adoption": false
+    }
+  ],
+  "limits": [
+    "Single input; no six-input down path",
+    "Rows256/8192, not actual M2304/5120",
+    "No actual GGUF weights",
+    "OS not isolated; API resident and only checked idle before/after",
+    "No new generation rate or quality measurement",
+    "Bias62 comparison has separate paired blocks, not a direct randomized abs-vs-bias comparison",
+    "Four retained pair ratios per socket; no statistical confidence interval claimed"
+  ],
+  "next": "Discuss an actual-shape, multiworker measurement and narrow integration proposal with GPT Pro before engine changes."
+}

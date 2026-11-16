@@ -1,0 +1,357 @@
+Xeon MoE Lab 現行スナップショット — 保存測定の独立再集計と評価
+2026-11-16（JST）
+対象commit: 7d8b077afcf1258602366245f1567e820255defa
+
+対象root:
+  archive/review-handoffs-not-for-readers/2026-11-16-current/
+以下 E はその中の snapshot/llm-lab/exploration-20261112/ を表す。
+
+成果物:
+  REANALYSIS.json                 独立再計算結果、入力別値、全40runの使用履歴、source SHA
+  reanalyze_current_evidence.py   再計算と、固定analyzerへの人工入力probe
+  EVIDENCE_REVIEW_JA.txt          この解釈
+
+結論
+====
+1. final採用構成の+12.96%は、保存された4run・32要求を原記録から計算して再現した。
+   計算は総decode steps/総decode時間であり、各要求tok/sの単純平均ではない。
+   exact frozen input集合、生成数、入力hash、選択profileのconfig hash、非重複ABBA順序、
+   出力文字列と全生成token列の保存hash一致も確認できた。
+2. 同じ保存記録のnative非stream要求wall時間からは、生成tokens/要求wall秒が+9.7056%、
+   平均要求時間は8.8470%短縮する。Open WebUI表示やtoken間隔の測定ではない。
+3. hot14の+11.2458%と4096入力時間+4.9485%も再現した。ただし対照2回→候補1回、
+   自由生成8件中7件で出力が変わる比較であり、finalの同一仕事ABBAと同じ強さの証拠ではない。
+4. fixed-prefixの251/256一致、確率差、T1時間短縮もrawから再現した。
+   baseline生成列への一致率であり、正答率・品質改善/悪化・完全分布距離を意味しない。
+5. 新しいanalyze_heldoutにも、全runから同じcaseが欠けた場合に予定集合との不一致を
+   検出しない経路を人工入力で確認した。ただし今回の実保存32要求には欠落がない。
+6. 旧heldoutとfinal freshの使用履歴を区別する。final初回は旧候補選定setから分離されている。
+   その後のpoll/hybrid/hotとqualityではfreshを再利用しており、以後の未使用blind holdoutではない。
+
+実施範囲
+========
+モデル、GPU、API、controller、実監視サービスは一度も起動していない。
+既存JSON/logの読取と純粋な再集計のみ。例外は、全文確認・SHA固定したanalyze_heldout.pyを
+一時directoryへ無変更コピーし、人工的に編集したRESULT.jsonへ適用した小さなparser試験。
+controller/APIコードをimportしたり、受領ELFを実行したりしていない。
+元repo追跡fileは変更していない。既存測定を再測定した意味ではない。
+
+======================================================================
+1. finalの主張は何を計算しているか
+======================================================================
+
+使用した4run:
+  E/heldout/20261112-153859-final-control-r1/RESULT.json
+  E/heldout/20261112-154503-final-candidate-r1/RESULT.json
+  E/heldout/20261112-154831-final-candidate-r2/RESULT.json
+  E/heldout/20261112-155411-final-control-r2/RESULT.json
+
+独立確認した条件:
+  - 4runともcomplete=true、error=null。
+  - E/FRESH_INPUTS.jsonの8caseと、各runのcase名・順序が完全一致し、重複なし。
+  - 全要求でcache_n=0、prompt_n=凍結入力token数、output_token_count=predicted_n=128。
+  - stop_type=limit、正の有限な時間。
+  - 入力hashは4runとも、実際のFRESH_INPUTS.jsonのSHA256と一致。
+  - baseline/candidateのconfig hashはFINAL_SELECTION.jsonの対応値と一致。
+  - run開始/終了時刻に重複がなく、A1→B1→B2→A2の順序。
+  - 同一caseの4要求で(output_sha256, token_sha256)が一致。
+  - FINAL_ABBA.jsonとcheckpoint-1600/FINAL_ABBA.jsonはbyte一致。
+
+合計値（各arm16要求）:
+  生成token数                         A 2048               B 2048
+  decode step数                       A 2032               B 2032
+  decode時間総和 ms                   A 302407.804         B 267712.282
+  pooled decode step/s                A 6.719403312753     B 7.590238239425
+  prompt時間総和 ms                   A 126938.233         B 123649.938
+  native要求wall時間総和 s            A 429.385243914      B 391.397593135
+  平均要求wall時間 s                  A 26.8365777446      B 24.4623495709
+  生成tokens/要求wall秒                A 4.769609643153     B 5.232530899324
+
+算式:
+  decode rate = 1000 * sum(predicted_n - 1) / sum(predicted_ms)
+              = 16 * 127 * 1000 / 各armのdecode時間総和ms
+  採用側のrate増加 = 7.590238239425 / 6.719403312753 - 1
+                   = +12.9600038298%
+  同じstep数に要したdecode時間短縮 = 1 - 267712.282 / 302407.804
+                                  = 11.4730908201%
+
+ここで127を使うのは保存されたserver timingの定義と一致させるため。
+128生成tokenのうち最初の生成はprompt処理から出ており、以降のdecode stepを数える。
+各RESULTのpredicted_per_secondも127000/predicted_msに一致した。
+根拠: E/analyze_heldout.py:28–29、E/checkpoint-1600/RESULTS_JA.txtの比較条件。
+
+各要求のpredicted_per_secondを単純平均すると、A=6.71964844938、B=7.59895276351、
+増加は13.0855701865%になる。公開の12.96%はこの算術平均ではない。
+同じ生成数の仕事の時間合計を比較する現在のpool率は、この目的に整合する。
+
+要求wall率:
+  wall rate = sum(output_token_count) / sum(elapsed_s)
+            = 16 * 128 / 各armの要求wall時間総和s
+  +9.7056424069%。平均要求時間は8.8469856190%短縮。
+
+elapsed_sは E/fresh_probe.py:40 のmonotonic計測であり、native非stream /completionへの
+HTTP要求と応答JSONの読込を囲む。:45–46で保存される。
+prompt、生成、応答転送/JSON読込等を含むが、warmup、profile切替、watch処理は含まれない。
+Open WebUI、画面描画、SSE chunk間隔、各token完了時刻を測った値ではない。
+ttft_sも :45 のprompt_ms/1000であり、明示されたserver prompt処理proxy。
+初回contentがclientへ届くまでのstream TTFTとして解釈しない。
+
+入力別pool rateと改善率:
+  fresh-dedup  6.675575 -> 7.789046 tok/s  +16.679782%
+  fresh-resistors  6.764485 -> 7.740413 tok/s  +14.427237%
+  fresh-library-ja  6.705984 -> 7.728384 tok/s  +15.246078%
+  fresh-rectangle  6.736801 -> 7.733937 tok/s  +14.801321%
+  fresh-sql  6.715533 -> 7.608328 tok/s  +13.294478%
+  fresh-plants-de  6.743922 -> 7.070666 tok/s  +4.845021%
+  fresh-queue-ja  6.666498 -> 7.816690 tok/s  +17.253308%
+  fresh-map-fr  6.747718 -> 7.303602 tok/s  +8.238092%
+全8caseで改善した。正確な丸め前値はREANALYSIS.jsonのfinal.casesへ保存している。
+
+run単位のpool rate:
+  A1 6.73749238915 / B1 7.58531308387 / B2 7.59516979495 / A2 6.70141110875
+2反復だけなので、run間の分散を高精度推定したり、普遍的な信頼区間を与えたりはしない。
+ABBAは時間ドリフトを抑える設計だが、全ての温度/負荷変化を自動除去する証明ではない。
+
+出力一致の証拠の範囲:
+  native応答から全128IDsを受け取り、その長さを確認してhashした実装は確認できた。
+  ただし保存RESULTには128IDsそのものと全文はなく、SHA256が残る。
+  今回独立に確認したのは「原記録のhashが一致する」こと。
+  受領していない128IDs/全文を再hashした、または新しい推論でbyte一致を再現した、とは言わない。
+  原入力IDsはFRESH_INPUTSに存在するので、その入力manifest hashは独立照合できる。
+
+======================================================================
+2. hot14の性能証拠
+======================================================================
+
+比較した原run:
+  E/heldout/20261112-173113-hot-disabled-r1/RESULT.json
+  E/heldout/20261112-174614-hot-disabled-r2/RESULT.json
+  E/heldout/20261112-180359-hot14-r1/RESULT.json
+
+pool decode rate:
+  control2回 7.575479465871 -> hot14 1回 8.427404302988 tok/s
+  +11.2458206897%。MODEL_PILOT_RESULTS.jsonに一致。
+
+8caseの全128IDs hashが一致したのはfresh-rectangleのみ。
+候補はドイツ語plantsで遅く、queue-jaでは約32%速いという大きな入力依存がある。
+その原因がrouting/cache分布なのか、生成列の変化、他の差なのかはこの比較だけで分離できない。
+全例で入力と生成数は同じでも、出力が変わると後続hidden state/KV/routingも変わり得る。
+両対照は候補より前であり、正の常駐配置を使った完全ABBAではない。
+
+追加の対照:
+  hot-miss r1/r2は7.493690511732 tok/s。
+  disabled対照に対するall-miss経路の約1.08%低下も同じ記録に残る。
+  dispatcher自体が計算値を変えることと、この制御コストを混同しない。
+
+4096入力（各1回）:
+  control 32354.376ms -> hot14 33955.445ms、4.9485392641%長い。
+  原記録は E/runs/20261112-175308-hot-final-control-prefill-count-plain-c4096-n16/RESULT.json と
+  E/runs/20261112-180852-hot14-prefill-count-plain-c4096-n16/RESULT.json。
+
+短いpromptの自由生成速度と、4096入力のprefill差を単純に合成して、何tokenで必ず元が取れると
+断定しない。contextによってdecode時間も変わり得るため、実用途に対応した(prompt長,生成長)
+の組で要求wall時間を比較するのが次の測定になる。
+
+======================================================================
+3. fixed-prefix比較の再集計と限界
+======================================================================
+
+原記録:
+  E/hot-ffn/QUALITY_SEQUENCES.json
+  E/hot-ffn/quality/20261112-175343-hot-quality-control/RESULT.json
+  E/hot-ffn/quality/20261112-180708-hot-quality14/RESULT.json
+
+64tokenのbaseline生成列を凍結し、各case32地点を採点している。
+根拠: E/hot_quality.py:8–9（steps default/max32）、:42–44（64IDs保存）、
+      :54–61（known[:j+1]を追加入力しknown[j+1]を教師とする）。
+0始まりの教師列index1..32、8×32=256地点。64地点×8ではない。
+両runとも各地点でprompt_n=1、cache_n=入力長+jを原記録から確認した。
+同じprefixを入力するが、各構成内部のKVやhidden stateを共通のbyte列に固定する試験ではない。
+8列それぞれの隣接32地点なので、256個の独立な品質標本とは扱わない。
+単純な二項分布の信頼区間を付けて一般の一致率へ外挿する設計でもない。
+
+原確率から再現した値:
+  greedy一致                         251/256 = 98.046875%
+  controlの自己再現                   256/256
+  両方の確率recordあり                255地点
+  教師token logprob差の平均           -0.00572603536982 nats
+  最大の共通token確率差               0.198625745078（19.8625745 percentage points）
+  共通top-ID部分のL1差 平均           0.0197612319935
+  同L1差 中央値                      0.0000831439723869
+  共通token確率差が1ppを超える地点    53/255
+  同10ppを超える地点                 3/255
+  T1 prompt_ms 平均                   133.301628906 -> 119.033187500ms
+  T1時間短縮                         10.7038762567%
+
+確率差は平均と中央値が大きく異なり、一様な小誤差と解釈しない。
+不一致地点はdedup j21、resistors j14/j15、plants-de j29、map-fr j2。
+確率record欠落はlibrary-ja j14の1地点。欠落を0/-infとして補完していない。
+原top100の捕捉mass最小は約0.9981398で高いが、全語彙分布そのものは保存していない。
+丸めによりsum(exp(logprob))が1を最大約1.27e-6だけ超える例もある。
+この部分集合L1を、そのまま完全TVD/KLと読み替えない。
+
+教師はbaselineが生成したgreedy列なので、教師logprob差はbaselineへの一致という向き付けを持つ。
+正解ラベルで採点した文章/コード品質ではない。98.05%を回答正答率と呼ばない。
+候補が基準より参照演算へ近いか、回答が良くなったかはそれぞれ別に測る必要がある。
+T1時間もn_probs100付きの1token要求であり、連続自由生成のtok/sと混ぜない。
+
+======================================================================
+4. CPU/CUDA算術fixtureの保存値も原logへ照合
+======================================================================
+
+E/cpu-cuda-arithmetic-audit-20261112/EXISTING_NUMERIC_EVIDENCE.jsonの6rowについて、
+対応execution/hot-ffn-L{4,24}-s{19,37,83}/stdout.logのSHAと値を独立照合した。
+
+Layer4、gate/up=IQ3_XXS・down=IQ2_S:
+  seed19 CPU NMSE2.16297685232e-4、全GPU9.02442368025e-5、比0.4172223882
+  seed37 CPU NMSE2.02039311843e-4、全GPU9.21584343071e-5、比0.4561411018
+  seed83 CPU NMSE2.36455263877e-4、全GPU9.30190787447e-5、比0.3933897568
+
+Layer24、MXFP4:
+  CPU/GPUそれぞれの参照へのNMSEは約8.14e-5〜8.26e-5。
+  GPU対CPU NMSEは4.1079e-15〜4.4153e-15。
+  6fixture全部でH6のserial/concurrentとscatterのbyte一致が保存されている。
+
+ただし別のBACKEND_VALIDATIONのLayer24にはCPU差NMSE最大1.99075517102e-6がある。
+3seedの局所的なほぼ一致を、MXFP4全条件への一致保証に広げない。
+
+参照は既存量子化GGUFをF32へ展開してdotをFP64で累積するもの。
+元の量子化前モデルとの比較ではなく、SwiGLUも全FP64にした参照ではない。
+実重み6expert、人工入力振幅0.1、2層3seedに限られる。
+全モデルのroutingや品質、入力量子化と整数除算の因果寄与はこの6点で分離できない。
+
+======================================================================
+5. 配置の「hit率」の分母を揃える
+======================================================================
+
+CPU frequency plan:
+  選択対象80個のIQ projection tensorについて、19,200 projection slots。
+  payload 127,401,984,000 bytes = 118.65234375GiB。
+  training assignment hit 950,514 / 979,200 = 97.0704656863%。
+  分母は選択対象projectionのassignmentであり、全40層のFFN route数ではない。
+  保存planとtraining hashを照合して、分子/分母を原countsから再計算した。
+
+GPU hot14 plan:
+  1,035 (layer,expert) triplet、native payload15,030,927,360bytes。
+  training route hit 202,749 / 452,880 = 44.7688129306%。
+  trainingはCPU層0–36のみ。37–39にはtraining censusがない。
+  CPU compactとの重複2,402slotsを除き、CPU slots19,200→16,798。
+  回収したcompact payloadをこのplanでは埋め戻していない。
+
+実pilot:
+  H histogramの各層calls/合計を再計算し、98,166 / 319,440 = 30.7306536439%に一致。
+  同じ0–36層だけに分母を限定すれば33.2223282637%。
+  それでもtrainingと入力/測定phaseが違う。free generation、fixed-prefix、長短count、画像が混ざる。
+  44.77%→30.73%という差を、すべて「過学習」や「cache実装の不良」に帰属させない。
+  また、この全pilot率を各caseの自由生成hit率として速度差へ対応付けられない。
+
+現在の目的関数:
+  CPUは基本的にprojection assignment count、GPUはtraining count/native bytesを使う。
+  CPUのcost-weighted + uniform prior版も既に一度試され、frequency比+0.3162%で優位未確認。
+  「費用で重み付けする」を未実施の新案として出し直すべきではない。
+  次の進展は、同じcost式を再度試すより、実際のlayer待ち時間削減と分布変化を測ること。
+
+必要な追加記録:
+  request/phase、layer、選択6expert、compact hit、GPU hit数H、CPU/GPU各区間、transfer/sync、
+  CPU miss集合の型を対応付ける。GPUとCPUの並行時はmax(両者の完了時間)側が重要になる。
+  現在の集約censusとH histogramだけではexpert間の同時選択・入力別分布を復元できない。
+
+======================================================================
+6. training / earlier heldout / freshの使用履歴
+======================================================================
+
+正確なprompt本文の一致は、training8・earlier heldout8・fresh8の相互間で0件だった。
+ただしcode、SQL、日本語の図書館創作などテーマは重なる。別本文であることと、
+実利用全体を代表する独立な分布であることは別である。
+
+全40個のheldout/RESULT.jsonについてinput_sha256を照合した。
+
+旧HELDOUT_INPUTS.json（ff5aae…）: 23run
+  frequency/identity/value-prior 3run
+  NUMA 4run
+  MX RHS 4run
+  IQ RHS 4run
+  coordination+MX 4run
+  native pool 4run
+候補選定に繰り返し用いた検証setである。
+この23receiptにはstarted_unixがないため、厳密な実行時刻を新たに推測していない。
+directory名の時刻表示とcontrollerは出典として利用できる。
+
+新FRESH_INPUTS.json（523300…）: 17run
+  15:38–15:54 JST開始のfinal ABBA 4runが、保存記録上の最初の使用。
+  その後poll0/poll50 4run、hybrid 4run、hot-disabled/hot-miss 4run、hot14 1run。
+  さらに、heldout directory外のfixed-prefix quality2runもこのfresh入力由来。
+
+評価:
+  final +12.96%を初めて確認した時点では、旧候補選定setから分離した入力という説明と整合する。
+  その後のevening/hot評価の時点では、このfresh setも既に繰り返し見た検証setである。
+  以後の提案を選び、最終的な一般化性能を報告するなら、さらに別の最終評価setを保持したい。
+  保存されていない過去使用がないことまでは証明しない。過学習が発生したとも断定しない。
+
+======================================================================
+7. 新analyzerの人工入力で再現した検証不足
+======================================================================
+
+対象: E/analyze_heldout.py:22–25
+SHA256: 950f459457224c07f5b820eb56e28112b2367336919050643ad1e90a9e8aa694
+優先度: 次の比較前に整備するP2。今回のfinal実測を無効とする指摘ではない。
+
+現実装は最初のrunからcase名一覧を取り、他runの一覧と同じことを確認する。
+期待するFRESH_INPUTS.jsonのcase集合とは照合しない。
+
+再現は、一時directoryに元analyzer、FRESH_INPUTS、FRESH_PROMPTS、FINAL_SELECTIONを
+無変更コピーし、RESULT.jsonのcaseだけを人工変更して実行した。
+  正常4run                         -> exit0、comparison_accepted=true、16要求/arm
+  全4runから同じfresh-map-frを削除  -> exit0、comparison_accepted=true、14要求/arm
+  一方のrunだけcase削除（対照）     -> 拒否
+  一つのrunのcomplete=false（対照） -> 拒否
+
+実保存RESULTは今回の独立validatorで、期待8caseとの一致をすべて確認した。
+producer fresh_probe.pyもmanifestを走査して全成功後にcompleteを立てるため、
+単純な途中失敗が自然にこの欠落受理へ入った、という証拠ではない。
+人工fixtureはreceiptの一貫性検証を独立に強くできることを示す。
+
+最小修正:
+  analyzerへ期待manifestを渡し、input_shaを実bytesと照合し、case名/順序/重複/件数を検証。
+  final selectionに対するbaseline/candidate config hashも照合する。
+  正の有限時間、expected生成数、run開始終了の非重複を明示する。
+  gateをassertだけに置かず、python -Oでも残る明示例外にする。
+  品質analyzerにも、期待case数とsteps_per_caseに対する各pointの完全性を適用するとよい。
+
+======================================================================
+8. 次の測定設計に向けた提案
+======================================================================
+
+1. 採用finalの性能値は今回の範囲を付して使える。
+   主指標はpool decode +12.96%、利用者側の補助指標としてnative要求wall +9.71%を分けて示す。
+   2個ずつ表示の議論には、平均値しかないこの非stream記録を流用せず、別の時系列測定を行う。
+
+2. hot14は配置と算術を一段ずつ分ける。
+   元GPU37–39をCPUへ移す、追加常駐、CPU compact除去、activation算術を同時に動かすと、
+   出力差とprefill退行の寄与が混ざる。全組合せがmemoryへ収まらないなら、常駐容量を縮めた
+   controlや同じ入力の層fixtureで、実行可能な範囲で因子を分ける。
+
+3. route数ではなく、同じworkloadの要求時間を目的に置く。
+   GPUへhitを増やしてもCPU側が長ければ完了時刻は減らない。少数Hでtransfer/起動コストが
+   勝つ層と、CPU miss削減が有効な層を実時間で区別する。
+   回収済みCPU compactを埋め戻す案は既存planとの別変更として測る。
+
+4. 実利用の長さ・phase・言語を明示した評価を追加する。
+   short prompt×128生成だけでなく、長いprefill、継続cache、長めのdecode、利用する言語/作業を
+   分ける。まず候補選定setで探索し、最後は未使用setで固定した候補を再比較する。
+   ABBA反復だけを増やしても、8promptの分布coverageそのものは増えない。
+
+5. 品質はbaselineへの一致と別に評価する。
+   元GGUF展開FP64参照への誤差、固定prefix確率、正解付き課題/生成コード試験/文章評価を分ける。
+   評価用生成では全文とtoken列を保存し、128token強制打切りの性能用試験と混同しない。
+
+再実行
+======
+python3 reanalyze_current_evidence.py \
+  --handoff /path/to/archive/review-handoffs-not-for-readers/2026-11-16-current \
+  --output /path/to/new-reanalysis.json
+
+Python標準ライブラリだけ。--outputは新規file。
+--skip-gate-probeで純JSON再集計だけにできる。
+probeを使う場合はanalyzerの既知SHAを要求し、一時copy以外へ書かない。
+このコードは旧挙動を再現するため、analyzer修正後の合格gateそのものではない。

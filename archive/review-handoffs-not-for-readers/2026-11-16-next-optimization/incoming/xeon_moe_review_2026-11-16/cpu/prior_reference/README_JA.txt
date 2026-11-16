@@ -1,0 +1,12 @@
+前回レビューの160/176B候補 — 参照用原文
+
+このC++は前回のIQ unsigned-activation + weight correction局所prototypeです。
+前回の対象commit: 4ff68eba2d8c480692511dc6d219d27a6a102866
+source SHA256: 8eca4fff557898257099d422f72b59aad6446427335b43fc47b0ab1595a9b68a
+前回実行manifestに記録されたsource SHAと一致を確認して再掲しました。
+今回はこの候補の新規性能測定やbackend統合を行っていません。
+現行cache budgetへの影響は cpu/CACHE_BUDGET_ANALYSIS.json に再計算しています。
+structのstatic_assertが160/176Bの根拠。旧測定は入力準備がtiming外で、
+現Xeonや現APIのgainへ外挿しません。今回のabs-input試作とは別案です。
+この単独fileは現snapshot用の自動build scriptではありません。再実験時は
+compiler/source/libraryと準備込みの計測範囲を固定してください。

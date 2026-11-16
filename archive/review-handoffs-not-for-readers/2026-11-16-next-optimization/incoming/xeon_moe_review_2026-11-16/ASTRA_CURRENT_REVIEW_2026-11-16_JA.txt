@@ -1,0 +1,617 @@
+Xeon MoE Lab 現行版レビュー・実装担当Astraへの引継ぎ
+2026-11-16（JST）
+対象 commit: 7d8b077afcf1258602366245f1567e820255defa
+
+入口:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/7d8b077afcf1258602366245f1567e820255defa/archive/review-handoffs-not-for-readers/2026-11-16-current/README.txt
+
+対象 H = 上記commitの archive/review-handoffs-not-for-readers/2026-11-16-current
+対象 E = H/snapshot/llm-lab/exploration-20261112
+本書中の cpu/、gpu/、evidence/、root/、streaming/、intake/ は添付レビューZIP内の相対path。
+この文書は調査・提案であり、実サービスへ変更を適用した記録ではない。
+
+======================================================================
+1. 判断を先に
+======================================================================
+
+現行finalを採用している判断は、今回読めた証拠に支持される。
+新しいfresh入力でのABBA、全32要求の完全性、構成hash、出力/token hashの一致を確認し、
+保存原記録から decode +12.9600% を独立再計算できた。実機で再推論した意味ではない。
+同じ保存記録のnative非stream要求wall率は +9.7056%、平均要求時間は8.8470%短い。
+
+一方hot14は、速くなる可能性を示した実験であり、全面採用の根拠はまだ足りない。
+出力差そのものを品質低下と呼ぶ根拠も、GPU側をCPUへbit一致させるべき根拠もない。
+配置・算術・CPU compact・旧GPU層の移動を分け、実入力で待ち時間と品質を測る段階にある。
+
+今回、優先順位を変えるほど有用だった結果は次の6点。
+
+  A. GPUのhit数目的は、既に詰め方が上限に近い。
+     hot14のtraining hit202,749件に対してfractional上界202,758.256538件。
+     同じ候補・容量・hit数目的で改善できるのは最大9件。
+     次はsolverの高度化より、全40層・6expertの共起・CPU/GPU完了時刻を目的にする。
+
+  B. 前回CPU候補の全面導入はRAM予算に収まらない。
+     現19,200 projectionのpacked payloadは118.65234375 GiB。
+     補正値をweight側へ追加する候補へ全面移行すると134.20761108 GiB。
+     120 GiBの設定値内なら、一部projectionだけ形式を変える混在を先に検討する。
+
+  C. weightを144 Bのまま保つ別案も局所試作した。
+     abs(input)を入力側へ再利用する案は61,440合成出力でbit一致した。
+     ただしこの端末の小規模性能試験は不安定で、安定したgainを証明できない。
+     実験候補として渡す。通常採用を勧める結果ではない。
+
+  D. Open WebUI v0.11.1に、2つのdeltaをまとめる具体的な経路がある。
+     原文helperの合成再現で、実効count=2ならAB/CD/EFの送出になることを確認。
+     defaultは1。実機の有効値は不明で、ユーザーの観測原因と確定していない。
+     到着時系列を取る独立SSE recorderを添付した。
+
+  E. 新しい評価集計にも、同じ課題が全runから欠けた場合の検出不足がある。
+     原analyzerを人工fixtureへ適用して受理を再現した。
+     今回のfinal原記録は期待8課題×4runを満たすので、この性能結果は否定されない。
+
+  F. hot backend実GPU試験のH=2/4/5とIQ3_Sを補完したい。
+     Hは6expert中のGPU hit数。H=2/4/5は保存pilotの36.5026%を占める。
+     zero warmupと、非ゼロ入力・scatter・CPU合成の数値試験は別の検証である。
+
+======================================================================
+2. 何を同定し、何を実際に実行したか
+======================================================================
+
+2.1 共有資料と稼働物の照合
+
+指定commitを別worktreeへ固定し、通常APIのcurrent/final構成、実maps、ロードされた
+libraryのhash、対応source、object再利用、旧レビューへのtriageを照合した。
+配布Release v2 ZIPのSHA256:
+  e4176a9dbe5dc6f252d23b2455edf8576c86d6e0376e830532c4988d5bd0253b
+ZIP size: 64,711,782 bytes。
+
+独立検査結果:
+  Git共有inventory     8,437 files一致
+  ZIP inventory        8,448 files一致（加えてmanifest自身1件）
+  実maps対象           9 backing files、source map/runtime snapshot/Release bytes一致
+  Gitにない配布ELF     10 filesをZIPから静的検査用に抽出。未採用libllamaも含む。
+
+10個全部が稼働しているという意味ではない。readelfでNEEDED/RUNPATH/build ID等を
+読んだだけで、配布ELFを起動していない。再配置後メモリ、全system/CUDA DSO、全objectを
+独立再ビルドしての再現性まで証明したわけでもない。
+
+CPUはmx-prepack/release-candidate-a、CUDAはcuda-sort/release-candidate-a、
+libllamaはsparse-cache/release-v2-a。共通libggml-baseはgpu-stream-20261103/runtime。
+build/binの同名ファイルを実ロード版だと仮定しない。
+
+currentとfinalのredacted configは一致。captured argv、指定環境11値も対応した。
+前回レビューの25source hashは公開baselineと一致する。旧archive対象14件のうち、
+今回snapshotへコピーされたのは5件で、それら5件は一致。残る9件を「変更」とは扱わない。
+実機側14件の一致は共有ROOT_TRIAGEの報告であり、こちらの独立確認とは区別する。
+
+2.2 この端末での実行範囲
+
+この環境はAMD EPYC上のLinuxであり、実機のXeon E5-2630L v2×2ではない。
+GGUF/modelとGPUは使用していない。通常API、controller、監視daemonを起動・停止していない。
+追跡repoのsourceも変更していない。実行したのは次の限定試験。
+
+  ・JSON/log/planの独立再集計、manifest/hash照合、ELF静的検査。
+  ・採用MXFP4のsourceを新規compileしたprequantized入力の単体API試験。
+  ・採用CUDA sort helperそのもののhost index試験、releaseとASAN+UBSAN。
+  ・入力abs再利用案の代数・bit一致試験と、限定的なCPU局所microbenchmark。
+  ・analyzerを一時copyし、人工RESULTを与える欠落受入試験。
+  ・Open WebUI原文helperのASTを取り出した合成batch試験。
+  ・添付SSE recorderの模擬byte/socket/clock試験。
+
+性能の新しい実機値は取得していない。保存結果の再集計と、この端末の局所試験を混ぜない。
+詳細とsource SHAは各担当のJSON/TXT、受入全体はintake/INTAKE_VERIFICATION.json。
+
+======================================================================
+3. 採用finalの性能評価
+======================================================================
+
+対象はfresh8課題、各128生成token、control/candidate各2runのABBA。
+各arm16要求。入力manifest、case集合・順序・重複なし、cache_n=0、生成数、stop_type、
+正の有限時間、config hash、非重複の実行順、同課題の出力/token保存hashを確認した。
+
+指標                           control             final             差
+--------------------------------------------------------------------------
+server decode rate            6.71940331           7.59023824       +12.9600%
+decode時間総和                302.407804 s         267.712282 s     -11.4731%
+native要求wall率              4.76960964           5.23253090       +9.7056%
+native要求平均wall            26.83657774 s        24.46234957 s    -8.8470%
+server prompt平均             7.93363956 s         7.72812113 s     -2.5905%
+
+decode rate = 1000 × sum(predicted_n - 1) / sum(predicted_ms)。
+保存serverの定義に合わせ、128生成のうちprompt後の127decode stepsを数える。
+各要求tok/sの算術平均ではなく、総仕事量/総時間。8課題すべてで速度改善を確認した。
+入力別の改善幅は+4.8450%〜+17.2533%。CURRENT_PERFORMANCE_2026-11-16.png参照。
+
+wall率 = 全生成token数 / native非stream要求elapsed_s総和。
+ここにはprompt処理、生成、HTTP応答・JSON読込等が入る。Open WebUIの描画は入らない。
+保存ttft_sはprompt_ms/1000というproxyで、最初の可視SSEが届くまでの実測ではない。
+「速度+12.96%」と「待ち時間12.96%短縮」を入れ替えない。
+
+出力一致について独立確認できたのは、原RESULTのhash一致とproducerのhash作成方法。
+生成全文と全128IDsはこのRESULT群には保存されていないため、未提供の全文を再hashした、
+または新規推論で一致を再現したという主張はしない。入力IDsは保存されている。
+
+評価としては、現行finalを維持する根拠として十分に有用な限定実験である。
+2反復・8課題なので、長文/全言語/全用途の普遍的なgainや精密な信頼区間は付けない。
+128k context設定で起動できることと、full128kの性能・memory peakを試したことも別。
+共有long trialは16kであり、現在の証拠をfull128k負荷へ外挿しない。
+
+根拠: evidence/EVIDENCE_REVIEW_JA.txt、REANALYSIS.json。
+原資料: E/FINAL_ABBA.json、E/FRESH_INPUTS.json、E/heldout/の指定4run。
+
+======================================================================
+4. 採用実装は何がよいか
+======================================================================
+
+4.1 MXFP4の入力補正・scale再利用
+
+Q8_0の入力補正とscaleをsidecarへ用意し、各weight rowでの重複計算を省く。
+モデルweightやactivation quantizerを別方式に変える変更ではない。
+現在のlane累積・水平和・tailの乗算順を守り、-128や非有限scaleは元経路へ戻す。
+quantizeとprepareが同workerの同block範囲を扱い、既存barrierで公開する構造だった。
+barrierが追加されていないというだけでraceと判定する根拠はない。
+
+現行sourceを-O3 -march=ivybridge -mno-avx2 -mno-fma、fast-math/FMA融合なしでcompile。
+28,672出力bit一致、800 unsafe分類、29,472 partition/canary確認、shape guard5項目pass。
+FTZ/DAZ off/on、rounding4種、K32〜5120、partition1/3/12/24を含む。
+prequantized入力の単体試験なので、F32 quantizer全体や実workerの並列raceの保証ではない。
+
+4.2 sparse CPU compact
+
+planはtype/shape/unique ID/bytes/budgetを照合する。各entryはallocationとpacking完了後に
+registryへ公開し、loaderは全planの成功と総bytes一致を要求する。
+source expert IDとpacked slotを分離し、元expert IDで引く設計は妥当。
+ownerが全graphより長生きする契約の範囲では、raw pointer lookupだけを理由に
+concurrent freeの現行バグとは判定しない。online eviction/reloadを追加するなら別設計が必要。
+
+現行30,720候補projectionは、どれも46,080blocks×144Bで同容量。
+そのため「19,200個でtraining assignment hit数最大」という狭い目的ならfrequency順は
+厳密な最適解で、現planも一致する。ここもsolverだけを高度化する余地はない。
+97.0705%は対象80tensorのtraining projection hitで、全層FFN hitや速度改善率ではない。
+
+4.3 CUDAのstable ID分類
+
+count→prefix→stable scatterにより、旧反復走査の仕事を減らし、順序を保っている。
+既存host試験を採用helperで再実行し、release/ASAN+UBSANそれぞれ3,024条件、
+11,436,944 index/count値、不正ID拒否6件を通過した。
+LeakSanitizerはこの端末のptrace条件で使えず、理由を記録してleakだけ無効化した。
+ASAN/UBSANを通ったことをleak検査や実GPU試験まで通った意味にしない。
+
+このsort経路はT=1 quantized MMVQのearly returnより後にある。
+hot14 T=1へ「sortをcounting sortへ変えよう」と再提案するのは対象を取り違える。
+CUDA Graphや条件付きgate/up/SwiGLU融合も既存にある。未実装案として数えない。
+
+根拠: cpu/CPU_REVIEW_JA.txt、gpu/GPU_REVIEW_JA.txt。
+
+======================================================================
+5. hot14の評価と品質の読み方
+======================================================================
+
+保存結果はcontrol2runの7.57547947→candidate1runの8.42740430 steps/s、+11.2458%。
+一方4096入力のprefillは32.354376→33.955445秒、4.9485%長い（各1回）。
+同じ8課題で全128token hashが一致したのは1課題。2対照が先、候補が後の順だった。
+
+この比較では同時に、旧GPU37〜39をCPUへ戻し、hot expertをGPUへ追加し、
+CPU compact重複2,402projectionを除き、実行backendとactivation算術も変わる。
+したがって+11.25%の全てを「hot cacheだけの効果」へ帰属させない。
+出力が変われば後続hidden state/KV/routingも変わる。入力token列だけ同じでも仕事は変わり得る。
+
+all-miss比較は同じ配置を保ち、出力hash一致、約1.08%の速度低下を示した。
+dispatcherを挟む費用の対照として有用。これをhot14の品質差の証拠とはしない。
+
+fixed-prefix試験の再計算:
+  baseline生成の64token列から、8課題×32地点=256地点を採点。
+  control自己再現256/256、candidate greedy一致251/256。
+  確率を双方で比較可能なのは255地点。欠測1地点を0や-infに埋めていない。
+  教師token logprob差の平均は-0.0057260 nats。
+  共通tokenの最大確率差は19.8626 percentage points。
+  共通top-ID部分のL1差は平均0.0197612、中央値0.00008314。
+
+251/256は回答正答率ではない。baseline生成列に寄せること自体が品質目標でもない。
+256地点は8本の連続prefix上にあり、独立な256課題ではない。
+top100/common IDの部分比較を、全語彙のKL/TVDとして報告しない。
+一様に小さい誤差だけがあるとも言い切れず、差の大きい地点を個別に追う価値がある。
+
+品質判断は、量子化済みGGUF参照への数値誤差、固定prefix確率、正解付き課題/生成コード試験/
+文章評価を別々に持つ。性能用128token打切りと品質用の完結生成も分ける。
+
+根拠: evidence/REANALYSIS.json、E/hot-ffn/MODEL_PILOT_RESULTS.json、QUALITY_*。
+
+======================================================================
+6. GPU配置の最優先は目的関数と観測範囲
+======================================================================
+
+現在のhot planは、主に0〜36層のexpert training count/native bytesでrankする。
+14 GiBで202,749hit、fractional-knapsack上界202,758.256538hit。
+整数解は上界を超えられないので改善は最大9hit。training全assignment比の上界差は
+0.00204393 percentage pointsに過ぎない。8 GiB案は上界差0.68148hitなので、hit数目的では
+既に整数最適と証明できる。これはlatency最適性の証明ではない。
+
+次に測りたい層ごとの所要時間は、概念的には次の形。
+
+  layer latency = ingress/dispatch
+                  + max(CPU miss完了, GPU hit完了［必要な転送を含む］)
+                  + join/tail
+
+CPU側が待たせている層、GPU側が待たせている層、H=0→1の固定費、H=5→6でCPU経路を
+全て省ける境界は価値が違う。同じ1hitでも削れるmsは同じではない。
+6expertの共起、type、compactの有無、行分配、phase、contextを含めて評価する。
+この式は提案のmodelであり、この端末で各項の実時間を得たという意味ではない。
+
+必要な追加trace:
+  request/phase、layer0〜39、6global expert IDs、CPU compact状態、H、CPU miss終了、
+  GPU H2D/compute/D2H区間、join待ち、全層wall。
+CPU関数だけに計数すると旧GPU37〜39が抜ける。CUDA eventとhost monotonicを使い分け、
+計測自体のoverheadも観測する。異なる時計のtimestampをそのまま引き算しない。
+
+既存CPU value-prior案はfrequency+uniform priorをprojection時間で重み付けし、
+保存比較+0.3162%で優位未確認だった。単純なcost重み付けを新案として繰り返さない。
+ここでの新しい調査軸はCPU/GPU並行完了、6tuple共起、全40層、両memory予算の共同配分。
+
+hot14では重複CPU compact2,402slot=15,938,519,040Bを除き、19,200→16,798になる。
+この空きは埋め戻されていない。ただし37〜39をCPUへ戻す元weight常駐の増分もあるため、
+除去byte全てを安全な追加cacheとみなさない。RAM全体のreserve/peakと一緒に扱う。
+
+候補集合には、最後の3層を全て残す/全て外す以外に、1〜2層保持とhot bank併用も含め得る。
+未観測37〜39の頻度を推測してsolverへ入れるのではなく、まず全層traceを取る。
+
+根拠: gpu/GPU_REANALYSIS.json、E/prepare_hot_plans.py、MODEL_PILOT_RESULTS.json。
+
+======================================================================
+7. hot-small、混合H検証、転送の順序
+======================================================================
+
+7.1 hot-smallは既に用意されている
+
+E/prepare_hot_profiles.pyには、旧GPU37〜39とfinalのCPU compactを保持するhot-smallがある。
+新規に思い付いたprofileではない。今回の保存資料に実評価の記録は見つからなかった。
+元3層の移動とCPU compactの変更を避けた比較に使える可能性がある。
+
+旧3層のexpert weight payload: 15.787353515625 GiB。
+hot14 payload: 13.998641967773438 GiB。旧3層との全量同居は収まらない。
+hot-small payload: 505.634765625 MiB、38triplets。
+
+古いcapacity記録のtotal32,494.125MiBと高い観測used30,628MiBから計算すると、
+small payload追加後の差1,360.490234375MiB、従来768MiB余裕を引くと592.490234375MiB。
+これは追加graph/workspace等に対する条件付きの算術で、起動成功の証明ではない。
+hot backendにはpreloadでpayload+3,072MiB、確保後pre-visionで2,560MiBのreserve guardがある。
+11/16 captureにはcurrent GPU used/freeがなく、vision/128k負荷peakも不明。
+guardを保ち、起動・vision・長文負荷後の余裕を測ってから実験する。guardを下げる提案ではない。
+
+7.2 H=2/4/5とIQ3_Sを補完する
+
+保存backend試験はLayer4/24、H=0/1/3/6が中心。
+pilot H0〜6の件数: 12,278 / 11,094 / 12,174 / 10,201 / 5,577 / 1,683 / 233。
+H2/4/5は19,434/53,240=36.5026%。未確認条件は極端に稀な端だけではない。
+freegen・fixedprefix・長文・visionを含むpilot全体の集計であり、freegen8課題の個別hit率ではない。
+この数字は誤作動率ではない。zero warmup全Hと非ゼロ数値検証を分ける。
+
+同一F32/weightで全slot位置、global/local IDの非自明対応、H遷移、CPU/GPU入力、
+GPU中間値、serial/concurrent、scatter、cold slot不変性を確認する。IQ3_Sも独立に含める。
+CPUとの差と参照との差を別記録にし、backend差だけを不合格条件にしない。
+
+7.3 GPU出力をGPUに残す案は待ち時間を測ってから
+
+現在はouter GPU→host→private GPUの入力経路と、private GPU→host合成→outer GPUの
+出力経路がある。GPU hitをGPU slotへ残し、CPU missだけuploadする設計は候補になる。
+ただしpilotから計算するhit出力往復削減の上限はT1全40層pass当たり約2.881MiB、
+private入力の戻しuploadは約0.601MiB。巨大weightを毎回転送している問題とは違う。
+利益があるなら、転送byteのほかlaunch/sync/完了待ちの固定費が重要になる。
+
+現在の同期には入力、pinned staging、allocator再使用の寿命を守る役割がある。
+async copy/events、stream間wait、失敗時drain、buffer ownershipを設計してから変える。
+単にsynchronizeを削る方針は採らない。まずtimelineで支配区間を確かめる。
+
+======================================================================
+8. CPU: 局所dotの速さとcache容量を一緒に評価する
+======================================================================
+
+前回のunsigned-activation案は、weight側に補正値を追加してSSSE3内積の仕事を減らすもの。
+今回既に試されていたbias62 IQ-rhs案は、weightをbiasし入力側へ補正を用意する別方式。
+後者の保存gain約0.51%を、前者の測定結果として扱わない。
+
+前回候補のweightはIQ3で160B/block、IQ2で176B/block。現在は144B/block。
+全19,200projectionを置き換えると118.65234375→134.20761108GiB。
+configured120GiBもglobal hard cap128GiBも超える。
+
+新形式だけでtraining hitが最大になる選択を厳密に解くと:
+  予算118.65234375GiB: 16,985projection、coverage94.9516953%
+  予算120GiB:         17,179projection、coverage95.1718750%
+  現144B plan:        19,200projection、coverage97.0704657%
+
+2種類のitem cost（10単位/11単位）ごとの上位prefixを作り、片方の個数を列挙した厳密解。
+latency最適解ではない。落ちるraw fallbackの費用を含めれば結論が変わり得る。
+同じ118.65GiBでは20,747assignment分が新たにmissする。dotの局所gainだけでは採否を決めない。
+
+8.1 混在形式を先に試す
+
+現payloadとconfigured budgetの差は1.34765625GiB=1,447,034,880B。
+IQ3 upgradeは737,280B/projection、IQ2は1,474,560B/projection。
+payloadだけなら n_IQ3 + 2*n_IQ2 <= 1962 で、現selectionをevictせずに混在できる。
+つまりIQ3最大1,962、またはIQ2最大981。ただしmetadata/activation/workspace/loader peakは別。
+
+現在のAPIはptrだけを返し、row strideも(K/256)*144Bに固定されているため、設定変更だけでは実現しない。
+v3 plan/descriptorに{pointer,layout,row stride}を持ち、expert chunkへ入る前にdotを選ぶ。
+inner block loopの毎回branchは避けられる。exact-byte検査、各entryの準備完了後の公開を維持する。
+新processのload時に直接選択形式へpackし、稼働graphのpointerを差し替えない。
+
+実行頻度で加重する、逐次加算モデル上の収支の目安:
+  retained expertのdot短縮の加重和
+  − evictされたexpertのraw fallback増分の加重和
+  − 入力準備・dispatch・追加memory traffic
+  = CPU側の時間削減の推定値。全体wallへの寄与は別途実測する。
+
+最初は同じselection内で一部だけupgradeし、coverage低下を交絡させず比較する。
+実行頻度を加味した、追加1byte当たりの実測時間削減で優先度を付ける。
+GPUとの重なりやbarrierがあるので、局所dot短縮をそのままwall短縮へ足さない。
+入力準備をtiming外へ追い出さない。
+
+capture時点のMemAvailable68.4148979GiBとreserve64GiBの差は4.4148979GiB。
+この単一snapshotの差を恒常的な空き容量とみなさず、RAM capを増やす解決は勧めない。
+
+8.2 今回局所試作した、144Bを保つabs-input案
+
+現在のsigned-byte積は概念的に
+  maddubs(abs(weight), sign(input,weight))
+を使う。inputが-127..127、weightが-128でなければ、同じ積を
+  maddubs(abs(input), sign(weight,input))
+へ交換できる。abs(input)をrow間で再利用し、weight payloadは144Bのままにする。
+新しい入力sidecarは256B/256values。準備費用と追加の入力readは発生する。
+
+IQ2_S/IQ3_XXS/IQ3_S、K256/512/768/2304/5120、FTZ/DAZ2条件×rounding4条件で、
+61,440出力bit一致、-128/非finite4,800件のfallback判定を確認。
+比較用に保存済みbias62 IQ3-rhsもcompileし、20,480出力一致を確認した。
+これは実backendへの統合patchではなく、実機model品質・性能を保証しない。
+
+EPYC上の準備込みABBA局所benchmarkはwall比が大きく揺れた。追試はthread CPU timeも
+併記したが、安定したgainと旧bias62への優位を確認できなかった。これ以上測定を広げず終了。
+この案の価値は「weight容量を増やさず検証できる別仮説」を具体化した点にある。
+採用判断は保留。固定環境のIvy Bridgeで準備費用込みの便益が出なければ棄却する。
+詳細・失敗/揺れを含むrawはcpu/の付録とRESULT.json。
+
+既試行のrow-local、NUMA配置、24threads/PASSIVE、native/hybrid pool、coordination削減、
+bias62 sidecarを、未実施の新案として再提出しない。
+
+======================================================================
+9. CPU/CUDA算術: 参照を決め、要因を一つずつ動かす
+======================================================================
+
+現行sourceでもIQのCPU入力はQ8_K（256要素/FP32 scale）、CUDA T=1はQ8_1
+（32要素/FP16 scale）である。最後の加算順を揃えるだけで消える差ではない。
+MXFP4はCPU Q8_0/CUDA Q8_1とも32要素/FP16 scaleで近いが、丸め等の完全一致保証はない。
+
+保存6fixtureを原logへ再照合した。Layer4のIQはGPU/参照NMSEがCPU/参照の約39〜46%。
+Layer24のMXは指定3seedでGPU対CPU NMSE約4.1e-15〜4.4e-15。
+別のbackend試験にはLayer24 CPU差NMSE最大1.99e-6もある。
+参照は既存量子化済みGGUFをF32展開しFP64でdot累積するもの。量子化前modelではない。
+人工振幅0.1、2層、3seedの結果から全モデルの品質改善/悪化は結論できない。
+
+継続候補1: IQ2_S / IQ3_XXS / IQ3_S / MXFP4のT=1専用入力を36BのままFP32 scale化する。
+  現Q8_1のmetadataはFP16 scale+FP16 sumだが、対象4種のMMVQ dotはsumを読まない。
+  専用writer/reader/dispatchを対にして、32int8+FP32 scaleを比較できる。
+  他のquant型やfallbackはsumを使い得る。global Q8_1の意味を隠れて変えない。
+  CPUの256要素量子化との差は、この変更だけでは解消しない。
+
+継続候補2: IQの整数除算をfloat変換後へ移す。
+  現source/gridで旧反例を独立追証した。
+  IQ2_S: 復元dot396.875に対し現式396。
+  IQ3_XXS: 復元dot1968.5に対し現式1968。
+  32要素dotのscale適用前切捨て成分上限は、それぞれ7/8、1/2。
+  負数はC/C++の0方向除算を再現。Python //のfloorによる偽差ではない。
+  これは旧提案の現行追証であり、新しい実GPU測定や全モデル寄与率の証明ではない。
+
+最初の切り分け:
+  同一F32入力とexpert weightを固定し、入力量子化後、gate/up、SwiGLU、down、router和を保存。
+  IQ3_Sと実際の中間値・大値/小値も加える。
+  粒度、scale精度、rounding、整数除算、非線形、reduction順を一つずつ変更する。
+  reference NMSE/絶対差/相対差、演算時間、全モデル品質を別指標にする。
+
+CPUを無条件な正解と置かず、より参照へ近い演算をCPU一致のために粗くする方針も置かない。
+配置性能の実験と同時に算術を変えると要因が混ざるので、固定入力の算術試験を並行レーンで行う。
+
+======================================================================
+10. 「2つ出て止まる」観測をどう切り分けるか
+======================================================================
+
+共有情報はOpen WebUI v0.11.1。比較モデルはユーザー申告のQwen3.8 27B。
+稼働image digest、実効model設定、比較engine/endpoint等は未確認。
+公式tagのcommitはd3e8bf3405e848cfba377814d0aa7ba7290e414d。
+middleware/main/envをGitHubから取得し、Git blob SHAも一致を確認した。
+
+10.1 具体的なbatch経路
+
+env.pyのCHAT_RESPONSE_STREAM_DELTA_CHUNK_SIZE defaultは1。
+main.pyでglobal/per-model/request paramsを解決する。truthyなmodel側chunk指定が
+request値を上書きし得る。その後middleware.pyで
+  max(環境値, metadata.params.stream_delta_chunk_size or 1)
+を実効値とする。単純な三者maxと説明しない。
+
+同じkind/keyのdeltaをcount個ためてevent_emitterへ送る。kind/key変化、非delta、終端でflush。
+このbatcher自体に経過時間によるflushはない。Chat Completions入力もこのqueueへ入る経路がある。
+
+原文helperの合成試験:
+  入力: 130msおきにA/B/C/D/E/F。
+  count1: 130/260/390/520/650/780msにA/B/C/D/E/F。
+  count2: 260/520/780msにAB/CD/EF。
+  環境2・metadata1でも後者。種類変化/奇数末尾flushを含む7項目pass。
+
+これで確認したのは「このversionのこの経路なら、その見え方を作れる」こと。
+ユーザーの実効countが2とは未確認。default1なのでversionだけで原因確定しない。
+delta、SSE、文字、model token、TCP packet、画面更新回数はそれぞれ別単位。
+
+10.2 llama-server側のUTF-8保留も区別する
+
+snapshot server-context.cppは不完全なUTF-8末尾を保留して、完成後にcontentをまとめる。
+partial.tokensは現在の1IDだけを入れるため、配列長からcontentに対応する全生成tokenを数えない。
+native tokens_predictedの累計差は手掛かりになるが、個々の保留tokenの完了時刻は復元できない。
+
+10.3 計測する4段階
+
+  (1) engine内部token完了 / native SSE生成
+  (2) クライアントまたはWebUI upstreamでのbody/SSE到着
+  (3) Open WebUI event_emitterの送出
+  (4) browser event受信と描画
+
+同一request/seqを対応させ、各時計内の間隔を比較する。別PCのmonotonic値を直接引かない。
+平均tok/sに加え、最初の可視content、content間隔p50/p95/max、同read内event数、native累計jump、
+短長間隔の交互性を見る。平均値が無意味なのではなく、滑らかさを表す情報が不足する。
+
+  upstreamは均等、WebUI送出からまとまる -> WebUI batch/中継を確認。
+  native累計が2以上jumpする -> 送信保留も確認。内部生成周期と即断しない。
+  engine内部token完了から交互 -> layer/routing/sync/KV等のtraceへ進む。
+  event到着は均等で画面だけまとまる -> 描画側を確認。
+
+現在finalにはhot14が未採用なので、hot14固有の同期を現行表示の原因と決めつけない。
+別モデルが滑らかだった観測も有用だが、model別chunk設定やtokenizationの差を排除しない。
+
+添付streaming/record_sse_arrivals.pyは、ユーザーが明示実行したときに指定URLへ1回だけ
+streaming POSTを送る。今回このscriptで実modelへ要求は送っていない。
+body readとSSE完成を別記録、content/reasoningを別分類し、native累計/timingsとOpenAI usageを記録。
+本文/keyは保存せず、長さ/hash/型を保存する。自動retry/redirectなし、出力は新規file。
+HTTP body EOFとapplication終端、完全frameを別確認し、不完全取得を成功扱いしない。
+このHTTP観測だけで、Open WebUIの画面用batch経路を通ったことやbrowserで描画されたことまでは
+確認できない。別途backend emitとbrowserの受信・描画時刻が必要になる。READMEの範囲を守る。
+
+根拠: root/STREAMING_REVIEW_JA.txt、OPENWEBUI_V0111_BATCHING_RESULTS.json、streaming/README_JA.txt。
+
+======================================================================
+11. 評価基盤の新しい修正候補と、既存指摘の位置づけ
+======================================================================
+
+11.1 予定case集合を検証する（次の測定前、P2）
+
+E/analyze_heldout.py:22–25は、最初のrunのcase一覧を他runと比較する。
+期待するFRESH_INPUTSのcase集合と直接照合しない。
+原sourceを一時copyし、入力manifest等を残したまま人工RESULTを作った。
+
+  元4run -> 16要求/armで受理。
+  全4runから同じfresh-map-frを除去 -> 14要求/armでもcomparison_accepted=true。
+  一つのrunだけ削除 -> 拒否。
+  complete=false -> 拒否。
+
+実保存32要求は今回の独立validatorで完全だった。producerも全課題成功後にcompleteを立てる。
+自然な途中失敗で今回の欠落が発生したと主張しない。receiptの独立検証を強める修正である。
+
+最小修正:
+  期待manifestからcase ID集合・順序・件数を得る。
+  各runで重複なし、集合一致、実manifest SHA一致、選択profile config SHA一致を検査する。
+  正の有限時間、期待生成数、complete/error、予定replicate数、非重複実行順を明示する。
+  gateはassertだけに置かず、python -Oでも残る明示例外にする。
+  品質試験も期待case×地点数と欠測を明示する。
+
+11.2 旧レビューを新しいfinal否定へ流用しない
+
+ROOT_TRIAGEが確認した旧TIMING欠落除外、trace pairing、source/build/runtime検証範囲の問題は残る。
+しかしfresh finalの比較は別経路。旧M01だけで今回+12.96%を無効としない。
+upper median自体を不正と呼ばず、raw標本と規約が必要という指摘に保つ。
+
+11.3 運用監視の残存課題
+
+共有sourceとROOT_TRIAGEでは次の3点が継続している。
+  OPS-01: supervisorの同期fan照会中にstop判定が遅れ得る。実197秒空白の観測とは別。
+  OPS-02: BMC sensorの必須集合、finite、status検査が不足する経路。
+  OPS-03: monitorが作るbad_sensor_statusを判定へ使わず、counter Noneも別扱いになる経路。
+
+既存GPU側の独立guardまで全部無効とは言わない。温度/電力/ECC/fanの方針を緩める問題でもない。
+待ち時間予算と欠測状態を明示する修正を、モデル起動不要のfixtureで先に検証できる。
+今回これらの実サービス修正は行っていない。前回peripheralレビューの再現資料を参照。
+
+======================================================================
+12. 評価データをこれからどう分けるか
+======================================================================
+
+旧HELDOUT_INPUTSはfrequency/value-prior/NUMA/MX/IQ/coord/nativeなど23runで使用。
+新FRESH_INPUTSは保存上、final ABBA4runが最初。heldout内ではこの4runと後続の
+poll/hybrid/hot13runを合わせて17runに使用され、さらにheldout外のfixed-prefix quality2runにも使われている。
+
+final最初の評価が旧候補選定setから分離されている点は肯定できる。
+今後の候補を見た後で同じfreshを「一度も見ていない最終試験」と呼ばない。
+これは過学習が発生したという判定ではなく、使用履歴を明示する話である。
+
+次の最終評価用には、実用途に近い別入力を凍結し、候補選択には使わない。
+short prompt/long prefill/cache継続/長めdecode/利用言語/visionを用途に応じて分ける。
+ABBA反復数を増やすことと、課題分布を広げることは別々に必要性を判断する。
+実際の要求wall、初回content、時系列のtailを併記し、平均decodeだけで採用しない。
+
+======================================================================
+13. 実装担当へ渡す順序と採否基準
+======================================================================
+
+段階1: 測定の受入判定と表示の原因を先に明確化
+  ・予定case集合gateを修正し、欠落/重複/非finiteのfixtureで確認。
+  ・Open WebUIの環境/global/per-model/requestから実効chunk値を記録。
+  ・同じ凍結入力のnative SSE到着を1本採り、必要ならWebUI送出/browserへ計測を延ばす。
+  成功条件: 欠落を拒否し、各時刻がどの段階を測るか分かる。
+
+段階2: hot14の検証coverageと全40層trace
+  ・H2/4/5、IQ3_S、全slot位置、H遷移の固定F32試験。
+  ・全40層6tupleとCPU/GPU完了時刻、phaseを対応付ける。
+  成功条件: 数値差と合成/ID配線の問題を区別でき、どちらのbackendが待たせるか分かる。
+
+段階3: 小容量の同配置比較、共同配置の候補を絞る
+  ・guardを維持してhot-smallのstartup/vision/長文peakが通るか先に確認。
+  ・同binaryでdisabled/miss/smallをbalanced順で比較。
+  ・traceからlatency目的を作り、CPU compactとの共同配分候補を少数だけ選ぶ。
+  採用条件: 実用途wall/tailが改善、品質評価が許容、prefill/vision/memory制約を満たす。
+  棄却条件: hitが増えただけ、GPU待ち増加により総時間やtailが悪化、guard不通過、
+  入力分布を変えると優位消失。
+
+段階4: CPU候補を実機の局所費用で選別
+  ・準備込みで現144B、abs-input、既存bias62、160/176B候補を必要な型だけ比較。
+  ・160/176B候補に安定した便益がある場合のみ、同selectionの少数projectionで形式混在を試す。
+    abs-inputは同じweight payloadのまま、sidecar統合を別に評価する。
+  採用条件: 容量/loader peak/coverageを含む全体時間が改善。
+  棄却条件: 局所gainだけ、raw miss増分で逆転、測定が不安定、実機で優位なし。
+
+並行レーン: 算術差と品質
+  ・固定実F32で量子化/scale/整数除算/非線形を1要因ずつ。
+  ・専用FP32 scaleと整数除算変更は別々に測る。
+  ・参照誤差と正解付き/文章評価を追加する。
+  採用条件: 対象実入力で便益を確認し、速度/品質/他consumerへの影響を評価済み。
+
+低優先: prefillのroute maps再利用、GPU側slot合成
+  ・prefillのroute maps再利用は、採用sortのcostとscheduler splitを観測してから着手。
+  ・mapping世代/shape/stride/lifetimeを明示し、pointerだけを再利用keyにしない。
+  ・GPU側slot合成はevent所有権とbuffer再利用契約を設計してから。
+
+既に棄却/実装済みの案を列挙し直すより、上記の不足する観測を少量追加して、
+効果のない候補を早く棄却できる状態にする方が、現在の進み具合に合っている。
+
+======================================================================
+14. 添付物と再現の入口
+======================================================================
+
+README_FIRST_JA.txt                         ファイル案内と実行範囲
+ASTRA_CURRENT_REVIEW_2026-11-16_JA.txt      本書
+CURRENT_PERFORMANCE_2026-11-16.png         保存性能の入力別比較
+CONTENTS_SHA256.json                       このレビュー成果物のinventory
+
+intake/verify_snapshot_intake.py           Git/Release/hashの再照合
+intake/INTAKE_VERIFICATION.json            今回の受入結果
+intake/ELF_STATIC_METADATA.json            readelfのみの結果
+root/CURRENT_RUNTIME_AND_TRIAGE.json       current/final/runtime/旧指摘source照合
+
+evidence/reanalyze_current_evidence.py     保存結果再計算とanalyzer欠落probe
+evidence/EVIDENCE_REVIEW_JA.txt             指標・使用履歴・品質の詳細
+evidence/REANALYSIS.json                   再計算raw
+
+cpu/CPU_REVIEW_JA.txt                      採用CPU、容量、混在形式案
+cpu/ の追加付録・C++/Python/RESULT         abs-input、MXFP4の合成試験と性能限界
+gpu/GPU_REVIEW_JA.txt                      hot所有権/同期/容量/算術/試験coverage
+gpu/recompute_gpu_review.py                配置上界・hist・算術の再計算
+gpu/GPU_REANALYSIS.json                    GPU調査の再計算rawとhost試験結果
+
+root/STREAMING_REVIEW_JA.txt               v0.11.1原文と4段階計測の詳細
+root/probe_openwebui_batching.py           固定blobのhelper合成再現
+root/OPENWEBUI_V0111_BATCHING_RESULTS.json  合成結果
+streaming/record_sse_arrivals.py           明示実行時だけ1 streaming POSTする計測器
+streaming/README_JA.txt                    引数、記録の意味、限界
+streaming/ のtestと結果                    外部model不使用のparser/HTTP試験
+
+配布ELF、model、Release ZIP、公式Open WebUIの全文sourceはレビューZIPに再配布しない。
+再現scriptは固定commitのsourceを引数で受ける。通常APIへ触れない再集計と、
+明示実行で1要求を送るSSE recorderを区別する。実行例はREADME_FIRST_JA.txtを参照。
+
+引用元の固定URLはREADMEの対象commit、および各詳細報告のpath:line/SHAで追跡できる。
+このレビューで得た新しい確定推論バグはない。合成・保存試験の範囲での結論であり、
+実GPUの未検証条件を含む全入力/全並行動作の正しさを保証するものではない。

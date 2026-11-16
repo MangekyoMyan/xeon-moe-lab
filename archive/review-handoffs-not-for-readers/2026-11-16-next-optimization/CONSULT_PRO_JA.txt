@@ -1,0 +1,107 @@
+GPT Proへの実装前相談 / 2026-11-16
+
+今回の依頼
+返却いただいた現行レビューを受け、提示されたabs-input probeを改変せずXeon実機で実行しました。
+本体の新しいkernel・dispatch・workspaceにはまだ手を入れていません。以下は設計提案です。
+要約だけで判断せず、添付した元のsourceと全raw測定、以前の失敗・不採用記録も読んで、別の有望な方針があれば提案してください。
+ユーザーは、Pro側のトークン消費を抑えるより、元データから独立した発想を得ることを重視しています。
+
+基準となる現行実装
+https://github.com/MangekyoMyan/xeon-moe-lab/tree/7d8b077afcf1258602366245f1567e820255defa/archive/review-handoffs-not-for-readers/2026-11-16-current
+この配下をH、H/snapshot/llm-lab/exploration-20261112をEと呼びます。
+今回の返却資料45fileもincoming/に原文のまま同梱します。先方のEPYC測定と今回のXeon測定を分けてください。
+
+実機と現況
+CPU E5-2630L v2 x2、12物理/24論理、RAM512GB、GPU PG500-216 32GB。
+APIは引き続きfinal、config SHA256 963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43。
+GPU150W/ECC/fan<=70%、128k f16 KV、IQ cache約118.652GiB payload/configured120GiB、reserve64GiBを維持。
+CPU/GPUの実library・build・全現行sourceはHに固定済み。今回APIの起動停止・モデル再読込・生成要求・配置変更は行っていません。
+
+今回行ったこと
+1. 返却ZIP44記載fileのSHAを確認。残り1fileはmanifest自身。
+2. 親がrun_iq_abs_rhs_probe.pyとiq_abs_rhs_probe.cppを全文確認。
+3. c++14.2.0、-O3 -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -fno-fast-math -ffp-contract=offで提示sourceをそのままcompile。
+4. 正しさ: abs対現行61,440出力bit一致、unsafe4,800拒否、旧bias62の20,480出力bit一致。
+5. CPU3/NUMA0に固定しbench全16条件。別のCPU9/NUMA1で同じbinaryを用いて全16条件を反復。
+   コマンドの外側をnumactl --physcpubind=3 --membind=0、反復は9/1で包みました。
+   node1用RESULTは同じcorrectness receiptとprobeをコピーして再使用しています。correctness件数を2倍に数えないでください。
+6. APIは開始前・全測定後に待機中、config hash不変。最後のhost counterはAPI開始時と一致し、monitor errorsなし。
+   APIが測定中ずっとidleだった連続traceや、温度peak、CPU clockの時系列は取っていません。OSも隔離していません。
+
+生データの入口（この相談票と同じdirectory）
+  abs-original-xeon/RESULT.json: CPU3/node0。compile argv、source hashes、correctness stdout、全16条件のbenchmark stdoutとparsed arrays。
+  abs-socket1-xeon/RESULT.json: CPU9/node1。最後に追加されたcommandとbenchmark_rowsがこの反復。前のcommand記録も残っています。
+  incoming/xeon_moe_review_2026-11-16/cpu/iq_abs_rhs_probe.cpp: 実行したC++原文。
+  同run_iq_abs_rhs_probe.py: 実行したrunner原文。
+  RUN_CONTEXT.json、BASELINE_IDLE.json、AFTER_SCREEN.json、EXPERIMENT_PLAN.txt。
+  CPU_SCREEN_RESULTS.json/.tsv: 固定した期待16条件を明示検証した比較表。analyze_screen.pyも添付。
+  E/iq-rhs/: 旧bias62の実装・実測・不採用記録。今回bias62とabsを同じものとして扱わない。
+  E/FINAL_ABBA.jsonとE/heldout/: 現finalの全モデル比較。今回のmicrobenchとは異なる証拠。
+
+今回の数値（wall paired medianの速度増加、左CPU3、右CPU9）
+                       K2304/M256    K2304/M8192    K5120/M256    K5120/M8192
+abs IQ3_XXS             +4.19/+3.54   +4.89/+3.53    +4.01/+3.13   +2.86/+2.79
+abs IQ2_S               +5.06/+4.42   +3.57/+3.70    +4.18/+4.42   +3.99/+4.19
+abs IQ3_S               +5.72/+5.40   +5.80/+5.75    +4.69/+4.89   +4.64/+5.10
+旧bias62 IQ3_XXS        +4.39/+6.13   +4.96/+6.53    +5.72/+7.33   +5.20/+7.24
+
+全absの保持paired比は1を超えました。速度判定前に定めた実務screenは「wall中央値>=1.03、保持4比すべて>1、thread CPUでも方向と大きさが対応」。IQ3_XXS K5120/M8192を保留とし、残り11/12条件が両socketで通りました。
+これは有意差や一般性の証明ではありません。特にIQ2_S K2304/M8192のnode1には1.011315〜1.086003の幅があり、全値をrawに残しています。
+wall/thread CPUは概ね対応します。今回の値をdecode tok/sの改善へ換算しません。
+各比較は提示probeの独立したABBA/BAAB blockです。absとbiasの数値を直に割って厳密な直接A/B比較と呼ばないでください。
+
+今回の限界
+単一thread、synthetic weights、input1本、K2304/5120、rows256/8192。
+実FFNのK5120 x M2304とK2304 x M5120、12workers、6expert、downの6本の入力、raw/cached mixはまだ測っていません。
+準備は各matrix traversalのtimed regionに含み、F32->Q8_Kは双方共通として除外。
+同じseed/同じbinaryでsocketを変えた再現性確認であり、独立な入力分布を増やしたわけではありません。
+旧bias62は全モデルで約+0.51%に留まったため、局所の数％だけで統合を正当化しない方針です。
+
+第一提案: IQ2_S/IQ3_Sへ絞った実形状・multiworker検証
+IQ3_XXSに新しいabsを入れる優先度は低いと考えています。旧案に対する明瞭な優位がなく、実形状の大きな条件もscreen未達です。
+IQ2_S/IQ3_Sのabsは固定144B weightsを維持し、既存cache coverage/大きなRAM payloadを変えずに試せます。
+ただしdownではQ8_Kとabsを6入力分保持すると約28.9KiBとなり、32KiB L1Dに対して余裕が小さい。実際の他working setやthread分割を含めて見ないと期待と逆になる可能性があります。
+
+本体を変更する前に作る予定の評価harness
+  - 現144B、abs144B、IQ3_XXSの旧bias62を同一条件で比較。型ごとに適用可能なものを明示。
+  - K5120/M2304 up/gate、K2304/M5120 down、1/6入力、1/6/12 workerを段階的に。
+  - 6workerは両socket3coreずつ、12workerは両socket6coreずつ。socket数を変えたcore比較と混同しない。
+  - 入力準備・flags合成・barrier・dispatchも計測へ含め、dotだけの勝ちを採用条件にしない。
+  - 配置は現行interleaveに合わせる比較と局所配置の小試験を区別。real weightsを使う場合も同じ入力とroutingを固定。
+  - expected casesを事前manifestに固定。失敗・欠落・重複・非finite・unsafe分類を明示し、空集合all-passを禁止。
+  - 先にcorrectness、次に速度。両socketの小試験とreal12workerで再現しなければ統合案を棄却。
+
+もし上を通った場合の統合設計案（まだ未実装）
+対象はE/mx-prepack/release-candidate-a/sources/ggml-cpu.cを基点とする別の実験library。
+E/prepare_iq_rhs_backend.pyに既存IQ3 bias用のworkspace/worker-maskの接続例があります。ただし旧候補全体を再採用しません。
+  - 型は最初IQ2_S/IQ3_Sのみ。compact hitかつT=1だけ新dotを選ぶ。raw fallback/他の型/MXFP4は現在の経路。
+  - src1 F32->Q8_Kの変換に続き、同workerが自分のcomplete256 block範囲だけabsを準備。
+  - n_inputs1..64、K正かつ256倍数、対応stride/shapeを明示検査。plannerと実行側で同じworkspace sizing。
+  - abs workspaceはalign64(K)*n_inputs、workerごと64bitのsafe mask等を別途予約。元Q8_Kはscaleと符号に必要なので残す。
+  - empty block担当も有効maskを書き、既存barrierの後に全worker maskをANDする。-128/非finite scaleが一つでもある入力は現在のdotへ戻す。
+  - 当該入力にcompact hitが一つもない場合の準備を省けるか検討。ただしmask計算そのものの費用を比較し、共有状態の早読みを作らない。
+  - cache owner・registry・144B row stride・選択plan・weight packingは変えない。runtimeのpointer差替え/evictionも追加しない。
+  - dot選択はrowのinner block loopの外。lane累積、水平和、最後のscale係数の順序を維持。
+  - `use_ref`、prequantized input、n_inputs=64のshift、unsafe一部、欠けたcache、複数graph呼出、異なるworker数を境界試験。
+  - 新旧libraryは別pathへ凍結し、初期はopt-in、現finalの戻し先を維持。ライブラリ読込とdispatch回数の証明も保存。
+上記に簡素で正しい代案があれば変更してください。まだ実装していないので設計を変えやすい段階です。
+
+相談したい判断
+1. この実測と旧bias62の結果から、IQ2_S/IQ3_Sのmultiworker評価へ進む価値はありますか。kernel/入力側作業/キャッシュ動作を見て、もっと筋のよいCPU案があれば提案してください。
+2. 上のworkspace・barrier・safe mask・fallbackの設計に穴はありますか。限られた改善のために複雑さを増やしすぎていないかも評価してください。
+3. CPU案よりGPU配置を優先すべきなら、全40層・6expert共起・CPU/GPU完了時間を取る最小の計測設計を具体化してください。既存の同期が守る寿命と、計測overheadをどう扱うかを重視します。
+
+GPUの次案についての現時点の意向
+返却レビューで、hit数/VRAMの目的ではhot14の詰め方が上限に近いと分かりました。同じcount目的のsolver高度化はしません。
+次は同一hitでも短縮できる全体時間が違う点を測り、CPUとGPUの終了の遅い側を減らす配置へ進みたいです。
+H=2/4/5とIQ3_Sの非ゼロcoverage補完、old37-39の移動との交絡分離を先に行う案は支持します。
+一方、現在のAPIを載せたままではprivate GPU reserve条件を満たすとは限りません。guardを緩めて試す予定はありません。
+観測前にGPU側scatterや非同期化を大改造せず、byte削減と待ち時間削減のどちらが効くかを切り分けたいです。
+この方向を含め、同梱の元コードと過去データから別の高価値案を出しても構いません。
+
+今回の合意・制約
+ユーザーは最適化再開とGitHubの自由な利用を許可し、重要な実装前にPro相談を挟むことを希望。
+重要コードの実読と編集は親担当、Terraは測定ログの整理。
+本相談の公開はAPIへ変更を適用する操作ではありません。今の通常生成速度は新microbenchの分だけ更新されたわけではありません。
+Proが局所環境で検証する場合は実機と異なるCPU/GPU/ISA/実行条件を明示し、代数・正しさと性能を分けて報告してください。
+過去の探索を繰り返さないため、既試行/今回新規/未検証を区別してください。必要なら候補コードや再現fixtureを返してもらい、こちらで実機検証・内容確認を行います。

@@ -1,0 +1,177 @@
+{
+  "scope": "Saved training census only; no heldout/live routing and no speed measurement or prediction.",
+  "source_sha256": {
+    "snapshot/llm-lab/exploration-20261112/training/20261112-075449/TRAINING_COUNTS.json": "368247308300582250b61a11fe4287c569e17488857a9996934ce09a378d933c",
+    "snapshot/llm-lab/exploration-20261112/plans/frequency19200.plan": "cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6",
+    "snapshot/llm-lab/exploration-20261112/plans/FREQUENCY_MANIFEST.json": "7f3a4b8c54adc6355ba6093eb42b9f6c0898504dc3f47fcdf1154cfab01256f1",
+    "review/capture/CURRENT_STATE.json": "47cb238986aca2db8203f566d7c8351a554dd449be4c4f9f3acea2dc4d0d242f"
+  },
+  "current": {
+    "tensor_count": 80,
+    "projection_count": 19200,
+    "eligible_projection_count": 30720,
+    "payload_bytes": 127401984000,
+    "configured_budget_bytes": 128849018880,
+    "selected_by_type": {
+      "iq3_s": 1980,
+      "iq2_s": 3454,
+      "iq3_xxs": 13766
+    },
+    "global_hard_cap_bytes": 137438953472,
+    "observed_calls_per_tensor": 2040,
+    "training_hit_assignments": 950514,
+    "eligible_training_assignments": 979200,
+    "training_hit_rate": 0.9707046568627451
+  },
+  "current_layout_coverage_curve": [
+    {
+      "slots": 8000,
+      "bytes": 53084160000,
+      "training_hit_rate": 0.7503329248366013,
+      "training_assignments": 734726
+    },
+    {
+      "slots": 12000,
+      "bytes": 79626240000,
+      "training_hit_rate": 0.8664082924836601,
+      "training_assignments": 848387
+    },
+    {
+      "slots": 14400,
+      "bytes": 95551488000,
+      "training_hit_rate": 0.9136172385620915,
+      "training_assignments": 894614
+    },
+    {
+      "slots": 16000,
+      "bytes": 106168320000,
+      "training_hit_rate": 0.9374785539215686,
+      "training_assignments": 917979
+    },
+    {
+      "slots": 17280,
+      "bytes": 114661785600,
+      "training_hit_rate": 0.9529309640522876,
+      "training_assignments": 933110
+    },
+    {
+      "slots": 18000,
+      "bytes": 119439360000,
+      "training_hit_rate": 0.9602532679738562,
+      "training_assignments": 940280
+    },
+    {
+      "slots": 19200,
+      "bytes": 127401984000,
+      "training_hit_rate": 0.9707046568627451,
+      "training_assignments": 950514
+    },
+    {
+      "slots": 19418,
+      "bytes": 128848527360,
+      "training_hit_rate": 0.9724724264705882,
+      "training_assignments": 952245
+    },
+    {
+      "slots": 20000,
+      "bytes": 132710400000,
+      "training_hit_rate": 0.9766329656862746,
+      "training_assignments": 956319
+    },
+    {
+      "slots": 24000,
+      "bytes": 159252480000,
+      "training_hit_rate": 0.9949397467320261,
+      "training_assignments": 974245
+    },
+    {
+      "slots": 30720,
+      "bytes": 203843174400,
+      "training_hit_rate": 1.0,
+      "training_assignments": 979200
+    }
+  ],
+  "hypothetical_unsigned_activation_layout": {
+    "assumed_block_bytes": {
+      "iq3_xxs": 160,
+      "iq3_s": 160,
+      "iq2_s": 176
+    },
+    "unchanged_selection_payload_bytes": 144104325120,
+    "unchanged_selection_payload_GiB": 134.20761108398438,
+    "larger_than_128GiB_cap": true,
+    "exact_training_coverage_optimum_under_each_budget": [
+      {
+        "budget_bytes": 127401984000,
+        "selected_160byte_projections": 14035,
+        "selected_176byte_projections": 2950,
+        "selected_projections": 16985,
+        "payload_bytes": 127401984000,
+        "training_assignments": 929767,
+        "training_hit_rate": 0.9495169526143791,
+        "training_hit_rate_change_percentage_points": -2.1187704248366015,
+        "evicted_current_projections": 2215,
+        "evicted_training_assignments": 20747,
+        "newly_cached_projections": 0,
+        "newly_cached_training_assignments": 0,
+        "net_added_uncached_assignments_per_observed_call": 10.170098039215686
+      },
+      {
+        "budget_bytes": 128849018880,
+        "selected_160byte_projections": 14207,
+        "selected_176byte_projections": 2972,
+        "selected_projections": 17179,
+        "payload_bytes": 128848527360,
+        "training_assignments": 931923,
+        "training_hit_rate": 0.95171875,
+        "training_hit_rate_change_percentage_points": -1.8985906862745099,
+        "evicted_current_projections": 2021,
+        "evicted_training_assignments": 18591,
+        "newly_cached_projections": 0,
+        "newly_cached_training_assignments": 0,
+        "net_added_uncached_assignments_per_observed_call": 9.113235294117647
+      },
+      {
+        "budget_bytes": 137438953472,
+        "selected_160byte_projections": 15085,
+        "selected_176byte_projections": 3233,
+        "selected_projections": 18318,
+        "payload_bytes": 137438576640,
+        "training_assignments": 943140,
+        "training_hit_rate": 0.9631740196078431,
+        "training_hit_rate_change_percentage_points": -0.7530637254901961,
+        "evicted_current_projections": 882,
+        "evicted_training_assignments": 7374,
+        "newly_cached_projections": 0,
+        "newly_cached_training_assignments": 0,
+        "net_added_uncached_assignments_per_observed_call": 3.614705882352941
+      }
+    ],
+    "optimality_scope": "All K*M/256=46080; two costs 10 or11 units of737280 bytes; enumerate number of11-cost selections with sorted count prefix sums for each group. Maximizes saved training assignment count only."
+  },
+  "mixed_layout_without_eviction_theoretical_payload_limit": {
+    "configured_budget_slack_bytes": 1447034880,
+    "configured_budget_slack_GiB": 1.34765625,
+    "additional_bytes_per_IQ3_projection": 737280,
+    "additional_bytes_per_IQ2_projection": 1474560,
+    "maximum_IQ3_only_upgrades": 1962,
+    "maximum_IQ2_only_upgrades": 981,
+    "integer_constraint": "n_IQ3 + 2*n_IQ2 <= floor(slack/737280) = 1962",
+    "limit": "Payload accounting only. A new API/plan format and mixed-layout dispatch are necessary; metadata and peak loader memory are not included. No deployment or live cache mutation was performed."
+  },
+  "captured_memory_floor_context": {
+    "MemAvailable_bytes": 73459937280,
+    "MemAvailable_GiB": 68.41489791870117,
+    "loader_reserve_bytes": 68719476736,
+    "above_reserve_GiB": 4.414897918701172,
+    "unchanged_selection_extra_GiB": 15.555267333984375,
+    "limit": "One idle snapshot only. Reserve is checked before every allocation, not a guaranteed runtime minimum. Do not infer peak headroom or propose raising the cap."
+  },
+  "limits": [
+    "Training selection and assessment use the same census, so these are in-sample coverage values.",
+    "Census includes CPU single-token calls and possible prefill tails; does not cover resident GPU37-39.",
+    "The larger unsigned-activation layout was a previous local prototype, not the current iq-rhs activation-sidecar experiment.",
+    "Cold fallback cost, larger memory traffic, activation conversion, type-dependent speedups and contention are not included.",
+    "No new configuration or deployment plan is generated."
+  ]
+}

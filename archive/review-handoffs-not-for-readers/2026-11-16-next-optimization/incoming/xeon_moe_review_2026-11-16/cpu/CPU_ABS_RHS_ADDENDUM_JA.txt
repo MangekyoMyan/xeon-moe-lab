@@ -1,0 +1,114 @@
+CPU 追補: 入力 abs を先計算する IQ kernel 案
+対象: commit 7d8b077afcf1258602366245f1567e820255defa / 2026-11-16-current
+実施: 2026-11-16、CPU_REVIEW_JA.txt の作成後
+
+結論
+
+weight の 144-byte compact layout を維持したまま、入力の絶対値を sidecar に
+先計算する代数変換を実装し、3 IQ 型で 61,440 出力の bit 一致を確認しました。
+通常採用できる性能根拠は得られていません。局所 paired benchmark が不安定であり、
+現在の実機や、既に不採用となった bias62 IQ-rhs に対する優位は未証明です。
+これは cache 容量を増やさない別候補で、本文の 160/176-byte mixed weight 案と分けます。
+
+1. 何を変えたか
+
+現行 compact kernels の各 16 要素では、おおむね
+  maddubs(abs(weight), sign(input, weight))
+を計算します。weight の整数値は IQ3_XXS で ±4..±62、IQ2_S で ±8/25/43、
+IQ3_S で ±1..±15 です（row-local/compact-kernel.inc:58-77、
+row-local/iq-small-kernels.inc:48-67）。weight に -128 は現れません。
+
+候補では input の abs を operator の準備時に保存し、dot を
+  maddubs(abs(input)_prepared, sign(weight, input))
+へ交換します。input が -127..127 なら整数積が同じで、input=0 も両者 0 です。
+各 2 要素和の最大絶対値はそれぞれ 15,748、10,922、3,810 なので、maddubs の
+int16 飽和はありません。その後の scale、32-bit accumulator、FP32 8 lane 累積、
+水平和、最後の 1/4 または 1/8 を元実装と同じ順序にしています。
+
+追加するのは Q8_K の 256 要素につき 256 bytes の abs sidecar です。
+weights は 144 B/block のままで、selection plan の payload と hit coverage は変わりません。
+K5120 なら input 1 本あたり 5120 B、K2304 なら 2304 B です。
+元 Q8_K も sign 判定と scale に使うので残します。
+
+prepare は -128 または非有限 Q8 scale を unsafe とします。この場合、通常 backend へ
+組み込むなら、その input を現在の dot へ戻す必要があります。候補の dot API を
+unsafe input に直接呼ぶ契約にはしていません。今回の probe は unsafe 分類を確認しています。
+
+現行の不採用 iq-rhs は weight の lookup table を +62 に bias し、入力側に
+62*pair_sum(input) を持って整数和から引く案です。abs sidecar はそれと同じ
+256 B/block の追加量ですが、inner loop の psub16 の代わりに psignb を使います。
+現在の通常 kernel に対しては pabs(weight) を減らす代わりに入力 sidecar load が増えます。
+instruction port、load、register pressure の交換であり、代数的に正しいことから
+高速化は導けません。Ivy Bridge と EPYC で結果が同じとも限りません。
+
+2. 独立 fixture
+
+新規 source: iq_abs_rhs_probe.cpp。
+実使用 compact-kernel.inc / iq-small-kernels.inc は変更せず include し、baseline としました。
+保存された iq-rhs.cpp / iq-math.inc も新規に compile して、IQ3_XXS の既存 bias 案を比較対象にしました。
+配布 DSO、モデル、API、GPU は使っていません。
+
+compile: -O3 -std=gnu++17 -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma
+         -fno-fast-math -ffp-contract=off。
+実行 CPU: /proc/cpuinfo 表示 AMD EPYC 9V74 80-Core Processor。
+seed: correctness は 20261116+type、benchmark は 202611160+type。
+K: 256,512,768,2304,5120。各 K/型で512組の合成 weight / Q8_K 入力。
+FTZ/DAZ off/on × MXCSR rounding 4 種。
+Q8 整数範囲は -127..127。有限 weight scale と、正負・subnormal を含む Q8 scale。
+
+結果:
+  input-abs 対現 compact: 61,440 outputs が bit 一致。
+  unsafe 分類: -128、±Inf、正負NaNを含む 4,800 cases を拒否。
+  保存済み bias62 対現 compact: IQ3_XXS の 20,480 outputs が bit 一致。
+
+source SHA / 全 compile command / stdout は iq_abs_run/RESULT.json と
+iq_abs_timing_run/RESULT.json に保存しています。後者は timing の診断用 clock を追加し、
+同じ correctness を再確認したものです。二つの run の件数を足して独立 fixture 数としません。
+最初の source は iq_abs_rhs_probe_initial.cpp に保存し、初回 RESULT の source SHA と一致します。
+timer 追加後の iq_abs_rhs_probe.cpp は後者の RESULT の source SHA と一致します。
+
+3. 性能試験の結果は判定保留
+
+初回は K2304/5120、rows256/8192、同一 144B weights を使用。
+各 arm は合計32768 row-dot、ABBA/BAABを交互に5回（初回warmupを除き4paired ratios）。
+candidate の abs prepare を各 matrix traversal の timed region に含めています。
+F32→Q8_K quantize は両者共通で除外しています。単一 thread、合成データです。
+CPU affinity の固定、OS isolation、LLC eviction、実モデル routing は行っていません。
+
+初回 wall の pair 比が 0.962〜77.356 となる case もあり、環境の揺れが非常に大きいため、
+初回の speedup 中央値を性能結論には使いません。既存 bias62 の中央値との大小比較も同様です。
+benchmark の process exit が成功したことは、速度の優位が証明された意味ではありません。
+
+追加の追試を1回だけ、K5120/rows8192/3型に絞って行いました。
+各 arm の CLOCK_THREAD_CPUTIME_ID と wall を併記しました。
+thread CPU time の current/candidate 比は次の通りです。
+
+  IQ3_XXS: pair [1.059613,1.063933,1.110250,0.805526]、中央値1.061773
+  IQ2_S:   pair [0.790561,1.039216,1.136152,1.193011]、中央値1.087684
+  IQ3_S:   pair [1.166127,1.009860,1.534339,1.080770]、中央値1.123449
+
+この追試では wall と thread CPU time は近く、揺れを単なる deschedule だけに
+帰属することもできません。4 pair の幅が広いため、安定した gain を確定しません。
+IQ3_S は今回4pairとも1を超えましたが、この小試験だけで一般化しません。
+追加の任意 benchmark はここで終了しました。
+
+4. 次の作業への引継ぎ
+
+判定は「算術と固定 weight payload を保つ候補として成立、性能は保留」です。
+現行通常 API の変更理由にはしません。本文の mixed-weight 案と優先順位を競う場合、
+まず実 Xeon の同じ compiler/flags、12 workers、実形状と raw/cached mix で、
+current / abs-input / existing-bias62 を同じ harness に入れて測る必要があります。
+既存 IQ-rhs の実モデル改善が小さかったため、abs 側も余分な入力読込・L1 容量・
+準備費用を含めた上限を見ます。down の6入力で、元Q8とsidecarを合わせた working set が
+大きくなることにも留意します。推測だけで追加 layout を採用しません。
+
+通常 backend へ組み込む場合は、Q8_K quantization と同じ complete-block worker partition、
+全 flags を publish する既存 barrier、64 input 以下の guard、workspace sizing、
+unsafe input の fallback、同一 graph execution 内の sidecar lifetime を必要とします。
+この integration は今回実装・検証していません。
+
+再現:
+  python3 run_iq_abs_rhs_probe.py --snapshot /ABS/HANDOFF --output /ABS/NEW_DIR --phase test
+  python3 run_iq_abs_rhs_probe.py --snapshot /ABS/HANDOFF --output /ABS/NEW_DIR --phase bench --focused
+bench はその NEW_DIR 内で今回作った probe の SHA を確認してから実行します。
+上の二つはモデルを使用しないローカル fixture です。
