@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "corpus_sha256": "fa1f41571af7c6d8272bb639877ea0cc32b4c09747939d5579a22d2998c11f5a",
+  "cases": 20,
+  "families": 12,
+  "splits": {
+    "train": 10,
+    "validation": 5,
+    "holdout": 5
+  },
+  "hashes_and_stage_partition_passed": true,
+  "prose_numeric_and_schedule_checks_passed": true,
+  "translation_semantic_review": "Author checked paired facts/numbers/tasks manually; not an automated translation-quality proof",
+  "code_references_start_with_code": true,
+  "queue_input_scope": "Valid integer types (bool excluded) and signed64-representable values are preconditions; capacity range is validated",
+  "python_reference_checks": [
+    {
+      "case": "code_stable_grouping_python",
+      "code_sha256": "d97667f81834537d10af45019ca6fc7b5ee63d94ebf1c860d10a9edad254e2f8",
+      "passed": true,
+      "semantic_checks": 4
+    },
+    {
+      "case": "code_interval_merge_python",
+      "code_sha256": "895acb0d24d06754dd15ba817c092984459d59123e2789400f3aca9abf314bea",
+      "passed": true,
+      "semantic_checks": 7
+    },
+    {
+      "case": "code_bounded_queue_python",
+      "code_sha256": "ba1a244671a2a87b4d5095b8664fdf3acbb52aa1b28aea32799b3f59c3c766cd",
+      "passed": true,
+      "semantic_checks": 12
+    },
+    {
+      "case": "code_utf8_line_reader_python",
+      "code_sha256": "dd9befbbc5d22a4a104959f2f512413d77b1865ce37ee717c0e64ac5b6eb60d5",
+      "passed": true,
+      "semantic_checks": 6
+    }
+  ],
+  "cpp_reference_checks": [
+    {
+      "case": "code_stable_grouping_cpp",
+      "code_sha256": "2b0b750b17e83433292d9f7a09460eade709a2acfde771977dcde111720121a7",
+      "compiled_standard": "C++17",
+      "compiler": "g++",
+      "build_exit": 0,
+      "run_exit": 0,
+      "warnings_as_errors": true,
+      "build_stdout": "",
+      "build_stderr": "",
+      "validation_scope": "handwritten expected-output/boundary assertions; not an engine test"
+    },
+    {
+      "case": "code_interval_merge_cpp",
+      "code_sha256": "a35b2580b6ee51d0892f410bb0d33f9861dbb2b7160284224b7105f8960b2237",
+      "compiled_standard": "C++17",
+      "compiler": "g++",
+      "build_exit": 0,
+      "run_exit": 0,
+      "warnings_as_errors": true,
+      "build_stdout": "",
+      "build_stderr": "",
+      "validation_scope": "handwritten expected-output/boundary assertions; not an engine test"
+    },
+    {
+      "case": "code_bounded_queue_cpp",
+      "code_sha256": "00eccd3da02b6a1a43cabd13a3b15910fbeff931bf33e99f74168bd5df1c3fc4",
+      "compiled_standard": "C++17",
+      "compiler": "g++",
+      "build_exit": 0,
+      "run_exit": 0,
+      "warnings_as_errors": true,
+      "build_stdout": "",
+      "build_stderr": "",
+      "validation_scope": "handwritten expected-output/boundary assertions; not an engine test"
+    },
+    {
+      "case": "code_utf8_line_reader_cpp",
+      "code_sha256": "1dc2cf2e1e6a0a767c9686c60809d7e106a1cc520da2d170dbf94a0a10e256bf",
+      "compiled_standard": "C++17",
+      "compiler": "g++",
+      "build_exit": 0,
+      "run_exit": 0,
+      "warnings_as_errors": true,
+      "build_stdout": "",
+      "build_stderr": "",
+      "validation_scope": "handwritten expected-output/boundary assertions; not an engine test"
+    }
+  ],
+  "model_tokenizer_used": false,
+  "model_token_counts_verified": false,
+  "inference_engine_or_gpu_or_api_executed": false,
+  "supplied_repository_script_executed": false,
+  "tested_programs": "Only the eight original reference programs in this new corpus",
+  "minimum_prompt_codepoints": 351,
+  "minimum_reference_codepoints": 398,
+  "limitation": "Character/byte lengths do not certify 64 model tokens. Actual tokenizer and assistant boundary must be verified before any pilot capture."
+}

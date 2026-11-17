@@ -1,0 +1,301 @@
+GPU workspace / ubatch 監査
+===========================
+対象pin: fa6671f7b5281bad28947fe5324e2495e792a86f
+作成日: 2026-11-17
+担当: calibration_workspace（親レビューへの中間成果）
+
+結論
+----
+1. 最初にfresh n_ubatch1024の旧guardと同phaseのM0空きを測る。小bankが既に成立するなら
+   512を必須にせずbounded positive pilotへ進める。必要ならn_batch1024固定で512を比較する。
+   ただし4669.26MiBが半分になるとは予測しない。512/256はoffload閾値64以上なので、
+   全shape weight stagingが残る。MXFP4 projection一つだけでも2295MiBである。
+2. 一方、mask/indexer score/activationにはBに比例する大きなpayloadがあり、縮小余地も
+   実在する。HCA maskは256→128→64MiB、fused indexer scoreは512→256→128MiB。
+   これらを単純加算してarena減少量にしてはならない。liveness、再利用、配置、fragmentation、
+   PP/TGの予約順が必要で、今あるlogは4669MiBの所有者を確定する情報を持たない。
+3. 128k/f16維持でもraw SWA KVは50→30→20MiBとなる。ここはソースから計算可能。
+   CSA240MiB/HCA160MiBは同条件なら固定。『KVは全部固定』も『全KVが半分』も誤り。
+4. 観測free2122.25MiBはvision＋text warmup後M2。旧3072/2560MiB guardはともにvision前。
+   949.75MiB＋payloadはM2にも3072MiBを再要求すると仮定した算術で、旧guardの必要改善量や
+   不合格実測ではない。旧guardを後ろへ移してfuture-vision reserveを二重に課さない。
+5. 実際に旧phaseの容量不足があって512を試し、その改善で不足解消の見込みが薄いなら、
+   256を機械的に続けずfull-weight staging/allocator所有者を必要時だけ特定する。
+6. smaller ubatchでT1が保たれても採用確定にはしない。1024tokenのprefillが2/4chunkになると
+   同じhost expertの再転送とper-chunk固定費が増え得る。全prefill時間と境界数値を同時に見る。
+
+実施範囲
+--------
+source/raw log/JSONを読み、独自Pythonの整数計算だけを実行した。大モデル、GPU、API、
+repoのbuild/run/analyze script、保存されたELFは実行していない。repoは無変更。
+同梱recompute_workspace.pyはsource SHA256、根拠抜粋、shape計算だけを再生成する。
+この文書の数値予測は実機でubatch512/256を測った結果ではない。
+
+参照略号
+--------
+H = archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/
+U = H/deepseek41-bringup-20261101/source/
+R = archive/review-handoffs-not-for-readers/2026-11-17-route-integration/
+C = archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/
+M = R/provenance/model-source/src/models/deepseek41.cpp
+G = R/provenance/model-source/src/llama-graph.cpp
+S = H/gpu-stream-20261103/ggml-backend.cpp
+K = H/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu
+A = U/ggml/src/ggml-alloc.c
+L = C/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log
+各実pathとSHA256、pin付きURL、根拠行はWORKSPACE_EVIDENCE.json / SOURCE_EXCERPTS.txtに収録。
+
+1. 実行経路の取り違えを避ける
+------------------------------
+C/BUILD.jsonのloaded-provider pinとsnapshotのbuild記録を照合した。実baseは
+gpu-stream-20261103/runtime/libggml-base.so.0.28.0でSHA256は
+2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558。
+SCHEDULER.jsonはscheduler objectを差し替え、ggml.c.o / ggml-alloc.c.o等を元buildから再使用する。
+したがってvendor最新一般論ではなくSとUのallocatorを追った。
+
+CUDAはcuda-sort/release-candidate-aでSHA256
+45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0。
+そのBUILDはtop-k.cu.o等の元objectをlinkし、ggml-cuda.cu.oを差し替える。
+モデルgraphはroute-integration provenanceのdeepseek41.cpp/llama-graph.cppを参照した。
+context reserveはroute37/llama-context.cppにある。別のbaseや一般的なllama.cpp MoEの
+説明を現在processの証拠にはしていない。
+
+L:1–2はTesla PG500-216 / CC7.0 / VMM:no。従って実機はCUDA legacy pool経路であり、
+VMMの仮想予約32GiBを実使用VRAMとして数える説明は該当しない。
+
+設定はn_ctx131072、n_batch/n_ubatch1024、seq1、実output cap1、flash attention、KV f16、
+GPU37..39/CPU expert0..36、vision GPU、image/batch max tokens256。
+env GGML_OP_OFFLOAD_MIN_BATCH=64、GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH=64。
+cap1整合後でもL:5381–5384はCUDA4669.26MiB、Host538.73MiB、PP4950nodes/113splits、
+TG4866nodes/76splits、sched copies1。複数pipeline copyを4669MiBの原因と即断できない。
+
+2. なぜcap1では減らず、ubatchは別の変数なのか
+---------------------------------------------
+R/route37/llama-context.cpp:747–765は予約token数=min(n_ctx,n_ubatch)とし、memory->init_full()
+を使う。実入力が64tokenでも、初期arenaは最大capacityのcompressed contextを想定する。
+同:789–846はoutput capを適用したPP graph→TG graph→再PP graphの順で予約する。
+
+M:889–915は40層すべてのFFN/hyper-connectionをn_tokensで計算し、M:918–930で初めて
+out_idsを使って最終出力を絞る。cap1は語彙出力と最後の一部を小さくするが、前段の
+indexer/mask/MoE activationのtoken次元Bは小さくしない。capを直しても最大arenaが
+変わらなかったことと整合する。今度はB自体を変えるので別の測定価値がある。
+
+A:904–945は新chunk容量が既存容量を超える場合などにreallocateする。小さいrequestを
+旧contextへ送るだけで旧arenaが縮むわけではない。比較にはfresh context/processが必要。
+同一processの大きなprefill後のpool残存もあるため、free比較のphaseを揃える必要がある。
+
+3. 不変の大物: host expert full-shape staging
+--------------------------------------------
+S:1329–1339はMXFP4 MUL_MAT_IDのsrc1.ne[2]で独自閾値を検査する。
+S:1387–1396はCPU host weightについてsupports_op/offload_opを満たす高優先度backendへ
+opを移す。K:6215–6233のMUL_MAT_ID batch次元はop.ne[2]である。
+512/256はどちらも64以上なので、その変更だけではこのoffloadを止めない。
+
+S:1795–1815はCUDA側copyをggml_dup_tensor_layout(src)で作る。選択expertだけを転送する
+copy callback（S:2119–2121）とは別に、予約tensorは元weight全体のshapeである。
+M:210–213のprojection shapeは5120×2304×384（downは転置でも同要素数）。
+型blockはU/ggml/src/ggml-common.h:214–219,395–422に定義される。
+
+type       one expert projection MiB   full384 projection MiB
+MXFP4      5.9765625                    2295
+IQ2_S      3.603515625                  1383.75
+IQ3_XXS    4.306640625                  1653.75
+IQ3_S      4.833984375                  1856.25
+
+MXFP4の計算は5120*2304*384*17/32=2,406,481,920bytes。
+このoffloadとlayoutが維持される限り、arenaは少なくとも単独2295MiB stagingを置ける必要がある。
+これは銀行bankの1expert単位payloadとは別物で、bank metadataやcompact bytesでもない。
+
+2*2295=4590MiBが4669MiBに近いのは、allocation inventoryの調査指紋にはなる。
+しかし二枚のMXFP4が同時liveである、double bufferである、とは確認できていない。
+S:1752–1760はprevious offloaded weightを再利用するためにsplitを分ける。
+S:1948–1974はsplit先頭copyとbackend追加alloc dependencyを入れる。
+K:5080–5128のfusion dependencyはinputsを後段まで保持することがあるが、splitを跨ぐ
+すべてのgate/upに適用されるとは限らない。
+A:623–688,718–823のinplace条件、child/view参照数、割当順も必要である。
+HCAの256MiB mask copyなどが同時liveなら、二枚4590MiBだけでほぼ満杯の説明とは両立しない。
+fragmentationや別graph予約のhigh-waterを含む可能性を残す。
+
+4. 変わるpayloadを具体的に計算する
+---------------------------------
+以下はfull-context reserveに現れる単一tensorまたは明示persistent cacheのpayload。
+数値を足したものはarena峰値ではない。maskがhost入力とCUDA copyの両方を持つ場合もあり、
+同じnameのgraph viewを重複加算してはいけない。
+
+項目 / shape                                  B1024      B512       B256 MiB
+raw SWA KV全40層                               50         30         20
+CSA persistent KV (3*640*65536*f16)             240        240        240
+HCA persistent KV (640*131072*f16)              160        160        160
+HCA mask F16[131072,B]                         256        128        64
+CSA mask F16[65536,B]                          128        64         32
+raw mask F16[R(B),B]                           2.5        0.75       0.25
+HCA fused indexer score F32[131072,B]           512        256        128
+CSA fused indexer score F32[65536,B]            256        128        64
+cand_pin F32[16384,B]                          64         32         16
+expanded candidate mask F32[131072,B]          512        256        128
+top_k I32[512,B]                              2          1          0.5
+candidate selection I32[2048,B]                8          4          2
+query / attention output F32[512,64,B]         128        64         32
+hyper-connection F32[5120,4,B]                  80         40         20
+expert gate or up F32[2304,6,B]                54         27         13.5
+expert down F32[5120,6,B]                     120        60         30
+dense HCA comp_K F16[512,1,131072]              128        128        128
+dense CSA comp_K F16[512,1,65536]               64         64         64
+
+根拠:
+- U/src/llama-kv-cache-iswa.cpp:69–105はR(B)=PAD(min(131072,128+B),256)。
+  B1024/512/256ならR=1280/768/512。DSV4のrawはK-onlyで40層、512要素f16だから50/30/20MiB。
+- U/src/llama-kv-cache-dsv4.cpp:1294–1307,1390–1427はCSA ratio2/HCA ratio1、
+  compressed row幅512+128、context長から容量を決める。compressed persistentとstateは
+  同設定ならBから独立。L:3440,3485,3530の現状50/240/160MiBとも一致。
+- 同:881–903のreserve planはn_kv=kv_size。G:997–1024はF16[n_kv,B] mask。
+- M:525–575、ggml.c:6485–6516はfused indexer F32[n_comp,B]。
+  M:550–554の約2^26要素chunk制限はunfused path向けで、fusedはone chunkである。
+  actualログにLIGHTNING_INDEXERがあるので、unfused fallbackの256MiB制限をそのまま
+  fused scoreへ当てはめてはいけない。
+- M:588–609,812–821はcandidate blockとmask。expanded maskとscore/addはlive範囲や
+  inplace再利用に依存するため、単純に512MiBを何枚も合計しない。
+- ggml.c:5521–5533のggml_top_kは独立TOP_KでI32[k,B]を直接作る。古いargsort全幅view
+  の説明を流用してI32[131072,B]がgraph arenaにあるとは言わない。
+- M:651–653のgather branchはnt<=32（single stream）またはnt==n_stream。
+  B1024/512/256のPP reserveはM:718–743のdense branchで、comp_K連続copyはB-independent。
+- M:446–453,751、826–827、G:2305,2338,2351からQ/HC/FFN shapeを計算。
+
+raw KVの20/30MiB減は比較的確かなpersistent payload差だが、全CUDA freeの保証値ではない。
+arena totalにはat least2295MiBの不変payloadがある一方、B-dependent payloadも大きい。
+既存logから総改善の妥当な狭い上下限は算出できない。4669→2334/1167という予言はしない。
+
+5. arena外の費用とwarmup phase
+-----------------------------
+K:493–572のlegacy poolはbest fitでcached bufferを再利用し、新規時はrequestの1.05倍を
+256byteへ丸め、通常freeはcacheへ返す。同期してもcache全てがcudaFreeされるわけではない。
+従って4669MiB graph bufferの減少とpost-warmup freeの増加は同じ数字とは限らない。
+
+例としてU/ggml/src/ggml-cuda/top-k.cu:212–225,281–335は大幅width/複数rowでradixを使い、
+histogramをpoolへ取る。full HCA rows、B1024/512/256ならhistogram payload64/32/16MiB
+（state等別、default branch/buildに基づく式）。argsort.cu:31–42のchunk capは64MiB。
+これはfull-context graphを実行した場合のruntime要求例であり、初期arena予約や今回64token
+warmupで必ずその容量を物理確保した証拠ではない。
+K:2201–2268のMUL_MAT_IDはtype/CC/batch条件でMMVQ/MMQ/MMFまたはfallback sorted pathへ
+分かれる。後者のsrc1_sorted/dst_sortedはB*n_used*embedding_dimensionに比例するが、
+全typeでそのpathを通るとはしていない。
+
+vision computeはL:5719に97.45MiB。driver.cpp:141–146は独立mtmd contextを作り、
+image_max_tokensとmtmd_batch_max_tokens256でwarmupする。text n_ubatchを512/256へ変えても
+このvision設定が同じなら、vision weights/encoder arenaが半分になる根拠はない。
+textとvisionでCUDA context/poolも完全同一だと仮定せず、loadとwarmupのphaseを明記する。
+小さいtext warmupだけでは128k全contextのpool峰値を踏んだことにならない。
+
+guard phaseの訂正（主判断に関わる）:
+旧H/exploration-20261112/hot-ffn/llama-context.cpp:572–574はconstructorのsched_reserve直後に
+xeon_hot_backend_finishを呼ぶ。同hot-backend.cpp:122–124はbank構築前free>payload+3072MiB、
+:143–151はbankと全到達Hのprivate graph warmup後free>2560MiBを検査する。
+いずれもvision前であり、:123/:151の理由はlater vision/pool growth、:154のlog名も
+GPU_free_before_visionである。今回calibrationはpositive bankのこの判定を実行していない。
+M2の2122.25MiBを旧guardと同phaseの空きとして代入してはならない。
+3072−2122.25=949.75MiB、最小例triplet11.513671875MiBを加えた961.263671875MiBは、
+visionを既に含むM2にも同余白を再要求する場合だけの仮定算術である。その条件を新しい必須screen
+として追加しない。既存guardと同phaseのfresh M0に基づく必要改善量/採否は現時点unknown。
+M1–M3のfullwarmup freeは追加の実余裕確認であり、旧guard名で新thresholdを付けない。
+
+6. 次の実機試験: 少数点で分岐する
+---------------------------------
+実行者は通常APIを管理する実装側assistant。これはユーザーへ今追加commandを求める手順ではない。
+守る条件はGPU37..39、128k/f16、vision256、150W/ECC、既存3072/2560MiB guardと復帰運用。
+新しいobserver最適化やF/D0/D1/D2 suite全再実行をこの容量調査の前に要求しない。
+
+Stage 1: fresh1024の旧phase確認、必要なら512比較
+  - 最初にfresh1024で旧guardと対応するcontext reserve後・bank/vision前のM0を測る。
+    そこで小bankの容量が成立する見込みなら、既存pre/post guardをその元phaseのまま実施し、
+    後続vision/text warmupの実余裕も確認してbounded positive pilotへ進める。512は必須でない。
+    旧phaseで不足がある場合など、改善の理由があるときに1024対512へ進む。
+  - 同じcaller arm、同じライブラリpin、同じ他env、同じtoken列。n_batch1024は固定。
+  - fresh processごとにeffective n_ubatch、n_outputs_max1、offload env64、KV rows、
+    sched copies/splits、arena bytesを保存する。
+  - memory phaseは少なくとも
+      M0: model/context初期化とPP/TG reserve完了・sync後（bank/vision初期化前の対応点）。
+      M1: 同じvision load＋256token条件warmup完了・sync後。
+      M2: 同じ64token text warmup完了・logits取得同期後（今回2122.25MiBと対応するphase）。
+      M3: 実際の1024token prefill＋短いT1完了・同期後（大きいpromptによるpool追加を含む）。
+    CUDA backend queryのfree/totalを主とし、NVMLは同時点別欄。異なるAPI/phaseを差し引かない。
+  - 初期確認では大bankを作らずfreeの見込みを判定。初期化で増えたfreeだけで採用とはしない。
+  - 512で旧phaseの実不足を解消できず、改善も小さい場合は必要なallocation inventoryを解釈する。
+    arenaのB-dependent削減が大きく、256でその不足を越える見込みが具体的なら256へ進む。
+    小さいSWA差だけ、あるいはarenaほぼ一定なら256を反射的に追加しない。
+  - bank構築前とbank/全到達H private graph warmup後のguardはともに元のvision前phaseで維持。
+    後続vision/text warmup後もactual freeを記録するが、3072/2560MiBをそのphaseへ移さない。
+
+予約限定inventory案（必要ならStage1の512点に付加）:
+  runtimeの全tokenに計測を追加するのではなく、隔離診断build/one-shot reserveに限る。
+  PP / TG / finalPPそれぞれについて次を一度出力する。
+    (a) tensor identity/name/op/type/ne/nb/alloc_size、backend、source host-weight名、
+        view親、copy index、persistent/compute、allocation前後のlive node index。
+    (b) peak/high-waterを増やしたallocationのchunk/offset/size、当時liveなtensorの一覧、
+        free block総量と最大連続free block。
+    (c) final backend buffer sizeとphase最大値。
+  (a)だけでは『全shape weightがある』は確認できても、4669MiB峰値の原因は確定しない。
+  (b)でsimultaneously liveな二枚なのか、holeが小さく再利用できなかったのかを分ける。
+  既存A:951–959のreserve_n_sizeはno_allocでサイズを計算する経路を持つが、
+  正しい元のbackend分割/fusion deps、buffer alloc-size callbackを保持して使う必要がある。
+  CPUだけの架空graphで得た値を本GPU予約の実測とは呼ばない。release既定値を変えたり
+  observer frameworkを増設する必要はない。timing runではinventoryを無効にする。
+
+Stage 2: 容量見込みがある候補だけ数値/境界を確認
+  single seq・n_rs_seq0の場合、DSV4 init_batchはsplit_equal(U)を繰り返す
+  (kv-dsv4:1543–1555)。split_equalは一sequenceならUまで詰める (llama-batch.cpp:682–717)。
+  n_batch1024以内の同一token列を、候補Uとbaseline1024に同じlogical batchで与える。
+
+  U=512での目的別最小候補:
+    prefix64: 全設定で分割なし。既存fixtureの対照としてfinal prefix logits＋4T1を確認。
+    prefix513 (=U+1): 512+1。tiny/gather tailとcompressor/Engram state引継ぎ。
+    prefix575 (=U+63): 512+63。attention denseだがexpert offload閾値未満のtail。
+    prefix576 (=U+64): 512+64。直前ケースと一token差でhost expert offloadが有効になるtail。
+    prefix1024: 512+512。全prefill所要時間、複数chunk、SWA ring容量を越える入出力。
+  U=256なら対応は64/257/319/320/1024。baselineは同じprefix length/token ID/position。
+  最初に64と1024で容量と基本数値を確認し、成立見込みがある候補だけ3tail境界を追加すればよい。
+  外側logical batch上限の1025はn_batchを変えていない今回の最初の必須点ではない。
+  callerは現在64token bufferとposition64に固定しているので、これは単なるCLI -ub変更だけで
+  完了しない。隔離callerでbatch capacity、prefix token保存、position/ledger検査を合わせる。
+  input token lengthを文字数で代用せず、tokenize済みIDとhashを保存する。
+
+  各caseはfinal prefix出力と次4T1全129280 logitsをfinite＋保存し、baselineと比較する。
+  short64のbyte比較と、chunk/backendが変わる境界caseの誤差評価を区別する。
+  CPU/CUDA activation量子化、MMVQ/MMQ、FA key order、compressor分割が変わるため、
+  変更後全caseのbit一致だけを唯一の合格条件にはしない。maxabs/RMSE、安定化した分布差、
+  target logprob/上位token、必要なanswer taskを同じ固定入力で比較する。
+  その許容幅は新しい結果を見てから都合よく決めず、既存mixed-backend方針で事前に定める。
+
+  T1の時間はprefix1024または実pilotと合う代表prefixで32–64callの同一継続を取り、
+  first T1、中央値、p95、全callを保存する。数値F32出力I/Oはtimingと分ける。
+  全5caseを何回もtimingしてsuiteを膨らませる必要はない。容量と数値が成立した候補について
+  baseline前後を含む少数順序で差の大きさを見れば次のbank段階へ進める。
+  出力までのprefill全体時間も必須。見かけのT1だけでprefill regressionを隠さない。
+
+7. smaller ubatchの性能リスクをどう読むか
+---------------------------------------
+S:2158–2168は各splitでhost weight入力copyを行う。selected-only copyでも、ubatchを分割すると
+各chunkのexpert unionに重複するweightが再び必要になる。1024tokenを2/4chunkへ分けたとき、
+各chunkがほぼ全384expertを使えば、同じhost projectionの転送はほぼ2/4回へ近づく。
+現状route分布と実転送byte未測定のため、実速度が2/4倍遅くなるとは言わない。
+
+説明用の仮定: 各tokenが独立一様に384中6expertを選ぶと、Btoken内のunique期待値は
+384*(1-(378/384)^B)。B512ならほぼ384、B256でも約98%のexpertが現れる。
+これは実測routeへfitしていないモデル例で、実転送・CPU残量・GPU並行利益の予測値に使わない。
+それでも『半分のtokenなので転送も半分、同じprefill throughput』という前提を疑う理由にはなる。
+実route unionと転送phaseが記録できるなら、1chunkあたりと全prefix合計を分ける。
+
+同じT1 token列をteacher forcingしても、prefillの分割でKV/隠れ状態が微妙に変われば
+後のroutingは変わり得る。baselineと候補で独立にその事実を残し、言語差やbank差へ即帰属しない。
+今回の6case calibrationをbank選定へ転用しないという制約はここでも維持する。
+
+8. この段階で保証できないこと
+-----------------------------
+短いprefix64/1024は予約shapeの128kを実際に満たす実行ではない。候補block pruningや
+full-context runtime pool高水準をすべて踏むわけではない。128k設定を維持した容量実験と、
+128k workload全体の実行保証を区別する。初回bankの実験scopeを短いpilotに限定し、
+通常APIへ広い用途で採用する前に代表長context/実vision入力の経路を確認する。
+vision encoder warmupを通したことだけで、実画像＋長いtextのcombined taskの数値同等性を
+主張しない。必要な実画像caseは既存評価資産の一例でよく、今回容量点に大規模visual suiteは要らない。
+
+これらの不確実性はubatch調査を止める理由ではなく、容量点で何が判明し、次に何を測れば
+CPU/GPU並列bank試験へ進めるかを明確にするための境界である。

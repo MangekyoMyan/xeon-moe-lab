@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "baseline_commit": "fa6671f7b5281bad28947fe5324e2495e792a86f",
+  "first_stage": "fresh U1024 capacity M0..M3 and prefix64/1024 outputs",
+  "conditional_U512": "only after actual M0 capacity and workload cost interpretation; original guards unchanged",
+  "automatic_U256": false,
+  "bank_phase": "Not implemented in A0; M0 is correspondence point, not actual bank Gpre/Gpost",
+  "output_cap": 1,
+  "n_batch": 1024,
+  "n_ctx": 131072,
+  "threads": [
+    12,
+    24
+  ],
+  "gpu_expert_layers": [
+    37,
+    38,
+    39
+  ],
+  "kv": "f16/f16",
+  "vision": "same GPU/projector/warmup/max256",
+  "numerical_policy": "short64 exact byte gate vs saved F-before4; changed split reports metrics, no new tolerance or auto-adoption; all captured vectors finite",
+  "prefill": "one logical batch, only last row logits; capture actual ubatches via existing observing0 PREFILL ledger; T1 starts at exact prefix length",
+  "guard": "existing150W/ECC/fan<=70/temperatures/RAM64GiB",
+  "API_restore": "assistant restores original configuration after bounded experiments"
+}

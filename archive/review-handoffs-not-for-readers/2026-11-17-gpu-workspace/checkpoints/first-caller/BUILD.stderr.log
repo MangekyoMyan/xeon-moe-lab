@@ -1,0 +1,20 @@
+/home/codex/projects/llm-lab/gpu-workspace-20261117/driver.cpp: In function ‘int main(int, char**)’:
+/home/codex/projects/llm-lab/gpu-workspace-20261117/driver.cpp:98:17: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   98 |                 if(a=="--study-output")out=value;if(a=="--study-cases")cases_path=value;if(a=="--wiring-reference")old_reference=value;
+      |                 ^~
+/home/codex/projects/llm-lab/gpu-workspace-20261117/driver.cpp:98:50: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   98 |                 if(a=="--study-output")out=value;if(a=="--study-cases")cases_path=value;if(a=="--wiring-reference")old_reference=value;
+      |                                                  ^~
+/home/codex/projects/llm-lab/gpu-workspace-20261117/driver.cpp: In lambda function:
+/home/codex/projects/llm-lab/gpu-workspace-20261117/driver.cpp:145:13: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  145 |             if(!pr.synchronized&&pr.label_accepted)resources.abandon=true;need(pr.ok(),"prefill result");need(api->close(ctx),"prefill close");session=false;auto prefill_trace=snapshot(*api);validate_ledger(prefill_trace,prefix,1,true);
+      |             ^~
+/home/codex/projects/llm-lab/gpu-workspace-20261117/driver.cpp:145:75: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  145 |             if(!pr.synchronized&&pr.label_accepted)resources.abandon=true;need(pr.ok(),"prefill result");need(api->close(ctx),"prefill close");session=false;auto prefill_trace=snapshot(*api);validate_ledger(prefill_trace,prefix,1,true);
+      |                                                                           ^~~~
+/home/codex/projects/llm-lab/gpu-workspace-20261117/driver.cpp:154:17: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  154 |                 if(!s.result.synchronized&&s.result.label_accepted)resources.abandon=true;need(s.result.ok(),"T1 result");std::memcpy(values.data()+size_t(i+1)*nv,ptr,nv*sizeof(float));s.stamp[6]=ns();
+      |                 ^~
+/home/codex/projects/llm-lab/gpu-workspace-20261117/driver.cpp:154:91: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  154 |                 if(!s.result.synchronized&&s.result.label_accepted)resources.abandon=true;need(s.result.ok(),"T1 result");std::memcpy(values.data()+size_t(i+1)*nv,ptr,nv*sizeof(float));s.stamp[6]=ns();
+      |                                                                                           ^~~~

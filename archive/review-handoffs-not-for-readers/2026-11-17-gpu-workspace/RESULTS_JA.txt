@@ -1,0 +1,159 @@
+GPU容量の測定段階の訂正・実bank容量試験・train_first5（2026-11-17）
+================================================================
+
+結論
+----
+前回の「GPUの空きが足りない」という断定は訂正する。vision/text準備後のfreeを、vision前に
+適用する旧bank guardへ当てはめていた。今回その位置をソースで確認し、同じ段階を実測した。
+既存ubatch1024のままで、32expert/native458.4375MiBの容量fixtureが旧Gpre/Gpostを通過した。
+その領域を保持したまま通常モデルのshort64/long1024を実行でき、全保存logitsも基準とbyte一致。
+容量を作るためにubatch512/256へ変更することは、この段階では必須でなくなった。
+
+その後、通常APIのtemplate/tokenizerで20caseをfreezeし、最初のtraining5caseだけを採取。
+35expert/23層/native453.427734375MiBのoffline配置案を作った。これは未確保・未統合である。
+実容量を試した32expert fixtureと、trainingから選んだ35expert案は別物として扱う。
+通常APIは元config/CPU/libllama/CUDA/baseへ復帰済み。RESTORED_RUNTIME.jsonが最終receipt。
+
+今回の順序
+----------
+1. Pro返却34filesのSHA/sizeを確認、旧sourceと照合。重要codeは親、長いrawはTerraも確認。
+2. 新callerのprefixを64固定から可変へ。batch容量1024、PREFILL observing0で実ubatchを採取。
+   生のlong textはtokenize APIだけで2445IDs、元wiringは1409IDsと確認し、先に固定した。
+3. fresh U1024を1run。M0..M3、prefix64/1024と次4T1の全F32を保存。
+4. 旧hot-backendのcreate/finishだけを隔離callerへlink。実モデルのschedulerには組み込まず、
+   容量fixtureを保持して旧guards/private graph warmup/通常モデル出力を検査した。
+5. APIを元構成に復帰し、/apply-template と /tokenize のみで20caseの境界とIDsを固定。
+6. APIを再度一時停止し、bankなしの元配置でtrain_first5だけをfull prompt+64T1採取。
+   元APIへ再復帰。残りtrain/validation/holdoutの推論は行っていない。
+
+容量/pilotのCPU602a6578…・libllama83bfeefe…は前回の診断用pinを再利用し、再buildしていない。
+CUDA45f6b7d8…・base2e13b370…も不変。通常APIのCPU33a9e346…・libllama1d1e7d72…とは区別する。
+変更したのは隔離callerと容量fixtureの初期化ログ/zero-input確認。通常APIの設定・実行ファイルは
+置換しておらず、終了時に通常用の4libraryを実maps/backing hashで検査した。
+150W/ECC、fan<=70%、既存温度guardとRAM reserve64GiBも維持した。
+
+1. 測定段階と容量（CUDA backend memory API、MiB）
+------------------------------------------------
+測定段階                                     bankなし       32expert fixture保持
+M0 context reserve後・vision前                3638.25        3638.25
+Gpost private graph準備後・vision前           未実施         3136.25
+M1 vision model/dummy shape予約後             2612.25        2110.25
+M2 text64 warmup/sync後                       2122.25        1654.25
+M3 long1024＋4T1、結果保存後                   2102.25        1630.25
+
+CUDA APIとNVML CLIは別timestamps/別欄で保存。NVML freeは整数MiBで上記より0.75MiB大きい
+表示だった。CUDA total32494.125MiBとNVML total32768MiBを同一のaccountingとして計算しない。
+queryは順次実施、間隔約32～57ms。厳密同時の観測や瞬間peakではない。
+M1のmtmd warmupはsource上dummy形状でreserveする処理で、実画像のGPU演算peakを踏む試験ではない。
+
+旧guardsはhot-ffn/hot-backend.cpp内で、main context reserveの後、visionの前に適用される。
+今回の容量fixtureでもこの順番・strict比較を維持した。M2へ同じ余白を再要求する追加guardは
+導入していない。M0単体は対応点で、実admissionを証明するのは以下のGpre/Gpostの記録。
+
+2. 実bank容量fixture
+-------------------
+固定規則: layer0,4,23,24それぞれexpert0..7。4種類IQ2_S/IQ3_XXS/IQ3_S/MXFP4を含む。
+routeを見て選んだ配置ではなく、容量/初期化を確認するため先に固定したもの。
+native gate/up/down triplet総量480,706,560 B = 458.4375MiB、計32experts。
+bank bufferの実要求量480,707,328 B = 458.438232421875MiB。
+
+実Gpre:
+  free3,814,981,632 B > payload480,706,560 B + margin3,221,225,472 B。
+  条件との差113,049,600 B = 107.8125MiB。strict条件を通過。
+実Gpost:
+  free3,288,596,480 B > margin2,684,354,560 B。
+  条件との差604,241,920 B = 576.25MiB。strict条件を通過。
+
+選択4層×到達H1..6の24構成で、各3回、計72回private GPU graphを計算。
+各構成の最後の出力をreadbackし、全要素が有限かつzero inputに対してzeroであることを確認。
+24回の出力確認であり、72回すべての中間出力を比較したという主張ではない。
+旧実装どおり未選択のeligible層にもprivate CPU graph/warmupが作られる。
+初期化による総free差502MiBのうち、bank buffer以外は約43.562MiB。pool/driver/activation等の
+個別帰属までは測っていない。後のphaseでは増分も変わるので、この値を普遍定数にしない。
+
+このbankを主モデルの演算に使っていない根拠:
+- 使用libllama/CPUの全symbol表にxeon_hotがなく、元link記録にもhot-backend objectがない。
+- driverはcreate/finishだけを呼ぶ。返されたbackendをmain schedulerへ追加していない。
+- mainのactual providerはCUDA0/CPUの2つをpin照合。report.bank_used_by_model=false。
+従ってこれは正の容量/初期化試験であり、hybrid推論の高速化・品質・本番採用試験ではない。
+
+3. 通常モデル出力の照合
+-----------------------
+各run: raw short64 / long1024を別々にKV clearしてprefill、その後4T1。
+各caseでprefix最後のlogitsと4T1後のlogits、5×129280 F32を保存。
+bankなし/保持中の両caseが全byte一致し、比較対象1,292,800値は有限。
+short64のT1部分は、前回F-beforeの4call保存物とも一致。
+実ubatchは[64]、[1024]。設定から推測した列ではなくPREFILL ledgerで確認。
+
+記録したprefill全体時間（decode_begin→output_ready）:
+  short64: bankなし5146.672ms / 保持中5319.101ms
+  long1024: bankなし16730.958ms / 保持中16658.874ms
+各1run/各4T1だけの容量診断で、時間の揺れもある。bankを推論に使っていないためspeedupとして
+採点しない。short T1の変動も原本に残しており、都合のよい区間だけ選んでいない。
+128k設定を維持したreserveであって、128k実入力や実画像推論を通した保証ではない。
+
+4. 次段階入力のfreeze
+--------------------
+元20case/12familyを保持し、train10 / validation5 / holdout5を変えていない。
+通常APIの /apply-template と /tokenize を使用し、生成endpointを呼ばずに固定した。
+CLI設定は--jinja、chat_template_kwargs={"thinking_mode":"chat"}。
+実rendered prefix末尾は<｜Assistant｜></think>。prefix+reference全体をtokenizeし、
+prefix IDsが厳密prefixであることを20caseすべてで確認した。片ごとのIDs連結を仮定していない。
+各prefix187～317tokens、reference195～337tokens。全caseで必要な65 continuation IDsがある。
+exact rendered prefix、IDs、hash、先頭64のdecode表示、次token対応をPILOT_TOKENS.jsonへ保存。
+template source identity/capsも保持。本文を反復/padding/truncateしていない。
+
+5. train_first5の実route
+----------------------
+指定順の5caseをbankなし、元ubatch1024/GPU37..39で実行。
+case                                 full prefix    T1位置
+text_cache_budget_ja                  272            272..335
+text_cache_budget_en                  211            211..274
+mixed_build_log_ja_en_log              270            270..333
+code_stable_grouping_python           240            240..303
+code_stable_grouping_cpp              240            240..303
+
+5×64calls=320、37層×320=11,840records、6ID×11,840=71,040選択slots。
+各case一session、各call37層一度ずつ・6unique IDs・flags/drop0、同期完了を確認。
+全64callでfinite検査、保存F32はprefix＋first4 T1の5rowsだけ。remaining60のF32は保存していない。
+この収集用callerの時間は診断scopeであり、無観測の本番throughputとして採用しない。
+共通wiring4call対照も通過したが、候補選択のfrequencyからは除外している。
+
+ENとPython/C++ではposition256でgeneration1→2を自然に観測した。
+ENはcall45、Python/C++はcall16。そこでのledger/record対応も正常。
+他2caseは今回の範囲ではgeneration1だけ。再buildの具体的原因は新たに確定していない。
+異常経路・全generation挙動の網羅試験に拡大してはいない。
+
+6. 最初の配置候補（まだ実確保していない）
+---------------------------------------
+routeを見る前に予算458.4375MiBをPILOT_DESIGNへ固定した。
+規則はtraining frequency/native triplet bytes、同点はlayer/expert順。整数比Fractionで再計算可能。
+観測7,779個の(layer,expert)から35experts/23層、native475,453,440 B = 453.427734375MiBを選んだ。
+同じtraining5caseに適合させた候補で、最適なsaved-timeを求めたものではない。
+TRAIN5_CANDIDATE.plan SHA256:
+  4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596
+
+training内のH0..H6（同時選択6個のうち候補に入る個数）:
+  [8235, 3086, 467, 52, 0, 0, 0]
+平均H=0.3527027、候補slot数4176/71040=5.878378%。
+H0は全CPU37層・全token組の69.5524%。各case/layerでresetした連続miss長も保存。
+候補を置かない14層のH0もこの割合に含む。候補を置く23層だけならH0は3755/7360。
+各層の候補数は最大3。そのためこの案の到達可能Hはlayerごとに0..候補数で、H6を要求しない。
+
+validation/holdoutのroute、残りtrain5は使っていない。generalization scoreではない。
+CPU残slot数は時間ではない。CPU/GPU ready・H0 dispatch・scatter・queue競合は今回未測定。
+同予算でも配置/graph/poolの形が容量fixtureと違うため、35expert案のadmissionは未確認。
+saved_time、GPU_ready、quality_acceptanceはunknownのまま保存した。
+
+7. 監査と現在状態
+----------------
+親のscriptとTerraが別にraw/数値/hash/候補を再計算し一致。
+各runのhealth exited/return0、GPU query timeout0、STOP_REQUESTEDなし。
+保存された最後30監視標本の範囲でGPU最大34C/HBM34C/CPU36C/fan40%、利用可能RAM最小67.67GiB。
+全期間の瞬間最大/最小を保証するものではない。
+APIは最終PID241828で準備完了、元configと主要4library hashが一致、監視active/alertなし。
+ユーザーに今追加で実行してもらうcommandはない。
+
+次はfirst5から得た小候補について、全missの追加費用と代表H1..3のCPU全6/逐次/並行コストを
+同じ実入力で測る段階。今回の容量訂正と実guard通過を踏まえ、512/256や大きいallocator tracingを
+先に必須化しない。現時点で通常APIへ新しいbankや分担処理は組み込んでいない。

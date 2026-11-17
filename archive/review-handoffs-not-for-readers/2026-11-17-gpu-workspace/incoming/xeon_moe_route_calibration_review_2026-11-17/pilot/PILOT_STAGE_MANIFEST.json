@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "corpus_file": "PILOT_CASES_JA_EN_CODE.json",
+  "corpus_sha256": "fa1f41571af7c6d8272bb639877ea0cc32b4c09747939d5579a22d2998c11f5a",
+  "stages": [
+    {
+      "stage": "capacity",
+      "cases": [],
+      "purpose": "Establish fresh-free/guard feasibility for a bounded native bank before collecting the pilot; no routing choice or completed hybrid path is required at this stage",
+      "calls_if_64_per_case": 0,
+      "records_if_observed_complete": 0
+    },
+    {
+      "stage": "train_first5",
+      "family_ids": [
+        "text_cache_budget",
+        "mixed_build_log",
+        "code_stable_grouping"
+      ],
+      "purpose": "Small initial training route screen; form a transparent candidate and probe costs or a bounded positive path if available. Unmeasured utility stays unknown; may stop if feasibility or measured benefit is absent",
+      "cases": [
+        "text_cache_budget_ja",
+        "text_cache_budget_en",
+        "mixed_build_log_ja_en_log",
+        "code_stable_grouping_python",
+        "code_stable_grouping_cpp"
+      ],
+      "calls_if_64_per_case": 320,
+      "records_if_observed_complete": 11840
+    },
+    {
+      "stage": "train_remaining5",
+      "family_ids": [
+        "text_unit_conversion",
+        "mixed_config_change",
+        "code_interval_merge"
+      ],
+      "purpose": "Complete the training split only if the first stage justifies proceeding",
+      "cases": [
+        "text_unit_conversion_ja",
+        "text_unit_conversion_en",
+        "mixed_config_change_ja_json",
+        "code_interval_merge_python",
+        "code_interval_merge_cpp"
+      ],
+      "calls_if_64_per_case": 320,
+      "records_if_observed_complete": 11840
+    },
+    {
+      "stage": "validation5",
+      "family_ids": [
+        "text_plan_constraints",
+        "mixed_table_reconciliation",
+        "code_bounded_queue"
+      ],
+      "purpose": "Compare a predeclared small candidate set; then freeze bank, cost model, budget, weights and exclusions",
+      "cases": [
+        "text_plan_constraints_ja",
+        "text_plan_constraints_en",
+        "mixed_table_reconciliation_ja_en-columns",
+        "code_bounded_queue_python",
+        "code_bounded_queue_cpp"
+      ],
+      "calls_if_64_per_case": 320,
+      "records_if_observed_complete": 11840
+    },
+    {
+      "stage": "holdout5",
+      "family_ids": [
+        "text_document_summary",
+        "mixed_api_incident",
+        "code_utf8_line_reader"
+      ],
+      "purpose": "One frozen candidate evaluation; baseline and actual hybrid routes/output/timing on identical input IDs",
+      "cases": [
+        "text_document_summary_ja",
+        "text_document_summary_en",
+        "mixed_api_incident_ja_en_http",
+        "code_utf8_line_reader_python",
+        "code_utf8_line_reader_cpp"
+      ],
+      "calls_if_64_per_case": 320,
+      "records_if_observed_complete": 11840
+    }
+  ],
+  "full_pilot_calls": 1280,
+  "full_pilot_records": 47360,
+  "records_per_session": 2368,
+  "cases_by_split": {
+    "train": 10,
+    "validation": 5,
+    "holdout": 5
+  },
+  "all_text_frozen_before_routes": true,
+  "token_manifest_still_required": true,
+  "one_session_per_case": true,
+  "original_six_calibration_cases_excluded": true,
+  "additional_windows_remain_in_same_family": true,
+  "freeze_before_holdout": [
+    "native_bank_layer_expert_ids",
+    "actual_triplet_bytes",
+    "cost_model_version",
+    "budget",
+    "candidate_objective",
+    "weights",
+    "failure_exclusions",
+    "rendered_text_and_token_manifest_hashes"
+  ],
+  "current_caller_is_not_drop_in_compatible": "Current calibration caller hardcodes prefix64 and a raw text field; full prompt/reference boundary and variable expected positions require a bounded extension.",
+  "unknown_fields": [
+    "model_token_counts",
+    "rendered_prefix_token_counts",
+    "GPU_ready_cost",
+    "CPU_remaining_cost",
+    "saved_time",
+    "positive_bank_admission"
+  ]
+}

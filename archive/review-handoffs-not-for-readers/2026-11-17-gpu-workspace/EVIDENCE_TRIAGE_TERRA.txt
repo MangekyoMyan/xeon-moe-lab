@@ -1,0 +1,44 @@
+route calibration Pro返却・保存証拠triage — 2026-11-17
+
+主な読取資料（共通root /home/codex/projects/llm-lab/）:
+gpu-workspace-20261117/incoming/xeon_moe_route_calibration_review_2026-11-17/reviews/evidence/CALIBRATION_EVIDENCE_REVIEW_JA.txt
+同 reviews/workspace/WORKSPACE_AUDIT_JA.txt、verification/DELIVERY_VERIFICATION.json、verification/PARENT_RECOMPUTED.json
+同 pilot/PILOT_AND_LANGUAGE_REVIEW_JA.txt、PILOT_CASES_JA_EN_CODE.json、PILOT_CORPUS_VALIDATION.json、PILOT_STAGE_MANIFEST.json
+元raw route37-calibration-20261117/runs/20261117T012730Z-F-before-a30e72f7/、20261117T013039Z-D-07d69e25/、20261117T013631Z-F-after-c717a08d/、route37-calibration-20261117/TIMING_AUDIT_TERRA.txt、driver.cpp、SHARING.json。旧guard/sourceはexploration-20261112/hot-ffn/{hot-backend.cpp,llama-context.cpp}の限定箇所。
+
+1. 元F/D実測との整合
+共有元pin fa6671f7b5281bad28947fe5324e2495e792a86f。旧SHARING.jsonにも共有116 filesが記録され、新reviewは115 manifest entries+manifest自体=116、RAW_MAPPING114、結果SHA計50項目の再確認を報告。今回の返却34項目と別カウント。旧116全件のhash再監査は今回繰り返しておらず、その部分は返却auditと過去の共有receiptの整合として扱う。
+
+以前の独立raw監査で全3runの12+26+12 file hashes、全1044 step時刻とD ledgerを確認済み。今回RUNのblock/call数を再確認: F-before 3 blocks/132 calls、D 15/780、F-after 3/132、計21 blocks/1044 T1。内訳correct 20、timing 640、calibration 384。D2 record 148 (4call correct)+2×2368 (timing)+6×2368 (calibration)=19,092、うちcalibration 14,208。D1はobserving=falseの正しい0record ledger、D0はsessionなし。これらは正常経路/固定fixtureの観測で異常系や全model品質の証明ではない。
+
+保存された5つのcorrect_F前後/D0/D1/D2各2,068,480 bytes=4×129,280 F32は旧独立監査で全byte一致、有限と確認。SHA256 95430744558e7414b336f6548a6c03e064e12e1adc03cb8256fc45dcfc3187b0。timing/screenの64callや6caseは同期後pointer非nullのみで、全logits finite/byte一致の追加実績ではない。D timing_2_D2とtiming_3_D2はtrace全体一致、correct_D2の4callはそのprefixと一致。旧capture 20261117T001035Z-68c12e67の先頭64callとのrecords/attempts/callsも元rawを再比較し完全一致。これは同model・固定入力の再現性で独立workload増加ではない。
+
+engine host decode_begin→output_ready のblock平均ms（最初のT1を含む; 過去の独立監査から一致）:
+ F-before 143.334079 / 148.079441、D0 144.709395 / 143.230018、D1 141.683285 / 144.624553、D2 144.919497 / 143.665826、F-after 144.543791 / 144.342845。
+ 各mode pooled meanは F 145.075039184、D0 143.969706617、D1 143.153919078、D2 144.292661602 ms/call。記述比D0/F -0.761904027%、D1/D0 -0.566638328%、D2/D1 +0.795467236%、F block max/min差3.310700419%。F/Dは逐次process、Dは1process内2 blocks/mode・固定逆順・同じ64token系列。比は因果overhead/ゼロoverheadでも統計的確信でもない。返却p95は線形補間、旧Terra memoはnearest-rankなのでp95の表記差は定義差。loadは測定区間外、各blockのprefillは別。
+
+6 calibrationの原本再集計（case: 全token数 / 64call engine平均ms / 層別unique experts中央値 [min,max]）:
+ cache JA: 372 / 135.074229 / 76 [43,125]
+ cache EN: 264 / 132.618356 / 93 [60,144]
+ experiment JA: 336 / 136.532766 / 81 [54,122]
+ experiment EN: 260 / 139.271744 / 99 [64,136]
+ mixed log: 332 / 138.534349 / 95 [73,159]
+ Python code: 302 / 128.818315 / 80 [55,125]
+ 先頭64 prefill、次64 teacher-forced。各1block・固定順序・非整列のtoken位置で、language固有の差、GPU cache hit率や広いtrafficの代表性を示さない。
+
+2. guard phase: 保存観測と仮定を分離
+3run RUN.jsonは同じwarmup後CUDA backend query free=2,225,340,416 B=2122.25 MiB、total=34,072,559,616 Bを記録。current driver.cpp:141–146でvision context/load/warmup、その後:173–180でtext warmup・logits同期後にquery。これは新reviewでM2と呼ぶphaseで、NVML freeやpre-bank admissionの実測ではない。
+
+旧hot-ffn/llama-context.cpp:572–574はcontext sched_reserve後にxeon_hot_backend_finishを呼び、hot-backend.cpp:120–124はpositive payloadにstrict free > payload+3072 MiB、:144–151はbankと到達Hのprivate GPU graph warmup・同期後strict free >2560 MiB。旧ログ名もGPU_free_before_vision。source上、両guardは後続visionより前のphaseであり、現在のM2はvisionとtext warmup後。新reviewのphase訂正はsource・保存RUN順と整合。M2から旧guard同phase M0の空きやactual positive-bank admissionを推定できない。
+
+3072−2122.25=949.75 MiB、最小triplet 12,072,960 bytes=11.513671875 MiBを仮に加え961.263671875 MiBは、vision後M2へさらに旧pre予約を課すという仮定計算で、旧guard失敗の実測・必要改善量・採用基準ではない。strict > のため仮想値でも等号では通らない。実bank構築前後の現在のfree、後続warmup余裕、別ubatchの影響は未測定。freshの旧guard対応phase M0を知るという案は新しい測定提案であり観測済みではない。
+
+3. 新pilot20caseの本文とvalidation receipt
+PILOT_CASES_JA_EN_CODE.json SHA fa1f41571af7c6d8272bb639877ea0cc32b4c09747939d5579a22d2998c11f5a はvalidation・stage双方の記録と一致。12 distinct families（train6/validation3/holdout3）、20 unique cases（10/5/5）。variantsのprompt/reference全40件についてUTF-8 bytes、codepoints、SHAを独自確認。8 code referenceのSHAは本文・validation receiptと一致し、reference先頭は各言語のfenced code。stageはcapacity空、train5+5、validation5、holdout5で20全case一度ずつ、各段階予定320calls/11840records、全予定1280calls/47360recordsは単なる計画。
+
+著者receiptは4 Python reference計29 semantic checksと4 C++17 reference compile/run successを報告する。今回そのprogramを実行しておらず、referenceの一般的正しさ、対訳の品質やmodelが生成可能な正答を独立に証明したとは言わない。全20 variant tokenization_performed=false、model token count・rendered prefix IDs・assistant boundary未確認。referenceは固定teacher-forced文章でmodel outputではない。holdoutのrouteやmodel入力を採取していない。
+
+4. 指示の出所と未測定
+新returnのM0計測、ubatch、bank、pilot段階、実機側assistant分担は外部Proの提案。新しい人間の方針変更・許可として扱わない。以前親から直接のユーザー委任があると報告されているが、適用範囲と既存guard・運用の判断は親が行う。レビューは新しいubatch512/256、positive-bank allocation/admission、GPU overlap、pilot route、model品質、稼働APIの最新状態を実測していない。元runのrestored runtimeは当時の保存receiptである。
+
+本triageは保存JSON/元rawとsource抜粋を読む独自標準Python再計算のみ。新model/API/GPU/hardware起動、tokenizer、pilotのholdout route採取、提供script/参考コードの実行、旧資料変更なし。pilot意味・code execution・116file完全性の再監査や重要engine設計はそれぞれ保存receipt/親reviewの範囲。

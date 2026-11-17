@@ -1,0 +1,219 @@
+route-calibration 保存証拠の独立監査
+2026-11-17
+対象commit: fa6671f7b5281bad28947fe5324e2495e792a86f
+
+判定
+====
+今回のF/D数値・観測負荷screenは、報告された範囲で成立している。
+保存rawとsourceから、先へ進む前に同じF/D suiteを繰り返さなければならない欠陥は見つからなかった。
+観測frameworkの追加最適化より、ubatchとworkspaceの調査を次に進める判断を支持する。
+これはゼロoverhead、全入力での同等性、実GPU並列化の正しさを証明したという意味ではない。
+
+実施範囲
+========
+CONSULT/RESULTS/README、driver、call_control、route_client、run_case、analyze、replay_sharedの
+sourceを読んだ。全共有ファイル、全runのJSON/stdout/stderr、全5F32を自作Python stdlibで読んだ。
+供給されたscriptをimport/runせず、ELF/shared library、モデル/GPU/API、サービス操作を実行していない。
+変更はrepo外のこの監査directoryへの新規資料だけである。
+
+再現script: audit_calibration_evidence.py
+全数値・検査結果: CALIBRATION_EVIDENCE_AUDIT.json
+共有入力hash: SOURCE_SHA256.json
+
+再現:
+  python3 audit_calibration_evidence.py --repo <fa6671f pinned worktree> --output <repo外の新directory>
+
+1. 配布・build・元libraryとの関係
+===============================
+FILES_SHA256.jsonの115項目とmanifest自身で116共有ファイル。実ファイル集合、全size、全SHA一致。
+RAW_MAPPINGの114対応も共有fileのhashと一致した。
+incomingの25manifest項目は全件一致。前回親が作ったZIPがこのworkspaceに残っていたため、
+その実byteのSHAもINTAKEのe0f5c399...dde3afと一致することを確認した。
+
+top-level BUILD.jsonがpinした6sourceのhashは全て一致し、最終buildのstdout/stderrは空。
+3runのBUILD.jsonはtop-levelとbyte一致、LAUNCH_MANIFESTのbuild/runner SHAも一致した。
+checkpoints/initial-callerは異なる初回buildの履歴として残されている。今回のrunのbuild pinは
+最終binary側だけに対応する。実機ELF自体は公開されていないので、そのbinary hashを新たに
+こちらで再計算した主張ではない。
+
+今回BUILDのfrozen library hash/pathは前回captureのRESTORED_RUNTIMEと対応する。
+diagnostic CPU/base/CUDAは前回LINK_BUILD、diagnostic libllamaもその保存hashと対応する。
+engine libraryの再build/変更が今回の比較に混入した、という矛盾は見つからなかった。
+
+各runのRESULTS_SHA256は計50項目を照合した。health.jsonは共有guard-health.jsonのbyteを読む。
+非公開server-config.jsonは、LAUNCH_MANIFESTに保存されたcommand/environmentを同じJSON
+整形でメモリ内に再構成し、元raw hashとの一致を確認した。commandはデータとして読むだけで
+一切実行していない。秘密の推測や実機file取得もしていない。
+
+2. F/D比較の実体
+===============
+保存順序はDESIGNのF-before → D → F-afterと一致する。modelが同時常駐した比較ではない。
+F前後は各3blocks/132calls、Dは15blocks/780calls、合計21blocks/1044T1calls。
+内訳は数値20、時間640、6case384。観測ONのrecordは19092、そのうち6case14208。
+
+F:  route APIをresolveせず、InactiveAPIのcoordinatorを通る。
+D0: diagnostic libraryだがsessionをopenせず、InactiveAPIを通る。
+D1: session observing=false、call/attemptを保存、record0、complete_decode_attempts0。
+D2: observing=true、1callに37record、6unique IDs、正常完了台帳。
+
+全blockのmodeとその台帳の期待を原本から検査した。D1をrecord不足の失敗として扱ったり、
+D0をobserving=falseのD1と同じものとして扱ったりしていない。
+全recordのordinal/attempt/request/sequence/decode/position/context/phase/projection等を検査。
+全attempt/callのlabel、親子対応、正常status、sync/completionも全field検査した。
+generationは全件1、drop/flags0。実generation遷移・異常経路の新規実験ではない。
+
+Fのfunction providersは4、Dは16。RUNのpath/device/inode/sizeがPROVIDER_EXPECTEDと全一致。
+CPU/CUDAの実scheduler providerも期待と一致する。pathはBUILDのarmごとのlibraryへ対応する。
+これは保存receipt同士の検査であり、現在のremote inode/libraryをこちらが読み直した結果ではない。
+
+全runの実cparams:
+  n_ctx131072, n_batch1024, n_ubatch1024, n_seq_max1,
+  n_outputs_max1, n_outputs_max_per_seq1, threads12/24, backend_sampling=false。
+40層expert weightのhost flagは0..36 true、37..39 false。vision loadも記録される。
+raw text/add_special=true/parse_special=true、chat templateなしというscopeが明示されている。
+
+3. 数値の独立確認
+================
+correct_F（前後）/correct_D0/D1/D2の5fileを実byteで比較した。
+各file 4×129280=517120 F32、2068480 B。全byte一致し、全要素がfiniteだった。
+SHA256:
+95430744558e7414b336f6548a6c03e064e12e1adc03cb8256fc45dcfc3187b0
+
+これはwiring_fixtureの位置64..67の比較。timing/screenはsource通りpointer非null検査だけで、
+logits fileがない。全64callや別言語の数値一致/finiteまで拡張して解釈できない。
+
+追加のroute再現性確認:
+- D2の二つの64call timing blockはrecords/attempts/calls/statsを含むtrace全体が一致。
+- correct_D2の4call台帳は、その64callの先頭と一致。
+- 前回cap1024の68call captureの先頭64callとも、全record/attempt/callが一致。
+
+この追加確認はrouteの再現性の補強である。保存していないlogitsの数値同一性を代用しない。
+
+4. 時刻・統計の独立確認
+======================
+全1044stepについて7個のtimestampが整数・非減少であること、次stepの開始が前step終了後で
+あること、prefill→session setup→blockの順、block_endが最終step終了後であることを確認した。
+全stepのengine/label_prepare/decode_return/output_sync/validation/finalize/post/step/next_step
+区間をrawから再算出した。FINAL_ANALYSISの全block、全interval mean/median/p95/min/max、
+first T1、first以外、block wall、prefill、setupも独立値と一致した。
+
+ここでのp95は(n-1)*0.95の線形補間。nearest-rankとは定義が違うので、Terraメモとの差を
+計算誤りとして扱わない。信頼区間やp99は新たに付けていない。
+
+時間block（ms/call、decode_begin→output_ready）:
+arm        block        mean       first       after-first mean    p95(linear)
+F-before   F0           143.334079  173.546305  142.854520          157.625276
+F-before   F1           148.079441  149.274155  148.060478          162.318732
+D          D0-first     144.709395  152.101164  144.592065          160.384547
+D          D1-first     141.683285  147.932353  141.584094          152.230816
+D          D2-first     144.919497  160.067072  144.679059          162.538870
+D          D2-second    143.665826  153.827146  143.504535          159.388497
+D          D1-second    144.624553  148.500861  144.563024          159.407847
+D          D0-second    143.230018  155.271066  143.038890          160.401880
+F-after    F0           144.543791  148.978740  144.473395          157.373544
+F-after    F1           144.342845  147.949722  144.285593          160.786099
+
+全block平均（同じ64callなので平均の平均と全call平均は一致）:
+F   145.075039184 ms
+D0  143.969706617 ms
+D1  143.153919078 ms
+D2  144.292661602 ms
+
+記述的な比:
+D0/F  -0.761904027%
+D1/D0 -0.566638328%
+D2/D1 +0.795467236%
+Fのblock平均max/min差 3.310700419%
+
+計時されたengine外caller区間のblock平均は、Fが1.593〜1.711 us、D2が2.943〜3.389 us/call。
+engine内のbridge/hook/台帳の一部はこの外側時間に含まれず、Dmode比較側へ入る。
+この数値をcollector全負荷が3usと読むのは誤り。
+
+firstを取り除いた結果だけを採用していない。D1がD0より速い等の変動と、少ないblock数を
+踏まえ、+0.795%を厳密な機能単体overheadと解釈しない。F/Dは順次process、Dmodeも固定された
+逆順配置なので、温度/cache/順序などの影響から完全に分離した因果実験ではない。
+一方、今回のscopeで大きな負荷を疑わせる結果はなく、同じsuiteの反復を最優先にする根拠は弱い。
+
+5. 6caseの保存内容と限界
+=======================
+全case本文hashとincomingの自作6本文の一致を確認した。全token ID列は3processで一致する。
+各tokenはvocab範囲内、recorded lengthと配列長が一致し、native little-endian i32 hashも
+独立に計算してFINAL_ANALYSISと照合した。tokenizerをこちらで再実行した主張ではない。
+
+case                   全文tokens   mean ms      layer-unique median/min/max
+cache JA               372          135.074229   76 / 43 / 125
+cache EN               264          132.618356   93 / 60 / 144
+experiment JA          336          136.532766   81 / 54 / 122
+experiment EN          260          139.271744   99 / 64 / 136
+mixed log              332          138.534349   95 / 73 / 159
+Python code            302          128.818315   80 / 55 / 125
+
+各caseは最初の64tokensをprefillし、次の64tokenをteacher forcingする。同じ64tokenでもJA/ENの
+意味範囲は同一ではない。各1block、順序固定、生成回答でない。この差から日本語の固有の遅さ、
+Pythonコードの固有の速さ、言語だけのrouting差を証明しない。calibration専用を維持する。
+
+6. 容量・監視・復帰
+==================
+BASELINE_API_RECEIPTは通常APIのcap1とcompute4669.26MiBを保存している。
+3つの新runのstderrにもcap1、compute4669.26MiBがある。cap整合で大きいworkspaceが減ったという
+結果ではない。この仮説は今回の結果に応じて更新する必要がある。
+
+warmup後CUDA backend queryはF-before/D/F-after全て一致:
+  free 2,225,340,416 B = 2122.25 MiB
+  total 34,072,559,616 B
+API停止前のNVML free2553MiBと、時点/APIをまたいで合算・逆算しない。
+positive bank allocation/admissionの保存結果はない。
+
+3runのstderr全byteをhashし、errors=replaceで全行を読んだ。各576050B、5724行、置換文字1個。
+error/fatal/failed/stop_requestedのmarkerはなく、stdoutも予定blockの完了行と最終成功行に一致。
+これは潜在的な任意の不具合不存在の証明ではない。
+
+全guardはexited/return0、query timeout/recovery0、共有STOP_REQUESTEDなし。
+最後30標本の集計は、全runを通じGPU最大34C、HBM34C、CPU39C、fan40%、RAM最小67.657921GiB。
+runごと約67〜68秒の保存標本で、process全体や瞬間peakを覆うとは扱わない。
+
+復帰receiptはPID220627、API health ok、config SHAと4通常library SHAが以前と同じ、
+diagnostic_libraries_loaded=false、3services active、monitor errors/alertsなし。
+これは実行側の保存receipt。現在のlive PIDをこちらが新たに確認したものではない。
+
+7. 次のGPU試験に関係する欠落の優先順位
+=====================================
+優先1: 変更するprefill分割と、その後のT1を直接比較する。
+今回4callのbyte一致はprefix64/ubatch1024に対するもの。ubatch512/256によって実際にprefillが
+分割される入力へ進む場合、その境界の数値/時間の検証は新しい実験の中へ入れる必要がある。
+今のF/D suiteを同条件のまま反復しても、この欠落は閉じない。
+
+具体的なcaller制約:
+driver.cpp:167のllama_batch_init(64)、:174/:187の64token warmup/prefill、位置64+i、
+validatorのposition=64+i、tokenizeのn>=128がhardcodeされている。
+次の長prefix入力にはbatch容量・prefix長・token不足検査・expected position・reference
+metadataを一つの入力manifestへ連動させる。新しい長さだけargvへ渡して既存callerが自動対応
+すると仮定しない。短64prefixでも起動reserve差は見られるが、実prefill splitの検証にはならない。
+
+優先2: 新GPU hot pathの結果ready・slot対応・joinと算術の検証。
+現F/Dはengine配置を変えていない。GPUへexpertを移した新経路の同期/所有権/結果slotを保証しない。
+positive bankを実装するとき、その追加経路のH=0/mixed/H=6や結果返却を対象に、小さい固定入力の
+比較を設ける。CPU/CUDAの既知IQ算術差があるので、旧CPUとのbit一致だけを唯一の品質基準にしない。
+ここで必要な成功・失敗処理の確認を、新しく追加するstream/event/owner経路に絞る。
+
+優先3: 新pilotのデータ健全性を、そのpilotの収集中に確認する。
+今回の6caseはbank選定から除外するので、未保存logitsのためにこのscreen全体をやり直す必然性はない。
+次のroute-only pilotでは検査scopeを明記し、必要なfinite/出力確認を収集側へ組み込む。
+finite確認を計時外に置くなら、その次stepへの負荷も明示する。未検査を検査済みと表示しない。
+
+後回しでよいもの:
+同じF/D workloadの無期限反復、未測定0.8%を削るためのcollector再設計、網羅的な全context/
+全言語比較、今回変えていない経路への実モデル故障注入を、ubatch調査の前提として増やすこと。
+現在のscopeの未検証を正確に保持し、新しく変える箇所に必要な検査を付けて進めればよい。
+
+主要source（指定commitのrepo相対）
+=================================
+N = archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/
+N/driver.cpp:25-32,46-79,104-165,166-247
+N/call_control.h:12-27
+N/route_client.h:29-51
+N/run_case.py:27-64,74-118
+N/analyze.py:11-96（読取のみ。実行していない）
+N/{DESIGN.json,BUILD.json,CASES.json,FINAL_ANALYSIS.json,BASELINE_API_RECEIPT.json,RESTORED_RUNTIME.json}
+N/runs/*/{RUN.json,*correct*.f32,*correct*.json,*timing*.json,screen*.json,guard-health.json,
+          PROVIDER_EXPECTED.json,LAUNCH_MANIFEST.json,RESULTS_SHA256.json,server.stdout.log,server.stderr.log}

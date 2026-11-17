@@ -1,0 +1,24 @@
+{
+  "stage": "train_first5 only",
+  "case_ids": [
+    "text_cache_budget_ja",
+    "text_cache_budget_en",
+    "mixed_build_log_ja_en_log",
+    "code_stable_grouping_python",
+    "code_stable_grouping_cpp"
+  ],
+  "bank": false,
+  "bank_selection_budget_bytes": 480706560,
+  "bank_selection_rule": "training frequency per native triplet byte, deterministic layer/expert tie break; proposal only, no saved-time estimate",
+  "budget_fixed_before_routes": true,
+  "all_token_manifest_sha256": "44a9f673a7928b30f29a11fd741c96fa5b2faf526b89a82bc448aa13ff32596f",
+  "corpus_sha256": "fa1f41571af7c6d8272bb639877ea0cc32b4c09747939d5579a22d2998c11f5a",
+  "withheld_routes": [
+    "train_remaining5",
+    "validation5",
+    "holdout5"
+  ],
+  "numerical_scope": "wiring4 gate; eachcase prefix and first4 T1 saved; all64 outputs finite-scanned; no model sampling",
+  "timing_scope": "diagnostic route collection, not production throughput adoption",
+  "API_restore": true
+}

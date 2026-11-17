@@ -1,0 +1,2594 @@
+Pinned source/log excerpts. No runtime execution.
+
+[consult] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/CONSULT_PRO_JA.txt:1-48
+    1 実測返却と次の相談: 観測負荷の確認を終え、GPU容量と並列化へ
+    2 ======================================================
+    3 
+    4 提案A+B+Cを隔離callerで実施しました。元engine libsは不変です。
+    5 最初にRESULTS_JA.txt、その後driver/run_case/analyzeと全runsを確認してください。
+    6 incomingにはあなたの返却原本25files、checkpointsには実行前buildの履歴を残しました。
+    7 元source全体は同じrepoの以前のarchiveとcommit caf35bcdd27c0240572e05a60633f07fca272844です。
+    8 
+    9 今回確認できたこと
+   10 ------------------
+   11 1. 累積JSONをtoken loopから除き、serverと同じoutput_limits規則で実cap1に揃えた。
+   12    F/D0/D1/D2を同じbinary/callerで実行、source/library/providerをfail-closedでpin。
+   13 2. F-before/D0/D1/D2/F-afterの4call×129280 F32は全byte一致。
+   14 3. Fの4block平均145.075ms、D0の2block143.970、D1の2block143.154、D2の2block144.293。
+   15    D2/D1 +0.795%は記述値。Fblock範囲3.311%、D1がD0より速い等の変動があり、
+   16    ゼロoverheadも厳密な0.8%overheadも主張しません。親とTerraが全時刻/ledgerを別に検査。
+   17 4. 6case×64T1=14208route records。全文text/token ID/hash、全6集合、各call時刻を保存。
+   18    calibration専用、raw text/no chat template、短いprefix64。bank選定に流用しない。
+   19 5. 通常APIの実capは1。APIも新callerもCUDA compute4669.26MiBで、cap整合による大きな
+   20    buffer削減は観測できず。API停止前NVML free2553MiB。新caller warmup後のCUDA freeは
+   21    F/Dとも2122.25MiB。異なるAPI/phaseの値を同時点として合算しない。
+   22 
+   23 相談したい次の具体案
+   24 --------------------
+   25 観測の追加最適化や同じF/D suiteの繰り返しを先に増やす根拠は薄いと判断しています。
+   26 大きな問題を見落としていなければ、元のCPU/GPU並列化へ進みたいです。
+   27 
+   28 A. GPU37..39、128k/f16 KV、vision、150W/ECC、3072/2560MiB bank guardは維持。
+   29    まずn_batch1024のままn_ubatch512、必要なら256を比べる案をsourceから検討してください。
+   30    4669MiB workspaceのどの部分が変わるか、実装のgraph reserve/CPU→CUDA offload条件に
+   31    即した予測をお願いします。予測を実測容量と混同しないでください。
+   32    最小限の比較入力長、prefill分割境界、T1数値/時間、vision warmup、fresh freeの測定phaseを
+   33    具体化してください。単にfreeが増えたことだけで採用しません。
+   34 
+   35 B. 容量が成立しそうなら、12family/20caseのpilotをどこまで最小化して進めるか。
+   36    今回6caseはsplit対象外。joint6のH分布、native triplet bytes、GPU-ready/CPU残り仕事を
+   37    組み合わせる次の実機計画をお願いします。未測定costはunknownのままにします。
+   38    holdoutからbankを調整しないこと、CPU/CUDA量子化差でrouteが変わる可能性は維持。
+   39    必要なら未完成20caseの自然な本文/referenceを作って返してください。
+   40 
+   41 C. F/Dの今回結果に、先へ進む前に閉じるべき具体的欠落があるか。
+   42    4call以外のlogits比較は未実施、timing/screenはpointer非nullのみ、実generation/例外の
+   43    新規発火試験はしていません。どの欠落が次のGPU試験に実際に影響するか優先順位を。
+   44    無期限に観測frameworkを増やすより、必要な検証をGPU試験の前提として絞りたいです。
+   45 
+   46 実機操作はassistantが担当します。Pro側に大モデル/GPU起動を求めてはいません。
+   47 人間に今追加commandを求める文書ではありません。将来依頼する際は実行者と目的を明記します。
+   48 通常APIは元構成に復帰する運用。RESTORED_RUNTIME.jsonが最終稼働のreceiptです。
+
+[results] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/RESULTS_JA.txt:1-120
+    1 route37 caller整備・実モデル数値比較・6入力screen（2026-11-17）
+    2 =========================================================
+    3 
+    4 結果と判断
+    5 ----------
+    6 Proの指摘に対応し、隔離した診断callerの全履歴JSON処理をtoken loopから除いた。
+    7 元のCPU/libllamaと診断側3状態の比較を実施し、4call分の全logitsがbyte一致した。
+    8 64callの時間比較では観測有効化の差は区間変動に比べ小さく、大きな負荷は確認されなかった。
+    9 ゼロoverheadや統計的な同等性の証明ではない。collector内の追加最適化を今優先する根拠は弱い。
+   10 日本語/英語/混在ログ/コードの6caseで計14,208件のrouteを採取できた。
+   11 通常APIのengine/source/configは変更していない。復帰確認はRESTORED_RUNTIME.json。
+   12 
+   13 変更したもの
+   14 ------------
+   15 - driver.cppを新作業directoryで作成。既存のCPU/CUDA/libllamaは再buildも置換もしていない。
+   16 - token loopは事前確保したStep配列とhost monotonic clockのみ。JSON/trace export/ファイル
+   17   保存はblock終了後。成功時全履歴走査は最終blockあたり一度。旧O(T^2)処理を持ち込まない。
+   18 - この新callerは4callの数値検査を独立blockとし、合格してから64callのtimingへ進む。
+   19   計時中の4call checkpoint I/Oはない。異常時は通常drain/finalizeと可能なtrace保存を行う。
+   20   強制killでは最後の完了block以降のtrace/時刻を失い得る。長期収集の永続化機能ではない。
+   21 - server-context.cppと同じoutput_limits規則を使用し、実cparamsを取得・保存。
+   22   n_ctx131072 / n_batch1024 / n_ubatch1024 / seq1 / output cap1 / per_seq1 / threads12,24。
+   23 - Fではroute関数をresolveしない。D0はsessionを開かない。D1はobserving0の台帳のみ。
+   24   D2はobserving1。モードごとに正しいledger検査を行う。
+   25 - 初期化前のfunction provider、初期化後の実scheduler CPU/CUDA providerをarmのpinと照合。
+   26   source/binary/library hashを検査し、旧pinを無効化していない。
+   27 - 共通coordinatorの成功/失敗時sync・finish順序を維持。数値modeは全finite＋全F32保存、
+   28   timing/screen modeは通常logits取得による同期とpointer非nullのみ。検査scopeを明記。
+   29 - F-before referenceのarm・cparams・全case token列・placement・provider・logitsを照合。
+   30   run wrapperは主要referenceのhashも検査。親のanalyze.pyと独立監査はhealthを含む全manifestを照合。
+   31   manifestはローカル事故検出用で、悪意ある同時改変への認証を主張しない。
+   32 
+   33 受領レビューとの対応
+   34 --------------------
+   35 incoming ZIP SHA256 e0f5c399d9b9c439941df7df7701cbe39ec729058e5e11d9af8a713927dde3af。
+   36 25manifest entries一致。Proの68call反復周期22/20種、累積89,318snapshot visits等はTerraも再確認。
+   37 同梱linear_export.patchは参考とし、今回のmode/時刻/数値比較に必要な共通callerを親が実装。
+   38 BUILD/checkpoints/レビュー記録を保持。初回のbuildは成功したが、実機実行前レビューにより
+   39 provider fail-closed照合とF-before reference指定を追加して再buildした。
+   40 実測に使ったのはtop-level BUILD.jsonの最終binaryだけ。初回buildはモデル実行していない。
+   41 
+   42 実行設計と件数
+   43 --------------
+   44 事前DESIGN.json: F-before → D → F-after。モデルを同時常駐させず、各processを正常終了後に次へ。
+   45 F前後は各correct4＋timing64×2。Dはcorrect4×3、timing64×6、calibration64×6。
+   46 Dの時間比較順はD0,D1,D2,D2,D1,D0。結果が良い順に並べ替えたり、後から採用閾値を作ったりしない。
+   47 全21blocks / 1,044 T1 calls。内訳: 数値比較20call、時間比較640call、6case記録384call。
+   48 D1の台帳のみを含め正常性を検査。観測有効の全recordは19,092、うち6case分14,208。
+   49 各blockはKV clear→同じ64token prefix→通常同期→新しいcollector session。
+   50 first T1を除外せず保存し、firstと残りの統計も別に示す。load/warmup/prefillは別区間。
+   51 
+   52 数値比較
+   53 --------
+   54 固定wiring_fixture、位置64..67、1call129,280 F32。
+   55 F-before / D0 / D1 / D2 / F-after の各517,120値、2,068,480bytesが完全一致。
+   56 共通SHA256: 95430744558e7414b336f6548a6c03e064e12e1adc03cb8256fc45dcfc3187b0。
+   57 全5ファイルのfiniteも別に確認。これは同じ固定4入力の比較であり、全入力の品質証明ではない。
+   58 6caseではfrozenとの差分比較をしていない。timing/screenの全logits有限性を確認したと読み替えない。
+   59 
+   60 時間比較（1call当たり、decode_begin→output_ready、通常同期を含むhost境界）
+   61 ------------------------------------------------------------------------
+   62                      block平均ms                              全block平均ms
+   63 F-before             143.334 / 148.079
+   64 F-after              144.544 / 144.343                          F合算145.075
+   65 D0 診断sessionなし   144.709 / 143.230                         143.970
+   66 D1 台帳のみ          141.683 / 144.625                         143.154
+   67 D2 route記録         144.919 / 143.666                         144.293
+   68 
+   69 平均比の記述値: D0/F -0.762%、D1/D0 -0.567%、D2/D1 +0.795%。
+   70 元実装Fの4block平均の最大/最小差は3.311%。D1がD0より速く見えるなど、順序/実行変動も含む。
+   71 これらを単一機能の純粋なspeedup/slowdownと解釈しない。FとDは別process、各Dmodeは2blocksのみ。
+   72 engine以外の計時caller区間はF約1.6us、D2約2.9〜3.4us/call。engine内のhook/台帳負荷は
+   73 この外側時間には含まれず、Dmode比較の対象。Pythonはtoken loopに参加しない。
+   74 全per-call時刻、初回、mean/median/p95を保存。親analyze.pyのp95は線形補間、Terraメモは
+   75 nearest-rankで定義を明示している。小標本のp99、信頼区間、ゼロoverheadは主張しない。
+   76 
+   77 6caseの記述結果
+   78 ---------------
+   79 各case raw textをadd_special=true/parse_special=trueでtokenize。chat templateは適用していない。
+   80 全文をtokenizeしたID/hashを保存した後、最初の64prefix＋次の64T1を使った。
+   81 同じ64tokensがJA/ENで同じ意味量に対応するという仮定は置かない。
+   82 
+   83 case                         全文tokens   engine平均ms   層ごとのunique expert数中央値
+   84 screen_cache_ja               372          135.074        76
+   85 screen_cache_en               264          132.618        93
+   86 screen_experiment_ja          336          136.533        81
+   87 screen_experiment_en          260          139.272        99
+   88 screen_mixed_log              332          138.534        95
+   89 screen_code_python            302          128.818        80
+   90 
+   91 各case1blockのみ、実行順固定、全64callを保存。言語だけの因果効果ではなくtoken内容/位置/順序を含む。
+   92 反復wiringの同統計は60だったため、この例では反復だけの記録よりexpertの種類が広がった。
+   93 この6caseはcalibration専用でbank train/validation/holdoutには使わない。
+   94 12family/20caseはまだ仕様案のまま。bank選択・holdout評価やGPU saved-time予測はしていない。
+   95 
+   96 容量と設定の確認
+   97 --------------
+   98 通常APIは開始前にlive PID206163、slot idle、output cap1を確認。旧診断だけがcap1024だった。
+   99 通常APIとcap1の新callerもCUDA compute bufferは4669.26MiB、CUDA_Host約538.73MiBと表示。
+  100 cap整合によってこの大きなworkspaceが解放されたという結果ではない。
+  101 開始前NVML: total32768 / used29942 / free2553MiB、150W、ECC有効。
+  102 F-before/Dのwarmup後CUDA backend memory query: free2,225,340,416bytes（2122.25MiB）、
+  103 total34,072,559,616bytes。CUDA側APIとNVML reserved accountingを混同しない。
+  104 GPU37..39とCPU0..36のexpert配置を維持。新しいbank allocation/admissionは行っていない。
+  105 3072/2560MiBの既存bank guardを緩めていない。容量調査を次の優先候補とする理由はここにある。
+  106 
+  107 監視・復帰
+  108 ----------
+  109 3runともhealth exited/return0、query timeout0、STOP_REQUESTEDなし。
+  110 各runに残る最後30標本の範囲でGPU最大34C、HBM34C、CPU39C、fan40%、利用可能RAM最小67.66GiB。
+  111 全期間の瞬間最大/最小を保証する値ではない。既存150W/ECC/fan<=70/温度/64GiB reserveを維持。
+  112 通常APIは元のstart.pyで起動し、準備完了・元のconfig/CPU/libllama/CUDA/base hashを検査する。
+  113 最終確認はRESTORED_RUNTIME.jsonに保存。ユーザーに追加操作を依頼するコマンドはない。
+  114 
+  115 次の判断
+  116 --------
+  117 観測用コードの負荷をさらに削る作業はここで止め、得たrouteを並列化の判断へ使う。
+  118 まず元のGPU3層を保ったubatch512/256等の少数比較で、workspace/freeとprefill/T1への影響を
+  119 同じ条件で評価する設計をProへ相談する。bank容量が成立する見込みなしに大きなcacheを実装しない。
+  120 CPU absは引き続き保留。通常APIの高速化を今回新たに達成したという報告ではない。
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:1-2
+    1 ggml_cuda_init: found 1 CUDA devices (Total VRAM: 32494 MiB):
+    2   Device 0: Tesla PG500-216, compute capability 7.0, VMM: no, VRAM: 32494 MiB
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:26-76
+   26 llama_model_loader: - kv  12:                     deepseek41.block_count u32              = 40
+   27 llama_model_loader: - kv  13:                  deepseek41.context_length u32              = 1048576
+   28 llama_model_loader: - kv  14:                deepseek41.embedding_length u32              = 5120
+   29 llama_model_loader: - kv  15:            deepseek41.attention.head_count u32              = 64
+   30 llama_model_loader: - kv  16:         deepseek41.attention.head_count_kv u32              = 1
+   31 llama_model_loader: - kv  17:               deepseek41.rope.scaling.type str              = yarn
+   32 llama_model_loader: - kv  18:             deepseek41.rope.scaling.factor f32              = 16.000000
+   33 llama_model_loader: - kv  19: deepseek41.rope.scaling.original_context_length u32              = 65536
+   34 llama_model_loader: - kv  20:     deepseek41.rope.scaling.yarn_beta_fast f32              = 32.000000
+   35 llama_model_loader: - kv  21:     deepseek41.rope.scaling.yarn_beta_slow f32              = 1.000000
+   36 llama_model_loader: - kv  22:                  deepseek41.rope.freq_base f32              = 10000.000000
+   37 llama_model_loader: - kv  23: deepseek41.attention.layer_norm_rms_epsilon f32              = 0.000000
+   38 llama_model_loader: - kv  24:                    deepseek41.expert_count u32              = 384
+   39 llama_model_loader: - kv  25:               deepseek41.expert_used_count u32              = 6
+   40 llama_model_loader: - kv  26:              deepseek41.expert_gating_func u32              = 4
+   41 llama_model_loader: - kv  27:            deepseek41.attention.key_length u32              = 512
+   42 llama_model_loader: - kv  28:          deepseek41.attention.value_length u32              = 512
+   43 llama_model_loader: - kv  29:            deepseek41.rope.dimension_count u32              = 64
+   44 llama_model_loader: - kv  30:           deepseek41.attention.q_lora_rank u32              = 1280
+   45 llama_model_loader: - kv  31:        deepseek41.attention.sliding_window u32              = 128
+   46 llama_model_loader: - kv  32:      deepseek41.expert_feed_forward_length u32              = 2304
+   47 llama_model_loader: - kv  33:             deepseek41.expert_shared_count u32              = 1
+   48 llama_model_loader: - kv  34:            deepseek41.expert_weights_scale f32              = 1.500000
+   49 llama_model_loader: - kv  35:             deepseek41.expert_weights_norm bool             = true
+   50 llama_model_loader: - kv  36:                deepseek41.swiglu_clamp_exp arr[f32,40]      = [10.000000, 10.000000, 10.000000, 10....
+   51 llama_model_loader: - kv  37:              deepseek41.swiglu_clamp_shexp arr[f32,40]      = [10.000000, 10.000000, 10.000000, 10....
+   52 llama_model_loader: - kv  38:    deepseek41.attention.indexer.head_count u32              = 32
+   53 llama_model_loader: - kv  39:    deepseek41.attention.indexer.key_length u32              = 128
+   54 llama_model_loader: - kv  40:         deepseek41.attention.indexer.top_k u32              = 512
+   55 llama_model_loader: - kv  41:    deepseek41.attention.output_group_count u32              = 8
+   56 llama_model_loader: - kv  42:      deepseek41.attention.output_lora_rank u32              = 1024
+   57 llama_model_loader: - kv  43:       deepseek41.attention.compress_ratios arr[i32,43]      = [0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, ...
+   58 llama_model_loader: - kv  44: deepseek41.attention.compress_rope_freq_base f32              = 160000.000000
+   59 llama_model_loader: - kv  45:          deepseek41.hyper_connection.count u32              = 4
+   60 llama_model_loader: - kv  46: deepseek41.hyper_connection.sinkhorn_iterations u32              = 20
+   61 llama_model_loader: - kv  47:        deepseek41.hyper_connection.epsilon f32              = 0.000001
+   62 llama_model_loader: - kv  48:                deepseek41.hash_layer_count u32              = 0
+   63 llama_model_loader: - kv  49:      deepseek41.attention.kv_source_layers arr[u32,4]       = [2, 8, 14, 20]
+   64 llama_model_loader: - kv  50: deepseek41.attention.indexer.source_layers arr[u32,8]       = [2, 8, 14, 20, 24, 28, 32, 36]
+   65 llama_model_loader: - kv  51: deepseek41.attention.indexer.candidate_source_layer i32              = 20
+   66 llama_model_loader: - kv  52: deepseek41.attention.indexer.candidate_top_k_blocks u32              = 2048
+   67 llama_model_loader: - kv  53: deepseek41.attention.indexer.candidate_block_size u32              = 8
+   68 llama_model_loader: - kv  54:                      deepseek41.ple.layers arr[u32,2]       = [1, 14]
+   69 llama_model_loader: - kv  55:                  deepseek41.ple.ngram_size u32              = 4
+   70 llama_model_loader: - kv  56:             deepseek41.ple.heads_per_ngram u32              = 8
+   71 llama_model_loader: - kv  57: deepseek41.embedding_length_per_layer_input u32              = 256
+   72 llama_model_loader: - kv  58:           deepseek41.ple.layer_multipliers arr[u64,8]       = [76632096046245, 4839876093313, 35959...
+   73 llama_model_loader: - kv  59:                deepseek41.ple.head_offsets arr[u64,48]      = [0, 16000057, 32000136, 48000217, 640...
+   74 llama_model_loader: - kv  60:            deepseek41.ple.head_vocab_sizes arr[u64,48]      = [16000057, 16000079, 16000081, 160000...
+   75 llama_model_loader: - kv  61:             deepseek41.engram.pad_token_id u32              = 2
+   76 llama_model_loader: - kv  62:                deepseek41.engram.token_map arr[i32,129280]  = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11...
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:3332-3349
+ 3332 IQ plan: ready blk.19.ffn_down_exps.weight; experts 303/384; total 117.194 GiB
+ 3333 IQ plan: ready blk.35.ffn_down_exps.weight; experts 236/384; total 118.652 GiB
+ 3334 IQ plan: complete 80 tensors, 19200 selected expert projections, 127401984000 bytes; 0 entirely uncached tensors
+ 3335 expert DMA: registering 111 ranges, 196.57 GiB of existing host weights
+ 3336 expert DMA: registration complete; original host mappings retained
+ 3337 llama_context: constructing llama_context
+ 3338 llama_context: n_seq_max             = 1
+ 3339 llama_context: n_ctx                 = 131072
+ 3340 llama_context: n_ctx_seq             = 131072
+ 3341 llama_context: n_batch               = 1024
+ 3342 llama_context: n_ubatch              = 1024
+ 3343 llama_context: causal_attn           = 1
+ 3344 llama_context: flash_attn            = enabled
+ 3345 llama_context: kv_unified            = false
+ 3346 llama_context: freq_base             = 10000.0
+ 3347 llama_context: freq_scale            = 0.0625
+ 3348 llama_context: n_rs_seq              = 0
+ 3349 llama_context: n_outputs_max         = 1
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:3395-3401
+ 3395 llama_kv_cache: layer  39: filtered
+ 3396 llama_kv_cache: size =    0.00 MiB (131072 cells,   0 layers,  1/1 seqs), K (f16):    0.00 MiB, V (f16):    0.00 MiB
+ 3397 llama_kv_cache: n_rot_k = 0, n_embd_head_k_all = 0
+ 3398 llama_kv_cache: n_rot_v = 0, n_embd_head_k_all = 0
+ 3399 llama_kv_cache_iswa: creating     SWA KV cache, size = 1280 cells
+ 3400 llama_kv_cache: layer   0: dev = CUDA0
+ 3401 llama_kv_cache: layer   1: dev = CUDA0
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:3437-3447
+ 3437 llama_kv_cache: layer  37: dev = CUDA0
+ 3438 llama_kv_cache: layer  38: dev = CUDA0
+ 3439 llama_kv_cache: layer  39: dev = CUDA0
+ 3440 llama_kv_cache:      CUDA0 KV buffer size =    50.00 MiB
+ 3441 llama_kv_cache: size =   50.00 MiB (  1280 cells,  40 layers,  1/1 seqs), K (f16):   50.00 MiB, V (f16):    0.00 MiB
+ 3442 llama_kv_cache: n_rot_k = 0, n_embd_head_k_all = 512
+ 3443 llama_kv_cache: n_rot_v = 0, n_embd_head_k_all = 0
+ 3444 llama_kv_cache_dsv4: creating DSV4 CSA compressed KV cache, size = 65536 cells
+ 3445 llama_kv_cache: layer   0: filtered
+ 3446 llama_kv_cache: layer   1: filtered
+ 3447 llama_kv_cache: layer   2: dev = CUDA0
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:3482-3492
+ 3482 llama_kv_cache: layer  37: filtered
+ 3483 llama_kv_cache: layer  38: filtered
+ 3484 llama_kv_cache: layer  39: filtered
+ 3485 llama_kv_cache:      CUDA0 KV buffer size =   240.00 MiB
+ 3486 llama_kv_cache: size =  240.00 MiB ( 65536 cells,   3 layers,  1/1 seqs), K (f16):  240.00 MiB, V (f16):    0.00 MiB
+ 3487 llama_kv_cache: n_rot_k = 0, n_embd_head_k_all = 640
+ 3488 llama_kv_cache: n_rot_v = 0, n_embd_head_k_all = 0
+ 3489 llama_kv_cache_dsv4: creating DSV4 HCA compressed KV cache, size = 131072 cells
+ 3490 llama_kv_cache: layer   0: filtered
+ 3491 llama_kv_cache: layer   1: filtered
+ 3492 llama_kv_cache: layer   2: filtered
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:3527-3533
+ 3527 llama_kv_cache: layer  37: filtered
+ 3528 llama_kv_cache: layer  38: filtered
+ 3529 llama_kv_cache: layer  39: filtered
+ 3530 llama_kv_cache:      CUDA0 KV buffer size =   160.00 MiB
+ 3531 llama_kv_cache: size =  160.00 MiB (131072 cells,   1 layers,  1/1 seqs), K (f16):  160.00 MiB, V (f16):    0.00 MiB
+ 3532 llama_kv_cache: n_rot_k = 0, n_embd_head_k_all = 640
+ 3533 llama_kv_cache: n_rot_v = 0, n_embd_head_k_all = 0
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:3582-3597
+ 3582 llama_dsv4_comp_state:      CUDA0 DSV4 csa state buffer size =     0.02 MiB
+ 3583 llama_dsv4_comp_state: csa ratio = 2, state = 2 x 512, streams = 1, rs_seq = 0, layers = 3, size =    0.02 MiB
+ 3584 llama_kv_cache_dsv4: creating DSV4 HCA compressor state
+ 3585 llama_dsv4_comp_state: layer  20: dev = CUDA0
+ 3586 llama_dsv4_comp_state:      CUDA0 DSV4 hca state buffer size =     0.00 MiB
+ 3587 llama_dsv4_comp_state: hca ratio = 1, state = 1 x 512, streams = 1, rs_seq = 0, layers = 1, size =    0.00 MiB
+ 3588 llama_kv_cache_dsv4: creating DSV4 lightning-indexer compressor state
+ 3589 llama_dsv4_comp_state: lid ratio = 4, state = 8 x 256, streams = 1, rs_seq = 0, layers = 0, size =    0.00 MiB
+ 3590 llama_context: enumerating backends
+ 3591 llama_context: backend_ptrs.size() = 2
+ 3592 sched_reserve: reserving ...
+ 3593 sched_reserve: max_nodes = 40960
+ 3594 sched_reserve: reserving full memory module
+ 3595 sched_reserve: worst-case: n_tokens = 1024, n_seqs = 1, n_outputs = 1
+ 3596 resolve_fused_ops: resolving fused DeepSeek V4 HC support:
+ 3597 graph_reserve: reserving a graph for ubatch with n_tokens =    1, n_seqs =  1, n_outputs =    1
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:5381-5384
+ 5381 sched_reserve:      CUDA0 compute buffer size =  4669.26 MiB
+ 5382 sched_reserve:  CUDA_Host compute buffer size =   538.73 MiB
+ 5383 sched_reserve: graph (pp bs=1024, tg bs=1): nodes = 4950 / 4866, splits = 113 / 76, input objects = 5 / 5, input tensors = 20 / 20
+ 5384 sched_reserve: reserve took 451.00 ms, sched copies = 1
+
+[log] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/runs/20261117T012730Z-F-before-a30e72f7/server.stderr.log:5713-5723
+ 5713 
+ 5714 load_hparams: model size:         926.00 MiB
+ 5715 load_hparams: metadata size:      0.10 MiB
+ 5716 load_tensors: loaded 298 tensors from /home/codex/projects/llm-lab/models/deepseek41-vision/mmproj-DeepSeek-V4.1-Flash-1017-abliterated-F16.gguf
+ 5717 get_dummy_batch: warmup with image size = 672 x 672
+ 5718 get_dummy_batch: warmup with image size = 672 x 672
+ 5719 reserve_compute_meta:      CUDA0 compute buffer size =    97.45 MiB
+ 5720 reserve_compute_meta:        CPU compute buffer size =     5.20 MiB
+ 5721 reserve_compute_meta: graph splits = 1, nodes = 865
+ 5722 warmup: flash attention is enabled
+ 5723 ~llama_context:      CUDA0 compute buffer size is 4669.2621 MiB, matches expectation of 4669.2621 MiB
+
+[driver] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/driver.cpp:26-32
+   26 static common_speculative_output_limits output_limits(const common_params &p) {
+   27     if (!p.mmproj.path.empty() && mtmd_get_cap_from_file(p.mmproj.path.c_str()).gen_audio)
+   28         return {p.n_batch, p.n_batch};
+   29     if (p.embedding || (p.pooling_type != LLAMA_POOLING_TYPE_UNSPECIFIED && p.pooling_type != LLAMA_POOLING_TYPE_NONE))
+   30         return {p.n_batch, 1};
+   31     auto result = common_speculative_get_output_limits(p.n_batch, p.n_parallel, common_speculative_n_max(&p.speculative));
+   32     result.total = std::max(1, result.total); result.per_seq = std::max(1, result.per_seq); return result;
+
+[driver] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/driver.cpp:111-180
+  111         report["scope"] = "Fixed teacher-forced numerical check, caller overhead timing, and six raw-text calibration cases. No sampled answers, quality or hot-bank test.";
+  112         report["clock"] = "steady_clock nanoseconds; host boundaries only";
+  113         save_json(out/"RUN.json",report);
+  114         common_params params;
+  115         need(common_params_parse(args.size(),args.data(),params,LLAMA_EXAMPLE_SERVER), "model arguments");
+  116         params.warmup = false; params.sampling.backend_sampling = false;
+  117         auto limits = output_limits(params);
+  118         params.n_outputs_max = limits.total; params.n_outputs_max_per_seq = limits.per_seq;
+  119         need(params.n_ctx == 131072 && params.n_parallel == 1 && params.cpuparams.n_threads == 12 && params.cpuparams_batch.n_threads == 24 && params.no_extra_bufts && !params.no_op_offload && params.moe_cache_size == 0, "profile");
+  120         need(limits.total == 1 && limits.per_seq == 1, "unsupported output reservation profile");
+  121         llama_backend_init();
+  122         resources.init = common_init_from_params(params);
+  123         need(resources.init && resources.init->context() && resources.init->model(), "model initialization");
+  124         ctx = resources.init->context(); auto *model = resources.init->model();
+  125         const auto &cp = ctx->get_cparams();
+  126         report["cparams"] = {{"n_ctx",cp.n_ctx},{"n_batch",cp.n_batch},{"n_ubatch",cp.n_ubatch},{"n_seq_max",cp.n_seq_max},{"n_outputs_max",cp.n_outputs_max},{"n_outputs_max_per_seq",cp.n_outputs_max_per_seq},{"n_threads",params.cpuparams.n_threads},{"n_threads_batch",params.cpuparams_batch.n_threads},{"backend_sampling",false}};
+  127         need(cp.n_outputs_max == 1 && cp.n_outputs_max_per_seq == 1, "actual output cap");
+  128         auto scheduler = ctx->get_sched(); report["active_backend_providers"] = json::array();
+  129         for (int i=0;i<ggml_backend_sched_get_n_backends(scheduler);++i) {
+  130             auto backend=ggml_backend_sched_get_backend(scheduler,i); Dl_info info{};
+  131             need(dladdr(reinterpret_cast<void *>(backend->iface.graph_compute),&info)&&info.dli_fname,"backend provider");
+  132             report["active_backend_providers"].push_back({{"name",ggml_backend_name(backend)},{"graph_compute_provider",std::filesystem::canonical(info.dli_fname).string()}});
+  133         }
+  134         need(report["active_backend_providers"] == provider_pin["active_backend_providers"], "active scheduler providers differ from pinned arm");
+  135         report["placement"] = json::array(); need(model->layers.size()==40,"40 layers");
+  136         for (int i=0;i<40;++i) {
+  137             auto &l=model->layers[i];
+  138             for (auto *w:{l.ffn_gate_exps,l.ffn_up_exps,l.ffn_down_exps}) need(w&&w->buffer&&ggml_backend_buffer_is_host(w->buffer)==(i<37),"expert placement");
+  139             report["placement"].push_back({{"layer",i},{"expert_weights_host",i<37}});
+  140         }
+  141         need(!params.mmproj.path.empty()&&params.mmproj_use_gpu,"vision allocation");
+  142         auto vp=mtmd_context_params_default(); vp.use_gpu=true; vp.device=params.mmproj_device;
+  143         vp.n_threads=params.cpuparams.n_threads; vp.flash_attn_type=params.flash_attn_type;
+  144         vp.image_min_tokens=params.image_min_tokens; vp.image_max_tokens=params.image_max_tokens; vp.batch_max_tokens=params.mtmd_batch_max_tokens;
+  145         vp.warmup=true; vp.print_timings=false;
+  146         resources.vision=mtmd_init_from_file(params.mmproj.path.c_str(),model,vp); need(resources.vision,"vision initialization");
+  147         report["vision_weights_loaded"]=true;
+  148         const auto *vocab=llama_model_get_vocab(model); const int nv=llama_vocab_n_tokens(vocab);
+  149         need(nv==129280,"expected vocabulary"); report["vocab_size"]=nv;
+  150         auto input=read_json(cases_path); std::vector<std::vector<llama_token>> tokens;
+  151         report["tokenizer"]={{"input_form","raw text; no chat template applied"},{"add_special",true},{"parse_special",true}};
+  152         report["cases"]=json::array();
+  153         for (const auto &c:input["cases"]) {
+  154             std::string text=c["text_utf8"]; int n=-llama_tokenize(vocab,text.data(),text.size(),nullptr,0,true,true);
+  155             need(n>=128,"fixture too short; no repetition padding"); std::vector<llama_token> tok(n);
+  156             need(llama_tokenize(vocab,text.data(),text.size(),tok.data(),n,true,true)==n,"tokenization");
+  157             report["cases"].push_back({{"case_id",c["case_id"]},{"family_id",c["family_id"]},{"text_sha256",c["sha256_utf8"]},{"full_tokens",tok},{"full_token_count",n},{"used_prefix_tokens",64},{"maximum_used_continuation",64}});
+  158             tokens.push_back(std::move(tok));
+  159         }
+  160         need(tokens.size()==7,"seven fixtures");
+  161         if (!reference.empty()) {
+  162             auto ref=read_json(reference/"RUN.json"); need(ref["passed"]==true && ref["arm"]=="F-before", "completed F-before reference required");
+  163             need(ref["providers"] == read_json(reference/"PROVIDER_EXPECTED.json")["providers"], "reference provider pin");
+  164             need(ref["cases"]==report["cases"] && ref["cparams"]==report["cparams"] && ref["placement"]==report["placement"],"reference inputs/profile");
+  165         }
+  166         if (diagnostic) api=std::make_unique<API>();
+  167         resources.batch=llama_batch_init(64,0,1); resources.has_batch=true; auto &batch=resources.batch;
+  168         auto set_batch=[&](const std::vector<llama_token>&tok,int first,int count){
+  169             batch.n_tokens=count;
+  170             for(int i=0;i<count;++i){batch.token[i]=tok[first+i];batch.pos[i]=first+i;batch.n_seq_id[i]=1;batch.seq_id[i][0]=0;batch.logits[i]=(i==count-1);}
+  171         };
+  172         auto finite=[&](const float *p){if(!p)return false;for(int i=0;i<nv;++i)if(!std::isfinite(p[i]))return false;return true;};
+  173         // Explicit warmup before any collector session; no ignored errors.
+  174         set_batch(tokens[0],0,64); int rc=llama_decode(ctx,batch);
+  175         if(rc){llama_synchronize(ctx);throw std::runtime_error("warmup decode");}
+  176         need(finite(llama_get_logits_ith(ctx,-1)),"warmup finite");
+  177         report["memory_after_warmup"]=json::array();
+  178         for(int i=0;i<ggml_backend_sched_get_n_backends(scheduler);++i){
+  179             auto backend=ggml_backend_sched_get_backend(scheduler,i); auto dev=ggml_backend_get_device(backend);
+  180             if(ggml_backend_dev_type(dev)==GGML_BACKEND_DEVICE_TYPE_GPU){size_t free=0,total=0;ggml_backend_dev_memory(dev,&free,&total);report["memory_after_warmup"].push_back({{"backend",ggml_backend_name(backend)},{"free_bytes",free},{"total_bytes",total},{"API","ggml_backend_dev_memory; backend CUDA memory query, not NVML reserved accounting"}});}
+
+[driver] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/driver.cpp:185-214
+  185             std::vector<Step> steps(count); std::vector<float> logits(numerical?size_t(count)*nv:0);
+  186             llama_memory_clear(llama_get_memory(ctx),true); llama_synchronize(ctx);
+  187             set_batch(tokens[ci],0,64); auto prefill_start=ns(); int status=llama_decode(ctx,batch);
+  188             if(status){llama_synchronize(ctx);throw std::runtime_error("prefill decode");}
+  189             need(finite(llama_get_logits_ith(ctx,-1)),"prefill finite"); auto prefill_ready=ns();
+  190             auto setup_start=ns();
+  191             if(collect){need(api&&api->open(ctx,1,observe,4096,512,128),"open collector");session=true;}
+  192             auto setup_end=ns();
+  193             report["active_block"]=name; save_json(out/"RUN.json",report); // outside timing block
+  194             for(int i=0;i<count;++i){
+  195                 auto &s=steps[i]; s.stamp[0]=ns(); set_batch(tokens[ci],64+i,1);
+  196                 xeon_route37_label tag{};tag.phase=XR_DECODE;tag.decode_call=i;tag.logical_token=i;
+  197                 const float *ptr=nullptr;
+  198                 auto submit=[&](){s.stamp[1]=ns();int result=llama_decode(ctx,batch);s.stamp[2]=ns();return result;};
+  199                 auto output=[&](){ptr=llama_get_logits_ith(ctx,-1);s.stamp[3]=ns();bool good=numerical?finite(ptr):ptr!=nullptr;s.stamp[4]=ns();return good;};
+  200                 auto drain=[&](){llama_synchronize(ctx);};
+  201                 s.result=collect?drive_call(*api,ctx,tag,submit,output,drain):drive_call(inactive,ctx,tag,submit,output,drain);
+  202                 s.stamp[5]=ns();
+  203                 if(!s.result.synchronized&&s.result.label_accepted)resources.abandon=true;
+  204                 if(!s.result.ok()){
+  205                     report["failed_call"]={{"block",name},{"index",i},{"decode_status",s.result.decode_status},{"synchronized",s.result.synchronized},{"exception_stage",s.result.exception_stage}};
+  206                     throw std::runtime_error("call failed; no retry");
+  207                 }
+  208                 if(numerical)std::memcpy(logits.data()+size_t(i)*nv,ptr,nv*sizeof(float));
+  209                 s.stamp[6]=ns();
+  210             }
+  211             const auto block_end=ns(); // all trace/JSON/export begins after this boundary
+  212             json result={{"name",name},{"mode",mode},{"case_id",input["cases"][ci]["case_id"]},{"calls",count},{"prefix_tokens",64},{"position_first",64},{"position_last",63+count},{"collector_session",collect},{"observing",observe},{"output_validation",numerical?"all-vocab finite and saved F32":"synchronized pointer nonnull only; no full finite scan or logits copy"},{"prefill_begin_ns",prefill_start},{"prefill_ready_ns",prefill_ready},{"session_setup_begin_ns",setup_start},{"session_setup_end_ns",setup_end},{"block_end_ns",block_end},{"steps",json::array()}};
+  213             if(collect){need(api->close(ctx),"close collector");session=false;result["trace"]=snapshot(*api);validate_trace(result["trace"],count,observe);}
+  214             for(int i=0;i<count;++i){const auto &s=steps[i];result["steps"].push_back({{"index",i},{"position",64+i},{"step_begin_ns",s.stamp[0]},{"decode_begin_ns",s.stamp[1]},{"decode_return_ns",s.stamp[2]},{"output_ready_ns",s.stamp[3]},{"validation_end_ns",s.stamp[4]},{"finalize_end_ns",s.stamp[5]},{"step_end_ns",s.stamp[6]},{"decode_status",s.result.decode_status},{"synchronized",s.result.synchronized},{"collector_finalize_called",collect&&s.result.finalize_called},{"ok",s.result.ok()}});}
+
+[old_hot_context_initialization] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/hot-ffn/llama-context.cpp:568-580
+  568         if (cparams.moe_cache_size > 0) {
+  569             moe_cache = std::make_unique<llama_moe_cache>(model, model.no_alloc(), backend_ptrs, backend_buft, cparams.moe_cache_size);
+  570         }
+  571 
+  572         sched_reserve();
+  573         // This is constructor initialization only, never a later sched_reserve().
+  574         xeon_hot_backend_finish(backend_cpu);
+  575 
+  576         if (!cparams.flash_attn) {
+  577             if (ggml_is_quantized(params.type_v)) {
+  578                 throw std::runtime_error("quantized V cache was requested, but this requires Flash Attention");
+  579             }
+  580         }
+
+[old_hot_bank_guards] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp:115-155
+  115     void initialize(){
+  116         require(!ready,"duplicate initialization");
+  117         private_cpu=ggml_backend_cpu_init();require(private_cpu,"private CPU backend");
+  118         auto p=ggml_threadpool_params_default(12);p.poll=0;p.strict_cpu=true;for(int i=0;i<12;++i)p.cpumask[i]=true;
+  119         pool=ggml_threadpool_new(&p);require(pool,"private CPU pool");ggml_backend_cpu_set_n_threads(private_cpu,12);ggml_backend_cpu_set_threadpool(private_cpu,pool);
+  120         if(payload){
+  121             cuda_check(cudaSetDevice(0));cudaDeviceProp prop{};cuda_check(cudaGetDeviceProperties(&prop,0));require(prop.major==7&&prop.minor==0,"Volta device required");
+  122             size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));
+  123             // Include room for new execution allocations and subsequent vision/pool growth.
+  124             require(free>payload+size_t(3072)*1024*1024,"insufficient GPU headroom for plan and later vision/pool growth");
+  125             private_gpu=ggml_backend_cuda_init(0);require(private_gpu,"private CUDA backend");
+  126             cuda_check(cudaHostAlloc(&pinned_input,D*sizeof(float),cudaHostAllocPortable));
+  127             cuda_check(cudaHostAlloc(&pinned_output,D*TOP*sizeof(float),cudaHostAllocPortable));
+  128             cuda_check(cudaHostAlloc(&pinned_ids,TOP*sizeof(int32_t),cudaHostAllocPortable));
+  129         }
+  130         for(auto & ptr:layers){if(!ptr)continue;auto & l=*ptr;if(!l.eligible)continue;
+  131             l.cpu=std::make_unique<Graph>(private_cpu,l.original,TOP,l.clamp);
+  132             std::array<float,D> zero{};std::array<int32_t,TOP> disabled;disabled.fill(-1);
+  133             ggml_backend_tensor_set(l.cpu->x,zero.data(),0,sizeof(zero));ggml_backend_tensor_set(l.cpu->ids,disabled.data(),0,sizeof(disabled));
+  134             require(ggml_backend_graph_compute(private_cpu,l.cpu->graph)==GGML_STATUS_SUCCESS,"private CPU warmup");
+  135             if(l.selected.empty())continue;
+  136             l.weight_ctx=ggml_init({512*1024,nullptr,true});require(l.weight_ctx,"bank metadata");
+  137             for(int j=0;j<3;++j){auto w=l.original[j];l.gpu_weights[j]=ggml_new_tensor_3d(l.weight_ctx,w->type,w->ne[0],w->ne[1],l.selected.size());}
+  138             l.weight_buffer=ggml_backend_alloc_ctx_tensors(l.weight_ctx,private_gpu);require(l.weight_buffer,"bank allocation");
+  139             allocation+=ggml_backend_buffer_get_size(l.weight_buffer);ggml_backend_buffer_set_usage(l.weight_buffer,GGML_BACKEND_BUFFER_USAGE_WEIGHTS);ggml_backend_buffer_clear(l.weight_buffer,0);
+  140             for(int j=0;j<3;++j){auto w=l.original[j];size_t n=ggml_row_size(w->type,w->ne[0])*w->ne[1];
+  141                 for(size_t local=0;local<l.selected.size();++local)ggml_backend_tensor_set(l.gpu_weights[j],static_cast<const char*>(w->data)+size_t(l.selected[local])*w->nb[2],local*n,n);
+  142             }
+  143             // Reserve and exercise each reachable H, including kernel/pool/graph setup.
+  144             for(int h=1;h<=std::min(TOP,int(l.selected.size()));++h){
+  145                 l.gpu[h]=std::make_unique<Graph>(private_gpu,l.gpu_weights,h,l.clamp);
+  146                 std::array<int32_t,TOP> local_ids{};for(int j=0;j<h;++j)local_ids[j]=j;
+  147                 ggml_backend_tensor_set(l.gpu[h]->x,zero.data(),0,sizeof(zero));ggml_backend_tensor_set(l.gpu[h]->ids,local_ids.data(),0,h*sizeof(int32_t));
+  148                 for(int repeat=0;repeat<3;++repeat)require(ggml_backend_graph_compute(private_gpu,l.gpu[h]->graph)==GGML_STATUS_SUCCESS,"private GPU warmup");
+  149             }
+  150         }
+  151         if(private_gpu){ggml_backend_synchronize(private_gpu);size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));require(free>size_t(2560)*1024*1024,"post-allocation reserve for vision/pool growth");}
+  152         size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));
+  153         ready=true;
+  154         LLAMA_LOG_INFO("xeon-hot-ready experts=%zu native_payload=%zu GPU_bank_allocation=%zu GPU_free_before_vision=%zu CPUthreads=12 original-weights-retained=1\n",planned_count,payload,allocation,free);
+  155     }
+
+[base_build] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/SCHEDULER.json:1-66
+    1 {
+    2   "library": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+    3   "library_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+    4   "source_sha256": "002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd",
+    5   "compile": [
+    6     "/usr/bin/c++",
+    7     "-DGGML_BUILD",
+    8     "-DGGML_SCHED_MAX_COPIES=4",
+    9     "-DGGML_SHARED",
+   10     "-DGGML_USE_OPENMP",
+   11     "-D_GNU_SOURCE",
+   12     "-D_XOPEN_SOURCE=600",
+   13     "-Dggml_base_EXPORTS",
+   14     "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src/.",
+   15     "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src",
+   16     "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src/../include",
+   17     "-march=ivybridge",
+   18     "-mtune=ivybridge",
+   19     "-O3",
+   20     "-DNDEBUG",
+   21     "-std=gnu++17",
+   22     "-fPIC",
+   23     "-fvisibility=hidden",
+   24     "-Wmissing-declarations",
+   25     "-Wmissing-noreturn",
+   26     "-Wall",
+   27     "-Wextra",
+   28     "-Wpedantic",
+   29     "-Wcast-qual",
+   30     "-Wno-unused-function",
+   31     "-Wno-array-bounds",
+   32     "-Wextra-semi",
+   33     "-fopenmp",
+   34     "-c",
+   35     "/home/codex/projects/llm-lab/gpu-stream-20261103/ggml-backend.cpp",
+   36     "-o",
+   37     "/home/codex/projects/llm-lab/gpu-stream-20261103/ggml-backend.cpp.o"
+   38   ],
+   39   "link": [
+   40     "/usr/bin/c++",
+   41     "-fPIC",
+   42     "-march=ivybridge",
+   43     "-mtune=ivybridge",
+   44     "-O3",
+   45     "-DNDEBUG",
+   46     "-Wl,--dependency-file=/home/codex/projects/llm-lab/gpu-stream-20261103/base-link.d",
+   47     "-shared",
+   48     "-Wl,-soname,libggml-base.so.0",
+   49     "-o",
+   50     "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/base-stage-642a911d384546bf8fb0de9687aaef24.so",
+   51     "CMakeFiles/ggml-base.dir/ggml.c.o",
+   52     "CMakeFiles/ggml-base.dir/ggml.cpp.o",
+   53     "CMakeFiles/ggml-base.dir/ggml-alloc.c.o",
+   54     "/home/codex/projects/llm-lab/gpu-stream-20261103/ggml-backend.cpp.o",
+   55     "CMakeFiles/ggml-base.dir/ggml-backend-meta.cpp.o",
+   56     "CMakeFiles/ggml-base.dir/ggml-opt.cpp.o",
+   57     "CMakeFiles/ggml-base.dir/ggml-threading.cpp.o",
+   58     "CMakeFiles/ggml-base.dir/ggml-quants.c.o",
+   59     "CMakeFiles/ggml-base.dir/gguf.cpp.o",
+   60     "-Wl,-rpath,/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib:",
+   61     "-lm",
+   62     "/usr/lib/gcc/x86_64-linux-gnu/14/libgomp.so",
+   63     "/usr/lib/x86_64-linux-gnu/libpthread.a"
+   64   ],
+   65   "production_modified": false
+   66 }
+
+[scheduler] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp:1329-1339
+ 1329 static bool ggml_backend_sched_offload_batch_ok(const ggml_tensor * tensor) {
+ 1330     static const int64_t min_mxfp4 = []() -> int64_t {
+ 1331         const char * text = getenv("GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH");
+ 1332         if (!text || !text[0]) return 0;
+ 1333         char * end = nullptr;
+ 1334         const long value = strtol(text, &end, 10);
+ 1335         return end && !*end && value >= 1 && value <= 4096 ? value : 0;
+ 1336     }();
+ 1337     return tensor->op != GGML_OP_MUL_MAT_ID || tensor->src[0]->type != GGML_TYPE_MXFP4 ||
+ 1338         tensor->src[1]->ne[2] >= min_mxfp4;
+ 1339 }
+
+[scheduler] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp:1381-1399
+ 1381     if (allow) {
+ 1382         for (int i = 0; i < GGML_MAX_SRC; i++) {
+ 1383             const struct ggml_tensor * src = tensor->src[i];
+ 1384             if (src == NULL) {
+ 1385                 continue;
+ 1386             }
+ 1387             if (src->buffer != NULL && src->buffer->usage == GGML_BACKEND_BUFFER_USAGE_WEIGHTS) {
+ 1388                 int src_backend_id = ggml_backend_sched_backend_from_buffer(sched, src, tensor);
+ 1389                 // check if a backend with higher prio wants to offload the op
+ 1390                 if (sched->op_offload && src_backend_id == sched->n_backends - 1 && ggml_backend_buffer_is_host(src->buffer) && ggml_backend_sched_offload_batch_ok(tensor)) {
+ 1391                     for (int b = 0; b < src_backend_id; b++) {
+ 1392                         if (ggml_backend_supports_op(sched->backends[b], tensor) && ggml_backend_offload_op(sched->backends[b], tensor)) {
+ 1393                             SET_CAUSE(tensor, "1.off");
+ 1394                             return b;
+ 1395                         }
+ 1396                     }
+ 1397                 }
+ 1398                 SET_CAUSE(tensor, "1.wgt%d", i);
+ 1399                 return src_backend_id;
+
+[scheduler] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp:1744-1760
+ 1744             // check if we should start a new split based on the sources of the current node
+ 1745             bool need_new_split = false;
+ 1746             if (node_backend_id == cur_backend_id && split->n_inputs > 0) {
+ 1747                 for (int j = 0; j < GGML_MAX_SRC; j++) {
+ 1748                     struct ggml_tensor * src = node->src[j];
+ 1749                     if (src == NULL) {
+ 1750                         continue;
+ 1751                     }
+ 1752                     // check if a weight is on a different and incompatible backend
+ 1753                     // by starting a new split, the memory of the previously offloaded weights can be reused
+ 1754                     if (src->buffer != NULL && src->buffer->usage == GGML_BACKEND_BUFFER_USAGE_WEIGHTS) {
+ 1755                         int src_backend_id = tensor_backend_id(src);
+ 1756                         if (src_backend_id != cur_backend_id && !ggml_backend_sched_buffer_supported(sched, src, cur_backend_id)) {
+ 1757                             need_new_split = true;
+ 1758                             break;
+ 1759                         }
+ 1760                     }
+
+[scheduler] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp:1784-1816
+ 1784             // find inputs that are not on the same backend
+ 1785             for (int j = 0; j < GGML_MAX_SRC; j++) {
+ 1786                 struct ggml_tensor * src = node->src[j];
+ 1787                 if (src == NULL) {
+ 1788                     continue;
+ 1789                 }
+ 1790 
+ 1791                 size_t src_id = hash_id(src);
+ 1792                 const int src_backend_id = sched->hv_tensor_backend_ids[src_id];
+ 1793                 GGML_ASSERT(src_backend_id != -1); // all inputs should be assigned by now
+ 1794 
+ 1795                 if (src_backend_id != cur_backend_id && !ggml_backend_sched_buffer_supported(sched, src, cur_backend_id)) {
+ 1796                     // create a copy of the input in the split's backend
+ 1797                     if (tensor_id_copy(src_id, cur_backend_id, 0) == NULL) {
+ 1798                         ggml_backend_t backend = sched->backends[cur_backend_id];
+ 1799                         for (int c = 0; c < sched->n_copies; c++) {
+ 1800                             struct ggml_tensor * tensor_copy = ggml_dup_tensor_layout(sched->ctx, src);
+ 1801                             ggml_format_name(tensor_copy, "%s#%s#%d", ggml_backend_name(backend), src->name, c);
+ 1802                             if (sched->n_copies > 1) {
+ 1803                                 ggml_set_input(tensor_copy);
+ 1804                                 ggml_set_output(tensor_copy); // prevent ggml-alloc from overwriting the tensor
+ 1805                             }
+ 1806                             tensor_id_copy(src_id, cur_backend_id, c) = tensor_copy;
+ 1807                             SET_CAUSE(tensor_copy, "4.cpy");
+ 1808                         }
+ 1809                         int n_inputs = split->n_inputs++;
+ 1810                         if (n_inputs >= split->inputs_capacity) {
+ 1811                             ggml_backend_sched_split_inputs_grow(split);
+ 1812                         }
+ 1813                         split->inputs[n_inputs] = src;
+ 1814                     }
+ 1815                     node->src[j] = tensor_id_copy(src_id, cur_backend_id, sched->cur_copy);
+ 1816                 }
+
+[scheduler] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp:1879-1899
+ 1879     // this needs to happen before we make graph_copy, so they are in sync
+ 1880     // TODO: this may create many small allocations in the scheduler, restructure to use a flat array
+ 1881     std::unordered_map<ggml_tensor *, std::vector<ggml_tensor *>> alloc_deps;
+ 1882 
+ 1883     struct ggml_backend_graph_optimize_params opt_params = {
+ 1884         /* .add_alloc_dep = */ [](void * user_data, ggml_tensor * tensor, ggml_tensor * until) {
+ 1885             auto & deps = *(std::unordered_map<ggml_tensor *, std::vector<ggml_tensor *>> *) user_data;
+ 1886             std::vector<ggml_tensor *> & keep = deps[until];
+ 1887             if (std::find(keep.begin(), keep.end(), tensor) == keep.end()) {
+ 1888                 keep.push_back(tensor);
+ 1889             }
+ 1890         },
+ 1891         /* .user_data     = */ &alloc_deps,
+ 1892     };
+ 1893 
+ 1894     for (int i = 0; i < sched->n_splits; i++) {
+ 1895         struct ggml_backend_sched_split * split = &sched->splits[i];
+ 1896         split->graph = ggml_graph_view(graph, split->i_start, split->i_end);
+ 1897 
+ 1898         ggml_backend_graph_optimize(sched->backends[split->backend_id], &split->graph, &opt_params);
+ 1899     }
+
+[scheduler] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp:1927-1976
+ 1927     struct ggml_cgraph * graph_copy = &sched->graph;
+ 1928 
+ 1929     int n_dep_nodes_added = 0;
+ 1930 
+ 1931     for (int i = 0; i < sched->n_splits; i++) {
+ 1932         struct ggml_backend_sched_split * split = &sched->splits[i];
+ 1933 
+ 1934         // add inputs to the graph copy so that they are allocated by ggml-alloc at the start of the split
+ 1935         for (int j = 0; j < split->n_inputs; j++) {
+ 1936             assert(graph_copy->size > (graph_copy->n_nodes + 1));
+ 1937 
+ 1938             struct ggml_tensor * input = split->inputs[j];
+ 1939             const size_t input_id = hash_id(input);
+ 1940             struct ggml_tensor * input_cpy = tensor_id_copy(input_id, split->backend_id, sched->cur_copy);
+ 1941 
+ 1942             // add a dependency to the input source so that it is not freed before the copy is done
+ 1943             struct ggml_tensor * input_dep = ggml_view_tensor(sched->ctx, input);
+ 1944             input_dep->src[0] = input;
+ 1945             sched->node_backend_ids[graph_copy->n_nodes] = sched->hv_tensor_backend_ids[input_id];
+ 1946             graph_copy->nodes[graph_copy->n_nodes++] = input_dep;
+ 1947 
+ 1948             // add a dependency to the input copy so that it is allocated at the start of the split
+ 1949             sched->node_backend_ids[graph_copy->n_nodes] = split->backend_id;
+ 1950             graph_copy->nodes[graph_copy->n_nodes++] = input_cpy;
+ 1951         }
+ 1952 
+ 1953         for (int j = split->i_start; j < split->i_end; j++) {
+ 1954             assert(graph_copy->size > graph_copy->n_nodes);
+ 1955             sched->node_backend_ids[graph_copy->n_nodes] = tensor_backend_id(graph->nodes[j]);
+ 1956             graph_copy->nodes[graph_copy->n_nodes++] = graph->nodes[j];
+ 1957 
+ 1958             if (alloc_deps.empty()) {
+ 1959                 continue;
+ 1960             }
+ 1961 
+ 1962             // add a dependency node so that the kept tensors are not freed before this node is computed
+ 1963             auto it = alloc_deps.find(graph->nodes[j]);
+ 1964             if (it != alloc_deps.end()) {
+ 1965                 const std::vector<ggml_tensor *> & keep = it->second;
+ 1966                 for (size_t k = 0; k < keep.size(); k += GGML_MAX_SRC) {
+ 1967                     struct ggml_tensor * dep = ggml_view_tensor(sched->ctx, keep[k]);
+ 1968                     for (size_t s = 0; s < GGML_MAX_SRC && k + s < keep.size(); s++) {
+ 1969                         dep->src[s] = keep[k + s];
+ 1970                     }
+ 1971                     assert(graph_copy->size > graph_copy->n_nodes);
+ 1972                     sched->node_backend_ids[graph_copy->n_nodes] = split->backend_id;
+ 1973                     graph_copy->nodes[graph_copy->n_nodes++] = dep;
+ 1974                     n_dep_nodes_added++;
+ 1975                 }
+ 1976             }
+
+[scheduler] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp:2089-2175
+ 2089 static bool ggml_backend_sched_is_host_weight(const struct ggml_tensor * t) {
+ 2090     return t->buffer != NULL &&
+ 2091         ggml_backend_buffer_get_usage(t->buffer) == GGML_BACKEND_BUFFER_USAGE_WEIGHTS &&
+ 2092         ggml_backend_buffer_is_host(t->buffer);
+ 2093 }
+ 2094 
+ 2095 static void ggml_backend_sched_copy_input(ggml_backend_sched_t sched, struct ggml_backend_sched_split * split, struct ggml_tensor * input) {
+ 2096     const int split_backend_id = split->backend_id;
+ 2097     ggml_backend_t split_backend = sched->backends[split_backend_id];
+ 2098     ggml_backend_t input_backend = ggml_backend_sched_get_tensor_backend(sched, input);
+ 2099     struct ggml_tensor * input_cpy = tensor_copy(input, split_backend_id, sched->cur_copy);
+ 2100 
+ 2101     if (input->flags & GGML_TENSOR_FLAG_INPUT) {
+ 2102         // inputs from the user must be copied immediately to prevent the user overwriting the data before the copy is done
+ 2103         if (sched->events[split_backend_id][sched->cur_copy] != NULL) {
+ 2104             ggml_backend_event_synchronize(sched->events[split_backend_id][sched->cur_copy]);
+ 2105         } else {
+ 2106             ggml_backend_synchronize(split_backend);
+ 2107         }
+ 2108         ggml_backend_tensor_copy(input, input_cpy);
+ 2109         return;
+ 2110     }
+ 2111 
+ 2112     // wait for the split backend to finish using the input before overwriting it
+ 2113     if (sched->events[split_backend_id][sched->cur_copy] != NULL) {
+ 2114         ggml_backend_event_wait(split_backend, sched->events[split_backend_id][sched->cur_copy]);
+ 2115     } else {
+ 2116         ggml_backend_synchronize(split_backend);
+ 2117     }
+ 2118 
+ 2119     if (sched->callback_copy != NULL && ggml_backend_sched_is_host_weight(input) &&
+ 2120         sched->callback_copy(split_backend, input, input_cpy, &split->graph, sched->callback_copy_user_data)) {
+ 2121         return;
+ 2122     }
+ 2123 
+ 2124     // try async copy, but if not possible, we can still use a sync copy without synchronizing the dst backend, since we handle the synchronization here with multiple copies and events
+ 2125     // TODO: add public function to facilitate this, since applications do not have direct access to the backend interface
+ 2126     if (!split_backend->iface.cpy_tensor_async || !split_backend->iface.cpy_tensor_async(input_backend, split_backend, input, input_cpy)) {
+ 2127         ggml_backend_synchronize(input_backend);
+ 2128         if (sched->events[split_backend_id][sched->cur_copy] != NULL) {
+ 2129             ggml_backend_event_synchronize(sched->events[split_backend_id][sched->cur_copy]);
+ 2130         } else {
+ 2131             ggml_backend_synchronize(split_backend);
+ 2132         }
+ 2133         ggml_backend_tensor_copy(input, input_cpy);
+ 2134     }
+ 2135 }
+ 2136 
+ 2137 static enum ggml_status ggml_backend_sched_compute_splits(ggml_backend_sched_t sched) {
+ 2138     GGML_ASSERT(sched);
+ 2139     struct ggml_backend_sched_split * splits = sched->splits;
+ 2140 
+ 2141     int prev_backend_id = -1;
+ 2142 
+ 2143     for (int split_id = 0; split_id < sched->n_splits; split_id++) {
+ 2144         struct ggml_backend_sched_split * split = &splits[split_id];
+ 2145         int split_backend_id = split->backend_id;
+ 2146         ggml_backend_t split_backend = sched->backends[split_backend_id];
+ 2147 
+ 2148         // ensure the previous split's async work has completed before we start
+ 2149         // this split, the allocator may have reused buffer regions across splits
+ 2150         if (split->n_inputs == 0 && prev_backend_id >= 0 && prev_backend_id != split_backend_id) {
+ 2151             if (sched->events[prev_backend_id][sched->cur_copy] != NULL) {
+ 2152                 ggml_backend_event_synchronize(sched->events[prev_backend_id][sched->cur_copy]);
+ 2153             } else {
+ 2154                 ggml_backend_synchronize(sched->backends[prev_backend_id]);
+ 2155             }
+ 2156         }
+ 2157 
+ 2158         // copy the input tensors to the split backend
+ 2159         // the weights in host memory are copied last, so that the copy callback can read the other inputs of the split
+ 2160         for (int input_id = 0; input_id < split->n_inputs; input_id++) {
+ 2161             if (!ggml_backend_sched_is_host_weight(split->inputs[input_id])) {
+ 2162                 ggml_backend_sched_copy_input(sched, split, split->inputs[input_id]);
+ 2163             }
+ 2164         }
+ 2165         for (int input_id = 0; input_id < split->n_inputs; input_id++) {
+ 2166             if (ggml_backend_sched_is_host_weight(split->inputs[input_id])) {
+ 2167                 ggml_backend_sched_copy_input(sched, split, split->inputs[input_id]);
+ 2168             }
+ 2169         }
+ 2170 
+ 2171         if (!sched->callback_eval) {
+ 2172             enum ggml_status ec = ggml_backend_graph_compute_async(split_backend, &split->graph);
+ 2173             if (ec != GGML_STATUS_SUCCESS) {
+ 2174                 return ec;
+ 2175             }
+
+[allocator] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-alloc.c:211-250
+  211     // find the best fitting free block besides the last block, within any chunk
+  212     for (int c = 0; c < alloc->n_chunks; ++c) {
+  213         struct tallocr_chunk * chunk = alloc->chunks[c];
+  214         size_t best_fit_size = SIZE_MAX;
+  215         for (int i = 0; i < chunk->n_free_blocks - 1; i++) {
+  216             struct free_block * block = &chunk->free_blocks[i];
+  217             max_avail = MAX(max_avail, block->size);
+  218             if (block->size >= size && block->size <= best_fit_size) {
+  219                 best_fit_chunk = c;
+  220                 best_fit_block = i;
+  221                 best_fit_size = block->size;
+  222             }
+  223         }
+  224     }
+  225 
+  226     if (best_fit_block == -1) {
+  227         // no suitable block found, try the last block (this may grow a chunks size)
+  228         int64_t best_reuse = INT64_MIN;
+  229         for (int c = 0; c < alloc->n_chunks; ++c) {
+  230             struct tallocr_chunk * chunk = alloc->chunks[c];
+  231             if (chunk->n_free_blocks > 0) {
+  232                 struct free_block * block = &chunk->free_blocks[chunk->n_free_blocks - 1];
+  233                 max_avail = MAX(max_avail, block->size);
+  234                 int64_t reuse_factor = chunk->max_size - block->offset - size;
+  235                 // reuse_factor < 0 : amount of extra memory that needs to be allocated
+  236                 // reuse_factor = 0 : allocated free space exactly matches tensor size
+  237                 // reuse_factor > 0 : superfluous memory that will remain unused
+  238                 bool better_reuse = best_reuse < 0 && reuse_factor > best_reuse;
+  239                 bool better_fit = reuse_factor >= 0 && reuse_factor < best_reuse;
+  240                 if (block->size >= size && (better_reuse || better_fit)) {
+  241                     best_fit_chunk = c;
+  242                     best_fit_block = chunk->n_free_blocks - 1;
+  243                     best_reuse = reuse_factor;
+  244                 }
+  245             }
+  246         }
+  247     }
+  248 
+  249     if (best_fit_block == -1) {
+  250         // none of the existing chunks have enough space left
+
+[allocator] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-alloc.c:623-711
+  623 static void ggml_gallocr_allocate_node(ggml_gallocr_t galloc, struct ggml_tensor * node, int buffer_id) {
+  624     GGML_ASSERT(buffer_id >= 0);
+  625     struct hash_node * hn = ggml_gallocr_hash_get(galloc, node);
+  626 
+  627     if (!ggml_gallocr_is_allocated(galloc, node) && !ggml_impl_is_view(node)) {
+  628         hn->allocated = true;
+  629         assert(hn->addr.offset == 0);
+  630 
+  631         // try to reuse a parent's buffer (inplace)
+  632         if (ggml_op_can_inplace(node->op)) {
+  633             for (int i = 0; i < GGML_MAX_SRC; i++) {
+  634                 struct ggml_tensor * parent = node->src[i];
+  635                 if (parent == NULL) {
+  636                     continue;
+  637                 }
+  638 
+  639                 // if the node's data is external, then we cannot re-use it
+  640                 if (!ggml_gallocr_is_own(galloc, parent)) {
+  641                     AT_PRINTF("not reusing parent %s for %s as %p is external\n", parent->name, node->name, parent->data);
+  642                     continue;
+  643                 }
+  644 
+  645                 // outputs cannot be reused
+  646                 if (parent->flags & GGML_TENSOR_FLAG_OUTPUT || (parent->view_src != NULL && parent->view_src->flags & GGML_TENSOR_FLAG_OUTPUT)) {
+  647                     AT_PRINTF("not reusing parent %s for %s as it is an output\n", parent->name, node->name);
+  648                     continue;
+  649                 }
+  650 
+  651                 if (!ggml_are_same_layout(node, parent)) {
+  652                     AT_PRINTF("not reusing parent %s for %s as layouts are different\n", parent->name, node->name);
+  653                     continue;
+  654                 }
+  655 
+  656                 struct hash_node * p_hn = ggml_gallocr_hash_get(galloc, parent);
+  657                 if (p_hn->n_children == 1 && p_hn->n_views == 0) {
+  658                     if (ggml_impl_is_view(parent)) {
+  659                         struct ggml_tensor * view_src = parent->view_src;
+  660                         struct hash_node * view_src_hn = ggml_gallocr_hash_get(galloc, view_src);
+  661                         if (view_src_hn->n_views == 1 && view_src_hn->n_children == 0 && view_src->data == parent->data) {
+  662                             AT_PRINTF("reusing view parent %s (%s) for %s\n", parent->name, view_src->name, node->name);
+  663                             assert(view_src_hn->addr.chunk == p_hn->addr.chunk && view_src_hn->addr.offset == p_hn->addr.offset);
+  664                             hn->buffer_id = p_hn->buffer_id;
+  665                             hn->addr = p_hn->addr;
+  666                             p_hn->allocated = false; // avoid freeing the parent
+  667                             view_src_hn->allocated = false;
+  668                             ggml_gallocr_free_extra_space(galloc, node, view_src);
+  669                             return;
+  670                         }
+  671                     } else {
+  672                         AT_PRINTF("reusing parent %s for %s\n", parent->name, node->name);
+  673                         hn->buffer_id = p_hn->buffer_id;
+  674                         hn->addr = p_hn->addr;
+  675                         p_hn->allocated = false; // avoid freeing the parent
+  676                         ggml_gallocr_free_extra_space(galloc, node, parent);
+  677                         return;
+  678                     }
+  679                 }
+  680             }
+  681         }
+  682         // allocate tensor from the buffer
+  683         struct ggml_dyn_tallocr * alloc = galloc->buf_tallocs[buffer_id];
+  684         ggml_backend_buffer_type_t buft = galloc->bufts[buffer_id];
+  685         size_t size = ggml_backend_buft_get_alloc_size(buft, node);
+  686         hn->buffer_id = buffer_id;
+  687         hn->addr = ggml_dyn_tallocr_alloc(alloc, size, node);
+  688     }
+  689 }
+  690 
+  691 static void ggml_gallocr_free_node(ggml_gallocr_t galloc, struct ggml_tensor * node) {
+  692     // graph outputs are never freed
+  693     if (node->flags & GGML_TENSOR_FLAG_OUTPUT) {
+  694         AT_PRINTF("not freeing output %s\n", node->name);
+  695         return;
+  696     }
+  697 
+  698     struct hash_node * hn = ggml_gallocr_hash_get(galloc, node);
+  699     int buffer_id = hn->buffer_id;
+  700     struct ggml_dyn_tallocr * alloc = galloc->buf_tallocs[buffer_id];
+  701     ggml_backend_buffer_type_t buft = galloc->bufts[buffer_id];
+  702     size_t size = ggml_backend_buft_get_alloc_size(buft, node);
+  703 
+  704     AT_PRINTF("%s: freeing %s at {chunk=%d, offset=%zu} (%zu bytes) - n_free_blocks = %d\n",
+  705         __func__, node->name, hn->addr.chunk, hn->addr.offset, size, alloc->chunks[hn->addr.chunk]->n_free_blocks);
+  706 #ifdef GGML_ALLOCATOR_DEBUG
+  707     remove_allocated_tensor(alloc, hn->addr, node);
+  708 #endif
+  709 
+  710     ggml_dyn_tallocr_free_bytes(alloc, hn->addr, size);
+  711     hn->allocated = false;
+
+[allocator] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-alloc.c:718-823
+  718 static void ggml_gallocr_alloc_graph_impl(ggml_gallocr_t galloc, struct ggml_cgraph * graph, const int * node_buffer_ids, const int * leaf_buffer_ids) {
+  719     // clear hash tables
+  720     ggml_hash_set_reset(&galloc->hash_set);
+  721     memset(galloc->hash_values, 0, sizeof(struct hash_node) * galloc->hash_set.size);
+  722 
+  723     // allocate leafs
+  724     // these may be tensors that the application is not using in the graph, but may still want to allocate for other purposes
+  725     for (int i = 0; i < graph->n_leafs; i++) {
+  726         struct ggml_tensor * leaf = graph->leafs[i];
+  727         ggml_gallocr_allocate_node(galloc, leaf, get_node_buffer_id(leaf_buffer_ids, i));
+  728     }
+  729 
+  730     // count number of children and views
+  731     // allocate other graph inputs and leafs first to avoid overwriting them
+  732     for (int i = 0; i < graph->n_nodes; i++) {
+  733         struct ggml_tensor * node = graph->nodes[i];
+  734 
+  735         // TODO: better way to add external dependencies
+  736         // GGML_OP_NONE does not appear normally in the graph nodes, but is used by ggml-backend to add dependencies to
+  737         // control when some tensors are allocated and freed. in this case, the dependencies are in `src`, but the node
+  738         // itself is never used and should not be considered a dependency
+  739         if (ggml_impl_is_view(node) && node->op != GGML_OP_NONE) {
+  740             struct ggml_tensor * view_src = node->view_src;
+  741             ggml_gallocr_hash_get(galloc, view_src)->n_views += 1;
+  742         }
+  743 
+  744         if (node->flags & GGML_TENSOR_FLAG_INPUT) {
+  745             ggml_gallocr_allocate_node(galloc, graph->nodes[i], get_node_buffer_id(node_buffer_ids, i));
+  746         }
+  747 
+  748         for (int j = 0; j < GGML_MAX_SRC; j++) {
+  749             struct ggml_tensor * src = node->src[j];
+  750             if (src == NULL) {
+  751                 continue;
+  752             }
+  753 
+  754             ggml_gallocr_hash_get(galloc, src)->n_children += 1;
+  755 
+  756             // allocate explicit inputs
+  757             if (src->flags & GGML_TENSOR_FLAG_INPUT) {
+  758                 ggml_gallocr_allocate_node(galloc, src, get_node_buffer_id(node_buffer_ids, i));
+  759             }
+  760         }
+  761     }
+  762 
+  763     // allocate tensors
+  764     for (int i = 0; i < graph->n_nodes; i++) {
+  765         struct ggml_tensor * node = graph->nodes[i];
+  766         int buffer_id = get_node_buffer_id(node_buffer_ids, i);
+  767 
+  768         // allocate parents (only leafs need to be allocated at this point)
+  769         for (int j = 0; j < GGML_MAX_SRC; j++) {
+  770             struct ggml_tensor * parent = node->src[j];
+  771             if (parent == NULL) {
+  772                 continue;
+  773             }
+  774             ggml_gallocr_allocate_node(galloc, parent, buffer_id);
+  775         }
+  776 
+  777         // allocate node
+  778         ggml_gallocr_allocate_node(galloc, node, buffer_id);
+  779 
+  780         AT_PRINTF("exec: %s (%s) <= ", ggml_op_desc(node), node->name);
+  781         for (int j = 0; j < GGML_MAX_SRC; j++) {
+  782             struct ggml_tensor * parent = node->src[j];
+  783             if (parent == NULL) {
+  784                 continue;
+  785             }
+  786             AT_PRINTF("%s", parent->name);
+  787             if (j < GGML_MAX_SRC - 1 && node->src[j + 1] != NULL) {
+  788                 AT_PRINTF(", ");
+  789             }
+  790         }
+  791         AT_PRINTF("\n");
+  792 
+  793         // update parents
+  794         for (int j = 0; j < GGML_MAX_SRC; j++) {
+  795             struct ggml_tensor * parent = node->src[j];
+  796             if (parent == NULL) {
+  797                 continue;
+  798             }
+  799             struct hash_node * p_hn = ggml_gallocr_hash_get(galloc, parent);
+  800             p_hn->n_children -= 1;
+  801 
+  802             AT_PRINTF("parent %s: %d children, %d views, allocated: %d\n",
+  803                 parent->name, p_hn->n_children, p_hn->n_views, p_hn->allocated);
+  804 
+  805             if (p_hn->n_children == 0 && p_hn->n_views == 0) {
+  806                 if (ggml_impl_is_view(parent)) {
+  807                     struct ggml_tensor * view_src = parent->view_src;
+  808                     struct hash_node * view_src_hn = ggml_gallocr_hash_get(galloc, view_src);
+  809                     view_src_hn->n_views -= 1;
+  810                     AT_PRINTF("view_src %s: %d children, %d views\n",
+  811                         view_src->name, view_src_hn->n_children, view_src_hn->n_views);
+  812                     if (view_src_hn->n_views == 0 && view_src_hn->n_children == 0 && view_src_hn->allocated) {
+  813                         ggml_gallocr_free_node(galloc, view_src);
+  814                     }
+  815                 }
+  816                 else if (p_hn->allocated) {
+  817                     ggml_gallocr_free_node(galloc, parent);
+  818                 }
+  819             }
+  820             AT_PRINTF("\n");
+  821         }
+  822     }
+  823 }
+
+[allocator] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-alloc.c:904-963
+  904     // reallocate buffers if needed
+  905     for (int i = 0; i < galloc->n_buffers; i++) {
+  906         // if the buffer type is used multiple times, we reuse the same buffer
+  907         for (int j = 0; j < i; j++) {
+  908             if (galloc->buf_tallocs[j] == galloc->buf_tallocs[i]) {
+  909                 galloc->buffers[i] = galloc->buffers[j];
+  910                 break;
+  911             }
+  912         }
+  913 
+  914         // even if there are no tensors allocated in this buffer, we still need to allocate it to initialize views
+  915         bool realloc = galloc->buffers[i] == NULL;
+  916         size_t new_size = 0;
+  917         for (int c = 0; c < galloc->buf_tallocs[i]->n_chunks; c++) {
+  918             size_t cur_chunk_size = galloc->buffers[i] ? ggml_vbuffer_chunk_size(galloc->buffers[i], c) : 0;
+  919             size_t new_chunk_size = ggml_dyn_tallocr_max_size(galloc->buf_tallocs[i], c);
+  920             new_size += new_chunk_size;
+  921             if (new_chunk_size > cur_chunk_size) {
+  922                 realloc = true;
+  923             }
+  924         }
+  925         if (realloc) {
+  926 #ifndef NDEBUG
+  927             {
+  928                 size_t cur_size = galloc->buffers[i] ? ggml_vbuffer_size(galloc->buffers[i]) : 0;
+  929                 if (cur_size > 0) {
+  930                     GGML_LOG_DEBUG("%s: reallocating %s buffer from size %.02f MiB to %.02f MiB\n",
+  931                         __func__, ggml_backend_buft_name(galloc->bufts[i]), cur_size / 1024.0 / 1024.0, new_size / 1024.0 / 1024.0);
+  932                 }
+  933             }
+  934 #endif
+  935             ggml_vbuffer_free(galloc->buffers[i]);
+  936             if (no_alloc) {
+  937                 galloc->buffers[i] = NULL;
+  938             } else {
+  939                 galloc->buffers[i] = ggml_vbuffer_alloc(galloc->bufts[i], galloc->buf_tallocs[i], GGML_BACKEND_BUFFER_USAGE_COMPUTE);
+  940                 if (galloc->buffers[i] == NULL) {
+  941                     GGML_LOG_ERROR("%s: failed to allocate %s buffer of size %zu\n", __func__, ggml_backend_buft_name(galloc->bufts[i]), new_size);
+  942                     return false;
+  943                 }
+  944             }
+  945         }
+  946     }
+  947 
+  948     return true;
+  949 }
+  950 
+  951 void ggml_gallocr_reserve_n_size(
+  952         ggml_gallocr_t galloc, struct ggml_cgraph * graph, const int * node_buffer_ids, const int * leaf_buffer_ids, size_t * sizes) {
+  953     GGML_ASSERT(ggml_gallocr_reserve_n_impl(galloc, graph, node_buffer_ids, leaf_buffer_ids, /*no_alloc =*/ true));
+  954     for (int i = 0; i < galloc->n_buffers; i++) {
+  955         sizes[i] = 0;
+  956         for (int c = 0; c < galloc->buf_tallocs[i]->n_chunks; c++) {
+  957             sizes[i] += galloc->buf_tallocs[i]->chunks[c]->max_size;
+  958         }
+  959     }
+  960 }
+  961 
+  962 bool ggml_gallocr_reserve_n(ggml_gallocr_t galloc, struct ggml_cgraph * graph, const int * node_buffer_ids, const int * leaf_buffer_ids) {
+  963     return ggml_gallocr_reserve_n_impl(galloc, graph, node_buffer_ids, leaf_buffer_ids, /*no_alloc =*/ false);
+
+[cuda_build] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/BUILD.json:148-158
+  148     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/softcap.cu.o": "0b3af6cc6a34fac231f15cf32a267aad8d9ebc5fa2f6cc6624308a7a575c4b33",
+  149     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/softmax.cu.o": "91f1f7bf378f1cd8dc0a3240735a2fb28841cdaf2484d36f158e9574b1a5b12f",
+  150     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/solve_tri.cu.o": "2388a0685f257de82f8b69a2954ac258136de49fd1b985727f8f58824b42a6b8",
+  151     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/ssm-conv.cu.o": "d5a2d454c880695da441fb2b874827925c5d0c612c3044d4a3033958428be492",
+  152     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/ssm-scan.cu.o": "2571a1b90981e8c38328fee93b6b2267a5464c8bf21ae08a865336d110e6960e",
+  153     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/sum.cu.o": "85e7b05ba5445d81f93d2cf58b61d8af4582b95321d7a9ddb9cd90cfa2dabba9",
+  154     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/sumrows.cu.o": "bf3e18fa6f68533f3dfe2d545b736dc2ee5d60a68fa1fa1e8077d6158de4303d",
+  155     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/top-k-mask.cu.o": "63847a59d4ce8508d0a1b080d3402b7431383c894644a0849139561492cb09bc",
+  156     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/top-k.cu.o": "f701ab01545dd22c2eea4f22f6cbce59b9118804bacc2e5214045e09c9e96051",
+  157     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/topk-moe.cu.o": "7761db375e0b21f8d662424a20d64a49f46424f464faa12297aeca093a68a451",
+  158     "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/ggml/src/ggml-cuda/CMakeFiles/ggml-cuda.dir/tri.cu.o": "6e04135baa734fd138ef7476e5bd40d2bcc489a83bca8beed2318fdf346cabf7",
+
+[cuda_build] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/BUILD.json:441-485
+  441         "CMakeFiles/ggml-cuda.dir/fattn.cu.o",
+  442         "CMakeFiles/ggml-cuda.dir/fill.cu.o",
+  443         "CMakeFiles/ggml-cuda.dir/fwht.cu.o",
+  444         "CMakeFiles/ggml-cuda.dir/gated-delta-net-mma.cu.o",
+  445         "CMakeFiles/ggml-cuda.dir/gated_delta_net.cu.o",
+  446         "CMakeFiles/ggml-cuda.dir/getrows.cu.o",
+  447         "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/ggml-cuda.cu.o",
+  448         "CMakeFiles/ggml-cuda.dir/gla.cu.o",
+  449         "CMakeFiles/ggml-cuda.dir/im2col.cu.o",
+  450         "CMakeFiles/ggml-cuda.dir/lightning-indexer.cu.o",
+  451         "CMakeFiles/ggml-cuda.dir/mean.cu.o",
+  452         "CMakeFiles/ggml-cuda.dir/mmf.cu.o",
+  453         "CMakeFiles/ggml-cuda.dir/mmid.cu.o",
+  454         "CMakeFiles/ggml-cuda.dir/mmq.cu.o",
+  455         "CMakeFiles/ggml-cuda.dir/mmvf.cu.o",
+  456         "CMakeFiles/ggml-cuda.dir/mmvq.cu.o",
+  457         "CMakeFiles/ggml-cuda.dir/moe-weighted-reduction.cu.o",
+  458         "CMakeFiles/ggml-cuda.dir/norm.cu.o",
+  459         "CMakeFiles/ggml-cuda.dir/opt-step-adamw.cu.o",
+  460         "CMakeFiles/ggml-cuda.dir/opt-step-sgd.cu.o",
+  461         "CMakeFiles/ggml-cuda.dir/out-prod.cu.o",
+  462         "CMakeFiles/ggml-cuda.dir/pad.cu.o",
+  463         "CMakeFiles/ggml-cuda.dir/pad_reflect_1d.cu.o",
+  464         "CMakeFiles/ggml-cuda.dir/pool1d.cu.o",
+  465         "CMakeFiles/ggml-cuda.dir/pool2d.cu.o",
+  466         "CMakeFiles/ggml-cuda.dir/quantize.cu.o",
+  467         "CMakeFiles/ggml-cuda.dir/roll.cu.o",
+  468         "CMakeFiles/ggml-cuda.dir/rope.cu.o",
+  469         "CMakeFiles/ggml-cuda.dir/scale.cu.o",
+  470         "CMakeFiles/ggml-cuda.dir/set-rows.cu.o",
+  471         "CMakeFiles/ggml-cuda.dir/set.cu.o",
+  472         "CMakeFiles/ggml-cuda.dir/snake.cu.o",
+  473         "CMakeFiles/ggml-cuda.dir/softcap.cu.o",
+  474         "CMakeFiles/ggml-cuda.dir/softmax.cu.o",
+  475         "CMakeFiles/ggml-cuda.dir/solve_tri.cu.o",
+  476         "CMakeFiles/ggml-cuda.dir/ssm-conv.cu.o",
+  477         "CMakeFiles/ggml-cuda.dir/ssm-scan.cu.o",
+  478         "CMakeFiles/ggml-cuda.dir/sum.cu.o",
+  479         "CMakeFiles/ggml-cuda.dir/sumrows.cu.o",
+  480         "CMakeFiles/ggml-cuda.dir/top-k-mask.cu.o",
+  481         "CMakeFiles/ggml-cuda.dir/top-k.cu.o",
+  482         "CMakeFiles/ggml-cuda.dir/topk-moe.cu.o",
+  483         "CMakeFiles/ggml-cuda.dir/tri.cu.o",
+  484         "CMakeFiles/ggml-cuda.dir/tsembd.cu.o",
+  485         "CMakeFiles/ggml-cuda.dir/unary.cu.o",
+
+[cuda] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu:442-574
+  442 // buffer pool for cuda (legacy)
+  443 struct ggml_cuda_pool_leg : public ggml_cuda_pool {
+  444     static const int MAX_BUFFERS = 256;
+  445 
+  446     ggml_backend_cuda_context & ctx;
+  447     int device;
+  448     struct ggml_cuda_buffer {
+  449         void * ptr = nullptr;
+  450         size_t size = 0;
+  451     };
+  452 
+  453     ggml_cuda_buffer buffer_pool[MAX_BUFFERS] = {};
+  454     size_t pool_size = 0;
+  455 
+  456     ggml_cuda_pool_leg(ggml_backend_cuda_context & ctx, int device) :
+  457         ctx(ctx),
+  458         device(device) {
+  459     }
+  460 
+  461     ~ggml_cuda_pool_leg() {
+  462         clear_pool();
+  463         GGML_ASSERT(pool_size == 0);
+  464     }
+  465 
+  466     void clear_pool() {
+  467         ggml_cuda_set_device(device);
+  468         for (int i = 0; i < MAX_BUFFERS; ++i) {
+  469             ggml_cuda_buffer & b = buffer_pool[i];
+  470             if (b.ptr != nullptr) {
+  471                 CUDA_CHECK(cudaFree(b.ptr));
+  472                 pool_size -= b.size;
+  473                 b.ptr  = nullptr;
+  474                 b.size = 0;
+  475             }
+  476         }
+  477     }
+  478 
+  479     // captured CUDA graphs can still use freed buffers, so they must be captured again
+  480     void invalidate_cuda_graphs() {
+  481 #ifdef USE_CUDA_GRAPH
+  482         int n_captured = 0;
+  483         for (const auto & [key, graph] : ctx.cuda_graphs) {
+  484             n_captured += graph->instances.size();
+  485         }
+  486         if (n_captured > 0) {
+  487             GGML_LOG_DEBUG(GGML_CUDA_NAME " pool[%d]: memory freed, %d captured CUDA graphs must be captured again\n", device, n_captured);
+  488         }
+  489         ctx.cuda_graphs.clear();
+  490 #endif // USE_CUDA_GRAPH
+  491     }
+  492 
+  493     void * alloc(size_t size, size_t * actual_size) override {
+  494 #ifdef DEBUG_CUDA_MALLOC
+  495         int nnz = 0;
+  496         size_t max_size = 0;
+  497 #endif
+  498         size_t best_diff = 1ull << 36;
+  499         int ibest = -1;
+  500         for (int i = 0; i < MAX_BUFFERS; ++i) {
+  501             ggml_cuda_buffer& b = buffer_pool[i];
+  502             if (b.ptr != nullptr) {
+  503 #ifdef DEBUG_CUDA_MALLOC
+  504                 ++nnz;
+  505                 if (b.size > max_size) max_size = b.size;
+  506 #endif
+  507                 if (b.size >= size) {
+  508                     size_t diff = b.size - size;
+  509                     if (diff < best_diff) {
+  510                         best_diff = diff;
+  511                         ibest = i;
+  512                         if (!best_diff) {
+  513                             void * ptr = b.ptr;
+  514                             *actual_size = b.size;
+  515                             b.ptr = nullptr;
+  516                             b.size = 0;
+  517                             return ptr;
+  518                         }
+  519                     }
+  520                 }
+  521             }
+  522         }
+  523         if (ibest >= 0) {
+  524             ggml_cuda_buffer& b = buffer_pool[ibest];
+  525             void * ptr = b.ptr;
+  526             *actual_size = b.size;
+  527             b.ptr = nullptr;
+  528             b.size = 0;
+  529             return ptr;
+  530         }
+  531         void * ptr;
+  532         size_t look_ahead_size = (size_t) (1.05 * size);
+  533         look_ahead_size = 256 * ((look_ahead_size + 255)/256);
+  534         ggml_cuda_set_device(device);
+  535         cudaError_t err = ggml_cuda_device_malloc(&ptr, look_ahead_size, device);
+  536         if (err == cudaErrorMemoryAllocation) {
+  537             (void)cudaGetLastError();
+  538             const size_t cached_bytes = pool_size;
+  539             GGML_LOG_DEBUG(GGML_CUDA_NAME " pool[%d]: alloc of %.2f MiB failed, flushing %.2f MiB of cached buffers and retrying\n",
+  540                            device, look_ahead_size/1024.0/1024.0, cached_bytes/1024.0/1024.0);
+  541             CUDA_CHECK(cudaDeviceSynchronize());
+  542             clear_pool();
+  543             invalidate_cuda_graphs();
+  544             err = ggml_cuda_device_malloc(&ptr, look_ahead_size, device);
+  545             if (err == cudaSuccess) {
+  546                 GGML_LOG_DEBUG(GGML_CUDA_NAME " pool[%d]: retry succeeded\n", device);
+  547             }
+  548         }
+  549         CUDA_CHECK(err);
+  550         *actual_size = look_ahead_size;
+  551         pool_size += look_ahead_size;
+  552 #ifdef DEBUG_CUDA_MALLOC
+  553         GGML_LOG_INFO("%s[%d]: %d buffers, max_size = %u MB, pool_size = %u MB, requested %u MB\n", __func__, device, nnz,
+  554                            (uint32_t)(max_size / 1024 / 1024), (uint32_t)(pool_size / 1024 / 1024), (uint32_t)(size / 1024 / 1024));
+  555 #endif
+  556         return ptr;
+  557     }
+  558 
+  559     void free(void * ptr, size_t size) override {
+  560         for (int i = 0; i < MAX_BUFFERS; ++i) {
+  561             ggml_cuda_buffer& b = buffer_pool[i];
+  562             if (b.ptr == nullptr) {
+  563                 b.ptr = ptr;
+  564                 b.size = size;
+  565                 return;
+  566             }
+  567         }
+  568         GGML_LOG_DEBUG(GGML_CUDA_NAME " buffer pool full, increase MAX_CUDA_BUFFERS\n");
+  569         ggml_cuda_set_device(device);
+  570         CUDA_CHECK(cudaFree(ptr));
+  571         pool_size -= size;
+  572         invalidate_cuda_graphs();
+  573     }
+  574 };
+
+[cuda] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu:2201-2268
+ 2201 static void ggml_cuda_mul_mat_id(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
+ 2202     const ggml_tensor * src0 = dst->src[0];
+ 2203     const ggml_tensor * src1 = dst->src[1];
+ 2204     const ggml_tensor * ids  = dst->src[2];
+ 2205 
+ 2206     GGML_ASSERT(src1->type == GGML_TYPE_F32);
+ 2207     GGML_ASSERT(dst->type  == GGML_TYPE_F32);
+ 2208 
+ 2209     GGML_TENSOR_BINARY_OP_LOCALS
+ 2210 
+ 2211     const int cc = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
+ 2212     const int warp_size = ggml_cuda_info().devices[ggml_cuda_get_device()].warp_size;
+ 2213 
+ 2214     // [TAG_MUL_MAT_ID_CUDA_GRAPHS]
+ 2215     if (src1->type == GGML_TYPE_F32 && dst->type == GGML_TYPE_F32) {
+ 2216         static_assert(MMVQ_MAX_BATCH_SIZE == MMVF_MAX_BATCH_SIZE);
+ 2217         if (ne2 <= MMVQ_MAX_BATCH_SIZE) {
+ 2218             if (ggml_is_quantized(src0->type)) {
+ 2219                 const int mmvq_mmid_max = get_mmvq_mmid_max_batch(src0->type, cc);
+ 2220                 if (ne2 <= mmvq_mmid_max) {
+ 2221                     ggml_cuda_mul_mat_vec_q(ctx, src0, src1, ids, dst);
+ 2222                     return;
+ 2223                 }
+ 2224             } else {
+ 2225                 if (GGML_CUDA_CC_IS_AMD(cc)) {
+ 2226                     ggml_cuda_mul_mat_vec_f(ctx, src0, src1, ids, dst);
+ 2227                     return;
+ 2228                 }
+ 2229             }
+ 2230         }
+ 2231 
+ 2232         if (ggml_cuda_should_use_mmq(src0->type, cc, ne12, /*n_experts=*/ne02)) {
+ 2233             ggml_cuda_mul_mat_q(ctx, src0, src1, ids, dst);
+ 2234             return;
+ 2235         }
+ 2236 
+ 2237         if (ggml_cuda_should_use_mmf(src0->type, cc, warp_size, src0->ne, src0->nb, src1->ne[2], /*mul_mat_id=*/true)) {
+ 2238             ggml_cuda_mul_mat_f(ctx, src0, src1, ids, dst);
+ 2239             return;
+ 2240         }
+ 2241     }
+ 2242 
+ 2243     // note: this path should not be reached when recording CUDA graphs, because it requires stream synchronization
+ 2244     GGML_ASSERT(ggml_cuda_mul_mat_id_needs_sync(dst, cc));
+ 2245     cudaStream_t stream = ctx.stream();
+ 2246 
+ 2247     GGML_ASSERT(nb12 % nb11 == 0);
+ 2248     GGML_ASSERT(nb2  % nb1  == 0);
+ 2249 
+ 2250     const ggml_type type_src1_sorted = (src0->type == GGML_TYPE_F16 && !fast_fp16_hardware_available(cc))
+ 2251         || ggml_is_quantized(src0->type) ? GGML_TYPE_F32 : src0->type;
+ 2252     const ggml_type type_dst_sorted  = GGML_TYPE_F32;
+ 2253     const size_t ts_src1_sorted = ggml_type_size(type_src1_sorted);
+ 2254     const size_t ts_dst_sorted  = ggml_type_size(type_dst_sorted);
+ 2255 
+ 2256     const int64_t n_expert_used = ids->ne[0];
+ 2257     const int64_t ne_get_rows = ne12 * n_expert_used;
+ 2258 
+ 2259     std::vector<int32_t> ids_to_sorted_host;
+ 2260     ids_to_sorted_host.reserve(2*ne_get_rows);
+ 2261     std::vector<int32_t> ids_from_sorted_host(ne_get_rows);
+ 2262 
+ 2263     ggml_cuda_pool_alloc<int32_t> ids_buf_dev(ctx.pool(), 2*ne_get_rows);
+ 2264 
+ 2265     std::vector<int32_t> tokens_per_expert(ne02);
+ 2266 
+ 2267     ggml_cuda_pool_alloc<char> src1_sorted(ctx.pool(), ne12*n_expert_used*ne10*ts_src1_sorted);
+ 2268     ggml_cuda_pool_alloc<char>  dst_sorted(ctx.pool(), ne2 *n_expert_used* ne0*ts_dst_sorted);
+
+[cuda] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu:5080-5128
+ 5080     auto add_alloc_deps = [&](size_t start, size_t last_node) {
+ 5081 
+ 5082         for (size_t i = start; i < last_node; ++i) {
+ 5083             params->add_alloc_dep(params->user_data, cgraph->nodes[i], cgraph->nodes[last_node]);
+ 5084 
+ 5085             for (int j = 0; j < GGML_MAX_SRC; ++j) {
+ 5086                 if (cgraph->nodes[i]->src[j]) {
+ 5087                     params->add_alloc_dep(params->user_data, cgraph->nodes[i]->src[j], cgraph->nodes[last_node]);
+ 5088                 }
+ 5089             }
+ 5090         }
+ 5091     };
+ 5092 
+ 5093     if (!disable_fusion) {
+ 5094         // add alloc deps for performance positive fusions. This may increase the overall compute buffer size.
+ 5095         // TODO: consolidate fusion paths in graph_optimize and graph_compute
+ 5096         ggml_cuda_set_device(cuda_ctx->device);
+ 5097         for (int i = 0; i + 5 < cgraph->n_nodes; ++i) {
+ 5098             if (cgraph->nodes[i]->op != GGML_OP_MUL_MAT_ID) {
+ 5099                 continue;
+ 5100             }
+ 5101             for (int j = i + 3; j + 2 < cgraph->n_nodes; ++j) {
+ 5102                 if (cgraph->nodes[j]->op == GGML_OP_MUL_MAT_ID && cgraph->nodes[j + 1]->op == GGML_OP_MUL_MAT_ID) {
+ 5103                     break;
+ 5104                 }
+ 5105                 if (cgraph->nodes[j]->op != GGML_OP_MUL_MAT || !ggml_cuda_match_shared_expert(cgraph, i, j)) {
+ 5106                     continue;
+ 5107                 }
+ 5108                 // Group both outputs before allocation so the shared result cannot alias intervening nodes.
+ 5109                 std::rotate(cgraph->nodes + i + 3, cgraph->nodes + j, cgraph->nodes + j + 3);
+ 5110                 ggml_tensor * up = cgraph->nodes[i + 2]->src[1];
+ 5111                 params->add_alloc_dep(params->user_data, up->src[1], cgraph->nodes[i + 5]);
+ 5112                 params->add_alloc_dep(params->user_data, up->src[2], cgraph->nodes[i + 5]);
+ 5113                 i += 5;
+ 5114                 break;
+ 5115             }
+ 5116         }
+ 5117         for (int i = 0; i < cgraph->n_nodes; ++i) {
+ 5118             // Keep the inputs of the fused gate/up/GLU MMQ kernel alive until the GLU so that they cannot alias its output (under op offload the weights are buffer copies).
+ 5119             if (i + 2 < cgraph->n_nodes && cgraph->nodes[i + 2]->op == GGML_OP_GLU) {
+ 5120                 ggml_tensor * glu  = cgraph->nodes[i + 2];
+ 5121                 ggml_tensor * gate = glu->src[0];
+ 5122                 ggml_tensor * up   = glu->src[1];
+ 5123                 const bool ok = (gate == cgraph->nodes[i] && up == cgraph->nodes[i + 1]) || (gate == cgraph->nodes[i + 1] && up == cgraph->nodes[i]);
+ 5124                 if (ok && ggml_cuda_mul_mat_q_fusion_matches(up, gate, glu, cuda_ctx->device)) {
+ 5125                     add_alloc_deps(i, i + 2);
+ 5126                     i += 2;
+ 5127                     continue;
+ 5128                 }
+
+[cuda] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu:6215-6234
+ 6215 static int64_t get_op_batch_size(const ggml_tensor * op) {
+ 6216     switch (op->op) {
+ 6217         case GGML_OP_GET_ROWS:
+ 6218             return 0;
+ 6219         case GGML_OP_MUL_MAT:
+ 6220             return op->ne[1];
+ 6221         case GGML_OP_MUL_MAT_ID:
+ 6222         case GGML_OP_ROPE:
+ 6223         case GGML_OP_ROPE_BACK:
+ 6224             return op->ne[2];
+ 6225         default:
+ 6226             return ggml_nrows(op);
+ 6227     }
+ 6228 }
+ 6229 
+ 6230 static bool ggml_backend_cuda_device_offload_op(ggml_backend_dev_t dev, const ggml_tensor * op) {
+ 6231     ggml_backend_cuda_device_context * dev_ctx = (ggml_backend_cuda_device_context *) dev->context;
+ 6232 
+ 6233     return get_op_batch_size(op) >= dev_ctx->op_offload_min_batch_size;
+ 6234 }
+
+[context] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/llama-context.cpp:739-852
+  739     sched_need_reserve = false;
+  740 
+  741     LLAMA_LOG_INFO("%s: reserving ...\n", __func__);
+  742 
+  743     synchronize();
+  744 
+  745     const int64_t t_start_us = ggml_time_us();
+  746 
+  747     const uint32_t n_seqs = cparams.n_seq_max;
+  748     const uint32_t n_tokens = std::min(cparams.n_ctx, cparams.n_ubatch);
+  749 
+  750     const size_t max_nodes = this->graph_max_nodes(n_tokens);
+  751 
+  752     LLAMA_LOG_DEBUG("%s: max_nodes = %zu\n", __func__, max_nodes);
+  753 
+  754     for (auto & res : gf_res_prev) {
+  755         res.reset();
+  756     }
+  757     gf_res_reserve.reset(new llm_graph_result(max_nodes));
+  758     gf_res_prev_active = nullptr;
+  759 
+  760     sched_new(max_nodes, cparams.pipeline_parallel);
+  761 
+  762     llama_memory_context_ptr mctx;
+  763     if (memory) {
+  764         LLAMA_LOG_DEBUG("%s: reserving full memory module\n", __func__);
+  765         mctx = memory->init_full();
+  766         if (!mctx) {
+  767             throw std::runtime_error("failed to initialize memory module");
+  768         }
+  769     }
+  770 
+  771     // avoid reserving graphs with zero outputs - assume one output per sequence
+  772     const int n_outputs = n_seqs;
+  773 
+  774     LLAMA_LOG_DEBUG("%s: worst-case: n_tokens = %d, n_seqs = %d, n_outputs = %d\n", __func__, n_tokens, n_seqs, n_outputs);
+  775 
+  776     resolve_fused_ops(mctx.get(), n_seqs);
+  777 
+  778     // reserve worst-case graph
+  779     int n_splits_pp        = -1;
+  780     int n_nodes_pp         = -1;
+  781     int n_inputs_pp        = -1;
+  782     int n_input_tensors_pp = -1;
+  783 
+  784     int n_splits_tg        = -1;
+  785     int n_nodes_tg         = -1;
+  786     int n_inputs_tg        = -1;
+  787     int n_input_tensors_tg = -1;
+  788 
+  789     const uint32_t n_outputs_pp = std::min(n_tokens, cparams.n_outputs_max);
+  790 
+  791     // reserve pp (prompt processing) graph first so that buffers are only allocated once
+  792     {
+  793         auto * gf = graph_reserve(n_tokens, n_seqs, n_outputs_pp, mctx.get(),
+  794                 model.no_alloc(), model.no_alloc() ? backend_buf_exp_size.data() : nullptr);
+  795         if (!gf) {
+  796             if (cparams.pipeline_parallel) {
+  797                 LLAMA_LOG_WARN("%s: compute buffer allocation failed, retrying without pipeline parallelism\n", __func__);
+  798                 cparams.pipeline_parallel = false;
+  799                 sched_new(max_nodes, false);
+  800                 gf = graph_reserve(n_tokens, n_seqs, n_outputs_pp, mctx.get());
+  801             }
+  802             if (!gf) {
+  803                 throw std::runtime_error("failed to allocate compute pp buffers");
+  804             }
+  805         }
+  806 
+  807         n_splits_pp        = ggml_backend_sched_get_n_splits(sched.get());
+  808         n_nodes_pp         = ggml_graph_n_nodes(gf);
+  809         n_inputs_pp        = get_gf_res_reserve()->inputs.size();
+  810         n_input_tensors_pp = this->n_input_tensors;
+  811 
+  812         graph_has_logits = get_gf_res_reserve()->get_logits() != nullptr;
+  813     }
+  814 
+  815     // reserve with tg (token generation) graph to get the number of splits and nodes
+  816     if (cparams.training) {
+  817         // no tg graph for training
+  818         n_splits_tg = n_splits_pp;
+  819         n_nodes_tg  = n_nodes_pp;
+  820     } else {
+  821         auto * gf = graph_reserve(n_seqs, n_seqs, n_seqs, mctx.get(), model.no_alloc());
+  822         if (!gf) {
+  823             throw std::runtime_error("failed to allocate compute tg buffers");
+  824         }
+  825 
+  826         n_splits_tg        = ggml_backend_sched_get_n_splits(sched.get());
+  827         n_nodes_tg         = ggml_graph_n_nodes(gf);
+  828         n_inputs_tg        = get_gf_res_reserve()->inputs.size();
+  829         n_input_tensors_tg = this->n_input_tensors;
+  830     }
+  831 
+  832     // reserve again with pp graph to avoid ggml-alloc reallocations during inference
+  833     {
+  834         // TODO: the worst case graph is not always reached for `n_seqs > 1`
+  835         //       need to implement a more robust mechanism that tries a few different inputs and analyzes the results
+  836         ggml_cgraph * gf = nullptr;
+  837         switch (model.arch) {
+  838             case LLM_ARCH_KIMI_LINEAR:
+  839             case LLM_ARCH_MINIMAX_01:
+  840                 // [TAG_RESERVE_DIAG_DECAY]
+  841                 // the `inp_diag_decay` tensor size scales with `n_seq_tokens^2` which
+  842                 // makes `n_seqs == 1` use more memory for the compute graph compared to `n_seqs > 1`
+  843                 gf = graph_reserve(n_tokens, 1,      n_outputs_pp, mctx.get(), model.no_alloc());
+  844                 break;
+  845             default:
+  846                 gf = graph_reserve(n_tokens, n_seqs, n_outputs_pp, mctx.get(), model.no_alloc());
+  847         };
+  848 
+  849         if (!gf) {
+  850             throw std::runtime_error("failed to allocate compute pp buffers");
+  851         }
+  852     }
+
+[model] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/models/deepseek41.cpp:204-216
+  204 
+  205         layer.ffn_gate_inp    = create_tensor(tn(LLM_TENSOR_FFN_GATE_INP,    "weight", i), {n_embd, n_expert}, 0);
+  206         layer.ffn_exp_probs_b = create_tensor(tn(LLM_TENSOR_FFN_EXP_PROBS_B, "bias",   i), {n_expert}, 0);
+  207         layer.ffn_exp_probs_b_vl = create_tensor(tn(LLM_TENSOR_FFN_EXP_PROBS_B_VL, "bias", i), {n_expert}, TENSOR_NOT_REQUIRED);
+  208         layer.ffn_norm        = create_tensor(tn(LLM_TENSOR_FFN_NORM,        "weight", i), {n_embd}, 0);
+  209 
+  210         layer.ffn_gate_exps = create_tensor(tn(LLM_TENSOR_FFN_GATE_EXPS, "weight", i), {n_embd,   n_ff_exp, n_expert}, 0);
+  211         layer.ffn_down_exps = create_tensor(tn(LLM_TENSOR_FFN_DOWN_EXPS, "weight", i), {n_ff_exp, n_embd,   n_expert}, 0);
+  212         layer.ffn_up_exps   = create_tensor(tn(LLM_TENSOR_FFN_UP_EXPS,   "weight", i), {n_embd,   n_ff_exp, n_expert}, 0);
+  213 
+  214         layer.ffn_gate_shexp = create_tensor(tn(LLM_TENSOR_FFN_GATE_SHEXP, "weight", i), {n_embd, n_ff_exp * n_expert_shared}, 0);
+  215         layer.ffn_down_shexp = create_tensor(tn(LLM_TENSOR_FFN_DOWN_SHEXP, "weight", i), {n_ff_exp * n_expert_shared, n_embd}, 0);
+  216         layer.ffn_up_shexp   = create_tensor(tn(LLM_TENSOR_FFN_UP_SHEXP,   "weight", i), {n_embd, n_ff_exp * n_expert_shared}, 0);
+
+[model] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/models/deepseek41.cpp:418-454
+  418 
+  419     const int64_t n_embd_head      = hparams.n_embd_head_k();
+  420     const int64_t n_embd_head_rope = hparams.n_rot();
+  421     const int64_t n_embd_head_nope = n_embd_head - n_embd_head_rope;
+  422     const int64_t n_groups         = hparams.dsv4_o_group_count;
+  423     const int64_t o_lora_rank      = hparams.dsv4_o_lora_rank;
+  424     const int64_t n_idx_embd       = hparams.indexer_head_size;
+  425     const int64_t n_idx_head       = hparams.indexer_n_head;
+  426     const int64_t nt               = cur->ne[1];
+  427     const float   kq_scale         = 1.0f/sqrtf(float(n_embd_head));
+  428     const int64_t ratio            = hparams.dsv4_compress_ratios[il];
+  429 
+  430     const bool    comp_rope     = ratio != 0;
+  431     const float   freq_base_l   = comp_rope ? hparams.dsv4_compress_rope_base : freq_base;
+  432     const float   freq_scale_l  = comp_rope ? freq_scale : 1.0f;
+  433     const float   ext_factor_l  = comp_rope ? ext_factor : 0.0f;
+  434     const float   attn_factor_l = dsv4_rope_attn_factor(freq_scale_l, ext_factor_l);
+  435     const float   beta_fast_l   = comp_rope ? beta_fast : 0.0f;
+  436     const float   beta_slow_l   = comp_rope ? beta_slow : 0.0f;
+  437     const int32_t n_ctx_orig_l  = comp_rope ? n_ctx_orig : 0;
+  438 
+  439     const auto rope = [&](ggml_tensor * t, ggml_tensor * pos, int64_t n_nope) {
+  440         t = ggml_rope_ext(ctx0, t, pos, nullptr, n_embd_head_rope, rope_type, n_ctx_orig_l,
+  441                 freq_base_l, freq_scale_l, ext_factor_l, attn_factor_l, beta_fast_l, beta_slow_l);
+  442         return ggml_rope_set_offset(t, n_nope);
+  443     };
+  444 
+  445     ggml_tensor * qr = build_norm(build_lora_mm(layer.wq_a, cur), layer.attn_q_a_norm, nullptr, LLM_NORM_RMS, il);
+  446     cb(qr, "qr_norm", il);
+  447 
+  448     ggml_tensor * q = ggml_reshape_3d(ctx0, build_lora_mm(layer.wq_b, qr), n_embd_head, n_head, nt);
+  449     q = rope(q, inp_pos, n_embd_head_nope);
+  450     cb(q, "q", il);
+  451 
+  452     ggml_tensor * kv = build_norm(build_lora_mm(layer.wkv, cur), layer.attn_kv_norm, nullptr, LLM_NORM_RMS, il);
+  453     kv = rope(ggml_reshape_3d(ctx0, kv, n_embd_head, 1, nt), inp_pos, n_embd_head_nope);
+  454     cb(kv, "kv", il);
+
+[model] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/models/deepseek41.cpp:525-630
+  525         const int64_t n_comp = ci.kq_mask->ne[0];
+  526 
+  527         ggml_tensor * comp_all = comp_ctx->get_k(ctx0, rd);
+  528         GGML_ASSERT(comp_all->ne[0] == n_embd_head + n_idx_embd && n_comp <= comp_all->ne[2]);
+  529         const int64_t n_stream = comp_all->ne[3];
+  530 
+  531         ggml_tensor * top_k = topk_of[hparams.dsv41_topk_src[il]];
+  532         if (hparams.dsv41_topk_src[il] == il) {
+  533             ggml_tensor * ik = ggml_view_4d(ctx0, comp_all, n_idx_embd, 1, n_comp, n_stream,
+  534                     comp_all->nb[1], comp_all->nb[2], comp_all->nb[3], ggml_row_size(comp_all->type, n_embd_head));
+  535             // the fused indexer reads the strided view in place, the unfused path needs it contiguous; CUDA has no same-type copy of quantized views, so dequantize them
+  536             const bool fused_idx = sparse && cparams.fused_lid && ci.kq_mask->type == GGML_TYPE_F16;
+  537             if (ggml_is_quantized(ik->type)) {
+  538                 ik = ggml_cast(ctx0, ik, GGML_TYPE_F32);
+  539             } else if (!fused_idx) {
+  540                 ik = ggml_cont(ctx0, ik);
+  541             }
+  542 
+  543             ggml_tensor * iq = ggml_reshape_3d(ctx0, build_lora_mm(layer.indexer_attn_q_b, qr), n_idx_embd, n_idx_head, nt);
+  544             iq = rope(iq, inp_pos, n_idx_embd - n_embd_head_rope);
+  545             iq = ggml_view_4d(ctx0, iq, iq->ne[0], iq->ne[1], nt/n_stream, n_stream, iq->nb[1], iq->nb[2], iq->nb[2]*(nt/n_stream), 0);
+  546 
+  547             ggml_tensor * iw = ggml_scale(ctx0, build_lora_mm(layer.indexer_proj, cur), 1.0f/sqrtf(float(n_idx_embd*n_idx_head)));
+  548             iw = ggml_view_4d(ctx0, iw, iw->ne[0], nt/n_stream, 1, n_stream, iw->nb[1], iw->nb[1]*(nt/n_stream), iw->nb[1]*(nt/n_stream), 0);
+  549 
+  550             // chunk queries so the [n_ih, tokens, n_comp] scores stay near 2^26 elements (at most 64 chunks); the fused indexer runs as one chunk
+  551             const int64_t n_tok = nt/n_stream;
+  552             GGML_ASSERT(ci.kq_mask->ne[1] == n_tok);
+  553             const int64_t chunk = fused_idx ? n_tok :
+  554                 std::max({ (n_tok + 63)/64, (INT64_C(1) << 26)/(n_idx_head*n_comp*n_stream), INT64_C(1) });
+  555 
+  556             const int32_t cand_src = hparams.dsv41_cand_src;
+  557             const bool    pick_blk = cand_src == il && cand_pin;              // level one: pick the candidate blocks
+  558             const bool    use_blk  = cand_src >= 0 && cand_src < il && cand_sel; // level two: score inside them
+  559             const int64_t bs       = hparams.dsv41_cand_block_size;
+  560             const int64_t n_blk    = pick_blk || use_blk ? (n_comp + bs - 1)/bs : 0;
+  561             GGML_ASSERT(!pick_blk || cand_pin->ne[0] == n_blk);
+  562             GGML_ASSERT(!use_blk  || cand_n_comp == n_comp);
+  563 
+  564             ggml_tensor * ik_p = fused_idx ? nullptr : ggml_permute(ctx0, ik, 0, 2, 1, 3);
+  565             std::vector<ggml_tensor *> parts_top_k;
+  566             std::vector<ggml_tensor *> parts_sel;
+  567             for (int64_t t0 = 0; t0 < n_tok; t0 += chunk) {
+  568                 const int64_t nc = std::min(chunk, n_tok - t0);
+  569                 const auto rows = [&](ggml_tensor * t) {
+  570                     return ggml_view_4d(ctx0, t, t->ne[0], nc, 1, n_stream, t->nb[1], t->nb[2], t->nb[3], t0*t->nb[1]);
+  571                 };
+  572                 ggml_tensor * score = nullptr;
+  573                 if (fused_idx) {
+  574                     score = ggml_lightning_indexer(ctx0, iq, ik, iw, ci.kq_mask);
+  575                     res->add_fused_node({LLM_FUSED_OP_LIGHTNING_INDEXER, score, il});
+  576                 } else {
+  577                     ggml_tensor * iqc = ggml_view_4d(ctx0, iq, iq->ne[0], iq->ne[1], nc, n_stream, iq->nb[1], iq->nb[2], iq->nb[3], t0*iq->nb[2]);
+  578 
+  579                     ggml_tensor * kq = ggml_mul_mat(ctx0, ik_p, ggml_permute(ctx0, iqc, 0, 2, 1, 3));
+  580                     kq = ggml_cont(ctx0, ggml_permute(ctx0, kq, 2, 1, 0, 3));
+  581                     score = ggml_sum_rows(ctx0, ggml_mul(ctx0, ggml_relu(ctx0, kq), rows(iw)));
+  582                     ggml_tensor * mask  = rows(ci.kq_mask);
+  583                     score = ggml_add(ctx0, ggml_cont(ctx0, ggml_permute(ctx0, score, 2, 1, 0, 3)),
+  584                             mask->type == GGML_TYPE_F32 ? mask : ggml_cast(ctx0, mask, GGML_TYPE_F32));
+  585                 }
+  586                 cb(score, "idx_score", il);
+  587 
+  588                 if (pick_blk) {
+  589                     // best position per block, pin the newest block, keep the top blocks
+  590                     ggml_tensor * s2 = ggml_reshape_2d(ctx0, score, n_comp, nc*n_stream);
+  591                     if (n_blk*bs != n_comp) {
+  592                         s2 = ggml_concat(ctx0, s2, ggml_fill(ctx0, ggml_new_tensor_2d(ctx0, GGML_TYPE_F32, n_blk*bs - n_comp, nc*n_stream), -INFINITY), 0);
+  593                     }
+  594                     ggml_tensor * bmax = ggml_pool_1d(ctx0, s2, GGML_OP_POOL_MAX, bs, bs, 0);
+  595                     bmax = ggml_add(ctx0, ggml_reshape_4d(ctx0, bmax, n_blk, nc, 1, n_stream), rows(cand_pin));
+  596                     cb(bmax, "cand_block_score", il);
+  597                     parts_sel.push_back(ggml_top_k(ctx0, bmax, std::min<int64_t>(hparams.dsv41_cand_topk_blocks, n_blk)));
+  598                 } else if (use_blk) {
+  599                     // own scores, restricted to the source's candidate blocks: 0 inside them, -inf elsewhere
+  600                     ggml_tensor * bsel = ggml_cont(ctx0, rows(cand_sel));
+  601                     const int64_t k_b = bsel->ne[0];
+  602                     ggml_tensor * bm    = ggml_fill(ctx0, ggml_new_tensor_4d(ctx0, GGML_TYPE_F32, 1, n_blk, nc*n_stream, 1), -INFINITY);
+  603                     ggml_tensor * zeros = ggml_fill(ctx0, ggml_new_tensor_4d(ctx0, GGML_TYPE_F32, 1, k_b, nc*n_stream, 1), 0.0f);
+  604                     bm = ggml_set_rows(ctx0, bm, zeros, ggml_reshape_3d(ctx0, bsel, k_b, nc*n_stream, 1));
+  605                     bm = ggml_reshape_2d(ctx0, ggml_repeat_4d(ctx0, bm, bs, n_blk, nc*n_stream, 1), bs*n_blk, nc*n_stream);
+  606                     bm = ggml_reshape_4d(ctx0, ggml_cont(ctx0, ggml_view_2d(ctx0, bm, n_comp, nc*n_stream, bm->nb[1], 0)), n_comp, nc, 1, n_stream);
+  607                     cb(bm, "cand_mask", il);
+  608                     score = ggml_add(ctx0, score, bm);
+  609                 }
+  610 
+  611                 parts_top_k.push_back(ggml_top_k(ctx0, score, std::min<int64_t>(n_comp, hparams.indexer_top_k)));
+  612             }
+  613 
+  614             const auto join = [&](std::vector<ggml_tensor *> v) {
+  615                 while (v.size() > 1) {
+  616                     std::vector<ggml_tensor *> w;
+  617                     for (size_t i = 0; i < v.size(); i += 2) {
+  618                         w.push_back(i + 1 < v.size() ? ggml_concat(ctx0, v[i], v[i + 1], 1) : v[i]);
+  619                     }
+  620                     v.swap(w);
+  621                 }
+  622                 return v[0];
+  623             };
+  624             if (pick_blk) {
+  625                 cand_sel    = join(parts_sel);
+  626                 cand_n_comp = n_comp;
+  627             }
+  628             top_k = ggml_cont(ctx0, join(parts_top_k));
+  629             cb(top_k, "idx_top_k", il);
+  630             topk_of[il] = top_k;
+
+[model] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/models/deepseek41.cpp:641-743
+  641         ggml_build_forward_expand(gf, kv);
+  642         ggml_build_forward_expand(gf, inp_attn->mctx->cpy_k(ctx0, kv, inp_attn->get_k_idxs(), il));
+  643 
+  644         ggml_tensor * raw_k    = inp_attn->mctx->get_k(ctx0, il);
+  645         ggml_tensor * raw_mask = inp_attn->get_kq_mask();
+  646 
+  647         const int32_t topk_src = hparams.dsv41_topk_src[il];
+  648         const int64_t k_sel    = top_k->ne[0];
+  649         const int64_t n_raw    = raw_k->ne[2];
+  650 
+  651         // few queries per stream: attend over [window | top-k rows of the query], one FA stream per query; same keys and mask as dense, different key order
+  652         const bool gather = sparse && cparams.flash_attn && raw_mask->type == GGML_TYPE_F16 && ci.kq_mask->type == GGML_TYPE_F16 &&
+  653                 ((n_stream == 1 && nt <= 32) || nt == n_stream);
+  654 
+  655         if (gather) {
+  656             // ggml_top_k returns the rows in no fixed order and FA sums the keys in that order: sort them so the result is deterministic
+  657             ggml_tensor *& sel = gather_sel_of[topk_src];
+  658             if (!sel) {
+  659                 GGML_ASSERT(n_comp <= (INT64_C(1) << 24)); // row ids are exact in F32
+  660                 ggml_tensor * ids = ggml_reshape_2d(ctx0, top_k, k_sel, nt);
+  661                 ggml_tensor * ord = ggml_argsort(ctx0, ggml_cast(ctx0, ids, GGML_TYPE_F32), GGML_SORT_ORDER_ASC);
+  662                 sel = ggml_reshape_2d(ctx0, ggml_get_rows(ctx0, ggml_reshape_3d(ctx0, ids, 1, k_sel, nt), ord), k_sel, nt);
+  663                 cb(sel, "comp_top_k_sorted", il);
+  664             }
+  665 
+  666             // built once per (storage, top-k) pair
+  667             ggml_tensor *& comp_k = gather_k_of[{rd, topk_src}];
+  668             if (!comp_k) {
+  669                 if (n_stream == 1) {
+  670                     ggml_tensor * src_rows = ggml_view_3d(ctx0, comp_all, n_embd_head, n_comp, 1, comp_all->nb[2], comp_all->nb[3], 0);
+  671                     comp_k = ggml_get_rows(ctx0, src_rows, ggml_reshape_1d(ctx0, sel, k_sel*nt));
+  672                 } else {
+  673                     ggml_tensor * src_rows = ggml_view_3d(ctx0, comp_all, n_embd_head, n_comp, n_stream, comp_all->nb[2], comp_all->nb[3], 0);
+  674                     comp_k = ggml_get_rows(ctx0, src_rows, sel);
+  675                 }
+  676                 comp_k = ggml_reshape_4d(ctx0, comp_k, n_embd_head, 1, k_sel, nt); // F32 (get_rows dequantizes)
+  677                 if (k_rot) {
+  678                     // quantized K cache: the window is stored rotated, the compressed rows are not
+  679                     comp_k = llama_mul_mat_hadamard(ctx0, comp_k, k_rot);
+  680                 }
+  681                 if (comp_k->type != raw_k->type) {
+  682                     comp_k = ggml_cast(ctx0, comp_k, raw_k->type); // exact: rows are raw_k->type values
+  683                 }
+  684                 cb(comp_k, "comp_k_sel", il);
+  685             }
+  686 
+  687             if (n_stream == 1 && nt > 1) {
+  688                 if (ggml_is_quantized(raw_k->type)) {
+  689                     // no REPEAT kernel for quantized types: byte-exact copies by doubling concats
+  690                     ggml_tensor * rep = nullptr;
+  691                     ggml_tensor * pw  = raw_k;
+  692                     for (int64_t n = nt; n > 0; n >>= 1) {
+  693                         if (n & 1) {
+  694                             rep = rep ? ggml_concat(ctx0, rep, pw, 3) : pw;
+  695                         }
+  696                         if (n > 1) {
+  697                             pw = ggml_concat(ctx0, pw, pw, 3);
+  698                         }
+  699                     }
+  700                     raw_k = rep;
+  701                 } else {
+  702                     raw_k = ggml_repeat_4d(ctx0, raw_k, n_embd_head, 1, n_raw, nt);
+  703                 }
+  704             }
+  705             ggml_tensor * k_all = ggml_concat(ctx0, raw_k, comp_k, 2);
+  706 
+  707             // window mask, then the comp mask at the selected rows (-inf where top-k picked an invisible row); one per top-k source
+  708             ggml_tensor *& kq_mask = gather_mask_of[topk_src];
+  709             if (!kq_mask) {
+  710                 ggml_tensor * sel_mask = ggml_get_rows(ctx0, ggml_reshape_3d(ctx0, ci.kq_mask, 1, n_comp, nt), sel);
+  711                 sel_mask = ggml_cast(ctx0, ggml_reshape_4d(ctx0, sel_mask, k_sel, 1, 1, nt), GGML_TYPE_F16);
+  712                 kq_mask = ggml_concat(ctx0, ggml_reshape_4d(ctx0, raw_mask, raw_mask->ne[0], 1, 1, nt), sel_mask, 0);
+  713                 cb(kq_mask, "comp_kq_mask_sel", il);
+  714             }
+  715 
+  716             out = build_attn_mha(q, k_all, k_all, nullptr, kq_mask, layer.attn_sinks, nullptr, 0, kq_scale, il);
+  717         } else {
+  718             // dense attention over [window | all compressed rows], selection applied as a mask
+  719             ggml_tensor * comp_k = ggml_view_4d(ctx0, comp_all, n_embd_head, 1, n_comp, n_stream,
+  720                     comp_all->nb[1], comp_all->nb[2], comp_all->nb[3], 0);
+  721             if (k_rot) {
+  722                 // compressed rows are stored unrotated: rotate in F32, then cast to the cache type
+  723                 comp_k = comp_k->type != GGML_TYPE_F32 ? ggml_cast(ctx0, comp_k, GGML_TYPE_F32) : ggml_cont(ctx0, comp_k);
+  724                 comp_k = llama_mul_mat_hadamard(ctx0, comp_k, k_rot);
+  725                 if (comp_k->type != raw_k->type) {
+  726                     comp_k = ggml_cast(ctx0, comp_k, raw_k->type);
+  727                 }
+  728             } else if (ggml_is_quantized(comp_k->type)) {
+  729                 // quantized cache without rotation (LLAMA_ATTN_ROT_DISABLE=1): via F32 for the same reason
+  730                 comp_k = ggml_cast(ctx0, ggml_cast(ctx0, comp_k, GGML_TYPE_F32), raw_k->type);
+  731             } else {
+  732                 comp_k = comp_k->type != raw_k->type ? ggml_cast(ctx0, comp_k, raw_k->type) : ggml_cont(ctx0, comp_k);
+  733             }
+  734             cb(comp_k, "comp_k", il);
+  735             ggml_tensor * k_all = ggml_concat(ctx0, raw_k, comp_k, 2);
+  736 
+  737             ggml_tensor * sel_mask = build_top_k_mask(ci.kq_mask, top_k, "comp_top_k_mask", il);
+  738             ggml_tensor * kq_mask  = ggml_concat(ctx0, raw_mask, sel_mask, 0);
+  739             cb(kq_mask, "comp_kq_mask", il);
+  740 
+  741             // at most window + top-k visible columns per query: lets CUDA FA gather only those
+  742             const int64_t n_kv_max = sparse ? std::min<int64_t>(raw_mask->ne[0], hparams.n_swa) + k_sel : 0;
+  743             out = build_attn_mha(q, k_all, k_all, nullptr, kq_mask, layer.attn_sinks, nullptr, n_kv_max, kq_scale, il);
+
+[model] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/models/deepseek41.cpp:780-828
+  780     ggml_tensor * inp = build_inp_embd(model.tok_embd);
+  781     ggml_tensor * inp_pos = build_inp_pos();
+  782     ggml_tensor * inp_out_ids = build_inp_out_ids();
+  783     llm_graph_input_dsv4 * inp_dsv4 = build_inp_dsv4();
+  784     ggml_build_forward_expand(gf, inp_dsv4->get_raw()->self_kq_mask);
+  785 
+  786     auto inp41 = std::make_unique<llm_graph_input_dsv41>(model, inp_dsv4->mctx);
+  787     // embedding input has no token ids: it skips Engram, like the reference's masked (image) positions
+  788     // the gathers go right after the token embeddings, so they share the first graph split (the table stays on the host)
+  789     std::vector<ggml_tensor *> engram_rows;
+  790     for (int il = 0; ubatch.token && hparams.ple_n_heads > 0 && il < n_layer; ++il) {
+  791         if (!hparams.is_ple(il)) {
+  792             continue;
+  793         }
+  794         ggml_tensor * ids = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, (int64_t) hparams.ple_n_heads*n_tokens);
+  795         ggml_set_name(ids, ("engram_ids-" + std::to_string(il)).c_str());
+  796         ggml_set_input(ids);
+  797         inp41->engram_ids.push_back(ids);
+  798 
+  799         ggml_tensor * rows = ggml_get_rows(ctx0, model.per_layer_tok_embd, ids);
+  800         rows = ggml_reshape_2d(ctx0, rows, hparams.ple_head_dim*hparams.ple_n_heads, n_tokens);
+  801         cb(rows, "engram_rows", il);
+  802         ggml_build_forward_expand(gf, rows);
+  803         engram_rows.push_back(rows);
+  804     }
+  805     ggml_tensor * engram_keep = nullptr;
+  806     if (hparams.ple_n_heads > 0 && ubatch.token && ubatch.embd) {
+  807         engram_keep = ggml_new_tensor_3d(ctx0, GGML_TYPE_F32, 1, 1, n_tokens);
+  808         ggml_set_input(engram_keep);
+  809         ggml_set_name(engram_keep, "engram_keep");
+  810         inp41->engram_keep = engram_keep;
+  811     }
+  812     ggml_tensor * cand_pin = nullptr;
+  813     if (hparams.dsv41_cand_src >= 0) {
+  814         inp41->cand_csa = hparams.dsv4_compress_ratios[hparams.dsv41_cand_src] == 2;
+  815         const auto & ci = inp41->cand_csa ? inp_dsv4->get_csa() : inp_dsv4->get_hca();
+  816         if (ci.kq_mask) {
+  817             const int64_t bs = hparams.dsv41_cand_block_size;
+  818             cand_pin = ggml_new_tensor_4d(ctx0, GGML_TYPE_F32, (ci.kq_mask->ne[0] + bs - 1)/bs, ci.kq_mask->ne[1], 1, ci.kq_mask->ne[3]);
+  819             ggml_set_input(cand_pin);
+  820             ggml_set_name(cand_pin, "cand_pin");
+  821             inp41->cand_pin = cand_pin;
+  822         }
+  823     }
+  824     res->add_input(std::move(inp41));
+  825 
+  826     const int64_t hc = hparams.dsv4_hc_mult;
+  827     ggml_tensor * inpL = ggml_repeat_4d(ctx0, ggml_reshape_3d(ctx0, inp, n_embd, 1, n_tokens), n_embd, hc, n_tokens, 1);
+  828     cb(inpL, "hc_init", -1);
+
+[model] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/models/deepseek41.cpp:889-932
+  889         // the reference normalizes only when it routes to more than one expert
+  890         ggml_tensor * moe_out = build_moe_ffn(cur,
+  891                 layer.ffn_gate_inp,
+  892                 layer.ffn_up_exps,
+  893                 layer.ffn_gate_exps,
+  894                 layer.ffn_down_exps,
+  895                 exp_probs_b,
+  896                 n_expert, hparams.n_expert_used(),
+  897                 LLM_FFN_SILU, hparams.expert_weights_norm && hparams.n_expert_used() > 1,
+  898                 hparams.expert_weights_scale,
+  899                 (llama_expert_gating_func_type) hparams.expert_gating_func,
+  900                 il, logits);
+  901         cb(moe_out, "ffn_moe_out", il);
+  902 
+  903         ggml_tensor * ffn_shexp = build_ffn(cur,
+  904                 layer.ffn_up_shexp, nullptr, nullptr,
+  905                 layer.ffn_gate_shexp, nullptr, nullptr,
+  906                 layer.ffn_down_shexp, nullptr, nullptr,
+  907                 nullptr, LLM_FFN_SILU, LLM_FFN_PAR, il);
+  908         cb(ffn_shexp, "ffn_shexp", il);
+  909 
+  910         cur = ggml_add(ctx0, moe_out, ffn_shexp);
+  911         cb(cur, "ffn_out", il);
+  912 
+  913         inpL = build_hc_post(cur, residual, ffn_mix.post, ffn_mix.comb, il);
+  914         inpL = build_cvec(inpL, il);
+  915         cb(inpL, "l_out", il);
+  916     }
+  917 
+  918     // no hc_head: collapse with the last FFN's pre-mix
+  919     if (inp_out_ids) {
+  920         inpL     = ggml_reshape_3d(ctx0, ggml_get_rows(ctx0, ggml_reshape_2d(ctx0, inpL, n_embd*hc, n_tokens), inp_out_ids), n_embd, hc, inp_out_ids->ne[0]);
+  921         pre_prev = ggml_get_rows(ctx0, pre_prev, inp_out_ids);
+  922     }
+  923     cur = build_hc_pre(inpL, pre_prev, -1);
+  924     cb(cur, "hc_out", -1);
+  925 
+  926     cur = build_norm(cur, model.output_norm, nullptr, LLM_NORM_RMS, -1);
+  927     cb(cur, "result_norm", -1);
+  928     res->t_embd = cur;
+  929 
+  930     cur = ggml_mul_mat(ctx0, model.output, cur);
+  931     cb(cur, "result_output", -1);
+  932     res->t_logits = cur;
+
+[graph] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp:848-866
+  848 static ggml_tensor * dsv4_build_raw_kq_mask(
+  849         ggml_context * ctx,
+  850         const llama_kv_cache_dsv4_raw_context * mctx,
+  851         const llama_ubatch & ubatch,
+  852         const llama_cparams & cparams,
+  853         int64_t n_stream) {
+  854     const auto n_kv     = mctx->get_n_kv();
+  855     const auto n_tokens = ubatch.n_tokens;
+  856 
+  857     GGML_ASSERT(n_stream > 0);
+  858     GGML_ASSERT(n_tokens%n_stream == 0);
+  859 
+  860     const auto type = cparams.flash_attn ? GGML_TYPE_F16 : GGML_TYPE_F32;
+  861 
+  862     ggml_tensor * res = ggml_new_tensor_4d(ctx, type, n_kv, n_tokens/n_stream, 1, n_stream);
+  863     ggml_set_input(res);
+  864     ggml_set_name(res, "attn_inp_kq_mask");
+  865 
+  866     return res;
+
+[graph] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp:997-1024
+  997 static void dsv4_build_comp_inputs(
+  998         ggml_context * ctx,
+  999         llm_graph_input_dsv4::comp_input & inp,
+ 1000         const llama_kv_cache_dsv4_context::comp_plan & plan,
+ 1001         const char * name,
+ 1002         const llama_cparams & cparams,
+ 1003         int64_t n_stream) {
+ 1004     inp.state_pos = dsv4_build_input_1d(ctx, GGML_TYPE_I32, plan.state_pos.size(), std::string("dsv4_") + name + "_state_pos");
+ 1005     inp.state_persist_src_idxs = dsv4_build_input_1d(ctx, GGML_TYPE_I32, plan.state_persist_src_idxs.size(), std::string("dsv4_") + name + "_state_persist_src_idxs");
+ 1006     inp.state_persist_dst_idxs = dsv4_build_input_1d(ctx, GGML_TYPE_I32, plan.state_persist_dst_idxs.size(), std::string("dsv4_") + name + "_state_persist_dst_idxs");
+ 1007     inp.state_restore_src_idxs = dsv4_build_input_1d(ctx, GGML_TYPE_I32, plan.state_restore_src_idxs.size(), std::string("dsv4_") + name + "_state_restore_src_idxs");
+ 1008     inp.state_restore_dst_idxs = dsv4_build_input_1d(ctx, GGML_TYPE_I32, plan.state_restore_dst_idxs.size(), std::string("dsv4_") + name + "_state_restore_dst_idxs");
+ 1009     inp.state_snapshot_src_idxs = dsv4_build_input_1d(ctx, GGML_TYPE_I32, plan.state_snapshot_src_idxs.size(), std::string("dsv4_") + name + "_state_snapshot_src_idxs");
+ 1010     inp.state_snapshot_dst_idxs = dsv4_build_input_1d(ctx, GGML_TYPE_I32, plan.state_snapshot_dst_idxs.size(), std::string("dsv4_") + name + "_state_snapshot_dst_idxs");
+ 1011     inp.state_read_idxs = dsv4_build_input_1d(ctx, GGML_TYPE_I32, plan.state_read_idxs.size(), std::string("dsv4_") + name + "_state_read_idxs");
+ 1012     inp.state_write_idxs = dsv4_build_input_1d(ctx, GGML_TYPE_I64, plan.state_write_idxs.size(), std::string("dsv4_") + name + "_state_write_idxs");
+ 1013     inp.state_write_pos = dsv4_build_input_1d(ctx, GGML_TYPE_I32, plan.state_write_pos.size(), std::string("dsv4_") + name + "_state_write_pos");
+ 1014 
+ 1015     if (plan.n_kv > 0) {
+ 1016         const int64_t n_tokens = (int64_t) plan.n_visible.size();
+ 1017 
+ 1018         GGML_ASSERT(n_stream > 0);
+ 1019         GGML_ASSERT(n_tokens%n_stream == 0);
+ 1020 
+ 1021         inp.kq_mask = ggml_new_tensor_4d(ctx, (strcmp(name, "lid") != 0 && cparams.flash_attn) || (strcmp(name, "lid") == 0 && cparams.fused_lid) ? GGML_TYPE_F16 : GGML_TYPE_F32, plan.n_kv, n_tokens/n_stream, 1, n_stream);
+ 1022         ggml_set_input(inp.kq_mask);
+ 1023         ggml_set_name(inp.kq_mask, (std::string("dsv4_") + name + "_kq_mask").c_str());
+ 1024     }
+
+[graph] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp:2158-2168
+ 2158     const int64_t n_embd   = cur->ne[0];
+ 2159     const int64_t n_tokens = cur->ne[1];
+ 2160     const bool weight_before_ffn = arch == LLM_ARCH_LLAMA4; // for llama4, we apply the sigmoid-ed weights before the FFN
+ 2161 
+ 2162     ggml_tensor * logits = nullptr;
+ 2163 
+ 2164     if (probs_in == nullptr) {
+ 2165         logits = build_lora_mm(gate_inp, cur); // [n_expert, n_tokens]
+ 2166         if (gating_op == LLAMA_EXPERT_GATING_FUNC_TYPE_SQRT_SOFTPLUS) {
+ 2167             ggml_prec_set_acc(logits, GGML_PREC_F32);
+ 2168         }
+
+[graph] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp:2302-2305
+ 2302     // the experts of host-resident layers may be read from the MoE cache
+ 2303     ggml_tensor * slots = build_moe_cache_slots(selected_experts, up_exps, gate_exps, down_exps, gate_up_exps, il);
+ 2304 
+ 2305     cur = ggml_reshape_3d(ctx0, cur, n_embd, 1, n_tokens);
+
+[graph] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp:2336-2378
+ 2336     } else {
+ 2337         // separate gate and up path
+ 2338         up = build_lora_mm_id(up_exps, cur, selected_experts, up_exps_s, slots); // [n_ff, n_expert_used, n_tokens]
+ 2339         cb(up, "ffn_moe_up", il);
+ 2340 
+ 2341         if (up_exps_s) {
+ 2342             cb(up, "ffn_moe_up_scaled", il);
+ 2343         }
+ 2344 
+ 2345         if (up_exps_b) {
+ 2346             up = ggml_add_id(ctx0, up, up_exps_b, selected_experts);
+ 2347             cb(up, "ffn_moe_up_biased", il);
+ 2348         }
+ 2349 
+ 2350         if (gate_exps) {
+ 2351             cur = build_lora_mm_id(gate_exps, cur, selected_experts, gate_exps_s, slots); // [n_ff, n_expert_used, n_tokens]
+ 2352             cb(cur, "ffn_moe_gate", il);
+ 2353         } else {
+ 2354             cur = up;
+ 2355         }
+ 2356 
+ 2357         if (gate_exps_s) {
+ 2358             cb(cur, "ffn_moe_gate_scaled", il);
+ 2359         }
+ 2360 
+ 2361         if (gate_exps_b) {
+ 2362             cur = ggml_add_id(ctx0, cur, gate_exps_b, selected_experts);
+ 2363             cb(cur, "ffn_moe_gate_biased", il);
+ 2364         }
+ 2365     }
+ 2366 
+ 2367     const bool has_gate = gate_exps || gate_up_exps;
+ 2368 
+ 2369     switch (type_op) {
+ 2370         case LLM_FFN_SILU:
+ 2371             if (gate_exps) {
+ 2372                 if (il >= 0) {
+ 2373                     const float limit = hparams.swiglu_clamp_exp[il];
+ 2374                     constexpr float eps = 1e-6f;
+ 2375                     if (limit > eps) {
+ 2376                         if (arch == LLM_ARCH_MAPLE || arch == LLM_ARCH_DEEPSEEK4 || arch == LLM_ARCH_DEEPSEEK41 || arch == LLM_ARCH_GLM5_NEXT || (arch == LLM_ARCH_DFLASH && hparams.dsv4_hc_mult > 0) || arch == LLM_ARCH_HY_V4) {
+ 2377                             cur = ggml_swiglu_clamp(ctx0, cur, up, limit);
+ 2378                         } else {
+
+[graph] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp:3811-3829
+ 3811     auto inp_raw = std::make_unique<llm_graph_input_dsv4_raw>(cparams, raw_ctx);
+ 3812 
+ 3813     const int64_t n_stream = mctx_cur->get_csa_plan(ubatch).n_stream;
+ 3814 
+ 3815     GGML_ASSERT(hparams.swa_type != LLAMA_SWA_TYPE_NONE && "DSV4 expects SWA raw cache");
+ 3816 
+ 3817     inp_raw->self_k_idxs = raw_ctx->build_input_k_idxs(ctx0, ubatch);
+ 3818     inp_raw->self_kq_mask = dsv4_build_raw_kq_mask(ctx0, raw_ctx, ubatch, cparams, n_stream);
+ 3819     inp_raw->self_kq_mask_cnv = inp_raw->self_kq_mask;
+ 3820 
+ 3821     inp_raw->self_k_rot = raw_ctx->get_k_rot();
+ 3822     auto inp = std::make_unique<llm_graph_input_dsv4>(cparams, std::move(inp_raw), mctx_cur);
+ 3823 
+ 3824     dsv4_build_comp_inputs(ctx0, inp->inp_csa, mctx_cur->get_csa_plan(ubatch), "csa", cparams, n_stream);
+ 3825     dsv4_build_comp_inputs(ctx0, inp->inp_hca, mctx_cur->get_hca_plan(ubatch), "hca", cparams, n_stream);
+ 3826     dsv4_build_comp_inputs(ctx0, inp->inp_lid, mctx_cur->get_lid_plan(ubatch), "lid", cparams, n_stream);
+ 3827     inp->inp_csa.k_rot = mctx_cur->get_csa()->get_k_rot();
+ 3828     inp->inp_hca.k_rot = mctx_cur->get_hca()->get_k_rot();
+ 3829     inp->inp_lid.k_rot = mctx_cur->get_lid()->get_k_rot();
+
+[kv_iswa] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-iswa.cpp:69-105
+   69     const uint32_t size_base = kv_size;
+   70 
+   71     // note: the SWA cache is always padded to 256 for performance
+   72     //       https://github.com/ggml-org/llama.cpp/issues/17037
+   73     uint32_t size_swa = GGML_PAD(std::min(size_base, hparams.n_swa*(unified ? n_seq_max : 1) + n_ubatch), 256);
+   74 
+   75     // when using full-size SWA cache, we set the SWA cache size to be equal to the base cache size
+   76     if (swa_full) {
+   77         LLAMA_LOG_WARN("%s: using full-size SWA cache (ref: %s)\n",
+   78                 __func__, "https://github.com/ggml-org/llama.cpp/pull/13194#issuecomment-2868343055");
+   79 
+   80         size_swa = size_base;
+   81     }
+   82 
+   83     LLAMA_LOG_INFO("%s: creating non-SWA KV cache, size = %u cells\n", __func__, size_base);
+   84 
+   85     llama_memory_t mem_other_base = nullptr;
+   86     if (mem_other) {
+   87         mem_other_base = static_cast<llama_kv_cache_iswa *>(mem_other)->get_base();
+   88     }
+   89 
+   90     llama_memory_t mem_other_swa = nullptr;
+   91     if (mem_other) {
+   92         mem_other_swa = static_cast<llama_kv_cache_iswa *>(mem_other)->get_swa();
+   93     }
+   94 
+   95     kv_base = std::make_unique<llama_kv_cache>(
+   96             model, no_alloc, hparams, type_k, type_v,
+   97             v_trans, offload, unified, size_base, n_seq_max,
+   98             0, LLAMA_SWA_TYPE_NONE, mem_other_base, filter_base, reuse, share);
+   99 
+  100     LLAMA_LOG_INFO("%s: creating     SWA KV cache, size = %u cells\n", __func__, size_swa);
+  101 
+  102     kv_swa = std::make_unique<llama_kv_cache>(
+  103             model, no_alloc, hparams, type_k, type_v,
+  104             v_trans, offload, unified, size_swa, n_seq_max,
+  105             hparams.n_swa, hparams.swa_type, mem_other_swa, filter_swa, reuse, share);
+
+[kv_dsv4] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-dsv4.cpp:881-903
+  881 static llama_kv_cache_dsv4_context::comp_plan dsv4_build_reserve_comp_plan(
+  882         const llama_ubatch & ubatch,
+  883         uint32_t ratio,
+  884         bool overlap,
+  885         uint32_t state_size,
+  886         uint32_t kv_size,
+  887         uint32_t n_stream,
+  888         uint32_t n_rs_seq) {
+  889     llama_kv_cache_dsv4_context::comp_plan plan;
+  890     plan.n_visible.resize(ubatch.n_tokens);
+  891     plan.n_stream = dsv4_comp_graph_n_stream(ubatch, n_stream);
+  892     plan.n_kv = kv_size;
+  893 
+  894     if (ubatch.n_tokens == 0) {
+  895         return plan;
+  896     }
+  897 
+  898     // worst case over every seq split: sum of per-seq ceil(tokens/ratio) is at
+  899     // most floor(n_tokens/ratio) + n_seqs
+  900     const uint32_t n_seqs = std::max<uint32_t>(1, ubatch.n_seqs);
+  901     const size_t n_blocks = (size_t) ubatch.n_tokens/ratio + n_seqs;
+  902 
+  903     const uint64_t state_rows = (uint64_t) state_size*n_stream;
+
+[kv_dsv4] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-dsv4.cpp:1245-1307
+ 1245                      bool   no_alloc,
+ 1246                 ggml_type   type_k,
+ 1247                 ggml_type   type_v,
+ 1248                      bool   v_trans,
+ 1249                      bool   offload,
+ 1250                      bool   swa_full,
+ 1251                      bool   unified,
+ 1252                  uint32_t   kv_size,
+ 1253                  uint32_t   n_seq_max,
+ 1254                  uint32_t   n_ubatch,
+ 1255                  uint32_t   n_rs_seq,
+ 1256     const layer_filter_cb & filter,
+ 1257     const  layer_reuse_cb & reuse) :
+ 1258     hparams_raw(model.hparams),
+ 1259     hparams_csa(model.hparams),
+ 1260     hparams_hca(model.hparams),
+ 1261     hparams_lid(model.hparams),
+ 1262     n_seq_max(n_seq_max),
+ 1263     n_rs_seq(n_rs_seq),
+ 1264     rs_idx(n_seq_max, 0),
+ 1265     rs_max(n_seq_max, 0) {
+ 1266 
+ 1267     const layer_filter_cb filter_raw = [&](int32_t il) {
+ 1268         if (filter && !filter(il)) {
+ 1269             return false;
+ 1270         }
+ 1271 
+ 1272         return true;
+ 1273     };
+ 1274 
+ 1275     GGML_UNUSED(unified);
+ 1276 
+ 1277     // Keep DSV4 KV/state streams per sequence even when public KV mode is unified.
+ 1278     const bool unified_raw = false;
+ 1279 
+ 1280     hparams_raw.n_layer_nextn = 0;
+ 1281     hparams_csa.n_layer_nextn = 0;
+ 1282     hparams_hca.n_layer_nextn = 0;
+ 1283     hparams_lid.n_layer_nextn = 0;
+ 1284 
+ 1285     LLAMA_LOG_INFO("%s: creating DSV4 raw KV cache\n", __func__);
+ 1286 
+ 1287     dsv4_make_k_only(hparams_raw);
+ 1288 
+ 1289     kv_raw = std::make_unique<llama_kv_cache_iswa>(
+ 1290             model, no_alloc, hparams_raw, type_k, type_v,
+ 1291             v_trans, offload, swa_full, unified_raw, kv_size, n_seq_max, n_ubatch,
+ 1292             nullptr, filter_raw, reuse, nullptr);
+ 1293 
+ 1294     // V4.1: CSA slot = ratio 2, HCA slot = ratio 1, no overlap and no indexer compressor; the index K is stored
+ 1295     // next to the compressed KV ([kv | index K]) and only the KV source layers own rows
+ 1296     const bool is_v41 = model.arch == LLM_ARCH_DEEPSEEK41;
+ 1297     const uint32_t ratio_csa = is_v41 ? 2u : DSV4_CSA_RATIO;
+ 1298     const uint32_t ratio_hca = is_v41 ? 1u : DSV4_HCA_RATIO;
+ 1299 
+ 1300     if (is_v41) {
+ 1301         const uint32_t n_embd_comp = model.hparams.n_embd_head_k() + model.hparams.indexer_head_size;
+ 1302         for (llama_hparams * hp : { &hparams_csa, &hparams_hca }) {
+ 1303             std::fill(hp->n_head_kv_arr.begin(), hp->n_head_kv_arr.end(), 1);
+ 1304             hp->n_embd_head_k_full = n_embd_comp;
+ 1305             hp->n_embd_head_v_full = n_embd_comp;
+ 1306             hp->n_embd_head_k_swa  = n_embd_comp;
+ 1307             hp->n_embd_head_v_swa  = n_embd_comp;
+
+[kv_dsv4] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-dsv4.cpp:1390-1427
+ 1390     LLAMA_LOG_INFO("%s: creating DSV4 CSA compressed KV cache, size = %u cells\n",
+ 1391             __func__, dsv4_comp_size(kv_size, ratio_csa));
+ 1392 
+ 1393     kv_csa = std::make_unique<llama_kv_cache>(
+ 1394             model, no_alloc, hparams_csa, type_k, type_v,
+ 1395             v_trans, offload, unified_compressed, GGML_PAD(dsv4_comp_size(kv_size, ratio_csa), 256u), n_seq_max,
+ 1396             0, LLAMA_SWA_TYPE_NONE, nullptr, filter_csa, nullptr, nullptr);
+ 1397 
+ 1398     LLAMA_LOG_INFO("%s: creating DSV4 HCA compressed KV cache, size = %u cells\n",
+ 1399             __func__, dsv4_comp_size(kv_size, ratio_hca));
+ 1400 
+ 1401     kv_hca = std::make_unique<llama_kv_cache>(
+ 1402             model, no_alloc, hparams_hca, type_k, type_v,
+ 1403             v_trans, offload, unified_compressed, GGML_PAD(dsv4_comp_size(kv_size, ratio_hca), 256u), n_seq_max,
+ 1404             0, LLAMA_SWA_TYPE_NONE, nullptr, filter_hca, nullptr, nullptr);
+ 1405 
+ 1406     LLAMA_LOG_INFO("%s: creating DSV4 lightning-indexer KV cache, size = %u cells\n",
+ 1407             __func__, dsv4_comp_size(kv_size, ratio_csa));
+ 1408 
+ 1409     kv_lid = std::make_unique<llama_kv_cache>(
+ 1410             model, no_alloc, hparams_lid, type_k, type_v,
+ 1411             v_trans, offload, unified_compressed, GGML_PAD(dsv4_comp_size(kv_size, ratio_csa), 256u), n_seq_max,
+ 1412             0, LLAMA_SWA_TYPE_NONE, nullptr, filter_lid, nullptr, nullptr);
+ 1413 
+ 1414     LLAMA_LOG_INFO("%s: creating DSV4 CSA compressor state\n", __func__);
+ 1415 
+ 1416     const uint32_t csa_state_size = is_v41 ? ratio_csa : 2*ratio_csa;
+ 1417     const uint32_t csa_state_embd = is_v41 ? model.hparams.n_embd_head_k() : 2*model.hparams.n_embd_head_k();
+ 1418 
+ 1419     csa_state = std::make_unique<llama_dsv4_comp_state>(
+ 1420             model, no_alloc, offload, unified_compressed, n_seq_max, ratio_csa, csa_state_size,
+ 1421             csa_state_embd, n_rs_seq, "csa", filter_csa_state);
+ 1422 
+ 1423     LLAMA_LOG_INFO("%s: creating DSV4 HCA compressor state\n", __func__);
+ 1424 
+ 1425     hca_state = std::make_unique<llama_dsv4_comp_state>(
+ 1426             model, no_alloc, offload, unified_compressed, n_seq_max, ratio_hca, ratio_hca,
+ 1427             model.hparams.n_embd_head_k(), n_rs_seq, "hca", filter_hca_state);
+
+[kv_dsv4] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-dsv4.cpp:1501-1577
+ 1501 llama_memory_context_ptr llama_kv_cache_dsv4::init_batch(
+ 1502             llama_batch_allocr & balloc,
+ 1503             uint32_t n_ubatch,
+ 1504             bool embd_all) {
+ 1505     GGML_UNUSED(embd_all);
+ 1506 
+ 1507     if (hparams_raw.ple_n_heads > 0 &&
+ 1508         !dsv41_shared_history_ok(balloc.get_batch(), kv_raw->get_swa(), hparams_raw.ple_ngram_size - 1)) {
+ 1509         return std::make_unique<llama_kv_cache_dsv4_context>(LLAMA_MEMORY_STATUS_FAILED_PREPARE);
+ 1510     }
+ 1511 
+ 1512     const bool raw_per_seq  = kv_raw->get_base()->get_n_stream() != 1;
+ 1513     const bool comp_per_seq = csa_state->get_n_stream() > 1;
+ 1514     const bool has_coupled = dsv4_batch_has_coupled(balloc.get_batch());
+ 1515 
+ 1516     const auto make_context = [&](std::vector<llama_ubatch> ubatches) -> llama_memory_context_ptr {
+ 1517         auto ubatches_raw = dsv4_build_raw_write_ubatches(ubatches);
+ 1518 
+ 1519         auto sinfos_raw_base_write = kv_raw->get_base()->prepare(ubatches_raw);
+ 1520         if (sinfos_raw_base_write.empty()) {
+ 1521             return nullptr;
+ 1522         }
+ 1523 
+ 1524         auto sinfos_raw_swa_write = kv_raw->get_swa()->prepare(ubatches_raw);
+ 1525         if (sinfos_raw_swa_write.empty()) {
+ 1526             return nullptr;
+ 1527         }
+ 1528 
+ 1529         auto sinfos_raw_swa_read = dsv4_build_raw_read_sinfos(sinfos_raw_swa_write, ubatches);
+ 1530 
+ 1531         return std::make_unique<llama_kv_cache_dsv4_context>(
+ 1532                 this,
+ 1533                 std::move(sinfos_raw_base_write),
+ 1534                 std::move(sinfos_raw_swa_write),
+ 1535                 std::move(sinfos_raw_swa_read),
+ 1536                 std::move(ubatches),
+ 1537                 std::move(ubatches_raw));
+ 1538     };
+ 1539 
+ 1540     // Independent sequences can share an equal-length ubatch.
+ 1541     // Coupled sequence sets still serialize until
+ 1542     // DSV4 has explicit shared-state handling for compressed streams.
+ 1543     do {
+ 1544         balloc.split_reset();
+ 1545 
+ 1546         std::vector<llama_ubatch> ubatches;
+ 1547         while (true) {
+ 1548             llama_ubatch ubatch;
+ 1549             if (has_coupled) {
+ 1550                 ubatch = balloc.split_seq(n_ubatch);
+ 1551             } else {
+ 1552                 // [TAG_RECURRENT_ROLLBACK_SPLITS]
+ 1553                 // the trailing (1 + n_rs_seq) tokens of each seq must stay in the same ubatch
+ 1554                 ubatch = balloc.split_equal(n_ubatch, raw_per_seq || comp_per_seq, n_rs_seq > 0 ? n_rs_seq + 1 : 0);
+ 1555             }
+ 1556 
+ 1557             if (ubatch.n_tokens == 0) {
+ 1558                 break;
+ 1559             }
+ 1560             ubatches.push_back(std::move(ubatch)); // NOLINT
+ 1561         }
+ 1562 
+ 1563         if (balloc.get_n_used() < balloc.get_n_tokens()) {
+ 1564             break;
+ 1565         }
+ 1566 
+ 1567         if (auto ctx = make_context(std::move(ubatches))) {
+ 1568             return ctx;
+ 1569         }
+ 1570     } while (false);
+ 1571 
+ 1572     return std::make_unique<llama_kv_cache_dsv4_context>(LLAMA_MEMORY_STATUS_FAILED_PREPARE);
+ 1573 }
+ 1574 
+ 1575 llama_memory_context_ptr llama_kv_cache_dsv4::init_full() {
+ 1576     return std::make_unique<llama_kv_cache_dsv4_context>(this);
+ 1577 }
+
+[kv_dsv4] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-dsv4.cpp:2153-2171
+ 2153 llama_kv_cache_dsv4_context::llama_kv_cache_dsv4_context(llama_memory_status status) : status(status) {}
+ 2154 
+ 2155 llama_kv_cache_dsv4_context::llama_kv_cache_dsv4_context(
+ 2156         llama_kv_cache_dsv4 * kv) :
+ 2157     ctx_raw(std::make_unique<llama_kv_cache_dsv4_raw_context>(kv->get_raw())),
+ 2158     ctx_csa_mem(kv->get_csa()->init_full()),
+ 2159     ctx_hca_mem(kv->get_hca()->init_full()),
+ 2160     ctx_lid_mem(kv->get_lid()->init_full()),
+ 2161     ctx_csa(std::make_unique<llama_kv_cache_dsv4_comp_context>(kv->get_csa())),
+ 2162     ctx_hca(std::make_unique<llama_kv_cache_dsv4_comp_context>(kv->get_hca())),
+ 2163     ctx_lid(std::make_unique<llama_kv_cache_dsv4_comp_context>(kv->get_lid())),
+ 2164     csa_state(kv->get_csa_state()),
+ 2165     hca_state(kv->get_hca_state()),
+ 2166     lid_state(kv->get_lid_state()),
+ 2167     reserve_plans(true),
+ 2168     status(llama_memory_status_combine(
+ 2169                 llama_memory_status_combine(ctx_raw->get_status(), ctx_csa_mem->get_status()),
+ 2170                 llama_memory_status_combine(ctx_hca_mem->get_status(), ctx_lid_mem->get_status()))),
+ 2171     kv(kv) {
+
+[batch] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-batch.cpp:619-620
+  619 llama_ubatch llama_batch_allocr::split_equal(uint32_t n_ubatch, bool sequential, uint32_t n_keep_tail) {
+  620     if (sequential && has_cpl) {
+
+[batch] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-batch.cpp:682-718
+  682     while (true) {
+  683         // we can only add new n_seq_tokens tokens if all the sequence sets have at least 1 more unused tokens and
+  684         //   if we haven't reached n_ubatch
+  685         bool can_expand = true;
+  686 
+  687         for (uint32_t s = 0; s < n_seqs; ++s) {
+  688             if (cur_idx[s] >= (int32_t) seq_set_map[cur_seq_set[s]].size()) {
+  689                 can_expand = false;
+  690                 break;
+  691             }
+  692         }
+  693 
+  694         if (!can_expand) {
+  695             break;
+  696         }
+  697 
+  698         for (uint32_t s = 0; s < n_seqs; ++s) {
+  699             const int32_t idx = seq_set_map[cur_seq_set[s]][cur_idx[s]];
+  700 
+  701             idxs_per_seq[s].push_back(idx);
+  702 
+  703             used[idx] = true;
+  704             ++n_used;
+  705 
+  706             ++cur_idx[s];
+  707         }
+  708 
+  709         if  ((idxs_per_seq[0].size() + 1)*n_seqs > n_ubatch) {
+  710             break;
+  711         }
+  712     }
+  713 
+  714     // if n_keep_tail > 0, keep only the seqs that either finish in this ubatch or have at least
+  715     //   n_keep_tail tokens remaining for a future ubatch, so that the trailing n_keep_tail tokens
+  716     //   of each seq are never split across ubatches
+  717     if (n_keep_tail > 0) {
+  718         GGML_ASSERT(n_ubatch > n_keep_tail);
+
+[ggml] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml.c:5521-5533
+ 5521 struct ggml_tensor * ggml_top_k(
+ 5522         struct ggml_context * ctx,
+ 5523         struct ggml_tensor  * a,
+ 5524         int                   k) {
+ 5525     GGML_ASSERT(a->ne[0] >= k);
+ 5526 
+ 5527     struct ggml_tensor * result = ggml_new_tensor_4d(ctx, GGML_TYPE_I32, k, a->ne[1], a->ne[2], a->ne[3]);
+ 5528 
+ 5529     result->op     = GGML_OP_TOP_K;
+ 5530     result->src[0] = a;
+ 5531 
+ 5532     return result;
+ 5533 }
+
+[ggml] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml.c:6485-6516
+ 6485 struct ggml_tensor * ggml_lightning_indexer(
+ 6486         struct ggml_context * ctx,
+ 6487         struct ggml_tensor  * q,
+ 6488         struct ggml_tensor  * k,
+ 6489         struct ggml_tensor  * weights,
+ 6490         struct ggml_tensor  * mask) {
+ 6491 
+ 6492     GGML_ASSERT(       q->type == GGML_TYPE_F32);
+ 6493     GGML_ASSERT( weights->type == GGML_TYPE_F32);
+ 6494     GGML_ASSERT(    mask->type == GGML_TYPE_F16);
+ 6495     GGML_ASSERT(      q->ne[0] == k->ne[0]);
+ 6496     GGML_ASSERT(   mask->ne[0] == k->ne[2]);
+ 6497     GGML_ASSERT(      q->ne[1] == weights->ne[0]);
+ 6498     GGML_ASSERT(      k->ne[1] == 1);
+ 6499     GGML_ASSERT(   mask->ne[1] == q->ne[2]);
+ 6500     GGML_ASSERT(      q->ne[2] == weights->ne[1]);
+ 6501     GGML_ASSERT(weights->ne[2] == 1);
+ 6502     GGML_ASSERT(   mask->ne[2] == 1);
+ 6503     GGML_ASSERT(      q->ne[3] == k->ne[3]);
+ 6504     GGML_ASSERT(      k->ne[3] == weights->ne[3]);
+ 6505     GGML_ASSERT(weights->ne[3] % mask->ne[3] == 0);
+ 6506 
+ 6507     int64_t ne[4] = { k->ne[2], q->ne[2], 1, q->ne[3] };
+ 6508     struct ggml_tensor * result = ggml_new_tensor(ctx, GGML_TYPE_F32, 4, ne);
+ 6509 
+ 6510     result->op   = GGML_OP_LIGHTNING_INDEXER;
+ 6511     result->src[0] = q;
+ 6512     result->src[1] = k;
+ 6513     result->src[2] = weights;
+ 6514     result->src[3] = mask;
+ 6515 
+ 6516     return result;
+
+[types] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-common.h:214-219
+  214 #define QK_MXFP4 32
+  215 typedef struct {
+  216     uint8_t e; // E8M0
+  217     uint8_t qs[QK_MXFP4/2];
+  218 } block_mxfp4;
+  219 static_assert(sizeof(block_mxfp4) == sizeof(uint8_t) + QK_MXFP4/2, "wrong mxfp4 block size/padding");
+
+[types] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-common.h:395-422
+  395 // 2.5625 bpw quants
+  396 typedef struct {
+  397     ggml_half d;
+  398     uint8_t qs[QK_K/4];
+  399     uint8_t qh[QK_K/32];
+  400     uint8_t scales[QK_K/32];
+  401 } block_iq2_s;
+  402 static_assert(sizeof(block_iq2_s) == sizeof(ggml_half) + QK_K/4 + QK_K/16, "wrong iq2_s block size/padding");
+  403 
+  404 // (Almost) "true" 3-bit quantization.
+  405 // Due to the need to use blocks as per ggml design, it ends up using
+  406 // 3.0625 bpw because of the 16-bit scale for each block of 256.
+  407 typedef struct {
+  408     ggml_half d;
+  409     uint8_t qs[3*QK_K/8];
+  410 } block_iq3_xxs;
+  411 static_assert(sizeof(block_iq3_xxs) == sizeof(ggml_half) + 3*(QK_K/8), "wrong iq3_xxs block size/padding");
+  412 
+  413 // 3.4375 bpw
+  414 #define IQ3S_N_SCALE QK_K/64
+  415 typedef struct {
+  416     ggml_half d;
+  417     uint8_t qs[QK_K/4];
+  418     uint8_t qh[QK_K/32];
+  419     uint8_t signs[QK_K/8];
+  420     uint8_t scales[IQ3S_N_SCALE];
+  421 } block_iq3_s;
+  422 static_assert(sizeof(block_iq3_s) == sizeof(ggml_half) + 13*(QK_K/32) + IQ3S_N_SCALE, "wrong iq3_s block size/padding");
+
+[topk_cuda] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-cuda/top-k.cu:212-225
+  212 static void top_k_radix_cuda(
+  213         ggml_cuda_pool & pool,
+  214         const float * src, int * dst, int ncols, int64_t nrows, int k, cudaStream_t stream) {
+  215     constexpr int BLOCK_SIZE = 256;
+  216     constexpr int RADIX_BITS = 8;
+  217     constexpr int NBINS = 1 << RADIX_BITS;
+  218     const int blocks_per_row = (int) std::min<int64_t>(((int64_t) ncols + 1023) / 1024, 64);
+  219 
+  220     // chunk the rows to bound the histogram memory to 64 MB
+  221     const int64_t chunk_nrows = ggml_cuda_chunk_nrows((size_t) blocks_per_row * NBINS * sizeof(int), nrows);
+  222 
+  223     ggml_cuda_pool_alloc<top_k_radix_state> states_alloc(pool, chunk_nrows);
+  224     ggml_cuda_pool_alloc<int> histograms_alloc(pool, (size_t) chunk_nrows * blocks_per_row * NBINS);
+  225     top_k_radix_state * states = states_alloc.get();
+
+[topk_cuda] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-cuda/top-k.cu:253-278
+  253 static void top_k_argsort_cuda(
+  254         ggml_cuda_pool & pool,
+  255         const float * src, int * dst, int ncols, int64_t nrows, int k, bool use_cub, cudaStream_t stream) {
+  256     const int64_t chunk_nrows = ggml_cuda_chunk_nrows((size_t) ncols * sizeof(int), nrows);
+  257 
+  258     ggml_cuda_pool_alloc<int> tmp_alloc(pool, (size_t) ncols * chunk_nrows);
+  259     int * tmp = tmp_alloc.get();
+  260 
+  261     for (int64_t i = 0; i < nrows; i += chunk_nrows) {
+  262         const int iter_nrows = std::min(chunk_nrows, nrows - i);
+  263 
+  264         if (use_cub) {
+  265 #ifdef GGML_CUDA_USE_CUB
+  266             argsort_f32_i32_cuda_cub(pool, src, tmp, ncols, iter_nrows, GGML_SORT_ORDER_DESC, stream);
+  267 #else
+  268             GGML_ABORT("CUB is not available");
+  269 #endif // GGML_CUDA_USE_CUB
+  270         } else {
+  271             argsort_f32_i32_cuda_bitonic(src, tmp, ncols, iter_nrows, GGML_SORT_ORDER_DESC, stream);
+  272         }
+  273         CUDA_CHECK(cudaMemcpy2DAsync(dst, k * sizeof(int), tmp, ncols * sizeof(int), k * sizeof(int), iter_nrows,
+  274                                      cudaMemcpyDeviceToDevice, stream));
+  275 
+  276         src += (size_t) ncols * iter_nrows;
+  277         dst += (size_t) k     * iter_nrows;
+  278     }
+
+[topk_cuda] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-cuda/top-k.cu:281-336
+  281 void ggml_cuda_op_top_k(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
+  282     const ggml_tensor * src0   = dst->src[0];
+  283     const float *       src0_d = (const float *) src0->data;
+  284     int *               dst_d  = (int *) dst->data;
+  285     cudaStream_t        stream = ctx.stream();
+  286 
+  287     // are these asserts truly necessary?
+  288     GGML_ASSERT(src0->type == GGML_TYPE_F32);
+  289     GGML_ASSERT(dst->type == GGML_TYPE_I32);
+  290     GGML_ASSERT(ggml_is_contiguous(src0));
+  291 
+  292     const int64_t    ncols = src0->ne[0];
+  293     const int64_t    nrows = ggml_nrows(src0);
+  294     const int64_t    k     = dst->ne[0];
+  295     ggml_cuda_pool & pool  = ctx.pool();
+  296 
+  297     const int device = ggml_cuda_get_device();
+  298 
+  299 #ifdef CUB_TOP_K_AVAILABLE
+  300     // a single row always uses DeviceTopK if available
+  301     const bool bitonic_short    = nrows > 1 && ncols <= GGML_CUDA_TOP_K_NCOLS_THRESHOLD_BITONIC;
+  302 #else
+  303     const bool bitonic_short    = ncols <= GGML_CUDA_TOP_K_NCOLS_THRESHOLD_BITONIC;
+  304 #endif // CUB_TOP_K_AVAILABLE
+  305     const bool bitonic_few_rows = nrows > GGML_CUDA_TOP_K_NROWS_THRESHOLD &&
+  306                                   ncols <= GGML_CUDA_TOP_K_NCOLS_THRESHOLD_BITONIC_FEW_ROWS &&
+  307                                   nrows <= ggml_cuda_info().devices[device].nsm;
+  308 
+  309     if (bitonic_short || bitonic_few_rows) {
+  310         // the padded row must fit in shared memory
+  311         const int ncols_pad = next_power_of_2(ncols);
+  312         if (ncols_pad * sizeof(int) <= ggml_cuda_info().devices[device].smpb) {
+  313             top_k_argsort_cuda(pool, src0_d, dst_d, ncols, nrows, k, false, stream);
+  314             return;
+  315         }
+  316     }
+  317 
+  318     if (nrows > GGML_CUDA_TOP_K_NROWS_THRESHOLD) {
+  319         top_k_radix_cuda(pool, src0_d, dst_d, ncols, nrows, k, stream);
+  320         return;
+  321     }
+  322 
+  323 #ifdef CUB_TOP_K_AVAILABLE
+  324     // TODO: Assess perf of `DeviceBatchedTopK` for multi-row TopK & CCCL >= 3.5.0, re-running perf sweep of https://github.com/ggml-org/llama.cpp/pull/28713
+  325     for (int64_t i = 0; i < nrows; i++) {
+  326         top_k_cub(pool, src0_d + i * ncols, dst_d + i * k, ncols, k, stream);
+  327     }
+  328 #elif defined(GGML_CUDA_USE_CUB)  // CUB_TOP_K_AVAILABLE
+  329     if (ncols <= GGML_CUDA_TOP_K_NCOLS_THRESHOLD_ARGSORT) {
+  330         top_k_argsort_cuda(pool, src0_d, dst_d, ncols, nrows, k, true, stream);
+  331     } else {
+  332         top_k_radix_cuda(pool, src0_d, dst_d, ncols, nrows, k, stream);
+  333     }
+  334 #else                             // GGML_CUDA_USE_CUB
+  335     top_k_radix_cuda(pool, src0_d, dst_d, ncols, nrows, k, stream);
+  336 #endif                            // CUB_TOP_K_AVAILABLE
+
+[argsort_cuda] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-cuda/argsort.cu:31-42
+   31 // returns the suggested maximum number of rows to process at once, given the temporary buffer bytes per row
+   32 int ggml_cuda_chunk_nrows(const size_t row_bytes, const int64_t nrows) {
+   33     // process rows in chunks up to approximately this size (currently 64MB)
+   34     // to avoid excessive temporary buffers memory usage
+   35     const int chunk_bytes = 1 << 26;
+   36 
+   37     // calculate how many rows will fit in one chunk (must be at least one)
+   38     const int chunk_nrows = std::max((int) (chunk_bytes / row_bytes), 1);
+   39 
+   40     // limit the resulting amount to total nrows
+   41     return std::min((int64_t) chunk_nrows, nrows);
+   42 }

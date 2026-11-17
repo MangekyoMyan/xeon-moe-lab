@@ -1,0 +1,88 @@
+{
+  "date_jst": "2026-11-17",
+  "review_pin": "fa6671f7b5281bad28947fe5324e2495e792a86f",
+  "repository_worktree_unchanged": true,
+  "JSON_files_parsed": [
+    "pilot/SOURCE_MANIFEST.json",
+    "pilot/CALIBRATION_LANGUAGE_AUDIT.json",
+    "pilot/PILOT_CASES_JA_EN_CODE.json",
+    "pilot/COMPLETION.json",
+    "pilot/PILOT_CORPUS_VALIDATION.json",
+    "pilot/PILOT_STAGE_MANIFEST.json",
+    "verification/PARENT_RECOMPUTED.json",
+    "plans/UBATCH_EXPERIMENT_PLAN.json",
+    "reviews/workspace/BANK_COST_EVIDENCE.json",
+    "reviews/workspace/WORKSPACE_EVIDENCE.json",
+    "reviews/evidence/CALIBRATION_EVIDENCE_AUDIT.json",
+    "reviews/evidence/SOURCE_SHA256.json",
+    "reviews/evidence/COMPLETION.json",
+    "reviews/evidence/allocator_probe/SOURCE_SHA256.json"
+  ],
+  "Python_files_syntax_parsed": [
+    "pilot/build_pilot_corpus.py",
+    "pilot/analyze_calibration_language.py",
+    "pilot/validate_pilot_corpus.py",
+    "tools/parent_recompute.py",
+    "reviews/workspace/recompute_workspace.py",
+    "reviews/evidence/audit_calibration_evidence.py"
+  ],
+  "parent_independent_raw_recomputation": {
+    "float_files": 5,
+    "byte_equal": true,
+    "finite": true,
+    "T1_calls": 1044,
+    "source": "PARENT_RECOMPUTED.json"
+  },
+  "pilot": {
+    "families": 12,
+    "cases": 20,
+    "split_counts": {
+      "train": 10,
+      "validation": 5,
+      "holdout": 5
+    },
+    "lanes": {
+      "ja": 4,
+      "en": 4,
+      "ja+en+log": 1,
+      "ja+json": 1,
+      "ja+en-columns": 1,
+      "ja+en+http": 1,
+      "python": 4,
+      "cpp": 4
+    },
+    "corpus_sha256": "fa1f41571af7c6d8272bb639877ea0cc32b4c09747939d5579a22d2998c11f5a",
+    "all_text_and_code_hashes_verified": true,
+    "code_first": true,
+    "delivered_reference_programs_match_test_receipt": true,
+    "python_semantic_checks": 29,
+    "cpp_programs_compiled_and_checked_by_author": 4,
+    "model_tokenizer_executed": false
+  },
+  "guard_phase_review": {
+    "old_pre_and_post_both_before_vision": true,
+    "current_M2_after_vision_and_text_warmup": true,
+    "legacy_phase_required_improvement": "unknown",
+    "M2_949_75_MiB_difference": "hypothetical arithmetic only, not adopted as a new gate",
+    "first_action": "fresh1024 corresponding M0; small bank may proceed without mandatory ubatch change if actual original guards and later workload succeed"
+  },
+  "peer_QA": {
+    "evidence_review": "counts/statistics/F32/next-token linkage checked; guard phase correction incorporated",
+    "workspace_review": "payload/arena/offload/threshold checked; guard phase and candidate-only SWA wrap clarifications incorporated",
+    "pilot_review": "code-first and cross-language integer-domain clarification incorporated before final validation"
+  },
+  "execution_scope": {
+    "provided_engine_or_ELF_or_project_script_executed": false,
+    "model_or_GPU_or_API_executed": false,
+    "new_ubatch_capacity_measured": false,
+    "positive_bank_admission_measured": false,
+    "reference_programs_authored_here_only": true,
+    "allocator_probe_implemented_or_compiled": false
+  },
+  "source_audit_directories": [
+    "reviews/evidence",
+    "reviews/workspace",
+    "pilot"
+  ],
+  "all_new_outputs_outside_reviewed_git_worktree": true
+}

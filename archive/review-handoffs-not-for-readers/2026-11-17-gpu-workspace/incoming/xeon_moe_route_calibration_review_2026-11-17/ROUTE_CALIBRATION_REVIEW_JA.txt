@@ -1,0 +1,403 @@
+route-calibration レビュー：観測の確認を終え、容量と実際のCPU/GPU並列化へ
+2026-11-17（日本時間）
+対象commit: fa6671f7b5281bad28947fe5324e2495e792a86f
+
+0. 結論と今回の位置
+==================
+今回のF/D比較を受け、観測処理の追加最適化は一区切りにしてよい。
+次はfreshな1024構成で、既存bank guardに対応するvision前のfreeをまず測る。
+今回の2122.25 MiBはvision/text warmup後なので、その値だけでは旧guard時点の不足を確定できない。
+小さいbankが既に成立するなら512を必須にせず、限定した並列pilotへ進める。
+容量を増やす必要があればn_batch=1024のままn_ubatch=512を一度比較し、容量・全prefill時間・
+prefill後のT1を一緒に判断する。256は、その結果に進む理由がある場合の次点とする。
+
+ただし「ubatchを半分にすると4669.26 MiBのcompute bufferも半分になる」とは予測しない。
+現在のprefillでは、CPU側expertをCUDAへ送るときに全384 expert分のshapeを持つ一時tensorを
+予約している。MXFP4では一projectionだけで2295 MiBあり、512も256もoffload閾値64以上なので
+この大物が残る。一方で、Bに比例するmask・indexer score・中間値もあり、縮小を試す意味はある。[1–5]
+
+今回確認できたのは、routingを観測する足場と、その追加負荷の限定的screenである。
+新しい常駐bankで通常モデルのCPU/GPU並列化を実測した段階ではない。
+このレビューの目的は、並列化に戻るための容量点と最小pilotを具体化することである。
+GPU層37..39、128k/f16 KV、vision、150W/ECC、3072/2560 MiB guardを維持する。
+
+実施範囲:
+GitHubの指定pin、driver/caller、実loaded libraryに対応するscheduler/allocator/CUDA/model source、
+全runの保存rawを読んだ。担当を分けた監査に加え、親も独自Pythonで5組のF32と1044callの時刻を
+再集計した。供給されたengine/script/ELF、モデル、GPU、APIは実行していない。
+新たに作ったreference programのみPython/C++で確認した。repoは無変更。
+以降の512/256容量、bank利益、モデルの回答品質は実測していない。
+
+1. F/D結果の評価：追加観測の心配をどこまで下げられたか
+====================================================
+F-before / D0 / D1 / D2 / F-afterの4call×129280 F32は、全5fileでbyte一致し、全要素finiteだった。
+各fileは2,068,480 bytes、共通SHA256は
+95430744558e7414b336f6548a6c03e064e12e1adc03cb8256fc45dcfc3187b0。
+source/library/provider pin、最終caller build、各blockの台帳と時刻も整合する。[1,2,6]
+
+同じ64call blockのengine区間（decode_begin→output_ready）をrawから再計算すると:
+
+arm    blocks   calls   平均ms       中央値ms     p95 ms（線形補間）
+F      4        256     145.075039   141.934990   160.684866
+D0     2        128     143.969707   140.735642   160.786538
+D1     2        128     143.153919   140.245399   158.640015
+D2     2        128     144.292662   141.010788   161.532846
+
+Fは通常library、D0は診断libraryでsessionなし、D1はobserving=false、D2はroute観測あり。
+D2/D1の平均比は+0.795467%。Fの4block平均のmax/min差は3.310700%。
+これは「純粋な観測費用が0.795%」や「費用ゼロ」の証明ではない。D1がD0より速いなどの揺れ、
+固定順序、少ないprocess/block数があり、call数を独立反復数にして強い有意差を作れない。
+しかし、このscopeで大きな負荷を疑って同じsuiteを繰り返す根拠は弱くなった。
+
+累積JSON生成をtoken loopから除き、block末尾へ移した点は妥当である。
+engine外caller区間の平均はF約1.59–1.71 μs、D2約2.94–3.39 μsだったが、engine内hookの費用を
+含まないので「観測全体で3 μs」とは扱わない。
+前回の別caller/別計時境界との差を、この変更だけによる速度改善として計上もしない。
+
+保存されたD2の2本の64call traceは全体一致し、前回cap1024 captureの先頭64callとも
+record/attempt/callが一致する。これはroute再現性の補強であり、未保存の64call logitsの
+同一性を代用する証拠ではない。
+
+2. cap1仮説は今回の結果で更新する
+================================
+通常APIの実output capは1だった。新callerもcap1に揃っている。
+それでも通常API・新callerともCUDA compute bufferは4669.26 MiBだった。[1,2]
+従って、前回候補に挙げたcap整合だけで大きくworkspaceを回収する道は、今回の観測では成立しない。
+
+source上でも整合する。capで減るのは出力対象の語彙projection等であり、40層を通る
+prefillのtoken次元B、expert weight staging、mask/indexer score全体を1にするものではない。
+初期reserveはmemory->init_full()を用い、min(n_ctx,n_ubatch) tokenのPP、TG、再PPを計画する。
+実際のwarmupが64tokenでも、最大構成のreserveが先にある。[3,4]
+
+3. 4669 MiBを何が占めるか：確定部分と未確定部分
+================================================
+3.1 選択expertだけの転送と、全shape予約を分ける
+
+実loaded baseはgpu-stream-20261103のschedulerである。
+cross-backend copyはggml_dup_tensor_layout(src)で作られる。
+一方、sched_copy_expertsは選択されたexpertの範囲だけを、元expert IDに対応するoffsetへコピーする。
+このため転送量が疎でも、宛先の予約shapeが疎になるわけではない。[3,4]
+
+one expert projection / full384 projection のnative payload:
+MXFP4       5.9765625 MiB / 2295 MiB
+IQ2_S       3.603515625 MiB / 1383.75 MiB
+IQ3_XXS     4.306640625 MiB / 1653.75 MiB
+IQ3_S       4.833984375 MiB / 1856.25 MiB
+
+MXFP4の式は5120×2304×384×17/32 = 2,406,481,920 bytes。
+これは一つのprojectionであり、bankのgate/up/down tripletとは区別する。
+
+GGML_OP_OFFLOAD_MIN_BATCH=64、GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH=64のため、
+512/256へ縮小してもこのoffload条件は成立する。閾値未満へ下げる案は、GPUに送っていた
+prefill仕事をCPUへ戻す別の変更となり、今回の512/256比較と同じ意味にはならない。
+
+2295×2=4590 MiBが4669 MiBに近いことは調査の手掛かりになるが、二枚のMXFP4が同時live、
+double buffer、二stream等の断定はしない。実logのsched copiesは1である。
+schedulerは以前のoffload weightを再利用できるようsplitを分ける一方、fusion dependencyや
+allocatorの割当順・穴の配置・過去reserveの保持量も関係する。
+「同時に二枚必要」と「一枚分の空きを再利用できずarenaが伸びた」を分ける証拠はまだない。
+
+3.2 Bを下げると小さくなるものもある
+
+下表はsource上の単一tensor payloadまたは明示persistent cacheの式。
+合計してarena峰値やCUDA free増加量としてはいけない。graphでの生存期間、alias、in-place、
+host/GPU両側copy、backend padding、allocator再利用を別に扱う。[3–5]
+
+項目                                     B1024   B512   B256  （MiB）
+full384 MXFP4一projection                   2295   2295   2295
+raw SWA KV全40層                              50     30     20
+CSA persistent KV                           240    240    240
+HCA persistent KV                           160    160    160
+HCA mask F16[131072,B]                       256    128     64
+HCA fused indexer score F32[131072,B]         512    256    128
+CSA mask F16[65536,B]                        128     64     32
+cand_pin F32[16384,B]                         64     32     16
+expert gateまたはup出力 F32[2304,6,B]         54     27     13.5
+expert down出力 F32[5120,6,B]                120     60     30
+
+SWA cacheは128k/f16維持でも物理容量が変わる点が重要である。
+single seq、n_swa128ではrows=PAD(min(131072,128+B),256)で1280→768→512。
+raw KV payloadで20/30 MiBの削減が計算できる。CSA/HCAは同じcontextなら固定。
+従って「KVは全て固定」も「KVが全部半分」も正しくない。
+
+現在pinのtop_kはI32[k,B]を直接生成する。古いargsort全幅viewの説明を使って、
+I32[131072,B]のgraph tensorを加算してはならない。CUDA kernel内部のscratchは別である。
+fused indexerとunfusedのchunk上限も区別する。現在logはLIGHTNING_INDEXERを含む。
+
+3.3 compute bufferの表示と、使える空き容量は一致しない
+
+実機logはVMM:noであり、legacy CUDA pool経路である。freeしたscratchがpoolへ残る場合がある。
+allocatorも、小さいTG graphへ移るだけで大きいPP bufferを自動的に縮める実装ではない。
+したがってfresh process/contextで比較し、同じwarmup phaseでCUDA freeを測る。[3,5]
+visionのmtmd設定はimage-max-tokens256 / batch-max-tokens256であり、text ubatchを変えても
+vision workspaceが比例して半減するとは考えない。
+
+4. guardのphase：2122.25 MiBから必要改善量を断定できない
+====================================================
+新callerのvision＋64token warmup後CUDA backend freeは、F-before/D/F-afterとも
+2,225,340,416 bytes = 2122.25 MiBだった。[1,6]
+
+ここでphaseの違いがある。旧hot-backendはcontextのsched_reserve後、vision初期化前に
+initializeされる。free > native payload + 3072 MiBのpre guardと、private bank/全到達H
+warmup後のfree > 2560 MiBのpost guardは、どちらも後続vision/poolに備えたvision前の判定である。[7]
+今回のM2 freeへそのまま3072を要求するのは、元の判定より後ろへ同じ余白を再要求する別条件になる。
+既存guardを後ろへ移したり、追加の必須guardとして二重に課したりしない。
+
+もし「M2にも3072 MiBを残す」という追加条件を仮定するなら、差は949.75 MiB+payload超。
+小triplet例12072960 bytesなら961.263672 MiB超となる。しかしこれは仮定上の予算算術であり、
+旧guard時点の必要改善量や、旧guardを実行して不合格だったという実測ではない。
+parent再集計JSONもこの区別を明記している。
+
+visionのlogだけでもmodel size926.00 MiB、CUDA compute97.45 MiBがある。phase差を無視できない。
+ただし、その単純和をM2へ足し戻した値もM0の実freeではない。placement/padding/pool/初期化順が
+あるので、既存guardに対応するfresh freeを直接測る必要がある。
+旧phaseで小さいbankが成立する可能性は、今回のM2値だけでは否定されていない。
+
+API停止前NVML free2553 MiBとは時点とAPIが違う。NVMLのtotal−usedをCUDA freeの代用にせず、
+両者を同じ表の別欄へ保存する。今回positive bankのallocation/admissionは実施していない。
+同じM2に3072を要求する仮定の差に対しては、raw SWAの20 MiBだけでは足りない。
+実際に必要な削減量は、候補bankのnative payloadと、元guard位置での測定値から求める。
+
+5. 次の一手A：guard位置の基準値を確認し、必要なら512を一度
+======================================================
+実行者は実機側Astra。Pro側のこれは計画であり、実行済みではない。
+まずfreshな1024のM0/M1/M2/M3を保存する。M0が小bankの余地を示し、実bankの旧phase guardと
+後続warmupが成立するなら、512を新しい必須gateにしない。
+容量を増やす必要がある場合は同一arm・同一library・同一token列、fresh processで1024と512を比較する。
+設定の違いはn_ubatchのみとし、source上付随して変わるSWA容量などは実値を記録する。
+F/D全suiteや6case screenの再実行は、この変更の前提にしない。
+
+5.1 最初の二入力
+・prefix64の既存wiring：分割しない対照。prefix後と次4T1の全logitsを保存する。
+・prefix1024の長い固定入力：512+512になる実prefillと次4T1。全prefill時間を保存する。
+  新規capacity専用本文をplans/CAPACITY_LONG_TEXT_JA.txtに用意した。bankのsplitには使わない。
+  こちらではtokenizeしていないので、少なくとも1088 IDsあることを実tokenizerで確認してから固定する。
+
+まずこの二つと明示freeで、次へ進む材料を得る。
+512の元guard位置のfreeが実際の不足に遠く、B依存部分の改善も小さいなら、256を反射的に追加しない。
+stagingの予約とallocatorの保持/fragmentationを一度特定する。
+逆に、削減の内訳から256で不足を越えそうなら、その一候補を試す。
+一回だけの点から全Bへ直線外挿して採用とはしない。
+
+5.2 容量見込みのある候補の境界
+U512ではprefix513、575、576を追加する。
+・513 = 512+1：極小tail、gather/T1寄りの経路とstate引継ぎ。
+・575 = 512+63：expert offload閾値未満のtail。
+・576 = 512+64：閾値ちょうどでhost expertをCUDAへ送るtail。
+U256なら対応は257、319、320。64と1024は共通。
+single seq/n_rs_seq0のsplit_equalに対応した値であり、実ubatch列も保存して照合する。[4,5]
+
+これで境界を狙える。n_batchを変えていない今回の初回に1025や全入力長のgridは必須ではない。
+候補U512/256の1024token prefixはraw SWA容量768/512cellsを越える。
+baseline U1024は1280cellsで、この長さでは越えない。各caseでKVをclearし、別のsequenceとして扱う。
+いずれも128k全域の実行保証にはならない。
+
+5.3 callerは64固定のままでは使えない
+現在driverはllama_batch_init(64)、prefix64、position64+i、n>=128、count<=64を持つ。
+prefixを引数で変えるだけでは不十分である。batch容量1024、prefix長、実ubatch列、
+continuation ID、expected position、reference metadataを一つのmanifestに連動させる。
+既存のreference cparams全一致assertは、予定したn_ubatchの一差分を明示して比較する形にする。
+他のprofile/provider/placement一致を一括で緩めない。
+prefill終端の同期後にcollectorを開き、64T1のrecord上限4096を維持できる。[6]
+
+5.4 数値と時間の評価
+短い同条件64ではbyte比較を継続する。長い境界ではubatch分割、CPU/CUDA配置、MMVQ/MMQ、
+attentionの演算経路が変わり得るので、byte差だけを即バグとも、全て許容とも扱わない。
+prefix直後＋4T1の全129280 logitsをfinite確認して保存し、maxabs、RMSE/相対誤差、
+上位tokenとmargin、必要なtarget logprobを比較する。0分母やnear-tieは明示する。
+数値閾値は結果を見てから都合よく変えず、既存CPU/CUDAの品質方針に合わせる。
+許容方針が未定の指標はdiagnosticとして報告し、自動の合格印を付けない。
+差が採否を変える場合だけ、baselineに候補と同じchunk分割を与えて原因を一つ分ける。
+
+timingは数値保存とは分ける。代表prefixの同一32–64T1を測り、first T1、中央値、p95、
+全call時間を残す。候補の前後にbaselineを置く少数blockで、同程度の揺れと比較する。
+5種類の境界を全て大反復する必要はない。
+
+特にprefill全体のtime-to-outputを測る。同じ1024tokenを512/256へ分けると、各chunkで
+重なるexpertを再転送する機会が増える。各chunkのroute unionが広ければ、staging予約が残るうえ
+同じweightを2/4回近く送る可能性がある。実転送倍率・速度低下はまだunknownである。
+T1だけが同等、あるいはfreeだけが増えた、という理由で採用しない。
+
+5.5 freeを測るphase
+M0: model/context reserve後、vision初期化前。
+M1: 同じmmproj、同じvision設定のload/warmup/synchronize後。
+M2: 既存と対応する64token text warmup/synchronize後。
+M3: 対象の1024token prefill＋短いT1/synchronize後。kernelのlazy pool需要を含める。
+Gpre/Gpost: 実bank initialize内の旧guard二点。いずれもvision前。実候補で直接保存する。
+M4: bank入り構成でvision/text/代表prefill warmupまで完了した後の実free。
+CUDA backend APIとNVMLは各phaseで別欄・時刻付きにする。tensor payload/arena/pool/freeを混ぜない。
+M0はbankなし基準の対応点であり、実候補のGpreを代用しない。M4は後続growth確認で、
+3072/2560の判定位置をM4へ移したという意味ではない。追加閾値を旧guard名で作らない。
+大きなprefill→T1→次prefillという実際の再利用でも増分がないか、選んだ候補で一度確認する。
+同期は完了を保証してもcached poolが全て解放されるとは限らない。
+この短pilotの合格を、任意の128k長文・実画像同時処理の保証へ拡張しない。
+通常APIへの広い採用前に既存の代表長context/実画像caseを確認する。今は大規模suiteを追加しない。
+
+6. 512で足りない場合に調べる対象
+================================
+arena high-waterの所有者を調べる補助設計を同梱した。
+既存buffer sizeと単独tensor inventoryで次点を選べるなら省略可能で、512の新しい必須gateではない。
+必要な場合も隔離初期化のreserveだけに限定し、通常token loopへ常設計測を足さない。
+
+同一reserve・同一canonical CUDA buffer・同一snapshotの実所有範囲とfree blocksを保存すれば、
+fullshape二枚の同時保持、fragmentation、過去PP bufferの余剰保持を分けられる。
+既存GGML_ALLOCATOR_DEBUGにはbuffer識別、実alloc size、in-place台帳等の限界があり、
+出力をそのまま完全な所有者台帳とは扱わない。詳細は補助メモに限定した。[3,5]
+
+結果に応じた次候補:
+・fragmentation主体なら、大きいweight stagingの配置/arena分離と小さいactivation配置を検討。
+・真の同時保持なら、copy/fusion dependencyとweight stagingの生存期間を再検討。
+・TG計画は小さいのにPP arenaを保持しているなら、PP/TGで容量を持ち替える設計を検討。
+
+いずれもまだ実装提案の候補である。async消費中の重みを上書きする、dependencyを外す、
+idleなscratchを所有権なしで永続bankに流用する、guardを下げる、という近道は採らない。
+PP/TG容量の持ち替えは次prefillでbank退避や再確保が必要になり得るので、TTFTとowner/generationの
+新しい責務を伴う。最初からその大改造へ飛ぶより、512一点と必要時の帰属で選ぶ。
+
+7. 言語・用途について今回言えること
+==================================
+6caseは全文token数・64T1時間・37層のrouteを保存し、独立再集計も一致した。[1,6]
+
+case            全文tokens   平均ms/T1   層別unique expert数の中央値
+cache JA        372          135.074     76
+cache EN        264          132.618     93
+experiment JA   336          136.533     81
+experiment EN   260          139.272     99
+mixed log       332          138.534     95
+Python code     302          128.818     80
+
+JA/ENの全文token比は1.409と1.292。一方、同じ64callの時間差は一組でJAが遅く、もう一組で逆。
+「日本語は一律に遅い」「コードは速い」という結論にはならない。
+token数の違いは同じ意味量を処理/表示する時間に関わり得るので、ms/tokenと意味のある課題全体の
+時間を区別する価値はある。ただしここは固定referenceの一部分で、自力生成した回答ではない。
+
+反復wiringのunique中央値60に対し、自然文例は76–99へ広がった。
+これはwiringだけからbankを決めるべきでないことを補強するが、「言語がroute差の原因」とは
+分離できない。同じtoken indexが同じ意味位置を表さず、各case一回・順序固定でもある。
+共通expert/Jaccard等の記述量は同梱したが、今回6caseはbankのtrain/validation/holdoutから除外する。
+
+8. 次の一手B：12 family / 20 caseを完成させ、5 caseずつ進める
+==========================================================
+pilot/PILOT_CASES_JA_EN_CODE.jsonに全prompt/reference本文を作成した。
+4つのJA/EN意味対応課題、4つのmixed課題、4仕様×Python/C++で20case、12family。
+splitは前回のfamily/case IDをそのまま維持し、train10/validation5/holdout5。
+翻訳・移植・window・会話turnは同じfamilyに残す。
+trainはbank選定用という意味であり、モデル重みの追加学習ではない。
+
+コード8caseは先頭をcodeにして、短い64tokenが共通の説明文だけになりにくくした。
+referenceのPython4本は29 semantic checks、C++4本はcompile＋境界assertに通った。
+これは作成した参照解の確認であり、モデルが解けた証拠ではない。
+tokenizerは未実行。本文文字数をtoken数の保証にせず、実GGUF/tokenizer/templateでassistant境界と
+prefix全ID・reference ID・hashを事前に保存する。
+
+容量が見込めたら:
+1) train最初5case：cache JA/EN、build log、grouping Python/C++。320call、11840records。
+   現configのrouteとnative byte予算から少数候補を作り、小さい正のbank/cost測定へ。
+2) 続ける根拠があればtrain残り5case。最初から全20case採取を容量前提にしない。
+3) validation5で事前に絞った1–2候補を比較。
+4) bank IDs、予算、cost model、重み、除外規則、token manifestをfreeze。
+5) holdout5で一度評価。結果で調整したら、それは開発データとなり、別familyを次の最終評価にする。
+
+baseline route採取を全case64callで一巡すると1280call、47360records。
+候補の数値・cost・hybrid比較で追加するcallは別で、この数字は実験全体の総call数ではない。
+一case一sessionで2368recordsなので4096容量に収まる。
+full promptをprefillし、assistantの固定referenceの最初64tokenをteacher forcingする。
+raw text版は別scopeとして明記し、chat template版と混同しない。
+当初の短prefix64をそのまま20caseに流用すると、回答開始位置が揃わないので避ける。
+
+9. bankを選ぶ目的はhit率ではなく、完了時刻の短縮
+================================================
+layer l、call tの6expert集合S[t,l]とbank B[l]からH=|S∩B|を求める。
+Hの平均だけでなく0..6分布、miss連続長、残るexpertのidentityを保存する。
+予算はnative gate/up/down tripletの実bytesで計算し、CPU compact cache容量とは分ける。
+
+共通fork起点fから、C=CPU側結果完成−f、G=GPU側結果を消費可能になった時刻−fと定義すると、
+
+T_mix[t,l] = T_pre[t,l] + max(C[t,l], G[t,l]) + J[t,l]
+score(B) = E_w[ sum_l (T_baseline[t,l] − T_mix[t,l]) ]
+
+Jは両結果完成後のscatter/mergeなど。enqueueがCPU開始を遅らせるなら、その遅延もCに含む。
+待ち時間をmaxとJへ二重加算しない。E[max]をmax(E)へ置換せず、
+CPU残量を単純に(6−H)/6倍とも仮定しない。共有変換、barrier、型、compact状態で違う。
+
+最初はfrequency/byte等を透明な候補生成規則として使える。ただし未測定costを0や比例式で
+埋めて「最適bank」「何倍速」と呼ばない。費用fitはtrain由来の少数代表cellに絞る。
+CPU全6、候補の逐次CPU/GPU、同じ候補の並行を比べ、まずmixed演算全体のwallを測る。
+GPU-readyの独立時刻が不明ならunknown/上界として残し、採否を変えるcellだけ追加観測する。
+
+旧hot-ffnのconcurrent_wait_msはCPU完了後のsynchronize残時間で、GPU-ready全体ではない。[8]
+11/17 mixed-operatorはCPU IQ2_Sのcompact/abs混在試験であり、GPU cost tableではない。[9]
+今回の約145ms/T1も全engineの平均で、特定layerのCPU残量へ分配する根拠はない。
+
+GPUには既存attentionと層37..39の仕事もある。次層のroutingは前層merge後の値に依存する。
+idle GPUの単層時間を足し合わせず、実queue条件で評価する。別streamを作るだけでは並列の証明にならない。
+H=0ではhot用pinned copy/enqueue/syncを避け、CPU全6へ進める。残るdispatch費用はmiss頻度で重み付けする。
+H=6では空CPU仕事を起動しない。ただし6tripletを保持できないbankではH=6は到達不能なので、
+試験は全到達Hと代表混合から始め、存在しないHを必須条件にしない。
+
+CPU/CUDAのIQ activation量子化等は違うので、同じ入力tokenでもhybrid側の中間値/KV/後段routeは
+変わり得る。baselineのjoint6上のhitは条件付きscreenであり、選んだbankの実hybridでも
+route/output/timeを測る。CPUとのbyte一致だけを唯一の品質基準に戻さない。
+
+10. 相談C：閉じるべき欠落は、次に変える箇所へ絞る
+================================================
+優先1: ubatch変更で新しく踏む長prefill/末尾分割と、その後のT1の数値・時間。
+       今のprefix64 F/Dを繰り返しても、この欠落は閉じない。
+優先2: 新GPU経路のready、slotへの戻し、join、所有権、全到達H、失敗時の完了/破棄。
+       現F/Dの成功は新しい非同期経路の正しさを保証しない。
+優先3: 新pilot収集中のfinite確認とvalidation scopeの明示。
+       timing/screenがpointer非nullだけだった事実は維持する。
+       finite走査をengine区間外に置いても次callのcache等へ影響し得るので、route収集を
+       無計測の性能実測と呼ばず、最終timingは同じ検査規則の対照と分ける。
+
+現在変更していないgeneration/例外経路の全網羅、過去6case logitsのためだけの再収集、
+未分離の0.8%を削るcollector再設計は、今回容量点の前提にしない。
+新stream/ownerやPP/TG持ち替えを加えたときは、その新しい責務に関係する失敗/遷移を確認する。
+
+11. 「二tokenずつ表示」について
+==============================
+今回の同期callerはSSE/Open WebUIの表示測定ではない。従って以前の見え方の原因や解消を
+今回結果から確定できない。wiringのtimed callは約135–179msの範囲にあるが、これは同期直列callerの
+境界であり、serverのtoken生成・SSE flush・ネットワーク受信・UI描画を分離した記録ではない。
+
+並列候補を実APIで評価する段階で、同じ短requestについてbackend output-readyとSSE event受信の
+時刻をそれぞれ保存すれば、engine側の間隔と外部の束ねを切り分けやすい。
+SSE一eventを一model tokenと決めつけず、受信bytes/event、TTFT、event間隔、全completion timeを残す。
+UI描画の結論にはUI側の時刻が別に必要。これを今の容量調査の新しい必須suiteにはしない。
+
+12. 添付資料の使い方と採否
+========================
+実機担当者はまずASTRA_ROUTE_CALIBRATION_NEXT_ACTION_JA.txtとplans/UBATCH_EXPERIMENT_PLAN.json。
+詳細の根拠はreviews/evidence、reviews/workspace。全20caseと検査はpilot。
+親のraw再集計はverification/PARENT_RECOMPUTED.jsonとtools/parent_recompute.py。
+allocator probeは設計だけで、実装/構文検査済みpatchではない。
+
+この段階の提案は512比較と段階pilotであり、通常APIの設定変更やbank採用の完了報告ではない。
+容量と実時間が成立した候補について、実機側の通常停止/復帰手順と既存guardで次へ進める。
+人間へ追加commandを求める資料ではなく、実行側Astraが具体的に作業・返却できる引き継ぎである。
+
+主要参照（全て同じpin）
+======================
+共通URL根:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/fa6671f7b5281bad28947fe5324e2495e792a86f/
+
+[1] archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/RESULTS_JA.txt
+[2] 同folderのDESIGN.json / BUILD.json / BASELINE_API_RECEIPT.json / runs/*/LAUNCH_MANIFEST.json
+[3] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp
+    1329–1400、1744–1816、1879–1976、2089–2175行。
+[4] archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/llama-context.cpp
+    739–865、2661–2719、2802–2880行。
+    同route-integration/provenance/model-source/src/models/deepseek41.cpp、src/llama-graph.cpp。
+[5] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/
+    ggml/src/ggml-alloc.c、ggml-common.h、ggml.c、ggml-cuda/top-k.cu、src/llama-kv-cache-iswa.cpp、
+    src/llama-kv-cache-dsv4.cpp、src/llama-batch.cpp。
+    実CUDAは同snapshotのexploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu。
+[6] [1]と同folderのdriver.cpp / call_control.h / run_case.py / 全runsのJSON/F32/stdout/stderr。
+[7] archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp
+    およびroute-integration/incoming/xeon_moe_route37_review_2026-11-17のguard証拠。
+[8] 同snapshot/exploration-20261112/hot_ffn_probe.cpp:174–191、hot-ffn/FIXTURE_RESULTS.json。
+[9] archive/review-handoffs-not-for-readers/2026-11-17-mixed-operator/RESULTS_JA.txt。
+
+個別の完全URL、行付き抜粋、SHA256はreviews/workspace/WORKSPACE_EVIDENCE.jsonとSOURCE_EXCERPTS.txt、
+reviews/evidence/SOURCE_SHA256.jsonに保存。数値は実測rawの再集計、sourceからの算術、将来提案を
+それぞれ分けて記載した。

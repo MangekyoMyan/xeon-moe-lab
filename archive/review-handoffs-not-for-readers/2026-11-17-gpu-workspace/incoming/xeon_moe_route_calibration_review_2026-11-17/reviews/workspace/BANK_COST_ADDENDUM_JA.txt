@@ -1,0 +1,53 @@
+追記B：最小のbank cost / critical-path設計（1頁）
+===============================================
+pin fa6671f7b5281bad28947fe5324e2495e792a86f。保存済みsource/rawの確認のみ。新ベンチなし。
+
+1. 既測定を使える範囲
+旧hot-ffnは実重み・人工入力・resident済みweight・単層host入力→host6slot出力の試験。
+H3 concurrentはL4の3seedで1.507–1.550ms、L24で1.646–1.705ms（block中央値の平均）。
+並列可能性の証拠として使えるが、実routeの速度予測には移さない。保存されたwaitはCPU終了後の
+synchronize残時間であり、GPUが実際に先に完了した時刻は不明。GPU-readyには置換できない。[1]
+11/17 mixed-operatorはCPU IQ2_S up一projectionのcompact/abs混在試験。CplanのE内S/O -3.292%、
+F対E/SのC0 +2.986%はGPU hit/readyや残CPU triplet costではない。最新約145ms/T1も全engine時間。
+現配置のC/G/dispatch/join費用はunknown。[2,3]
+
+2. joint6＋native bytes＋時間で候補を評価する
+trainのjoint6からH=|S[t,l]∩B[l]|の0..6分布、miss連続長、残expert identityを保つ。予算は
+native gate/up/down triplet＋実allocation追加分。frequency/byteで候補を作り、時間で再評価する。
+共通fork時刻fからC=CPU結果完成−f、G=GPU結果を消費可能になった時刻−fとする。
+enqueue後からCPUを始める実装なら、その開始遅延もCへ含める。
+  T_mix[t,l] = T_pre[t,l] + max(C[t,l], G[t,l]) + J[t,l]
+  score(B) = E_w[ Σ_l (T_baseline[t,l] − T_mix[t,l]) ]
+Jは両結果完成後のscatter/merge等。maxに含む待ちを二重加算しない。E[max]をmax(E)やmean Hで
+代用せず、CPU cost=(6-H)×定数とも置かない。型/compact/共通変換/barrierに依存する。
+追加bankの限界saved-time/byteで順位を見直し、未測定cellはunknown。holdoutではfitしない。[4]
+
+3. 容量通過後に埋めるcostは少数の代表cellだけ
+train由来1–2bankと代表層/型・頻出H・compact状態を選ぶ。費用fit用の実activation/joint6を
+validationと区別し、現CPU全6、候補の逐次CPU/GPU、同じ候補の並行を比較。H0はmiss費用対照、
+H6は出現/支持される場合のCPU省略対照。全層×全Hの網羅は不要。
+同一host clockでentry/fork/CPU-done/join-enter・return/scatter-doneを残し、まずmixed全体を採点。
+join-returnはGPU-ready上界。内訳が採否を変えるcellだけcompletion eventとhost観測を対応させる。
+観測遅延を明記し、CUDA elapsedをhost絶対時刻へ直足ししない。計測点有無も小さい対照で確認。
+
+4. queue・層依存・all-missを評価から落とさない
+Gにはenqueue、queue待ち、H2D、三projection/activation、D2H/消費可能化までを含める。
+attentionやGPU37..39 expertも同じdeviceを使う。次層の入力/routingは前層merge後に決まるため、
+実時系列/queue条件で評価し、idle GPUの単層最良値を合算しない。別streamだけで重なりとはしない。
+H0はlookup後にCPU全6へ進み、hot用pinnedコピー、enqueue、hot stream待ちを発生させない。
+旧backendもGPU処理/syncはif(hot)内だがCPU copy/dispatch費用は残る。[5] 必要なdata依存と
+前call所有権は維持する。miss追加費用をscoreへ算入し、H6では空CPU仕事を起動しない。
+validationで固定候補を絞り、bank/cost/budget/weightをfreeze後、holdoutで実route/output/T1を
+一度評価。CPU/CUDA量子化差で
+routingが変わるためbaseline上のHは条件付きscreenである。[4]
+
+根拠（全て対象pin内）
+[1] 11/16-current/snapshot/llm-lab/exploration-20261112/hot-ffn/FIXTURE_RESULTS.json;
+    同hot_ffn_probe.cpp:174–191,199–221,224–257。末尾READY独立時刻なし。
+[2] 11/17-mixed-operator/RESULTS_JA.txt:14–24,32–55,64–75。
+[3] 11/17-route-calibration/RESULTS_JA.txt（全engine timingの境界）。
+[4] 11/17-route-calibration/incoming/xeon_moe_route_capture_review_2026-11-17/
+    reviews/workload/WORKLOAD_LANGUAGE_PLAN_JA.txt:183–243;
+    ASTRA_ROUTE_CAPTURE_NEXT_ACTION_JA.txt:121–144。
+[5] 11/16-current/snapshot/llm-lab/exploration-20261112/hot-ffn/hot-backend.cpp:156–188。
+略した日付directoryの接頭辞はarchive/review-handoffs-not-for-readers/2026-。

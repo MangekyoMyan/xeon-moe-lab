@@ -1,0 +1,260 @@
+{
+  "schema": 1,
+  "date_jst": "2026-11-17",
+  "review_pin": "fa6671f7b5281bad28947fe5324e2495e792a86f",
+  "status": "proposal_only; no capacity point or positive-bank test executed by reviewer",
+  "execution_owner": "actual-machine Astra assistant",
+  "objective": "Establish real capacity at unchanged guard phases and test bounded CPU/GPU parallel work",
+  "fixed_profile": {
+    "n_ctx": 131072,
+    "n_batch": 1024,
+    "n_seq_max": 1,
+    "n_outputs_max": 1,
+    "n_outputs_max_per_seq": 1,
+    "threads": 12,
+    "threads_batch": 24,
+    "GPU_expert_layers": [
+      37,
+      38,
+      39
+    ],
+    "CPU_expert_layers_inclusive": [
+      0,
+      36
+    ],
+    "KV_K": "f16",
+    "KV_V": "f16",
+    "vision_GPU": true,
+    "image_max_tokens": 256,
+    "mtmd_batch_max_tokens": 256,
+    "power_W": 150,
+    "ECC": "unchanged",
+    "GGML_OP_OFFLOAD_MIN_BATCH": 64,
+    "GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH": 64,
+    "other_profile_fields": "retain current pinned launch including NUMA/affinity/cache plan; save actual values"
+  },
+  "phase_definitions": [
+    {
+      "id": "M0",
+      "bank": false,
+      "when": "fresh main context reserve complete, before explicit vision init/warmup",
+      "use": "baseline corresponding point; not a substitute for actual bank Gpre"
+    },
+    {
+      "id": "M1",
+      "bank": false,
+      "when": "same vision initialization/warmup/synchronize complete"
+    },
+    {
+      "id": "M2",
+      "bank": false,
+      "when": "same 64-token text warmup/synchronize complete",
+      "current_saved_CUDA_free_bytes": 2225340416
+    },
+    {
+      "id": "M3",
+      "bank": false,
+      "when": "target 1024-token prefill and short T1/synchronize complete"
+    },
+    {
+      "id": "Gpre",
+      "bank": "immediately before allocation",
+      "when": "inside original hot initialize after main reserve, before vision",
+      "rule": "free_bytes > native_payload_bytes + 3072 * 1048576"
+    },
+    {
+      "id": "Gpost",
+      "bank": true,
+      "when": "private bank reachable-H warmup and synchronize complete, still before vision",
+      "rule": "free_bytes > 2560 * 1048576"
+    },
+    {
+      "id": "M4",
+      "bank": true,
+      "when": "subsequent vision/text/representative prefill warmup complete",
+      "use": "record actual remaining free and growth; no new threshold under the old guard name"
+    }
+  ],
+  "phase_rules": {
+    "old_guard_positions_preserved": true,
+    "M2_does_not_prove_legacy_guard_failure": true,
+    "old_phase_required_improvement_MiB": null,
+    "additional_postvision_3072_or_2560_guard_required": false,
+    "CUDA_and_NVML": "save separately with timestamps; never mix accounting or phases",
+    "do_not_reconstruct_M0_by_adding_vision_payload_to_M2": true
+  },
+  "decision_order": [
+    "Fresh1024 M0-M3 measurement, provider and input consistency.",
+    "If small bank is plausible at M0, test actual candidate Gpre/Gpost plus later warmup; a valid bounded pilot need not wait for ubatch512.",
+    "If more capacity is needed, compare ubatch512 in the same isolated caller with all other settings pinned.",
+    "For promising capacity point, add three targeted tails and one representative timing workload.",
+    "Try ubatch256 only if measured phase/arena evidence makes another capacity point informative.",
+    "If bytes cannot be attributed enough to select a next change, optional one-shot reserve inventory; no permanent observer framework.",
+    "Proceed to staged train5/train5/validation5/freeze/holdout5 only as justified by real capacity and measured benefit."
+  ],
+  "capacity_text": {
+    "path": "plans/CAPACITY_LONG_TEXT_JA.txt",
+    "sha256": "02b6632285dd61ce509f6a12e223bc6d86030ff6f26a7a6943d08985bf47bfad",
+    "UTF8_bytes": 10648,
+    "codepoints": 3696,
+    "model_token_count": null,
+    "tokenizer_preflight_required": true,
+    "minimum_ID_count": 1088,
+    "bank_split": "excluded_capacity_only",
+    "input_form": "raw text; same saved flags and IDs for both arms"
+  },
+  "profiles": [
+    {
+      "n_ubatch": 1024,
+      "role": "fresh baseline",
+      "required_initial_prefix_lengths": [
+        64,
+        1024
+      ]
+    },
+    {
+      "n_ubatch": 512,
+      "role": "conditional capacity candidate",
+      "required_initial_prefix_lengths": [
+        64,
+        1024
+      ],
+      "targeted_tail_prefix_lengths_if_promising": [
+        513,
+        575,
+        576
+      ],
+      "expected_tail_ubatches": [
+        [
+          512,
+          1
+        ],
+        [
+          512,
+          63
+        ],
+        [
+          512,
+          64
+        ]
+      ],
+      "expected_prefix1024_ubatches": [
+        512,
+        512
+      ]
+    },
+    {
+      "n_ubatch": 256,
+      "role": "conditional follow-up, not an automatic grid",
+      "required_initial_prefix_lengths": [
+        64,
+        1024
+      ],
+      "targeted_tail_prefix_lengths_if_promising": [
+        257,
+        319,
+        320
+      ],
+      "expected_tail_ubatches": [
+        [
+          256,
+          1
+        ],
+        [
+          256,
+          63
+        ],
+        [
+          256,
+          64
+        ]
+      ],
+      "expected_prefix1024_ubatches": [
+        256,
+        256,
+        256,
+        256
+      ]
+    }
+  ],
+  "numerical": {
+    "saved_outputs_per_case": "final-prefix logits plus next 4 T1 output vectors, all 129280 F32",
+    "require_finite": true,
+    "short64_comparison": "byte comparison against same workload baseline",
+    "changed_split_comparison": [
+      "max_abs",
+      "RMSE",
+      "relative_error_with_zero_norm_rule",
+      "top_token_and_margin",
+      "target_logprob_if_correctly_aligned"
+    ],
+    "new_numeric_tolerance": null,
+    "acceptance_policy": "predeclare against existing CPU/CUDA policy; undefined tolerance yields diagnostic only, not fabricated pass",
+    "matched_partition_control": "only if an observed difference affects the decision; hold output mask constant"
+  },
+  "timing": {
+    "endpoints": "decode begin to output ready; retain full timestamps",
+    "prefill_total_required": true,
+    "representative_T1_calls": [
+      32,
+      64
+    ],
+    "first_T1_retained": true,
+    "p95_definition": "linear interpolation at (n-1)*0.95",
+    "independent_unit": "process/block, not token or layer",
+    "validation_scope": "same per arm; keep F32/JSON disk writes out of timed loop",
+    "transfer_observation": "if available, per-chunk expert union and transfer bytes plus full-prefix total; not mandatory new per-token framework"
+  },
+  "caller_changes": [
+    "batch capacity1024",
+    "manifest prefix/continuation/position linkage",
+    "expected n_ubatch difference allowed explicitly, all other cparams/provider/placement checks preserved",
+    "prefill completion before opening collector",
+    "preallocate steps and final export only",
+    "tokenizer/template/assistant boundary receipt for pilot",
+    "record actual split lengths, not assumed lengths"
+  ],
+  "pilot": {
+    "manifest": "pilot/PILOT_STAGE_MANIFEST.json",
+    "corpus": "pilot/PILOT_CASES_JA_EN_CODE.json",
+    "corpus_sha256": "fa1f41571af7c6d8272bb639877ea0cc32b4c09747939d5579a22d2998c11f5a",
+    "existing_six_calibrations_excluded": true,
+    "families": 12,
+    "cases": 20,
+    "split_counts": {
+      "train": 10,
+      "validation": 5,
+      "holdout": 5
+    },
+    "cases_per_stage": 5,
+    "reference_T1_inputs_per_case": 64,
+    "records_per_session": 2368,
+    "record_capacity": 4096,
+    "frozen_holdout_no_fit": true,
+    "unmeasured_costs": null
+  },
+  "parallel_cost_definition": {
+    "formula": "T_pre + max(C,G) + J",
+    "C": "CPU result complete minus common fork; include delayed CPU start",
+    "G": "GPU result consumable minus same fork; include real queue/transfer/compute/return",
+    "J": "post-completion scatter/merge; never double-count waiting",
+    "old_wait_column_is_G": false,
+    "unknown_ready_policy": "use bound/unknown and actual mixed wall; add detailed ready observation only if decision needs it",
+    "hit_states": "all reachable H and representative mixtures; H6 not mandatory if unrepresentable",
+    "miss_path": "no unnecessary hot input copy, enqueue or hot stream synchronization at H0; preserve required dependencies"
+  },
+  "not_required_as_preconditions": [
+    "same F/D suite repeated without new reason",
+    "all six calibration logits recollected",
+    "new universal fault-injection suite",
+    "all20 pilot before capacity",
+    "mandatory allocator tracer",
+    "automatic adoption from free improvement alone"
+  ],
+  "actual_measurements_in_this_artifact": {
+    "new_ubatch_capacity": false,
+    "positive_bank_admission": false,
+    "new_model_generation": false,
+    "reference_programs_only": true
+  }
+}

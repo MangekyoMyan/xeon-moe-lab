@@ -1,0 +1,23 @@
+Train-first5 pilot capture — 限定静的レビュー 2026-11-17
+
+Scope: /home/codex/projects/llm-lab/gpu-workspace-20261117/pilot-capture/{driver.cpp,CASES.json,PILOT_DESIGN.json,BUILD.json,run_capacity.py}, gpu-workspace-20261117/PILOT_TOKENS.json, freeze_pilot_tokens.py and incoming/.../pilot/{PILOT_CASES_JA_EN_CODE.json,PILOT_STAGE_MANIFEST.json}. 独自Pythonは保存JSON/hashのみ参照。新規source編集、model、API、GPU操作、model tokenization、route収集なし。build receiptは既存であり本レビューではbuildを実行していない。
+
+要修正の表示: driver.cpp:140 report.tokenizer.form="raw text, no chat template"は、caller自身がテンプレートを再適用しないという意味では正しいが、5件のtext_utf8はAPIでchat template適用済みrendered prefix+referenceである。raw無template experimentと読めるので、"pre-rendered chat template plus reference; caller does not re-render"等に明確化し、template SHA/flagsをPILOT_TOKENS・run provenanceと結び付ける。template未使用を観測結果に記載しない。callerの後の成功を止める算術バグとの主張ではない。
+
+入力分離と固定: PILOT_TOKENS.json SHA 44a9f673a7928b30f29a11fd741c96fa5b2faf526b89a82bc448aa13ff32596f はPILOT_DESIGNと一致、元corpus SHA fa1f41571af7c6d8272bb639877ea0cc32b4c09747939d5579a22d2998c11f5a。20 unique cases/12 families、train10/validation5/holdout5、source family/split/prompt/reference hashesと合致。各20件のprefix IDsおよびused64 IDsのlittle-endian i32 SHA、prefix_count、first_T1_position、最初65 reference targets、assistant suffix <｜Assistant｜></think>、prefix文字列とjoined text hash、保存strict_prefix_verifiedを独立に照合。保存tokenだけから元APIのtokenizationを新たに再実行したわけではない。全20caseのprefix 187..317、reference 195..337 IDs、frozen flags model_inference_requested=false、route_collected=false、bank_fitted=false。freeze scriptが/props、/apply-template、/tokenizeを使うことと整合し、学習済みrouteや生成を意味しない。
+
+CASES.jsonは元2controls+wiring/longの後にstage train_first5の5caseだけ、順序はstage manifestおよびPILOT_DESIGN.case_idsと一致。各case split=train、reference/prefix/full IDs/連結文字列/hashとfrozen manifest・元corpusが一致し、validation/holdoutは含まれない。PILOT_DESIGN 480706560 bytes=458.4375 MiBはsaved route採取前に固定と記録。bank=false、候補はfrequency/native triplet bytesの提案のみでsaved-timeは未測定。driverは7件をtokenize/一致確認するが、driver.cpp:174で実model forwardするのはshort64 controlとindex2..6の5件であり、index1 long controlはruntime tokenizationのみで長文graphには使われない。run wrapperはBUILD.jsonのCASES/PILOT_DESIGN/driver hashesをverifyするが、収集前後も同じ固定artifactと対応づける必要がある。
+
+First5 capture位置:
+ text_cache_budget_ja    prefix=272; T1 input positions 272..335; 65th target position336
+ text_cache_budget_en    prefix=211; T1 input positions 211..274; 65th target position275
+ mixed_build_log_ja_en_log prefix=270; T1 positions270..333; 65th target334
+ code_stable_grouping_python prefix=240; T1 positions240..303; 65th target304
+ code_stable_grouping_cpp prefix=240; T1 positions240..303; 65th target304
+ 各caseのfull expected IDs = frozen prefix IDs + full reference continuation IDs、continuation_first65 = expected_ids[prefix:prefix+65]、prefix+65以下の範囲は全件利用可能。prefix入力上限1024を満たす。per-case 64×37=2368records、first5合計320 calls/11840 recordsが成功時の期待値であって実績ではない。1caseずつcollector sessionをclose/open、容量4096 records/512 attempts/128 callsの範囲。
+
+数値・index: driver.cpp:147–170は1 public PREFILL observing0の最終prefix token position P−1の出力をrow0に、reference input token[P+i]をT1としてposition P+iで与えた出力をrow i+1に保存。row0 target=reference[0]、T1 i output target=reference[i+1]。64入力と65 targetの保存にoff-by-oneは見つからない。全64 callのlogitsを同期後にfinite scan、F32保存はprefix row0+最初4 T1の5×129280=646400値のみ。残り60callの値/hashは保存されない。short64の4T1は旧F-before byte gate、training側のlogitsはbaselineとのbyte比較もsampled answerも行わない。promptとreferenceが連結tokenizeされた後にfrozen prefixとの厳密ID一致を要求しており、連結前後のsubword境界変化を黙認しない。
+
+Trace/timing: observing1の各callについて37層unique/6 IDs、position・phase・attempt/call・flags/dropをvalidateし、各sessionの閉鎖後に保存。prefill observing0は実ubatch配列/連続位置/合計を検査。64callのfinite scanが毎callのvalidation intervalにあり、最初4回はcopyもstep_endに含まれる。label、engine→output sync、finite scan、finalize、最初4のcopyを別boundaryとして保ち、production throughputやcollector単独負荷とは呼ばない。PILOT_DESIGNのcase IDsは現CASESと一致するが、driverはCI 2..6を実行する構造でありID/splitそのもののruntime assertionは持たない。build pinと事前/事後独立検査がこの範囲保証の前提。
+
+出力やfuture candidateの外挿: 5caseは3familiesだけの小trainで、route frequency/native byteの候補はcapacity fixtureや混合演算の性能・admissionを証明しない。validation/holdoutのtoken化はすでに行われたが、route取得とcandidate fittingはまだ行われていないという区別を維持する。実行時のcorrectness/health/monitor/実recordsは別途確認が必要。

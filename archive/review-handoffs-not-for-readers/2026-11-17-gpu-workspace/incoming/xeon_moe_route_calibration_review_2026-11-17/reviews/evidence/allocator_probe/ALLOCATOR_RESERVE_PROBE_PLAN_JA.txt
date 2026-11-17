@@ -1,0 +1,240 @@
+単発 reserve の allocator 帰属診断: 設計メモ
+2026-11-17 / pinned fa6671f7b5281bad28947fe5324e2495e792a86f
+
+状態: ソース読取のみ。診断コードの適用、コンパイル、engine / ELF / model / GPU / API
+の実行は行っていない。この文書は次の実機担当者がレビューする差分設計であり、実測ではない。
+通常 API、通常 source、通常 library を変更する提案ではない。
+
+1. 結論
+
+現在の GGML_ALLOCATOR_DEBUG は「high-water を伸ばした瞬間にどの名前のテンソルが
+追跡されていたか」を見る入口として使える。ただし、そのままの出力だけでは CUDA0 の
+4669.26 MiB を実サイズ・同一瞬間の所有範囲・空き領域に完全分解できない。
+
+この probe は任意の補助診断であり、bank / ubatch512 容量点へ進む新しい必須 gate にしない。
+既存 buffer size、単独 tensor inventory、同一条件の明示 free で次の容量点を選べるなら省略する。
+「high-water の原因を一意に帰属しないと次の変更を選べない」という具体的な不確かさが
+残った場合だけ、以下を行う。
+
+実施する場合の最小調査は、正しい gpu-stream-20261103 scheduler を維持した隔離 libggml-base で、
+allocator だけに reserve 開始 / high-water / reserve 終了の記録を入れ、一度の初期化で
+PP1024、TG1、PP1024 の各 reserve を区別する。初期化終了で停止し、token loop は不要。
+per-token collector や CUDA event framework に広げる必要はない。
+
+「2295 MiB × 2 = 4590 MiB なので二枚が同時 live」という解釈は、現時点では採用しない。
+2295 MiB は候補の形・型から得るサイズであり、allocator の同一 snapshot に別々の二範囲が
+存在すること、同じ reserve / buffer / chunk であることは別の命題である。
+
+2. 検討したソースと現証拠
+
+以下の略号は pinned worktree の相対パス。
+H = archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab
+A = H/deepseek41-bringup-20261101/source/ggml/src/ggml-alloc.c
+S = H/gpu-stream-20261103/ggml-backend.cpp
+C = archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/llama-context.cpp
+R = archive/review-handoffs-not-for-readers/2026-11-17-route-calibration
+
+重要な対応:
+  A:16-19      GGML_ALLOCATOR_DEBUG と AT_PRINTF は別スイッチ。
+  A:127-131    debug ledger は allocated_tensors[1024]。
+  A:202-304    alloc size を alignment へ切り上げて割当て、高水位を更新。
+  A:273-301    high-water 時に debug ledger を sort して name / chunk / offset を出す。
+  A:293-297    表示される末端と size は ggml_nbytes。backend alloc size ではない。
+  A:515-526    同一 buft が複数 buffer_id にあると同じ talloc を共用する。
+  A:599-620    in-place 再利用で親より小さい allocation になれば末尾を free する。
+  A:623-687    in-place 時は hash ownership を子へ移し、新規時だけ dyn alloc を呼ぶ。
+  A:691-711    graph output は free せず、それ以外は backend alloc size で free。
+  A:718-823    graph の仮想 allocation / free を順に計画する。
+  A:825-848    reserve ごとに dyn allocator を reset して新しい計画を作る。
+  A:904-945    実 buffer は必要なとき grow/reallocate。小さい計画へ原則 shrink しない。
+  A:951-959    reserve_n_size は no_alloc=true。通常 alloc と同じ計画を返すが、
+               reserve_n_impl の既存 buffer/free 状態も通るため無条件な純粋 query と扱わない。
+  S:1797-1807  cross-backend copy は元 tensor layout を複製し、backend#source#copy 名を付ける。
+  S:1878-1975  backend optimize の allocation dependency を allocator 用 graph へ追加。
+  S:1934-1950  split 開始の input-copy allocation と input 元の生存 dependency。
+  S:2334-2362  split_graph 後の allocator に scheduled graph と backend IDs を渡す。
+  C:612-621    fused-op 判定の graph_reserve は split_only=true。
+  C:791-847    main reserve は PP、TG、PP の順。
+  C:854-863    最後に出す compute buffer は scheduler の保持 buffer サイズ。
+  C:2661-2668  既存 DEBUG log に n_tokens / n_seqs / n_outputs の境界がある。
+  C:2709-2718  split-only、reserve_size、通常 reserve を分岐。
+
+R/runs/20261117T013039Z-D-07d69e25/server.stderr.log には:
+  3597,3835,4073,4312 行: fused-op 判定用 T1 の graph_reserve 境界。
+  4550 行: PP 1024, seq 1, outputs 1。
+  4847 行: TG 1, seq 1, outputs 1。
+  5084 行: PP 1024, seq 1, outputs 1。
+  5381-5384 行: CUDA0 4669.26 MiB、CUDA_Host 538.73 MiB、sched copies=1。
+  5719-5720 行: vision の別 compute buffer。
+  5723-5724 行: main compute buffer の保持量が期待値と一致。
+
+従ってこの caller では phase 表示のために libllama へ追加の変更を入れなくてよい。
+ただし graph_reserve の単純な出現回数を PP/TG と決め打ちしない。fused-op 判定は
+allocator reserve と異なる。新しい reserve 開始/終了記録を既存 n_tokens 境界に結び付ける。
+
+3. 既存 debug をそのまま採用できない理由
+
+3.1 buffer の同一性
+既存 high-water 行の chunk は当該 dyn allocator 内の局所番号であり、galloc、talloc、
+buft、buffer_id の識別子がない。別 CPU / CUDA / vision / reserve の chunk 0 を加算しない。
+同じ buft が複数 buffer_id に alias する場合も二重計上しない。
+
+3.2 backend allocation と logical size
+ggml_nbytes と get_alloc_size、さらに allocator alignment 後の size は概念が違う。
+CUDA alloc size には型・shape・op による padding があり得る。今回の候補で等しいかは
+snapshot の実値で確かめる。logical range の足し算だけで fragmentation を求めない。
+
+3.3 in-place ownership
+既存 debug ledger は新規 alloc 時に tensor を記録するが、A:662-677 の in-place では
+hash ownership が子へ移っても ledger の tensor pointer/name が更新されない。
+さらに A:614-619 の縮小で親末尾が解放されても ledger は古い ggml_nbytes を表示する。
+そのため「その時点の tensor 所有者と実際に確保されている範囲」の完全な台帳ではない。
+固定 1024 slot を超えると abort する。各 high-water の sort は 1024×1024 の二重 loop。
+これは診断性能の注意であり、通常 engine の速度低下を示す証拠ではない。
+
+3.4 free 領域と retained buffer
+既存 high-water dump だけでは free blocks がない。AT_PRINTF は alloc/free/reuse の
+順序を補うが、同一性、alias、正確な free extent、最終保持量までは補えない。
+また小さい TG 計画でも既に確保した PP の大きい buffer を保持するので、最後の
+4669.26 MiB 表示を TG の live tensor 合計と等置しない。
+
+4. 推奨する差分設計: allocator 一箇所の隔離診断
+
+既存の GGML_ALLOCATOR_DEBUG ledger を修理して維持するより、reserve 専用 macro の下で
+現実の hash ownership と free-block table を読む小さな snapshot helper を置く方が少ない。
+allocator の配置・best-fit・free・reuse・op 判定の数式は一切変えない。
+compile で有効な隔離 variant だけで使用し、通常 library へは入れない。
+
+4.1 reserve 開始（A:825-848 の周辺）
+記録:
+  reserve 連番（galloc ごと）、galloc pointer、graph pointer、no_alloc、n_nodes、n_leafs。
+  各 buffer_id -> buft name / pointer、talloc pointer、alignment、max_chunk_size。
+  同じ talloc の buffer_id は canonical owner id にまとめる。
+  reserve 前に保持していた各 chunk の実 buffer bytes。
+  この pass の reported high-water をゼロへ reset。
+
+phase は既存 C:2663 の n_tokens / n_seqs / n_outputs 行で括る。
+galloc と reserve 連番が違う snapshot は絶対に合算しない。
+leaf/input/node の allocation stage と現在の graph index を短い作業メタデータとして持つ。
+これは観測ログだけに使い、graph や割当て順を変えない。
+
+4.2 high-water 発生直後（A:687 の hn->addr 代入完了後）
+dyn allocator 内の既存 print 位置では、呼び元 hash_node の addr 代入がまだ完了していない。
+hash ownership から正しく dump するため、呼び元で addr 代入が完了した直後を hook にする。
+当該 canonical talloc の chunk.max_size が前に記録した値を超えた時だけ出す。
+旧 high-water、新 high-water、trigger tensor、配置 chunk / offset / aligned bytes を記録。
+
+同じ snapshot に、当該 talloc を使う hash_values[*].allocated==true の所有者を列挙する。
+hash set の occupied slot と照合し、外部 data/buffer と通常の view alias は所有者として数えない。
+既存 hash の in-place ownership transfer に従うため、debug ledger の古い parent 名に依存しない。
+tensor 数を固定 1024 に切り詰めず、実際の occupied hash slot を走査する。
+
+各 owner の最小列:
+  tensor pointer、name、type、op、ne[4]、nb[4]、flags、view_src、view_offs、src pointers。
+  buffer_id / canonical talloc、chunk、offset。
+  logical nbytes、backend get_alloc_size、alignment 後の占有 bytes。
+  現 n_children / n_views（保持理由の補助）。
+
+各 chunk の最小列:
+  旧/新 high-water と全 free blocks の offset / size。
+  free blocks は仮想末尾が SIZE_MAX/2 等まで伸びるので、集計では [0, high-water) に clip。
+  live owner の範囲が重ならず、live と free の union が [0, high-water) を覆うかを後処理で検査。
+  不一致なら証拠未完成として停止し、残差を「fragmentation」と命名しない。
+
+この snapshot helper には free/reuse 処理の追加 hook は不要。
+次に high-water が伸びた時の現 hash state が、既に所有権移転と末尾解放を反映している。
+必要な source-copy 対応は、現在の full name / shape と既存 scheduler copy 命名で照合する。
+名前が切り詰められる・重複する case が実際に出た場合だけ、S:1801 に
+source pointer -> copy pointer / backend / copy_id の一行を追加する。
+
+4.3 reserve 終了（A:904-948 の後）
+canonical talloc ごとに:
+  この pass の plan bytes = sum(chunk.max_size)。
+  各既存 buffer chunk の実 size と sum、reallocated の有無。
+  旧 plan にはあって今回の n_chunks 外に残る保持 chunk があればそれも明記。
+  no_alloc、成功/失敗、完了印。
+
+同じ物理 buffer alias を二重加算しない。失敗や途中終了の pass に完全帰属というラベルを付けない。
+実 buffer の余剰保持・backend 丸めと、allocator 計画内の空き領域は別欄にする。
+
+5. 得たい判定を事前に固定する
+
+A. 二枚同時 live だったか
+  最後の PP high-water snapshot だけをまず見る。
+  CUDA0 の同一 canonical talloc、同一 reserve、同一 snapshot に
+  独立 tensor inventory と一致する MXFP4 projection の full-expert shape を持つ
+  distinct tensor が二つあり、
+  各 aligned allocation が2295 MiB相当で、範囲が重ならなければ、allocator の計画上で二枚が
+  同時保持されていた証拠になる。具体的 shape は現ソース/モデル metadata と照合する。
+  これは CUDA kernel の同時実行、二 stream、CPU/GPU 並列性の証明ではない。
+
+B. 4669.26 MiB の残り
+  所有範囲の union、padding 差、high-water 以下の free 範囲、実 buffer の余剰を分けて算出。
+  4669.26 - 4590 を先に activation サイズと決めない。
+  全 owner を出すので小さい tensor 群を丸め誤差の残差へ押し込まない。
+
+C. fragmentation が high-water 成長の原因か
+  「H - live が大きい」だけでは原因と断定しない。
+  旧 high-water と今回の配置範囲、割当て後 free blocks から、今回範囲を free 側へ戻して
+  隣接範囲を結合すれば、この alloc の直前 free 状態を再構成できる。
+  その chunk 内の総 free と最大連続 free を request size と比べる。
+  複数 chunk の free を連結可能な領域として合算しない。
+  直前に total free >= request でも largest contiguous free < request だったかを確認して
+  初めて fragmentation による拡張候補とする。実際の選択規則/最大 chunk 制限も保存する。
+
+D. PP と TG の区別
+  PP の plan、TG の plan、各終了時の retained bytes を三行で並べる。
+  TG plan が小さくても retained が大きければ保持政策の効果であり、TG の重量コピー需要と
+  即断しない。vision は異なる galloc として別表にする。
+
+6. 正しい隔離 build と一回の実行範囲
+
+H/gpu-stream-20261103/SCHEDULER.json と build_scheduler.py を読むと、正しい base は
+gpu-stream scheduler object を独自に差し替え、それ以外の ggml-alloc.c.o 等は
+deepseek41 元 build の object を再利用して link している。
+現在の base SHA256:
+  2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558
+
+従って ggml-backend.cpp の compile に -DGGML_ALLOCATOR_DEBUG を足すだけでは有効にならない。
+診断用 ggml-alloc.c を元 C_DEFINES / C_INCLUDES / C_FLAGS で新 object にし、元 link command の
+ggml-alloc.c.o だけを置換する。scheduler object は gpu-stream のものをそのまま維持する。
+出力は隔離新ディレクトリへ。通常 runtime の SO / symlink / LD_LIBRARY_PATH は変更しない。
+調査 variant の process だけで選び、function provider、maps、hash を保存する。
+
+既存 GGML_ALLOCATOR_DEBUG は compile-time flag。AT_PRINTF は source の空 define があるので、
+単に command line define を足して上書きできると仮定しない。
+本設計ではこれらを無条件に全有効化せず、上記の限定 snapshot を使う。
+必要なら AT_PRINTF は追跡補助として初期化だけで使えるが、timing比較にその時間を混ぜない。
+
+実行条件は現在の main cparams と placement を維持:
+  n_ctx=131072、batch=1024、ubatch=1024、seq=1、outputs cap=1、threads=12/24、
+  GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH=64、sched copies=1、同じ model / KV / offload 配置。
+上記は現在 receipt の条件。別設定を試す際は同じ値だったと誤記しない。
+一度の隔離 context 初期化を行い、通常 PP/TG/PP reserve を観測したら終了する。
+warmup、長文生成、route capture、通常 API の新リクエストは、この帰属の問いには不要。
+新しいメモリ配置や GPU bank をこの初回診断へ同時投入しない。
+
+vision を省略して main reserve だけ見る場合は、その出力から全 process の GPU bank 容量を
+見積もらない。bank 用の headroom は同じ全構成・同じ warmup 後の明示 free で別に判断する。
+no_alloc model を通常 model の代替として一度に変更せず、通常 reserve をそのまま観測する。
+既存の実機サービス停止/復帰、温度/メモリ guard の運用は担当者の既存手順を用いる。
+
+7. この一回で止める条件
+
+1) 全 PP/TG/PP reserve の完了と正しい base provider が保存された。
+2) CUDA0 high-water の allocator ownership と free-block partition が整合した。
+3) 2295 MiB 候補の同居/非同居、残り、TG保持量が一意に説明できた。
+
+probe を選んだ場合は、この三つが成立すれば allocator 診断は終了し、得られた支配要因に
+だけ最適化を向ける。probe の未実施そのものを bank/ubatch512 容量点の停止理由にしない。
+次に ubatch を下げるか、PP copy/placement を変えるか、保持 buffer を扱うかは
+この帰属と親担当の throughput / VRAM 予算から決める。
+本診断の終了条件に全 token / 全 language / fault injection を追加しない。
+
+8. 変更規模の目安と未実施項目
+
+公開 ABI 追加や全 graph trace collector は不要。private な reserve-id / current-step / reported
+high-water の記録、現 owner + free-block dump helper、上記三種の呼出点が差分の中心。
+既存 C:2663 と stderr の境界が使えるため libllama の追加差分は不要。
+まずこの設計を実機側で source と照合し、隔離差分としてレビューする。
+本メモに実装 patch や構文検査 receipt は含めていない。コードを完成/試験済みとは扱わない。

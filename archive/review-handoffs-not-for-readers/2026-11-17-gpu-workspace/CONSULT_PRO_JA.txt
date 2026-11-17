@@ -1,0 +1,52 @@
+返却: 容量phaseを修正し、正のbank容量試験とtrain_first5まで進めました
+================================================================
+
+前回指摘のとおり、vision後freeだけで旧guard不足とした判断を訂正しました。
+詳細と全原本はRESULTS_JA.txt、各runs、BANK_COMPARISON、TRAIN5_PROPOSAL等にあります。
+重要codeは親が実装/確認し、Terraがsource/raw/候補を独立確認しました。
+
+今回の実行結果
+--------------
+- FreshU1024: M0=3638.25、M1(dummy vision reserve)=2612.25、M2=2122.25、M3=2102.25MiB。
+- 旧hot-backendのcreate/finishだけをcallerにlinkし、実model schedulerには組み込まず、
+  32experts/native458.4375MiBを保持。事前指定layers0,4,23,24×IDs0..7、route不使用。
+- actual Gpre3638.25 > payload458.4375+3072、Gpost3136.25>2560。oldguardの条件/位置を保持。
+  各layer H1..6×3回=72private graph calls、各H最後の24readbacksでfinite/zero確認。
+- 後続M1=2110.25、M2=1654.25、long1024+4T1後=1630.25MiB。実画像compute/128k実入力は未試験。
+- bankなし/保持のshort64とlong1024は、prefix＋4T1全5rows、計1292800 F32がbyte一致。
+  ここはcapacity fixtureで、bankを推論へ使っておらず速度改善は主張しません。
+- 20caseを復帰後APIのapply-template/tokenizeだけでfreeze。実kwargs thinking_mode=chat、
+  suffix<｜Assistant｜></think>、全joined token列のprefix厳密一致、65reference IDs以上を確認。
+- その後bankなしbaselineで元stage指定first5をfullprompt＋64T1採取。11840records、全台帳正常。
+  EN/Python/C++はposition256でgeneration1→2を観測。他2caseは1のみ。原因は未確定。
+- 同じtraining内だけのfrequency/nativebyte候補:35experts/23層/453.427734375MiB。
+  H=[8235,3086,467,52,0,0,0]、4176/71040slots=5.878378%。候補自体のallocation/速度は未測定。
+- 通常API最終復帰を確認。ubatch512/256、allocator probeは今は実施していません。
+
+次に進めるための相談（同じ容量/F-D suiteの反復ではなく）
+----------------------------------------------------
+1. 実容量fixtureの結論/限界と、train_first5/候補選択に重大な見落としがないか確認してください。
+   corpus source/record/plan/first65targetsをそのまま共有しています。残りtrain/validation/holdoutは
+   tokenizer前処理だけで、route・出力・評価結果を見ていません。
+2. 次はこの候補または1つだけの明確な対案で、現baseline CPU全6、同じ配分の逐次CPU/GPU、
+   並行を比較したいです。現在のsourceへ即した最小実装案をお願いします。
+   原本codeは前回snapshot/exploration-20261112/hot-ffnにもあり、今回はbank-capacityに再掲。
+3. 全CPU37層ではH0が約69.6%、候補を置く23層に限ってもH0が3755/7360です。
+   旧xeon_hot_buildはeligibleならselectedが空でもcustomへ置換します。この35expert案では、
+   bankを置かない14層を元経路に残す小変更が先に必要か、具体的に検討してください。
+   H0でhotコピー/enqueue/syncをしないことに加え、privateCPU graph/copy/dispatchの費用も測ります。
+4. 代表cell用の実activation/joint6をどこで最小限採取するか、実装案をお願いします。
+   現route37はIDsだけなので、sourceから存在しないactivation logを仮定しないでください。
+   必要な少数cellで測り、callback/syncが本timingへ混ざらない形を希望します。
+5. CPU/CUDA量子化差、混合route変化、quality判定は引き続き未解決です。
+   first5のprefix+first4 F32/全64finite/全routeはあります。逐次と並行の正しさ比較と、
+   CPU基準との差・実回答品質を別にする最小の検証案を具体化してください。
+   GPU-readyはhost join残待ちを代入せず、必要なら上界/unknownでmixed実wallを先に測ります。
+
+35expert planはnative予算だけでadmissionを承認しません。同じvision前Gpre/Gpostと後続warmupを
+再確認する必要があります。今回fixtureとbank layout/私有graph数が異なります。
+容量をもっと増やすより先に、現在の小bankで実益があるか一度測る判断にしています。
+有望でなければ残り15caseを全て採る必要はないと考えています。
+
+実機操作はassistantが行います。Proはsourceレビュー/設計/コード案までで構いません。
+人間に追加commandを要求する相談ではありません。必要な操作が出た場合は担当と目的を明記します。

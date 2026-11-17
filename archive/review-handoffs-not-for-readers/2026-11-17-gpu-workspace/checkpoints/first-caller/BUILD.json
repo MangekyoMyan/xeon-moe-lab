@@ -1,0 +1,72 @@
+{
+  "command": [
+    "g++",
+    "-std=c++17",
+    "-O2",
+    "-g",
+    "-march=ivybridge",
+    "-mtune=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-Wall",
+    "-Wextra",
+    "-fopenmp",
+    "-pthread",
+    "-I/home/codex/projects/llm-lab/gpu-workspace-20261117",
+    "-I/home/codex/projects/llm-lab/gpu-workspace-20261117/route37",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/include",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/common",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/tools/mtmd",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+    "/home/codex/projects/llm-lab/gpu-workspace-20261117/driver.cpp",
+    "-L/home/codex/projects/llm-lab/gpu-workspace-20261117/runtime",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/gpu-workspace-20261117/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,--no-as-needed",
+    "-lllama",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-lggml",
+    "-lllama-common",
+    "-lmtmd",
+    "-ldl",
+    "-Wl,--no-undefined",
+    "-o",
+    "/home/codex/projects/llm-lab/gpu-workspace-20261117/driver"
+  ],
+  "returncode": 0,
+  "source_sha256": {
+    "driver.cpp": "ace58520cdbf97b28c3aeae3be6fc96387e5a4b17a009b1ec3386ba2173e934a",
+    "route_client.h": "0dcc055b507ba2d35db6d261592f72a11ee5c73de3515d74893eb406be21b216",
+    "call_control.h": "78649f314366fbfe6993cf287c89432a86aa2219a7166a93e9e83d657355d483",
+    "route37/route37.h": "1512fe9a3e285ffe33802289f80aa5e1ea6b4fb6030f4b8e70d51253e1abd4fa",
+    "CASES.json": "6327e68261482fe74e094fe7948d6bd18faf2704a6406611005412c57bceb13d",
+    "DESIGN.json": "b4cf76cfe6d27ae16218567dddfaddb745cc6e1a472078e775ae63b70b124f64"
+  },
+  "engine_libraries": {
+    "diagnostic": {
+      "libggml-cuda.so.0.28.0": {
+        "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+        "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+      },
+      "libggml-base.so.0.28.0": {
+        "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+        "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+      },
+      "libggml-cpu.so.0.28.0": {
+        "path": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0",
+        "sha256": "602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81"
+      },
+      "libllama.so.0.8.0": {
+        "path": "/home/codex/projects/llm-lab/route37-integration-20261117/runtime/libllama.so.0.8.0",
+        "sha256": "83bfeefe150634c56507244ed8415bc9a863b12a2ef275ad21b32ab9a020293d"
+      }
+    }
+  },
+  "driver_sha256": "2d47dbae2d1d38bdd56384477f1601df9136cd24e0659f84a6c0680d14125773"
+}

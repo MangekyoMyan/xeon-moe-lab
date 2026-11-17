@@ -1,0 +1,216 @@
+route-calibration: 言語screenの再集計と、bank pilotの本文・段階案
+2026-11-17
+対象commit fa6671f7b5281bad28947fe5324e2495e792a86f
+
+結論
+====
+今回の6caseで、反復英文だけだった観測から自然な日本語・英語・混在・コードへ進んだことは
+確認できる。公開されたtoken数・平均時間・unique expert中央値・14,208recordsは、自作script
+による独立再計算でも一致した。
+
+ただし各caseは一回、固定順序、raw text、prefix64+64T1である。JA/ENの同じtoken indexが
+同じ意味位置を表すとは限らない。言語差だけの因果効果や、bankの一般化はここからは確定しない。
+追加の同じscreenやF/D反復を必須にせず、容量が成立する見込みを先に確認する方針が妥当。
+
+前回仕様だけだった12family/20caseを、今回すべて新しいprompt/reference本文へ具体化した。
+コード8variantは作者のPython/C++ reference programとして境界例を実行し、C++17 compileも
+確認した。これは推論engineの試験ではない。GGUF tokenizerは使っておらず、token数・assistant
+境界・実renderingは実機側のpreflightが必要である。
+
+1. 6caseの独立再集計
+===================
+case                     全文tokens  engine平均ms  unique expert数の層中央値
+screen_cache_ja                372       135.074          76
+screen_cache_en                264       132.618          93
+screen_experiment_ja           336       136.533          81
+screen_experiment_en           260       139.272          99
+screen_mixed_log               332       138.534          95
+screen_code_python            302       128.818          80
+
+各64call・37層・6ID、合計384call/14,208records。各時刻の単調順序、recordの位置64..127、
+generation1、ID一意性・範囲、drop/flags0も確認した。出力検査scopeはpointer非nullのみであり、
+6caseの全logits finiteやFとの差分を確認したという結果ではない。
+
+全文token数のJA/EN比:
+  cache説明       372/264 = 1.40909
+  experiment説明  336/260 = 1.29231
+今回の意味対応文では、日本語がそれぞれ約1.41倍、1.29倍のtokenを使う。
+これは現在の二つの文章についてのtokenization結果で、言語全般の固定倍率ではない。
+
+64T1のengine時間比JA/ENは、cacheが1.01852、experimentが0.98033で方向が逆。
+この結果から一律に「日本語は遅い」「コードは速い」と言わない。内容・token位置・初期KV・
+case順序やcache状態も異なる。全文token数の差と、固定64T1の平均時間の差は別の現象である。
+全文を最後まで生成したtask完了時間も測っていない。
+
+追加のroute記述量:
+  比較                       cache JA/EN    experiment JA/EN
+  同token indexの共通expert平均 /6   0.76985           0.62500
+  層別「出現expert集合」Jaccard平均  0.30503           0.34044
+  層別slot頻度のtotal variation平均 0.64724           0.60980
+
+Jaccardは各層で64call中一度でも出たexpert集合の交差/和集合。
+slot頻度はcount/(64*6)で正規化し、TVはsum(abs(p_ja-p_en))/2。
+これらは保存された入力系列間の記述量。意味位置のalignmentや同言語の独立文書を用いた
+controlがないため、language-specific effectや有意差の推定値ではない。bank選定にも使わない。
+反復wiringのtiming_2_D2/timing_3_D2も各64callでunique中央値60だった。
+自然な6caseでは種類が広がったが、これだけで実trafficを代表したことにはならない。
+
+独立再現: analyze_calibration_language.py
+全数値・原本hash: CALIBRATION_LANGUAGE_AUDIT.json
+
+2. 新しく作成した20case
+======================
+ファイル: PILOT_CASES_JA_EN_CODE.json
+全12familyを前回の分割どおり固定し、翻訳・言語portを同じfamilyに保った。
+
+train (6family / 10case)
+  text_cache_budget       JA/EN。地図データの静的cache候補3個を容量・hit/missで比較。
+  text_unit_conversion    JA/EN。区間流量から合計量・時間平均・表示差を計算。
+  mixed_build_log         日本語+C++ link log。明示されたtranslation unitの欠落を説明。
+  mixed_config_change     日本語+JSON。型・単位・retry配列長を修正し条件付き時間を計算。
+  code_stable_grouping    Python/C++。key初出順と値列順を保つgrouping。合計やset化はしない。
+  code_interval_merge     Python/C++。半開区間のunion。空区間・逆転・接触・包含を区別。
+
+validation (3family / 5case)
+  text_plan_constraints   JA/EN。担当者と先行関係を満たす最短作業予定と下限の説明。
+  mixed_table_reconciliation 日本語+CSV。ID重複・pendingを区別した出荷/返品の突合せ。
+  code_bounded_queue      Python/C++。固定容量FIFO。full/empty、0値、wraparoundを扱う。
+
+holdout (3family / 5case)
+  text_document_summary   JA/EN。博物館の試行報告。観測・分母・提案・未確認を区別。
+  mixed_api_incident      日本語+HTTP log。node局所のconfig欠落と未確認事項を整理。
+  code_utf8_line_reader   Python/C++。UTF-8 streamをbyteのままLF分割。CR/空行/末尾を保存。
+
+すべて架空の新規taskとreference。現6caseの本文やroutesを再利用していない。
+cache、groupingという広い話題は前回のfamily仕様を引き継ぐが、図書館の説明文や合計集計codeを
+複製したものではない。holdoutの文書・仕様はtrainの翻訳や同一課題の別表現ではない。
+
+JSONは本文だけでなく、familyごとの共通事実/仕様、prompt/referenceのSHA・UTF-8 bytes・
+文字数、code referenceのSHAを持つ。実token IDsを捏造せずnullにした。
+現在の最短promptは351文字、最短referenceは398文字だが、文字数は64model tokensの保証ではない。
+codeの8referenceはコードを先頭、説明文を後ろに置いた。最初の64tokenが共通の説明段落だけで
+埋まることを避けるためである。import/include等も含む実際の64token範囲はtokenizer後に保存する。
+RingQueueは、入力の型が有効な整数（bool除外）、capacityと値がsigned64表現範囲にあることを
+前提とする。型検査ではなくcapacityの1..1024という範囲検査を要求し、Python/C++のscopeを揃えた。
+
+3. 実機でのtoken preflightとcaller境界
+====================================
+今回6caseはraw textであり、今後のchat用途をそのまま代表するわけではない。
+pilotでchatを評価するなら、実際に選ぶmodel/tokenizer/chat-templateに対応したrenderingを使う。
+promptは自然な全文をprefixとし、referenceの最初の64個を固定input tokenとしてT1へ入れる。
+これは回答冒頭64tokenのdecode workloadであり、回答全体の速度や自力正答率ではない。
+
+必要なpreflight:
+  - exact rendered prefix、assistant開始境界、reference、tokenizer/template identityを保存。
+  - 実際のprefix IDsとcontinuation IDs、token数、hashを保存。
+  - prompt/referenceを別々にtokenizeしたIDの連結が全文tokenizationと等しいとは仮定しない。
+    採用するtemplateとboundaryの規則で対応を確認し、その規則を固定する。
+  - 64reference tokens未満なら、初回capture前に内容を自然に延長して版/hashを更新する。
+    反復文やpaddingで埋めない。
+  - logical input indexとpositionは実prefix長に対応させる。現在のprefix64 hardcodeを
+    driver/verifier双方でmanifest値へ変える小さい拡張が必要。
+  - chosen ubatch/実cparamsを固定してからbaseline routesを採る。
+    ubatch変更によるprefill経路や中間値の違いをbank差へ混ぜない。
+  - 1caseにつき1collector session、64callなら2368records。context同時観測へ拡張しない。
+
+raw textを続ける選択も可能だが、その場合は別名の実験としてscopeを明記する。
+今回のJSONを現在のCASES.jsonへそのまま差し替えて動くとは主張していない。
+全20caseの本文は準備済み、token manifestとcallerの境界対応はまだ実機側で行う必要がある。
+
+4. 20caseを一度に流さない最小段階
+================================
+PILOT_STAGE_MANIFEST.jsonにcase IDを列挙した。各評価段階は5case、320call、11840records。
+各caseは独立sessionなので固定record容量を超えない。全pilotでは1280call/47360records。
+
+stage0: 容量
+  選ぶubatch/configでfresh freeと既存guardの成立見込みを確認する。
+  bounded native bankのpayload/固定workspaceが収まるかを先に調べる。
+  この時点でbankのrouting選択や完成したhybrid pathを必須にしない。
+  見込みがなければ全20caseの採取や大きなcache実装へ進まない。
+
+stage1: train最初の5case
+  text_cache_budgetのJA/EN、mixed_build_log、code_stable_groupingのPython/C++。
+  内容familyは3個だけなので、小さいtrain route screenとして扱う。
+  native triplet bytesで制約した透明な頻度候補を作り、利用可能なら小さいcost/positive-path
+  probeを行う。未測定のsaved timeはunknownのままにする。
+
+stage2: train残り5case
+  text_unit_conversionのJA/EN、mixed_config_change、code_interval_mergeのPython/C++。
+  容量や測定された利益が次へ進む理由になる場合だけ追加し、train10caseを完成させる。
+  stage1のデータはtrainのまま保持し、都合のよい別holdoutへ呼び替えない。
+
+stage3: validation5case
+  text_plan_constraintsのJA/EN、mixed_table_reconciliation、code_bounded_queueのPython/C++。
+  あらかじめ少数に絞った候補を比較し、bank/cost model/budget/weight/除外規則を確定する。
+  corpus hashだけでなく、rendered text/token manifestのhashも固定する。
+
+stage4: holdout5case
+  text_document_summaryのJA/EN、mixed_api_incident、code_utf8_line_readerのPython/C++。
+  凍結した候補を一度評価する。baselineと実hybridを同じinput IDs/configで比較する。
+  結果を見てbankを直した場合、その後の最終評価には新しい独立familyが必要。
+
+これは「最小標本数が科学的に20で十分」という主張ではない。計算量を段階的に使い、train/
+validation/holdoutの意味を保った小pilotである。各kindのholdout familyは1個しかないので、
+一般化範囲や精密なconfidenceは限られる。token×層数を独立なfamily数として数えない。
+
+5. joint6、native bytes、時間のつなぎ方
+=====================================
+bank B_lに対するH[t,l]=|S[t,l]∩B_l|を、6ID集合を保ったまま計算する。
+少なくともlayer/lane/split別にH=0..6 histogram、mean H、all-miss/all-hit率、連続miss長、
+tokenごとの残CPU仕事の偏りを残す。文書境界をまたいでmiss runを連結しない。
+expert番号は層と組にして扱い、同じ番号を全層で一つに合算しない。
+
+byte budgetには、選択した実GGUFのgate/up/down native tripletのsize・alignmentと、GPU側の
+追加固定workspaceを使う。CPU compact bytes、expertの単純個数、別modelの平均byte数で代用
+しない。capacity guardを通して初めて配置可能な候補となる。
+
+native frequency-per-byteは候補のbaselineにできるが、最適な目的関数とは限らない。
+実装に対応した共通fork時点を起点に、
+  T_mix = T_pre + max(T_CPU_remaining, T_GPU_result_ready) + T_post
+  saved_time = T_baseline - T_mix
+を考える。GPU readyには必要なenqueue/転送/compute/戻しと既存GPU仕事との競合が含まれる。
+CPU側は共通入力変換、compact、quant型、barrier等で単純な(6-H)*定数にならないことがある。
+maxで数えたjoin待ちを再加算しない。ready/CPU costが未測定ならsaved_time欄はunknown。
+
+費用較正用の呼出しはtrainで選んだ入力/候補に紐づけ、validation/holdoutを後からfitに流用
+しない。路線選択自体の改変やexpert pruningは今回の配置評価へ混ぜない。
+
+CPU/CUDAのIQ入力量子化差により、固定input tokensでもhybridの後段routeは変わり得る。
+baseline traceからのHは「routingが維持されるなら」の条件付き推定にすぎない。実positive
+bankでは同じ凍結holdout inputsのroute/output/timeを採り、予測と実際のH/時間を比較する。
+数値の評価をCPU byte一致だけに限定せず、観測追加のF/D同一性試験とは目的を区別する。
+
+6. 作成したreferenceの確認範囲
+=============================
+validate_pilot_corpus.pyで、20case/12family/split/stageの集合、各text/code hash、数値taskの
+計算、scheduleの先行関係・担当重複・105分の下限を確認した。
+
+4つのPython referenceは、空入力、重複、負数、極値、境界条件を含む計29項目のsemantic
+checkを実行した。4つのC++ referenceはg++ C++17、Wall/Wextra/Werror/pedanticでcompileし、
+対応するexpected-output/boundary assertionを実行して全て成功した。
+line splitterではUTF-8文字の途中分割、CR保持、空行、NUL、末尾未完行を確認した。
+paired proseの意味・数字・仕様は作者が対応を点検した。自動翻訳品質の証明ではない。
+
+実行したのは新しく作成したreference programだけで、repoのengine/model/GPU/API/配布scriptは
+実行していない。referenceを正しい文章としてteacher forceできることと、そのモデルが自力で
+同じ答えを生成できることは別である。現在のモデルの回答品質評価は行っていない。
+
+成果物
+======
+PILOT_CASES_JA_EN_CODE.json         20caseの全文prompt/referenceと共通仕様・hash
+PILOT_STAGE_MANIFEST.json          capacity→train5→train5→validation5→holdout5
+PILOT_CORPUS_VALIDATION.json        本文/計算/コードreferenceの確認結果
+CALIBRATION_LANGUAGE_AUDIT.json    今回6caseの独立再集計とsource hash
+build_pilot_corpus.py              元の本文定義からJSONを生成
+validate_pilot_corpus.py           自作referenceだけの検査
+analyze_calibration_language.py    保存rawを読む再集計
+
+原本参照
+========
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/fa6671f7b5281bad28947fe5324e2495e792a86f/archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/CONSULT_PRO_JA.txt
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/fa6671f7b5281bad28947fe5324e2495e792a86f/archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/RESULTS_JA.txt
+同directoryのCASES.json、runs/20261117T013039Z-D-07d69e25/{RUN.json,screen_*.json,timing_2_D2.json,timing_3_D2.json}
+同incoming/xeon_moe_route_capture_review_2026-11-17/plans/WORKLOAD_FAMILY_MANIFEST_EXAMPLE.json
+
+現在ユーザーに追加commandを求めていない。実機操作は実機側assistantの担当であり、
+本担当の成果は保存証拠の解析と、次に必要な本文・設計・検査済みreferenceの準備である。

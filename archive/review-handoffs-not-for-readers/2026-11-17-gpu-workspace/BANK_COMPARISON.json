@@ -1,0 +1,411 @@
+{
+  "schema": 1,
+  "source_sha256": "e1e0343a0a0262dcdedf0fc28e22c9d7816fe9e5d41b33565c08ea0467d73ad7",
+  "runs": [
+    {
+      "run": "20261117T031214Z-U1024-93e7fe85",
+      "ubatch": 1024,
+      "cparams": {
+        "n_ctx": 131072,
+        "n_batch": 1024,
+        "n_ubatch": 1024,
+        "n_seq_max": 1,
+        "n_outputs_max": 1,
+        "n_outputs_max_per_seq": 1,
+        "threads": 12,
+        "threads_batch": 24,
+        "n_rs_seq": 0
+      },
+      "memory": [
+        {
+          "phase": "M0_after_context_before_vision",
+          "cuda_free_MiB": 3638.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 28856.0,
+          "nvml_free_MiB": 3639.0,
+          "query_span_ms": 57.169192
+        },
+        {
+          "phase": "M1_after_vision_warmup",
+          "cuda_free_MiB": 2612.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 29882.0,
+          "nvml_free_MiB": 2613.0,
+          "query_span_ms": 37.809691
+        },
+        {
+          "phase": "M2_after_text64_warmup",
+          "cuda_free_MiB": 2122.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30372.0,
+          "nvml_free_MiB": 2123.0,
+          "query_span_ms": 35.239277
+        },
+        {
+          "phase": "M3_after_long1024_and4T1",
+          "cuda_free_MiB": 2102.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30392.0,
+          "nvml_free_MiB": 2103.0,
+          "query_span_ms": 31.620048
+        }
+      ],
+      "cases": [
+        {
+          "name": "short64",
+          "prefix_tokens": 64,
+          "actual_ubatches": [
+            64
+          ],
+          "logits_sha256": "db2a3823e47a1dd7c04f871249b9e3b8939bd54c3462a4f43ea76f50ace8fcc5",
+          "prefill_ms": 5146.671895,
+          "T1_engine_ms": [
+            181.649968,
+            200.872986,
+            139.685386,
+            147.689644
+          ],
+          "route_records": 148,
+          "logits_scalars": 646400
+        },
+        {
+          "name": "long1024",
+          "prefix_tokens": 1024,
+          "actual_ubatches": [
+            1024
+          ],
+          "logits_sha256": "8d186fa6b43c5baf4e219c915fa02bf96316b6aa50f4c9a84547f2ff27413f95",
+          "prefill_ms": 16730.957862,
+          "T1_engine_ms": [
+            157.119556,
+            162.626794,
+            152.390401,
+            137.127778
+          ],
+          "route_records": 148,
+          "logits_scalars": 646400
+        }
+      ],
+      "native_smallest_triplet_MiB": 11.513671875,
+      "M0_payload_upper_bound_bytes_inference": 593756159,
+      "actual_Gpre_pass": null,
+      "actual_Gpost_pass": null,
+      "bank_checks": null,
+      "scope": "M0 is a bank-free corresponding point; strict payload bound is an inference, not admission. M1 is dummy vision reserve; snapshots are retained allocations, not peaks."
+    },
+    {
+      "run": "20261117T033327Z-U1024-0b6d5d01",
+      "ubatch": 1024,
+      "cparams": {
+        "n_ctx": 131072,
+        "n_batch": 1024,
+        "n_ubatch": 1024,
+        "n_seq_max": 1,
+        "n_outputs_max": 1,
+        "n_outputs_max_per_seq": 1,
+        "threads": 12,
+        "threads_batch": 24,
+        "n_rs_seq": 0
+      },
+      "memory": [
+        {
+          "phase": "M0_after_context_before_vision",
+          "cuda_free_MiB": 3638.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 28856.0,
+          "nvml_free_MiB": 3639.0,
+          "query_span_ms": 37.838203
+        },
+        {
+          "phase": "Gpost_bank_initialized_before_vision",
+          "cuda_free_MiB": 3136.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 29358.0,
+          "nvml_free_MiB": 3137.0,
+          "query_span_ms": 33.886439
+        },
+        {
+          "phase": "M1_after_vision_warmup",
+          "cuda_free_MiB": 2110.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30384.0,
+          "nvml_free_MiB": 2111.0,
+          "query_span_ms": 32.242986
+        },
+        {
+          "phase": "M2_after_text64_warmup",
+          "cuda_free_MiB": 1654.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30840.0,
+          "nvml_free_MiB": 1655.0,
+          "query_span_ms": 32.982522
+        },
+        {
+          "phase": "M3_after_long1024_and4T1",
+          "cuda_free_MiB": 1630.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30864.0,
+          "nvml_free_MiB": 1631.0,
+          "query_span_ms": 31.904484
+        }
+      ],
+      "cases": [
+        {
+          "name": "short64",
+          "prefix_tokens": 64,
+          "actual_ubatches": [
+            64
+          ],
+          "logits_sha256": "db2a3823e47a1dd7c04f871249b9e3b8939bd54c3462a4f43ea76f50ace8fcc5",
+          "prefill_ms": 5319.10095,
+          "T1_engine_ms": [
+            204.180659,
+            223.722618,
+            171.600122,
+            155.858427
+          ],
+          "route_records": 148,
+          "logits_scalars": 646400
+        },
+        {
+          "name": "long1024",
+          "prefix_tokens": 1024,
+          "actual_ubatches": [
+            1024
+          ],
+          "logits_sha256": "8d186fa6b43c5baf4e219c915fa02bf96316b6aa50f4c9a84547f2ff27413f95",
+          "prefill_ms": 16658.873977,
+          "T1_engine_ms": [
+            157.206866,
+            157.030319,
+            151.599628,
+            150.283214
+          ],
+          "route_records": 148,
+          "logits_scalars": 646400
+        }
+      ],
+      "native_smallest_triplet_MiB": 11.513671875,
+      "M0_payload_upper_bound_bytes_inference": 593756159,
+      "actual_Gpre_pass": true,
+      "actual_Gpost_pass": true,
+      "bank_checks": {
+        "actual_Gpre_free_MiB": 3638.25,
+        "actual_Gpost_free_MiB": 3136.25,
+        "native_payload_MiB": 458.4375,
+        "bank_buffer_allocation_MiB": 458.438232421875,
+        "extra_guard_delta_minus_bank_buffer_MiB": 43.561767578125,
+        "private_warmup_cells": 24,
+        "private_warmup_graph_calls": 72,
+        "all_zero_outputs_verified": true,
+        "model_uses_bank": false
+      },
+      "scope": "M0 is a bank-free corresponding point; strict payload bound is an inference, not admission. M1 is dummy vision reserve; snapshots are retained allocations, not peaks."
+    }
+  ],
+  "comparisons": [
+    {
+      "name": "short64",
+      "byte_equal": true,
+      "rows": [
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            10870,
+            1
+          ],
+          "top2_candidate": [
+            10870,
+            1
+          ],
+          "top1_margin_baseline": 9.430463790893555,
+          "top1_margin_candidate": 9.430463790893555,
+          "target_token": 10870,
+          "target_logprob_baseline": -0.0009134495925765179,
+          "target_logprob_candidate": -0.0009134495925765179
+        },
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            16,
+            339
+          ],
+          "top2_candidate": [
+            16,
+            339
+          ],
+          "top1_margin_baseline": 3.194110870361328,
+          "top1_margin_candidate": 3.194110870361328,
+          "target_token": 16,
+          "target_logprob_baseline": -0.10309791040980047,
+          "target_logprob_candidate": -0.10309791040980047
+        },
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            334,
+            1
+          ],
+          "top2_candidate": [
+            334,
+            1
+          ],
+          "top1_margin_baseline": 1.9903717041015625,
+          "top1_margin_candidate": 1.9903717041015625,
+          "target_token": 334,
+          "target_logprob_baseline": -0.24051973778094515,
+          "target_logprob_candidate": -0.24051973778094515
+        },
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            16372,
+            13254
+          ],
+          "top2_candidate": [
+            16372,
+            13254
+          ],
+          "top1_margin_baseline": 7.270336151123047,
+          "top1_margin_candidate": 7.270336151123047,
+          "target_token": 16372,
+          "target_logprob_baseline": -0.00919743204921751,
+          "target_logprob_candidate": -0.00919743204921751
+        },
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            6331,
+            1
+          ],
+          "top2_candidate": [
+            6331,
+            1
+          ],
+          "top1_margin_baseline": 8.583162307739258,
+          "top1_margin_candidate": 8.583162307739258,
+          "target_token": 6331,
+          "target_logprob_baseline": -0.0009220070326243444,
+          "target_logprob_candidate": -0.0009220070326243444
+        }
+      ],
+      "quality_acceptance": null
+    },
+    {
+      "name": "long1024",
+      "byte_equal": true,
+      "rows": [
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            2539,
+            2298
+          ],
+          "top2_candidate": [
+            2539,
+            2298
+          ],
+          "top1_margin_baseline": 6.638566970825195,
+          "top1_margin_candidate": 6.638566970825195,
+          "target_token": 2539,
+          "target_logprob_baseline": -0.00432746422062267,
+          "target_logprob_candidate": -0.00432746422062267
+        },
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            11929,
+            12457
+          ],
+          "top2_candidate": [
+            11929,
+            12457
+          ],
+          "top1_margin_baseline": 4.136137008666992,
+          "top1_margin_candidate": 4.136137008666992,
+          "target_token": 11929,
+          "target_logprob_baseline": -0.02833280641761477,
+          "target_logprob_candidate": -0.02833280641761477
+        },
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            4553,
+            4220
+          ],
+          "top2_candidate": [
+            4553,
+            4220
+          ],
+          "top1_margin_baseline": 9.251052856445312,
+          "top1_margin_candidate": 9.251052856445312,
+          "target_token": 4553,
+          "target_logprob_baseline": -0.00036599823782803534,
+          "target_logprob_candidate": -0.00036599823782803534
+        },
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            2693,
+            6155
+          ],
+          "top2_candidate": [
+            2693,
+            6155
+          ],
+          "top1_margin_baseline": 8.487407684326172,
+          "top1_margin_candidate": 8.487407684326172,
+          "target_token": 2693,
+          "target_logprob_baseline": -0.0003193361780653815,
+          "target_logprob_candidate": -0.0003193361780653815
+        },
+        {
+          "max_abs": 0.0,
+          "RMSE": 0.0,
+          "relative_L2": 0.0,
+          "top2_baseline": [
+            4220,
+            27467
+          ],
+          "top2_candidate": [
+            4220,
+            27467
+          ],
+          "top1_margin_baseline": 4.330104827880859,
+          "top1_margin_candidate": 4.330104827880859,
+          "target_token": 27467,
+          "target_logprob_baseline": -4.343429758356983,
+          "target_logprob_candidate": -4.343429758356983
+        }
+      ],
+      "quality_acceptance": null
+    }
+  ]
+}

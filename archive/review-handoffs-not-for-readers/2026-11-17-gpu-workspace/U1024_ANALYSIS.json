@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "source_sha256": "e8f098feb96d88b7904dde4e87d2637c049cc9ad6cd25291211f453e4fee961a",
+  "runs": [
+    {
+      "run": "20261117T031214Z-U1024-93e7fe85",
+      "ubatch": 1024,
+      "cparams": {
+        "n_ctx": 131072,
+        "n_batch": 1024,
+        "n_ubatch": 1024,
+        "n_seq_max": 1,
+        "n_outputs_max": 1,
+        "n_outputs_max_per_seq": 1,
+        "threads": 12,
+        "threads_batch": 24,
+        "n_rs_seq": 0
+      },
+      "memory": [
+        {
+          "phase": "M0_after_context_before_vision",
+          "cuda_free_MiB": 3638.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 28856.0,
+          "nvml_free_MiB": 3639.0,
+          "query_span_ms": 57.169192
+        },
+        {
+          "phase": "M1_after_vision_warmup",
+          "cuda_free_MiB": 2612.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 29882.0,
+          "nvml_free_MiB": 2613.0,
+          "query_span_ms": 37.809691
+        },
+        {
+          "phase": "M2_after_text64_warmup",
+          "cuda_free_MiB": 2122.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30372.0,
+          "nvml_free_MiB": 2123.0,
+          "query_span_ms": 35.239277
+        },
+        {
+          "phase": "M3_after_long1024_and4T1",
+          "cuda_free_MiB": 2102.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30392.0,
+          "nvml_free_MiB": 2103.0,
+          "query_span_ms": 31.620048
+        }
+      ],
+      "cases": [
+        {
+          "name": "short64",
+          "prefix_tokens": 64,
+          "actual_ubatches": [
+            64
+          ],
+          "logits_sha256": "db2a3823e47a1dd7c04f871249b9e3b8939bd54c3462a4f43ea76f50ace8fcc5",
+          "prefill_ms": 5146.671895,
+          "T1_engine_ms": [
+            181.649968,
+            200.872986,
+            139.685386,
+            147.689644
+          ],
+          "route_records": 148,
+          "logits_scalars": 646400
+        },
+        {
+          "name": "long1024",
+          "prefix_tokens": 1024,
+          "actual_ubatches": [
+            1024
+          ],
+          "logits_sha256": "8d186fa6b43c5baf4e219c915fa02bf96316b6aa50f4c9a84547f2ff27413f95",
+          "prefill_ms": 16730.957862,
+          "T1_engine_ms": [
+            157.119556,
+            162.626794,
+            152.390401,
+            137.127778
+          ],
+          "route_records": 148,
+          "logits_scalars": 646400
+        }
+      ],
+      "native_smallest_triplet_MiB": 11.513671875,
+      "M0_payload_upper_bound_bytes_inference": 593756159,
+      "actual_Gpre_pass": null,
+      "actual_Gpost_pass": null,
+      "scope": "M0 is a bank-free corresponding point; strict payload bound is an inference, not admission. M1 is dummy vision reserve; snapshots are retained allocations, not peaks."
+    }
+  ]
+}

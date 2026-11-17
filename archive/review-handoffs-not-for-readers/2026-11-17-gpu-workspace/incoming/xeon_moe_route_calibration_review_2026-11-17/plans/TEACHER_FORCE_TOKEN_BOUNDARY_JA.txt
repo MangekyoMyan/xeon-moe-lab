@@ -1,0 +1,70 @@
+固定referenceの境界と、logitsのnext-token対応
+2026-11-17 / 将来callerへの設計。model tokenizer未実行。
+
+1. capacity比較とbank pilotは別入力scope
+
+capacityでは同じraw textを同じtokenizer flagsで一度tokenizeした全IDsを保存し、その同じ列から
+prefix Nと続くT1入力を切り出す。N=1024なら最低1088 IDsを要求する。
+既存wiring64の対照は、保存された元IDs/flagsとの一致を取る。
+capacity本文/routeをbank train・validation・holdoutへ流用しない。
+
+bank pilotでは全文promptをprefillし、assistant回答referenceの最初64IDsをT1入力とする。
+一律prefix64ではない。prompt本文やtemplateの途中を回答区間として測らない。
+
+2. tokenizerとtemplateの境界を明示する
+
+次を保存する:
+・GGUF/vocab/tokenizer identity、chat template source/hash、system message、special-token flags。
+・exact rendered prefixと、その末尾がassistant generation開始位置である証拠。
+・reference本文、全rendered text（用いる場合）、prefix IDs、continuation IDs、全hash。
+・prefix長P、最初のreference入力tokenのposition P、実ubatch列、output mask。
+・実際に測る64 tokenのID列と、そのdecode表示。
+
+文字列片を別々にtokenizeしてIDsを連結した結果が、結合文字列のtokenizationと同じとは
+仮定しない。実際のserverが使うassistant generation prefixのtoken列を基準にする。
+prefixを含む完全なrenderingをtokenizeして切り出す方式なら、prefix IDsがその完全列の
+厳密prefixかを確認してから境界を定める。
+一致しない場合は、採用するtemplate/APIのtoken-level continuation規則を明示して使う。
+末尾byteの一致だけでtoken境界を推測したり、矛盾を黙って一token削除したりしない。
+
+referenceに思考/回答channelや特殊区切りが必要なtemplateなら、その規則も記録する。
+正解文を含む全文を一度prefillしてから『生成』区間を後付けする方法は取らない。
+raw textを使う場合はraw版と命名し、production相当のchat版と同じscopeにはしない。
+
+64 continuation IDsがない場合はpreflightで止め、routeを採る前に自然なreferenceを追記し、
+version/hashを更新する。文字数、UTF-8 byte数、別modelのtokenizerを代用しない。
+本文に反復paddingを付けてcase数やtoken数を満たしたとはしない。
+
+3. next-token評価の一つずれを防ぐ
+
+prefix IDsをp[0..P-1]、reference IDsをr[0],r[1],...とする。
+prefixを処理し終えたlogits z_prefixは、r[0]を予測する。
+T1 call iはr[i]をposition P+iへ入力し、その出力z_iはr[i+1]を予測する。
+従ってz_iをr[i]で採点してはいけない。
+
+最初64 reference tokenのNLLを計算するなら:
+  r[0]はz_prefix、r[1..63]はz_0..z_62で採点する。
+64回のT1出力z_0..z_63全てにnext-token正解を付けるなら、r[64]も保存して65IDs以上必要。
+NLLを使わず数値差/finiteだけを見る場合も、各logitsがどの入力後のものかを明記する。
+同じprefix＋同じcontinuation IDをbaseline/candidateへ与える。candidate自身のsampled tokenを
+片方だけ次入力に使うと固定系列比較ではなくなる。
+
+4. collectorと時間の境界
+
+KV clearとprefillを完了・同期し、その後に新collector sessionを開く。
+call label/attempt/result validatorのpositionはP+i。generation/sequence/contextも照合する。
+64T1、37層、6IDならrecord2368。一case一sessionの既存容量4096を維持できる。
+
+route-only収集で全logitsのfinite走査を加える場合、そのscopeを明記する。
+走査をengine interval外に置いても次callのcache・CPU状態へ影響し得る。
+従ってroute採取のtimingを無観測の性能とみなさず、最終timingは同じ検査規則の対照と分ける。
+大きいF32/JSONの保存はblock末尾。file I/OをT1区間へ追加しない。
+
+5. callerの実装範囲
+
+既存driver.cppのbatch64、prefix64、position64+i、n>=128、reference cparams全一致を読む。
+manifestにbatch容量、prefix長、継続長、位置、実chunk列、予定profile差を結び付ける。
+pilot全文promptがn_batch1024を超えるならlogical batchも分割し、全位置とoutput maskを記録する。
+promptを無言でtruncateして64/1024へ合わせない。
+ubatch比較では予定したn_ubatch以外のprofile差を拒否する。
+このboundedな拡張のために多context常時collectorや新しい汎用frameworkを作る必要はない。

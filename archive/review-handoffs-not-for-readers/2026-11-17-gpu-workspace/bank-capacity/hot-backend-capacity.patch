@@ -1,0 +1,24 @@
+--- original/hot-backend.cpp
++++ capacity/hot-backend.cpp
+@@ -120,6 +120,7 @@
+         if(payload){
+             cuda_check(cudaSetDevice(0));cudaDeviceProp prop{};cuda_check(cudaGetDeviceProperties(&prop,0));require(prop.major==7&&prop.minor==0,"Volta device required");
+             size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));
++            LLAMA_LOG_INFO("capacity-bank-Gpre free=%zu total=%zu payload=%zu margin=%zu\n",free,total,payload,size_t(3072)*1024*1024);
+             // Include room for new execution allocations and subsequent vision/pool growth.
+             require(free>payload+size_t(3072)*1024*1024,"insufficient GPU headroom for plan and later vision/pool growth");
+             private_gpu=ggml_backend_cuda_init(0);require(private_gpu,"private CUDA backend");
+@@ -146,9 +147,12 @@
+                 std::array<int32_t,TOP> local_ids{};for(int j=0;j<h;++j)local_ids[j]=j;
+                 ggml_backend_tensor_set(l.gpu[h]->x,zero.data(),0,sizeof(zero));ggml_backend_tensor_set(l.gpu[h]->ids,local_ids.data(),0,h*sizeof(int32_t));
+                 for(int repeat=0;repeat<3;++repeat)require(ggml_backend_graph_compute(private_gpu,l.gpu[h]->graph)==GGML_STATUS_SUCCESS,"private GPU warmup");
++                std::vector<float> checked(size_t(D)*h);ggml_backend_tensor_get(l.gpu[h]->y,checked.data(),0,checked.size()*sizeof(float));
++                for(float value:checked)require(std::isfinite(value)&&value==0.0f,"zero-input private graph output");
++                LLAMA_LOG_INFO("capacity-bank-warm layer=%d H=%d repeats=3 zero_output=1\n",l.index,h);
+             }
+         }
+-        if(private_gpu){ggml_backend_synchronize(private_gpu);size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));require(free>size_t(2560)*1024*1024,"post-allocation reserve for vision/pool growth");}
++        if(private_gpu){ggml_backend_synchronize(private_gpu);size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));LLAMA_LOG_INFO("capacity-bank-Gpost free=%zu total=%zu margin=%zu\n",free,total,size_t(2560)*1024*1024);require(free>size_t(2560)*1024*1024,"post-allocation reserve for vision/pool growth");}
+         size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));
+         ready=true;
+         LLAMA_LOG_INFO("xeon-hot-ready experts=%zu native_payload=%zu GPU_bank_allocation=%zu GPU_free_before_vision=%zu CPUthreads=12 original-weights-retained=1\n",planned_count,payload,allocation,free);
