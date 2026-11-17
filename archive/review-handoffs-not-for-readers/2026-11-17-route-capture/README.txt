@@ -1,0 +1,7 @@
+実モデルroute37 captureの実測追加資料。最初にACTUAL_RESULTS_JA.txt、相談はACTUAL_CONSULT_PRO_JA.txt。
+以前のsource全体は隣の2026-11-17-route-integration、固定commit ff02ddb62fad0c46d98d1ba1d245c8a5597b52f5。今回使用codeの主要部分も同梱。
+rawは全件・全fieldを保持。health.jsonは公開archiveの私的health一律除外ルールに合わせ、guard-health.jsonへファイル名だけ変更。中身は同一、RAW_MAPPING.jsonでhash照合可能。
+verify_capture.pyを共有物へ再実行する場合、各runのguard-health.jsonを一時copy上でhealth.jsonという名前にコピーして実行してください。最終--outputは新規パスを指定。モデルもGPUも使わない検査です。
+server-config.json、API credential、実行binary、model weightは含めない。実行args/envの安全な部分はLAUNCH_MANIFEST.jsonに保存済み。
+標本は同じ固定teacher-forced入力。速度/品質/実traffic/cache-hitの改善値ではない。
+今ユーザーに実行を依頼しているコマンドはありません。通常APIは復帰済み。

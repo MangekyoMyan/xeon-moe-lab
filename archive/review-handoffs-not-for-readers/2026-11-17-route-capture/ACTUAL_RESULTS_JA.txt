@@ -1,0 +1,91 @@
+route37 実モデル診断の結果（2026-11-17）
+=====================================
+
+結論
+----
+実モデルを使う隔離driverでCPU側37層のrouteを採取できた。
+ユーザー実行の4callと、その後のassistant実行の68callはいずれも正常終了。
+後者は最初の4callがcoverage検査を通った後だけ64call追加したもの。
+これで実モデル側の接続を確認した。高速化・品質・本番採用の試験はしていない。
+
+実行者と操作
+------------
+1. ユーザーが通常APIを停止してdefault4callを実行。
+   run: 20261117T000246Z-d4e0df3a
+2. 人間から「Proが提案した実操作はこちらで実施してほしい」と明示された。
+   最新メッセージでユーザー実行済みの可能性が分かったため、先に状態確認。
+   4call終了、API停止、診断processなし、monitor正常を確認し重複起動を避けた。
+3. assistantがrun_capture.py --continue64を実行。
+   run: 20261117T001035Z-68c12e67
+   こちらも終了code0。追加のbuild・collector変更・配置変更はなし。
+4. assistantが通常start.pyで元のAPIを起動。
+   最終的な稼働状態はRESTORED_RUNTIME.jsonを参照。
+
+今、ユーザーに追加のコマンド実行を依頼しているわけではない。
+今後ユーザー操作が必要な際は「これを実行してください」と目的・担当を明記する。
+Proはチャット上のレビュー・設計・コード提案を担当し、実機操作はassistantが担当する。
+
+実測結果
+--------
+                       ユーザー4call       assistant68call
+現在入力位置           64..67             64..131
+call / attempt         4 / 4              68 / 68
+route record           148                2,516
+expert選択IDの延べ数    888                15,096
+各callの対象層         0..36 各一回       0..36 各一回
+各recordのID           6個、相互に一意、0..383
+drop / flags           0 / 0              0 / 0
+graph generation       1のみ              1のみ
+child returncode       0                  0
+監視下process全体時間  133.80秒           144.76秒
+
+最後の時間はload、warmup、prefill、診断、JSON保存、終了を含む。
+tok/s算出や4call対68callの速度比較には使わない。
+各callのdecode return=0、logits全要素finite、同期完了、finalize成功を保存した。
+出力の正解照合や生成した文章の比較は行っていない。
+
+2つのrunは同じprefixと最初の4入力を使用し、その148recordsが全field/順序とも一致。
+先頭4attempt/callも一致。これはこの固定入力・モデル・環境の2runの範囲に限る。
+後者の最初の4callと先行runを独立した追加サンプルとして合算しない。
+
+配置・実行物
+------------
+40層のgate/up/down expert weight bufferについて0..36はhost、37..39は非hostを実確認。
+実schedulerのCPU/CUDA graph_compute providerも取得。
+16 function providerのpath/device/inode/sizeと現在のbacking SHA256をpin済みlink情報に照合。
+各runの16function＋2backendの検査はACTUAL_PROVIDER_VERIFICATION.jsonに保存。
+vision projectorもGPU側にload/warmup。通常設定の128k/f16 KV、CPU12/24、GPU150W/ECC、
+NUMA interleaveと同じ配置条件。診断driver固有のgraph/workspace状態はAPIと同一とは限らない。
+モデルファイルは既存download manifestのhashと全shardサイズを確認。全モデル重みを再hashしてはいない。
+
+guardの保存済み標本（瞬間最大値を保証するものではない）
+-----------------------------------------------------
+4call:  GPU30C、HBM29C、CPU34C、fan40%、VRAM30,372MiB、利用可能RAM最小67.80GiB。
+68call: GPU29C、HBM29C、CPU35C、fan40%、VRAM30,392MiB、利用可能RAM最小67.67GiB。
+各healthに残る最後30標本の最大/最小。GPU query timeoutはいずれも0。
+保護停止はなし。通常の温度・電力・fan制限、RAM reserve64GiBを維持した。
+正のGPU hot bankの追加allocationや空き容量の再判定はしていない。
+
+routeの記述統計と限界
+--------------------
+68callで1層あたり選択されたexpertの種類数は31..101、層間中央値60。
+隣り合う入力の同じ層で共通したexpert数0..6の件数:
+  [361, 568, 660, 553, 267, 63, 7]（37層×67隣接対=2,479）
+この値はGPU cache hitではない。実際のbank/転送/ready/CPU-GPU overlapは測っていない。
+繰り返しの短い英文をteacher forcingした小標本であり、会話・コード等への一般化はできない。
+per_layerの全frequency・隣接重複分布はACTUAL_CAPTURE_VERIFICATION.jsonに保存。
+
+注意して読むfield
+----------------
+SMOKE4.jsonのtop-level passed=falseは、実装が全session close後にだけtrueへ変更するため。
+4callのcoverage成功後かつclose前の途中snapshotであり、4call検査の失敗を表していない。
+元のrawを変更せず保存した。RUN.jsonの最終passed、全台帳、終了codeを合わせて読む。
+stderrに非UTF8 byteがあるため、読み取りにはerrors=replaceを使用。原本byte/hashはそのまま。
+
+検証と共有
+----------
+親のverify_capture.pyによる全field検査とTerraによる独立raw監査が一致。
+ACTUAL_CAPTURE_AUDIT_TERRA.txtに独立監査の根拠と範囲を記録。
+準備段階のcode/source/link/test原本は前回commit ff02ddb62fad0c46d98d1ba1d245c8a5597b52f5。
+今回共有はその実機結果を追加するもので、前回の「未起動」は当時の状態として保存する。
+CPU absは保留、positive hot未実装/未測定、通常APIの最適化構成は変更していない。

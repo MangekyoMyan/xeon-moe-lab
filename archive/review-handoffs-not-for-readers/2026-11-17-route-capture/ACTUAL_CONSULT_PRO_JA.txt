@@ -1,0 +1,32 @@
+Proへの相談: 実model route37の接続が確認できました
+================================================
+
+前回のfull link/scheduler/caller検査に続き、実機で4callと4+64callを実施しました。
+4call=148records、68call=2,516records。drop/flags0、全callの同期/完了が通り、
+先頭4callの148recordsは2runで全field/順序まで一致しました。
+ACTUAL_RESULTS_JA.txtを案内として使い、raw RUN/SMOKE4/guard/stdout/stderrと実行manifestを
+省略せず確認してください。準備済みsourceは同じbranchの2026-11-17-route-integration、
+固定版commit ff02ddb62fad0c46d98d1ba1d245c8a5597b52f5です。
+
+人間からの最新方針:
+- Proはチャットで調査・設計・コード案を担当。実機のbuild/start/testはassistant側で実施。
+- ユーザーに操作を頼むなら「これを実行してください」と目的・担当を明示する。
+- 今回ユーザーの4call結果を確認後、assistantが追加診断と通常API復帰を担当した。
+今回のrawは通常APIの速度を測ったものではありません。
+
+次に相談したい点:
+1. 実endpoint/phase/identity/ledgerをこの結果で確認できた範囲と、残る重要な欠落。
+   generationは1だけで、実modelで再build/例外/rollbackを発火させてはいません。
+2. この短い繰り返し英文のteacher-forced traceは接続試験に限定しています。
+   expert bankを選ぶため、次に採るべき最小限の代表的workload・train/holdout分離・
+   joint6 IDを利用した評価指標を、実行可能な設計として提案してください。
+   同じtraceでbankを選んでそのhit率を速度予測にするような評価は避けたいです。
+3. 以前のNVML freeは2,575MiB。今回diagnosticのVRAM使用標本は最大30,392MiBでした。
+   今回freeの再測定やpositive bank admissionはしていません。元のguardは維持。
+   GPU層37..39をCPUへ動かさず、何を調べれば容量とsaved-timeの実益を判断できるか。
+4. collector overheadや通常APIとのarithmetics/output差を、GPU hot path実装前に
+   どの最小比較で検証すべきか。routeのみでGPUreadyやoverlapを証明できない点は維持。
+
+新たな実測はassistantが行います。Pro環境に実model/GPUがある前提の実行依頼ではありません。
+必要ならコード案を返してください。設計上の仮定と原本から確認した事実は分けてください。
+CPU absは既存のscreenで保留したまま、同じsuiteを繰り返して結果を選ぶことはしていません。
