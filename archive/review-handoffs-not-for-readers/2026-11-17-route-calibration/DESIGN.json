@@ -1,0 +1,44 @@
+{
+  "baseline_commit": "caf35bcdd27c0240572e05a60633f07fca272844",
+  "scope": "A+B then six calibration cases if bitwise4-call gate passes",
+  "process_order": [
+    "F-before",
+    "D",
+    "F-after"
+  ],
+  "correctness": [
+    "F-before4",
+    "D0-4",
+    "D1-4",
+    "D2-4",
+    "F-after4"
+  ],
+  "timing_order": {
+    "F-before": [
+      "F",
+      "F"
+    ],
+    "D": [
+      "D0",
+      "D1",
+      "D2",
+      "D2",
+      "D1",
+      "D0"
+    ],
+    "F-after": [
+      "F",
+      "F"
+    ]
+  },
+  "timing_calls_per_block": 64,
+  "prefix_tokens": 64,
+  "screen_cases": 6,
+  "screen_capture_calls": 64,
+  "screen_mode": "D2",
+  "new_hot_bank": false,
+  "normal_API_changes": false,
+  "guards": "GPU150W/ECC/fan<=70/RAMreserve64GiB, unchanged",
+  "timing_validation": "pointer nonnull only; full finite scan and raw output copy in correctness blocks; no per-token JSON or disk I/O",
+  "failure_policy": "stop on correctness/provider/ledger/guard error; retain failed evidence; investigate concrete issue; no favorable-result retries"
+}

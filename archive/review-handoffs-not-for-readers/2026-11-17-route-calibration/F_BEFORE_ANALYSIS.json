@@ -1,0 +1,514 @@
+{
+  "schema": 1,
+  "analysis_source_sha256": "e7442f07774951deed25ffed5468922cbac82dbe385f4d43556028c9f34a3eca",
+  "runs": [
+    {
+      "run": "20261117T012730Z-F-before-a30e72f7",
+      "arm": "F-before",
+      "cparams": {
+        "n_ctx": 131072,
+        "n_batch": 1024,
+        "n_ubatch": 1024,
+        "n_seq_max": 1,
+        "n_outputs_max": 1,
+        "n_outputs_max_per_seq": 1,
+        "n_threads": 12,
+        "n_threads_batch": 24,
+        "backend_sampling": false
+      },
+      "memory_after_warmup": [
+        {
+          "backend": "CUDA0",
+          "free_bytes": 2225340416,
+          "total_bytes": 34072559616,
+          "API": "ggml_backend_dev_memory; backend CUDA memory query, not NVML reserved accounting"
+        }
+      ],
+      "blocks": [
+        {
+          "name": "correct_F",
+          "mode": "F",
+          "case_id": "wiring_fixture",
+          "numerical": true,
+          "calls": 4,
+          "interval_statistics": {
+            "engine_us": {
+              "n": 4,
+              "mean": 166893.805,
+              "median": 162439.175,
+              "p95": 198205.75504999998,
+              "minimum": 141676.144,
+              "maximum": 201020.726
+            },
+            "label_prepare_us": {
+              "n": 4,
+              "mean": 0.5685,
+              "median": 0.5515,
+              "p95": 0.6900499999999999,
+              "minimum": 0.47,
+              "maximum": 0.701
+            },
+            "decode_return_us": {
+              "n": 4,
+              "mean": 164537.17275,
+              "median": 160527.3865,
+              "p95": 195671.54439999998,
+              "minimum": 138873.3,
+              "maximum": 198220.618
+            },
+            "output_sync_us": {
+              "n": 4,
+              "mean": 2356.63225,
+              "median": 2798.1130000000003,
+              "p95": 2802.4336,
+              "minimum": 1027.459,
+              "maximum": 2802.844
+            },
+            "validation_us": {
+              "n": 4,
+              "mean": 158.7265,
+              "median": 152.209,
+              "p95": 174.96115,
+              "minimum": 151.57,
+              "maximum": 178.918
+            },
+            "finalize_us": {
+              "n": 4,
+              "mean": 0.4825,
+              "median": 0.4175,
+              "p95": 0.64355,
+              "minimum": 0.412,
+              "maximum": 0.683
+            },
+            "post_us": {
+              "n": 4,
+              "mean": 129.31275,
+              "median": 127.356,
+              "p95": 134.4649,
+              "minimum": 126.821,
+              "maximum": 135.718
+            },
+            "step_us": {
+              "n": 4,
+              "mean": 167182.89525,
+              "median": 162737.1105,
+              "p95": 198491.68894999998,
+              "minimum": 141955.963,
+              "maximum": 201301.397
+            },
+            "next_step_interval_us": {
+              "n": 3,
+              "mean": 175275.8756666667,
+              "median": 182570.105,
+              "p95": 199428.33980000002,
+              "minimum": 141956.045,
+              "maximum": 201301.477
+            }
+          },
+          "engine_each_us": [
+            182254.253,
+            201020.726,
+            141676.144,
+            142624.097
+          ],
+          "first_engine_us": 182254.253,
+          "engine_after_first_us": {
+            "n": 3,
+            "mean": 161773.65566666666,
+            "median": 142624.097,
+            "p95": 195181.0631,
+            "minimum": 141676.144,
+            "maximum": 201020.726
+          },
+          "block_wall_us": 668731.902,
+          "prefill_us": 5040248.379,
+          "setup_us": 0.092,
+          "output_validation": "all-vocab finite and saved F32",
+          "logits_sha256": "95430744558e7414b336f6548a6c03e064e12e1adc03cb8256fc45dcfc3187b0",
+          "logits_scalars": 517120,
+          "frozen_reference_byte_equal": null
+        },
+        {
+          "name": "timing_F_0",
+          "mode": "F",
+          "case_id": "wiring_fixture",
+          "numerical": false,
+          "calls": 64,
+          "interval_statistics": {
+            "engine_us": {
+              "n": 64,
+              "mean": 143334.079453125,
+              "median": 141457.9075,
+              "p95": 157625.27615,
+              "minimum": 135447.011,
+              "maximum": 173546.305
+            },
+            "label_prepare_us": {
+              "n": 64,
+              "mean": 0.682609375,
+              "median": 0.633,
+              "p95": 0.9769499999999998,
+              "minimum": 0.523,
+              "maximum": 1.211
+            },
+            "decode_return_us": {
+              "n": 64,
+              "mean": 140411.106046875,
+              "median": 138509.169,
+              "p95": 154680.99904999998,
+              "minimum": 132661.302,
+              "maximum": 170743.978
+            },
+            "output_sync_us": {
+              "n": 64,
+              "mean": 2922.97340625,
+              "median": 2973.859,
+              "p95": 2984.9532,
+              "minimum": 2740.209,
+              "maximum": 3002.59
+            },
+            "validation_us": {
+              "n": 64,
+              "mean": 0.362046875,
+              "median": 0.365,
+              "p95": 0.41699999999999987,
+              "minimum": 0.191,
+              "maximum": 0.553
+            },
+            "finalize_us": {
+              "n": 64,
+              "mean": 0.462921875,
+              "median": 0.4615,
+              "p95": 0.6247999999999999,
+              "minimum": 0.33,
+              "maximum": 0.767
+            },
+            "post_us": {
+              "n": 64,
+              "mean": 0.08775,
+              "median": 0.0515,
+              "p95": 0.18955,
+              "minimum": 0.04,
+              "maximum": 0.343
+            },
+            "step_us": {
+              "n": 64,
+              "mean": 143335.67478125,
+              "median": 141459.407,
+              "p95": 157627.01535,
+              "minimum": 135448.727,
+              "maximum": 173548.01
+            },
+            "next_step_interval_us": {
+              "n": 63,
+              "mean": 143284.33753968254,
+              "median": 141361.308,
+              "p95": 157700.1549,
+              "minimum": 135448.924,
+              "maximum": 173548.335
+            }
+          },
+          "engine_each_us": [
+            173546.305,
+            143957.009,
+            137283.614,
+            140126.83,
+            142247.483,
+            142080.139,
+            139972.222,
+            141240.123,
+            138308.381,
+            138548.966,
+            138247.718,
+            135447.011,
+            141944.633,
+            139251.025,
+            144704.825,
+            164032.014,
+            155122.061,
+            162423.367,
+            150624.548,
+            156387.014,
+            141017.127,
+            152658.315,
+            142024.699,
+            141746.338,
+            140302.203,
+            141756.068,
+            139255.996,
+            143611.25,
+            141556.194,
+            142297.865,
+            140285.413,
+            143529.543,
+            139941.174,
+            137289.223,
+            157843.793,
+            142148.56,
+            141250.246,
+            140837.553,
+            139799.448,
+            139848.206,
+            137425.972,
+            141130.457,
+            139964.165,
+            142652.161,
+            142064.299,
+            141859.936,
+            143093.456,
+            142243.41,
+            143997.58,
+            152133.865,
+            140202.19,
+            136782.057,
+            141693.438,
+            143217.084,
+            139477.247,
+            139130.082,
+            143186.568,
+            141359.621,
+            139969.915,
+            141180.02,
+            139626.441,
+            139710.594,
+            140200.446,
+            146585.579
+          ],
+          "first_engine_us": 173546.305,
+          "engine_after_first_us": {
+            "n": 63,
+            "mean": 142854.52031746032,
+            "median": 141359.621,
+            "p95": 156260.5187,
+            "minimum": 135447.011,
+            "maximum": 164032.014
+          },
+          "block_wall_us": 9173500.517,
+          "prefill_us": 5176539.209,
+          "setup_us": 0.194,
+          "output_validation": "synchronized pointer nonnull only; no full finite scan or logits copy"
+        },
+        {
+          "name": "timing_F_1",
+          "mode": "F",
+          "case_id": "wiring_fixture",
+          "numerical": false,
+          "calls": 64,
+          "interval_statistics": {
+            "engine_us": {
+              "n": 64,
+              "mean": 148079.441421875,
+              "median": 143797.644,
+              "p95": 162318.73165,
+              "minimum": 136468.152,
+              "maximum": 178759.589
+            },
+            "label_prepare_us": {
+              "n": 64,
+              "mean": 0.70175,
+              "median": 0.6545000000000001,
+              "p95": 0.9605499999999999,
+              "minimum": 0.528,
+              "maximum": 1.322
+            },
+            "decode_return_us": {
+              "n": 64,
+              "mean": 145291.89634375,
+              "median": 141010.96649999998,
+              "p95": 159522.77625,
+              "minimum": 133672.927,
+              "maximum": 176015.424
+            },
+            "output_sync_us": {
+              "n": 64,
+              "mean": 2787.545078125,
+              "median": 2790.922,
+              "p95": 2799.52175,
+              "minimum": 2744.165,
+              "maximum": 2806.513
+            },
+            "validation_us": {
+              "n": 64,
+              "mean": 0.359421875,
+              "median": 0.365,
+              "p95": 0.387,
+              "minimum": 0.2,
+              "maximum": 0.67
+            },
+            "finalize_us": {
+              "n": 64,
+              "mean": 0.446421875,
+              "median": 0.4255,
+              "p95": 0.5977,
+              "minimum": 0.335,
+              "maximum": 0.691
+            },
+            "post_us": {
+              "n": 64,
+              "mean": 0.085234375,
+              "median": 0.055,
+              "p95": 0.2017,
+              "minimum": 0.04,
+              "maximum": 0.324
+            },
+            "step_us": {
+              "n": 64,
+              "mean": 148081.03425,
+              "median": 143799.1745,
+              "p95": 162320.26955,
+              "minimum": 136469.701,
+              "maximum": 178761.096
+            },
+            "next_step_interval_us": {
+              "n": 63,
+              "mean": 147987.72633333332,
+              "median": 143783.401,
+              "p95": 162373.4588,
+              "minimum": 136469.971,
+              "maximum": 178761.309
+            }
+          },
+          "engine_each_us": [
+            149274.155,
+            139525.719,
+            140142.386,
+            140086.979,
+            138989.233,
+            149687.094,
+            177459.517,
+            178759.589,
+            175299.813,
+            139704.008,
+            138871.629,
+            158974.138,
+            156706.251,
+            154539.505,
+            156977.553,
+            156266.542,
+            156828.923,
+            141504.872,
+            137922.673,
+            141045.497,
+            140092.073,
+            145568.452,
+            141844.455,
+            142508.519,
+            140946.725,
+            148499.5,
+            139987.954,
+            144032.013,
+            142332.19,
+            140886.825,
+            157936.467,
+            158852.696,
+            139022.201,
+            143598.27,
+            160151.664,
+            142822.704,
+            142722.588,
+            141925.347,
+            140044.307,
+            140171.12,
+            138513.322,
+            140747.326,
+            146181.517,
+            155042.293,
+            151274.426,
+            147694.774,
+            142149.139,
+            143813.507,
+            145473.926,
+            149108.629,
+            161419.866,
+            149142.197,
+            157280.847,
+            143729.217,
+            139049.176,
+            136468.152,
+            142617.463,
+            138991.895,
+            143781.781,
+            162477.355,
+            151337.713,
+            153863.175,
+            160439.866,
+            153974.543
+          ],
+          "first_engine_us": 149274.155,
+          "engine_after_first_us": {
+            "n": 63,
+            "mean": 148060.47771428572,
+            "median": 143781.781,
+            "p95": 162371.6061,
+            "minimum": 136468.152,
+            "maximum": 178759.589
+          },
+          "block_wall_us": 9477203.228,
+          "prefill_us": 5180094.927,
+          "setup_us": 0.176,
+          "output_validation": "synchronized pointer nonnull only; no full finite scan or logits copy"
+        }
+      ],
+      "cases": [
+        {
+          "case_id": "wiring_fixture",
+          "text_sha256": "d34ec3677a9aa4b4cb6d663bd070f68eb05a62a855698fbeba928f928e5b8a50",
+          "full_token_count": 1409,
+          "token_ids_native_i32_sha256": "8b3630225db0c71da296495508438772ccabedac261767c75badd150b77a2dd8"
+        },
+        {
+          "case_id": "screen_cache_ja",
+          "text_sha256": "6a2a686a7c532abac032f59aeb041a91d162259f887dd07cbbda71a86be41acc",
+          "full_token_count": 372,
+          "token_ids_native_i32_sha256": "4b730500b5f336df366f221898013393bc07b91f8adcd349ad1441d88809be22"
+        },
+        {
+          "case_id": "screen_cache_en",
+          "text_sha256": "86b3f420e0936f7a6977af0d2c55327b827289e34f2a3b6fb2a7f450f0157fbc",
+          "full_token_count": 264,
+          "token_ids_native_i32_sha256": "8f2aa10719222385f7ed176f74c5d2b0163930ef4ab91b5d29c8ed542443d7c7"
+        },
+        {
+          "case_id": "screen_experiment_ja",
+          "text_sha256": "c2820276e704299b728299a368ba861715eec966f09a932a56aa35294e3e4027",
+          "full_token_count": 336,
+          "token_ids_native_i32_sha256": "c46ac80f129ecdd599f185ab6755200cb1cef036c15faa20c95b084aa25b8f7e"
+        },
+        {
+          "case_id": "screen_experiment_en",
+          "text_sha256": "f94e26c95584e54e28dbc41a1e9e240758b489006eb47d68093c4ea75d1e1c20",
+          "full_token_count": 260,
+          "token_ids_native_i32_sha256": "4c4b46b7b46a178139cb1fa8a2a1b569f46acc6f8f6c09080af8e197822f3ff1"
+        },
+        {
+          "case_id": "screen_mixed_log",
+          "text_sha256": "224e03a5f2740f15832223a0d5cece1f3f284792e04eee9e9cbf83ad4ebd5302",
+          "full_token_count": 332,
+          "token_ids_native_i32_sha256": "eb91e5c02d89bec38b952e0d18a21b1b1bc969ac9094b418643106b191cfe7df"
+        },
+        {
+          "case_id": "screen_code_python",
+          "text_sha256": "b82e141741222a4453954dfe505e5c4312206636779bb0048afc0e2f9c8d5fbb",
+          "full_token_count": 302,
+          "token_ids_native_i32_sha256": "ef425c63bd7e91466f798055a83b365f5eef742a48347cc3296674ab632cb2c0"
+        }
+      ],
+      "limits": "Raw text first128-token screen, not equal semantic units or sampled answers; timings include first T1."
+    }
+  ],
+  "numeric_all_byte_equal": true,
+  "timing_block_means_us": {
+    "F": [
+      143334.079453125,
+      148079.441421875
+    ],
+    "D0": [],
+    "D1": [],
+    "D2": []
+  },
+  "limits": [
+    "F/D are sequential processes, D modes reverse order in one process; no isolated single-instruction causality.",
+    "No after-the-fact performance acceptance threshold; compare process/block variability.",
+    "No CPU/GPU hot bank, quality or long-context workload measured."
+  ]
+}

@@ -1,0 +1,279 @@
+route-capture: 言語差・代表workload・bank評価の次段階
+2026-11-17 / pinned commit caf35bcdd27c0240572e05a60633f07fca272844
+担当: /root/capture_workload_language
+
+結論
+====
+現captureは実モデルの接続確認に成功した一つの英文teacher-forced系列である。
+これから「日本語でも同じ」「言語差はない」「選択expertの頻度が実trafficを代表する」とは
+判断できない。言語差は測る価値があり、ただしtokenizer、入力内容、context長、選択expert、
+実装言語の呼出し境界を同じ原因として扱わないことが重要。
+
+次の小さい仕事は、速度を測れるdriverを用意した後の6case言語screenで十分。
+bank探索用のtrain/validation/holdoutは、その後の別の小pilotとして提案する。
+全言語・全用途の大きなsuiteや、128k長文の全面測定を今の必須条件には加えない。
+
+今回行ったこと
+==============
+実driver全体、相談票、実行manifest、68callのRUN構造とtokensを読んだ。
+モデル/GPU/API、配布build/run script、実機binaryは実行していない。
+repoに変更を加えていない。この提案・JSON例はaudit配下の新しい資料である。
+個別の速度比較実装は親とhotpath担当が扱い、本資料はworkloadと評価設計を担当する。
+
+1. 原本から確定できる現入力
+==========================
+N = archive/review-handoffs-not-for-readers/2026-11-17-route-capture/
+
+N/driver.cpp:73-76 は、次の2文を64回連結してtokenizeする。
+  A careful experiment records the selected experts and preserves every observation.
+  The same fixed input is used for the comparison.
+prefixは64tokens、continuationは4または68tokens。
+N/driver.cpp:78-89 は決めたtokenを1個ずつ入力し、生成結果で次入力を選ばない。
+N/driver.cpp:81-85 はwarmup後にKVをclearし、同じ64-token prefixをprefillして同期した後、
+collectorを開く。RUNのpositionは64..131、phaseはDECODEである。
+設定n_ctx=131072は確保/容量条件であり、今回128k tokensの文脈を実際に読んだことを意味しない。
+長contextでのrouting・attention時間・allocator状態までこの短いcaptureから外挿しない。
+
+これは単一の固定入力文書。68tokenを68個の独立documentとして扱えない。
+同じ反復文の前半をtrain、後半をholdoutにしても、内容・token系列の漏洩を防げない。
+別run先頭4callの一致も再現性の証拠であり、独立の新しい言語サンプルではない。
+
+68callの周期性の数値はevidence担当の独立再集計を参照する。本担当はraw tokensと反復sourceを
+直接確認したが、周期・route統計の計算を独立に実行したとは表現しない。
+
+2. 「言語差」を4つに分ける
+=========================
+A. 同じ意味を何tokenで表すか
+   同じ仕事・同じ回答内容でもJA/ENのtoken数は一致するとは限らない。
+   最終回答が何秒で完成したかと、1tokenあたり何msかは別の比較になる。
+   tokenization時間自体、prefix token数、output token数も別々に保存する。
+
+B. 1tokenの計算経路・仕事量
+   同じbatch/sequence/context位置であっても、言語や内容の変化で選択expertが変わる可能性がある。
+   実際に差があるかはこのモデルで測る。quant型、CPU compact対象、cache状態、GPU hit数等の
+   costが関係するため、全expertの計算量を同じ一定値と仮定しない。
+
+C. プログラミング言語を入力した場合
+   Python/C++/JSON/ログ等は入力分布の違いである。記号・識別子・コメント言語・token数が変わる。
+   PythonからC++へportした同じ課題を使うなら同一familyとして分割し、内容の漏洩を防ぐ。
+   実装言語C++/Pythonのオーバーヘッドとは別の質問である。
+
+D. エンジンの実装言語と診断処理
+   wrapperのPython、native C++、collectorのC ABI等の呼出し境界はhotpath監査対象。
+   日本語入力というだけでPython interpreterがtokenごとの演算を担当する証拠にはならない。
+   逆に、診断driverが毎tokenで大きなJSONを構築・書出ししていればそのcostは入力言語と別に測る。
+   実際のdriver.cpp:92-93には累積snapshot/saveとcoverage再走査があり、速度用driverで分離する
+   必要がある。詳しい量と改善案はhotpath報告を優先する。
+
+3. 最初の言語screen: 6caseでよい
+===============================
+目的は「差が無いことの証明」ではなく、入力を替えても配線・記録・timingが成立するか、
+大きな言語/用途依存が見えるかを確認することである。bank選択には使わない。
+
+  screen_cache_ja / screen_cache_en
+    同じ内容のキャッシュ説明文。意味対応の日本語/英語。
+  screen_experiment_ja / screen_experiment_en
+    同じ内容の実験計画文。意味対応の日本語/英語。
+  screen_mixed_log
+    日本語説明 + 英語識別子/ログ。実際の技術相談に近い混在文。
+  screen_code_python
+    固定仕様のPythonコード。code入力という別用途の配線確認。
+
+CALIBRATION_TEXT_EXAMPLES.jsonに自作の具体例を収録した。token化前の例であり、現在のdriverへ
+そのまま実行可能なtoken manifestと偽らない。使用モデルのtokenizerで事前に以下を行う。
+
+  - model/tokenizer/chat-template identityを固定する。
+  - 各fixtureを必要な方法でrender/tokenizeし、token IDs、byte length、文字数、hashを保存する。
+  - 同じ文章を反復したりpad文を加えたりして必要token数を満たさない。
+  - 予定windowが足りないfixtureは短いことを明示し、内容を自然に延長してからmanifestをfreeze。
+  - 現collectorの1session4096recordを越えない。64callなら2368records。
+  - 各case終了後にclose/export、KV clearと必要なprefill/syncを行って次caseへ進む。
+  - 同じcontextを順次利用してloadを一度にできるが、複数contextの同時観測には拡張しない。
+
+二つの比較を混ぜない。
+
+ENGINE比較（初回は既存と同じprefix64 + continuation64でよい）:
+  同じtoken数、同じposition範囲、T1、同じ配置/threads/同期条件で64回を比較する。
+  生の文章から固定token windowを採るmechanical試験と明記する。
+  JA/ENの64tokensが同じ意味範囲まで進むとは限らず、回答完成速度の比較ではない。
+  既存のraw-text fixtureと通常APIのchat templateを同一と表現しない。
+
+TASK比較（同意味ペアのfull prefix/固定reference continuation）:
+  同じ事実・同じ要求・同程度の正解内容をJA/ENで用意する。翻訳の意味対応を人が点検する。
+  正確なtoken数は合わせず、実際のN_prefix/N_output、output bytes/characters、完了時間を示す。
+  1tokenあたりmsとtask全体のmsを併記する。bytes/sやchars/sも補助値であって情報量の等価指標ではない。
+  初回は意味対応ペアをtokenizeして長さの違いを確認するだけでも有用。full task timingを
+  ENGINE比較と同時に全caseで実行することを必須にはしない。
+
+この最初の6caseは小さすぎて、言語差不存在や一般的なp99を主張できない。
+言語/用途別の個別結果を出し、後から都合のよいものだけを省かない。
+
+4. bank探索用の小pilot: 12独立family / 20case
+=============================================
+最初の6caseでdriverとtiming/exportが整った後に使う案であり、即時の実行要件ではない。
+ここでのtrainはbank選択用のデータ分割で、LLM重みの学習や更新ではない。
+
+3種類のfamilyを各4つ用意する。
+  parallel_text: 4family × JA/EN 2variant = 8case
+  mixed_workflow: 4family × 日本語/英語/構造化data混在1variant = 4case
+  code_spec: 4family × Python/C++ 2variant = 8case
+合計12family、20case。各caseで64teacher-forced T1を観測すると1280call、47360recordsだが、
+caseごとにsessionを閉じるので1sessionは2368recordsに収まる。
+
+各family種類でsplitを2 train / 1 validation / 1 holdoutに固定する。
+したがって全体はtrain10case、validation5case、holdout5case。
+意味対応翻訳、port、同一文書の別window、同じ会話の別turnは同じfamilyにまとめ、同splitへ置く。
+後で別windowを追加してもsplitを変えない。データ分割をroute結果を見る前にfreezeする。
+
+具体的family例（文字列の近いvariantを別splitに作るためのテンプレートではない）:
+
+parallel_text:
+  text_cache_budget [train]
+    倉庫の棚を例にcache容量/再利用を説明。JA/ENが同じ事実と説明段落。
+  text_unit_conversion [train]
+    表の時刻/数量を読み、単位変換と検算の手順を説明。JA/ENで数値と正解を一致。
+  text_plan_constraints [validation]
+    3人の作業予定を制約から組む。trainのcache/数量課題と独立した内容。
+  text_document_summary [holdout]
+    新しい短文書から原因・対策・留保を要約する。新しい固有名詞/事実構成を使う。
+
+mixed_workflow:
+  mixed_build_log [train]
+    日本語依頼 + 英語compiler log + short command。固定の診断文をcontinuationへ。
+  mixed_config_change [train]
+    日本語説明 + JSON設定差分。誤った型/キーの説明と修正内容。
+  mixed_table_reconciliation [validation]
+    英語列名のCSV相当表 + 日本語依頼。合計の整合性を説明。
+  mixed_api_incident [holdout]
+    新しい英語のHTTPログと日本語の状況説明。根拠と不確実性を分けた診断文。
+
+code_spec:
+  code_stable_grouping [train]
+    順序を保ってkeyごとに集計する同仕様をPython/C++で表す。
+  code_interval_merge [train]
+    半開区間のmerge、境界caseを含む同仕様のPython/C++。
+  code_bounded_queue [validation]
+    固定容量queueの正常/空/満杯動作。trainとは異なるdata structure。
+  code_utf8_line_reader [holdout]
+    改行分割と末尾未完行を扱う同仕様。新しいエラーcaseを持つ。
+
+reference continuationの品質は少なくとも内容/仕様に適合しているか確認する。
+モデルがその回答を自力で生成できたという品質試験ではなく、固定されたtoken workloadである。
+tokenizer preflight後、text/template/token IDs/source/splitのhashをmanifestへ保存する。
+現driverはprefix=64をcoverageでhardcodeしているため、prefixを一般化する際はmanifestの
+prefix_tokens/expected_positionsをdriverとverifierの両方へ反映する。
+
+一般化の範囲:
+  20caseのpilotは漏洩しない候補screenであり、実trafficを代表したという証拠ではない。
+  今回は実利用の言語比率が未提示なので、JAを80%等と仮定しない。
+  JA/EN/mixed/Python/C++のlane別とequal-lane macroを診断として出す。
+  実利用weightを使う場合はroute/holdout結果を見てから選ばず、別の利用記録から先に固定する。
+  confidenceを出す単位は独立family。tokensや37層を独立な言語サンプルとして数えない。
+  同じfamilyのJA/ENやPython/C++は対応のあるvariantであり、独立document数を倍にしない。
+  1holdout family/種類では精密な区間推定は難しい。良否が曖昧なら新familyを追加し、
+  testを見ながらbankを調整して同じtestへ再採点し続けない。
+
+context長:
+  最初の6caseのprefix64は現在の配線との比較用。実使用の長contextを代表しない。
+  bank pilotのtask-matched prefix長は自然なfull promptを使い、長さをmanifestで記録する。
+  pilotの結果が有望で、実利用が長contextを含むなら、新しいfamilyで長さbucketを追加する。
+  同じ文を繰り返して長くしたstreamだけでlong-context一般化を評価しない。
+  長さmatched ENGINE試験と、意味matched TASK試験の結果を分けて表示する。
+
+5. joint6 IDから計算すべき量
+===========================
+各recordのordered IDsをS[t,l]とし、setとしてB[l]との交差を計算する。
+ID順序は捨てずにrawへ残すが、hit計数では同じexpertを重複加算しない。
+
+  inclusion_probability[l,e] = count(e in S[t,l]) / N_l
+    合計は6。slot-normalized frequency = count / (6*N_l)とは分母が違う。
+  H[t,l] = |S[t,l] intersect B[l]|, 0..6
+  CPU_remaining[t,l] = 6 - H[t,l]
+
+各candidateについて少なくとも次をtrain/validation/holdoutとlane別に出す。
+  - byte budget、各layerのbank expert数、candidate bank hash
+  - H=0..6の全histogram、mean H、H=0率、H=6率
+  - tokenごとの合計GPU hitと残CPU仕事の偏り（各layer情報も保持）
+  - 同一layerでH=0が続くrun length（文書境界をまたいで連結しない）
+  - 元のjoint6のorder/identity、phase、position、scope、fail/dropの除外理由
+  - 同一layerで隣接tokenが共有したexpert数はlocality統計として別に出す
+
+adjacent overlapはGPU bank hit率ではない。static bankが存在しない現時点でcache hitと呼ばない。
+将来dynamic cacheを評価するなら、明示したcache policy・初期状態・eviction/transfersを
+時系列にsimulationする必要がある。現段階ではstatic Bだけに絞る。
+
+同じmean Hでも分布は重要。
+例えば仮にCPU/GPUとも1expert=1時間単位、追加overhead0なら、毎回H3はmax(3,3)=3。
+H0とH6が交互なら平均H3でも毎回max(6,0)またはmax(0,6)=6。
+これは説明用の仮定であり、実機の時間・線形性・speedupを測った例ではない。
+
+6. bank選択の目的はhitそのものよりsaved time
+==========================================
+native gate/up/down三つを置く単位と、その実byte数を使う。CPU compact bytesやexpert数だけで
+GPU payloadを計算しない。layerごとの型、alignment、固定workspaces等を区別する。
+
+最初の候補はtrainのfrequency-per-byte等を透明なbaselineとしてよい。ただしそれを最適としない。
+次の段階で測定済みのcost modelがあるなら、joint6を使って候補を評価する。
+
+  T_mix[t,l] = T_pre[t,l]
+             + max(T_CPU_remaining[t,l], T_GPU_result_ready[t,l])
+             + T_post[t,l]
+  saved_time[t,l] = T_baseline[t,l] - T_mix[t,l]
+
+CPUとGPUのfinish timeを共通のfork起点に揃え、GPU側には必要なenqueue/転送/compute/結果返却を
+含める。すでにmaxへ含めたjoin待ちを再加算しない。H=0/6の特別経路も実装どおり区別する。
+CPU costは単純な(6-H)*定数とは限らない。quant型、compact hit、共通変換、barrier、chunking等で
+変わり得る。GPU側もHと型や転送を無視した定数にはできない。
+
+route-onlyで計算できるのはH等と構造的なcandidate比較まで。
+T_pre/T_CPU/T_GPU_ready/T_postが未測定ならsaved_time欄をunknownにし、hit率を速度予測へ変換しない。
+費用modelのfitに使った測定とvalidation/holdoutは識別可能にする。
+
+モデルの算術差に関する特に重要な留保:
+  現traceはCPU baselineのroutingである。初期相談で確認されたIQ系CPU/CUDAの入力量子化差に
+  より、同じ固定input tokenでもhybridの中間値と後段routingが変わり得る。
+  したがってoffline Hは「routingが同じなら」の割当screen。実hybridでも同じrouteになる保証ではない。
+  positive bankが後で可能になったら、固定holdout inputで実hybridのroute/outputも観測し、
+  baseline上のH予測と実際のH/時間を比較する。CPU bit一致だけを唯一の品質基準にはしない。
+
+candidate freezeとholdout:
+  trainで候補を作り、validationで事前に決めた候補数/予算/目的を比較する。
+  使用bank・cost model・budget・集計weight・除外規則をhashでfreezeした後、一度heldoutを評価する。
+  同じheldoutを見て追加tuningした場合は、次の最終評価に新しい独立familyが必要。
+  routing intervention（expert選択自体の変更）やexpertの枝刈りは、このmemory placement評価へ混ぜない。
+
+7. 容量に関して今回の観測から言えること
+=====================================
+以前のNVML free2575MiBと、今回のdiagnosticで保存されたused最大30392MiBは別の観測である。
+今回total-usedを計算して新しいfreeとみなさない。reserved、driver/workspace、query時点が違う。
+正のbankにはfresh free/CUDA admissionと既存3072/2560MiB guardが必要であり、まだ実行していない。
+offlineのbank budget sweepは仮定されたscenarioで、allocation可能という判定ではない。
+
+GPU37..39を保つ条件で最初に調べるのは、通常APIと診断driverのallocation差、現行context/KV/
+vision/workspaceの実体、allocator/poolとlive/reservedの内訳である。memory削減策と算術/配置変更を
+別の実験として切り分ける。計測のためだけにreserveを下げたりGPU層をCPUへ戻したりしない。
+bankのsaved-time候補が見つかっても、capacityが0なら現条件のpositive bankとして採用できない。
+
+8. 外部の一次資料から補助できること（このモデルの測定ではない）
+==============================================================
+Multilingual Routing in Mixture-of-Experts (Bandarkar et al., ICLR2026 / arXiv2510.04694v2)は
+複数MoEモデルのparallel多言語dataで言語と層に応じたrouting差を報告する。現エンジンやこの
+DeepSeek派生モデルを測定した論文ではないので、差がある/大きいと外挿せず、比較する根拠とする。
+https://arxiv.org/html/2510.04694v2
+https://proceedings.iclr.cc/paper_files/paper/2026/hash/1b558190825286a3defcc78d02fa2189-Abstract-Conference.html
+
+Do All Languages Cost the Same? (Ahia et al., EMNLP2023)は、同じ意味を伝えるtoken数の言語差を
+扱っている。現在のtokenizerの倍率はその論文から借りず、今回のGGUF/tokenizerで直接測る。
+https://aclanthology.org/2023.emnlp-main.614/
+
+本提案の6case/12family/20case、split、budget、集計順序はこのreviewの設計案であり、
+上記論文が推奨または実証した最小サンプル数ではない。
+
+原本sourceリンク
+================
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/caf35bcdd27c0240572e05a60633f07fca272844/archive/review-handoffs-not-for-readers/2026-11-17-route-capture/driver.cpp
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/caf35bcdd27c0240572e05a60633f07fca272844/archive/review-handoffs-not-for-readers/2026-11-17-route-capture/ACTUAL_CONSULT_PRO_JA.txt
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/caf35bcdd27c0240572e05a60633f07fca272844/archive/review-handoffs-not-for-readers/2026-11-17-route-capture/runs/20261117T001035Z-68c12e67/LAUNCH_MANIFEST.json
+
+現在ユーザーへ新しい実行commandを依頼する文書ではない。実機側assistantの次設計へ渡す提案であり、
+この環境で実model/GPUがある前提の実行要求ではない。

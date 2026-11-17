@@ -1,0 +1,37 @@
+{
+  "unix": 1794878769.061351,
+  "pid": 206163,
+  "status": "running",
+  "config_sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+  "startup_cparams_lines": [
+    "1.29.352.799 I llama_context: n_batch               = 1024",
+    "1.29.352.812 I llama_context: n_ubatch              = 1024",
+    "1.29.352.827 I llama_context: n_outputs_max         = 1",
+    "1.29.352.827 I llama_context: n_outputs_max_per_seq = 1",
+    "1.29.822.994 I sched_reserve:      CUDA0 compute buffer size =  4669.26 MiB",
+    "1.29.823.004 I sched_reserve:  CUDA_Host compute buffer size =   538.73 MiB",
+    "1.31.310.902 I reserve_compute_meta:      CUDA0 compute buffer size =    97.45 MiB",
+    "1.31.310.909 I reserve_compute_meta:        CPU compute buffer size =     5.20 MiB",
+    "1.21.804.100 I llama_context: n_batch               = 1024",
+    "1.21.804.100 I llama_context: n_ubatch              = 1024",
+    "1.21.804.114 I llama_context: n_outputs_max         = 1",
+    "1.21.804.114 I llama_context: n_outputs_max_per_seq = 1",
+    "1.22.265.696 I sched_reserve:      CUDA0 compute buffer size =  4669.26 MiB",
+    "1.22.265.705 I sched_reserve:  CUDA_Host compute buffer size =   538.73 MiB",
+    "1.25.718.271 I reserve_compute_meta:      CUDA0 compute buffer size =    97.45 MiB",
+    "1.25.718.278 I reserve_compute_meta:        CPU compute buffer size =     5.20 MiB"
+  ],
+  "memory_query": {
+    "command": [
+      "nvidia-smi",
+      "-i",
+      "GPU-6622f7a2-ee1a-a79e-1277-cee96d850aa3",
+      "--query-gpu=memory.total,memory.used,memory.free,power.limit,ecc.mode.current",
+      "--format=csv"
+    ],
+    "returncode": 0,
+    "stdout": "memory.total [MiB], memory.used [MiB], memory.free [MiB], power.limit [W], ecc.mode.current\n32768 MiB, 29942 MiB, 2553 MiB, 150.00 W, Enabled\n",
+    "stderr": ""
+  },
+  "scope": "Read-only ordinary API before measurement; no admission or allocation test"
+}

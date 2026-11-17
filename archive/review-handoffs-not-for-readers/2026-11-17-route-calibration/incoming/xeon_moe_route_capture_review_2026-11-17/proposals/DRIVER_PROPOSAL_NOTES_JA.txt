@@ -1,0 +1,63 @@
+driver_linear_export.patch の範囲と確認結果
+2026-11-17
+
+目的
+====
+正常callのたびに全累積traceをJSON化・全書換え・再検査する構造を減らす最小案。
+実engine・collector・算術・sync・配置の最適化patchではない。
+親commit caf35bcdd27c0240572e05a60633f07fca272844 のroute-capture/driver.cppと照合する。
+historical raw/sourceを上書きせず、実機側の新しい作業コピーへ同等の変更を移す。
+
+変更
+====
+1. 成功callの全snapshot/saveは4call checkpointだけにする。
+2. result.ok()==falseの場合はその場の全snapshotを従来同様に試みる。
+3. 4call checkpointの全coverage検査とSMOKE4保存を維持する。
+4. 最終close後に全snapshotを取得し、全coverage検査の後だけpassed=trueにする。
+5. 既存catchの失敗保存、drain/abandon、owner破棄順序は変更しない。
+
+正常68callのsource上のrecord visits:
+  snapshot旧版: 37*(1+...+68)+37*68 = 89,318
+  snapshot案:   37*4+37*68         = 2,664
+  coverage旧版: 37*(1+...+68)      = 86,802
+  coverage案:   37*4+37*68         = 2,664
+実時間やspeedupを測った値ではない。
+
+保持する条件・tradeoff
+=====================
+collectorのend/finishが行うcall単位のチェックと、4call/finalの全検査は残る。
+closeはenabled=falseにするが配列を消さず、その後のstats/readが可能であることをsourceで確認。
+final coverage失敗時はpassed=trueに到達せず、最新traceとerrorがcatchにより保存される。
+同期・finish・未drain時に危険なfreeを避ける経路には変更を入れていない。
+
+ただし次の挙動は変わる。
+- 強制終了時は最後のcheckpoint以降のon-disk進捗を失い得る。
+- 5call目以降、end/finishが拾わないmetadata不整合の発見は最終coverageまで遅れ得る。
+  最終合否は維持するが、旧版なら止まっていた不整合で残りのcallが実行される場合がある。
+長い収集でcheckpointを増やす場合、過去全履歴を毎token再保存する方式へ戻さず、固定segmentの
+追記または最新recordだけの検証を別の小変更として設計する。
+
+まだ含まない機能
+================
+毎callのCallResult JSON append、全vocab finite scanは残る。vocabサイズの問い合わせを検査
+loop外へ保持する変更も本patchには入れていない。
+F/D0/D1/D2 mode、外部fixture、任意prefix、境界timestamp、output cap整合も未実装。
+そのためこのpatchを適用したprocess総時間を、そのまま通常APIのdecode速度へ使わない。
+
+確認した範囲
+============
+git apply --check: 成功。
+g++ -fsyntax-only: 実source headers、C++17、Ivy Bridge向けflagsで成功。stderr/stdoutは空。
+独立source review: close後read、final失敗、同期/finish/abandonの維持を確認。
+raw evidence replay: 原本RUN/SMOKE4のbyte再構成、全台帳と各prefixの保存量を別scriptで確認。
+
+未実施: full link、実model/GPU/API、実機benchmark、数値出力比較、失敗注入の実行。
+ソース作業treeへpatchを適用していない。新binaryのruntime採用を承認した結果ではない。
+実機側の別build後はsource/binary/provider pinを更新し、旧hashの照合をbypassしない。
+
+同梱
+====
+driver_linear_export.patch             元driverへのunified diff
+driver_linear_export_proposal.cpp      提案後のdriver全文
+LINEAR_EXPORT_PROPOSAL_CHECK.json      hash、構文check command/exit、範囲
+SYNTAX_STDOUT.txt / SYNTAX_STDERR.txt    実際の構文検査出力（空）

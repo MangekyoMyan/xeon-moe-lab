@@ -1,0 +1,24 @@
+--- a/archive/review-handoffs-not-for-readers/2026-11-17-route-capture/driver.cpp
++++ b/archive/review-handoffs-not-for-readers/2026-11-17-route-capture/driver.cpp
+@@ -89,11 +89,17 @@
+             auto result=drive_call(*api,ctx,tag,[&](){return llama_decode(ctx,batch);},output_valid,[&](){llama_synchronize(ctx);});
+             report["call_results"].push_back({{"logical_input_token",i},{"position",prefix+i},{"label_accepted",result.label_accepted},{"decode_returned",result.decode_returned},{"decode_status",result.decode_status},{"output_called",result.output_called},{"output_valid",result.output_valid},{"synchronized",result.synchronized},{"drain_called",result.drain_called},{"finalize_called",result.finalize_called},{"finalize_ok",result.finalize_ok},{"exception_stage",result.exception_stage},{"ok",result.ok()}});
+             if(!result.synchronized&&result.label_accepted){resources.abandon=true;report["unsafe_cleanup_avoided"]=true;}
+-            report["trace"]=snapshot(*api);save_json(out/"RUN.json",report);
+-            need(result.ok(),"tagged call failed; evidence retained");need(coverage(report["trace"],i+1),"route coverage/ledger failed");
+-            if(i==3){save_json(out/"SMOKE4.json",report);std::cout<<"route37: 4-call coverage passed (148 records)\n"<<std::flush;}
++            // Keep the full four-call gate and caught-failure evidence. Avoid
++            // rebuilding/writing all preceding JSON after every successful call.
++            // Collector end/finish still validate each call. This bounded policy
++            // retains only the last checkpoint on abrupt process termination.
++            if(i==3||!result.ok()){
++                report["trace"]=snapshot(*api);save_json(out/"RUN.json",report);
++            }
++            need(result.ok(),"tagged call failed; evidence retained");
++            if(i==3){need(coverage(report["trace"],i+1),"route coverage/ledger failed");save_json(out/"SMOKE4.json",report);std::cout<<"route37: 4-call coverage passed (148 records)\n"<<std::flush;}
+         }
+-        need(api->close(ctx),"close session");session=false;report["trace"]=snapshot(*api);report["session_closed_before_owner_destruction"]=true;report["passed"]=true;save_json(out/"RUN.json",report);api=nullptr;
++        need(api->close(ctx),"close session");session=false;report["trace"]=snapshot(*api);report["session_closed_before_owner_destruction"]=true;need(coverage(report["trace"],total),"final route coverage/ledger failed");report["passed"]=true;save_json(out/"RUN.json",report);api=nullptr;
+         std::cout<<json({{"passed",true},{"calls",total},{"records",total*37},{"output",(out/"RUN.json").string()}}).dump()<<'\n';
+         // Resource destruction occurs before backend release; do not destroy ctx
+         // while collector ownership or device work is still open.

@@ -1,0 +1,120 @@
+route37 caller整備・実モデル数値比較・6入力screen（2026-11-17）
+=========================================================
+
+結果と判断
+----------
+Proの指摘に対応し、隔離した診断callerの全履歴JSON処理をtoken loopから除いた。
+元のCPU/libllamaと診断側3状態の比較を実施し、4call分の全logitsがbyte一致した。
+64callの時間比較では観測有効化の差は区間変動に比べ小さく、大きな負荷は確認されなかった。
+ゼロoverheadや統計的な同等性の証明ではない。collector内の追加最適化を今優先する根拠は弱い。
+日本語/英語/混在ログ/コードの6caseで計14,208件のrouteを採取できた。
+通常APIのengine/source/configは変更していない。復帰確認はRESTORED_RUNTIME.json。
+
+変更したもの
+------------
+- driver.cppを新作業directoryで作成。既存のCPU/CUDA/libllamaは再buildも置換もしていない。
+- token loopは事前確保したStep配列とhost monotonic clockのみ。JSON/trace export/ファイル
+  保存はblock終了後。成功時全履歴走査は最終blockあたり一度。旧O(T^2)処理を持ち込まない。
+- この新callerは4callの数値検査を独立blockとし、合格してから64callのtimingへ進む。
+  計時中の4call checkpoint I/Oはない。異常時は通常drain/finalizeと可能なtrace保存を行う。
+  強制killでは最後の完了block以降のtrace/時刻を失い得る。長期収集の永続化機能ではない。
+- server-context.cppと同じoutput_limits規則を使用し、実cparamsを取得・保存。
+  n_ctx131072 / n_batch1024 / n_ubatch1024 / seq1 / output cap1 / per_seq1 / threads12,24。
+- Fではroute関数をresolveしない。D0はsessionを開かない。D1はobserving0の台帳のみ。
+  D2はobserving1。モードごとに正しいledger検査を行う。
+- 初期化前のfunction provider、初期化後の実scheduler CPU/CUDA providerをarmのpinと照合。
+  source/binary/library hashを検査し、旧pinを無効化していない。
+- 共通coordinatorの成功/失敗時sync・finish順序を維持。数値modeは全finite＋全F32保存、
+  timing/screen modeは通常logits取得による同期とpointer非nullのみ。検査scopeを明記。
+- F-before referenceのarm・cparams・全case token列・placement・provider・logitsを照合。
+  run wrapperは主要referenceのhashも検査。親のanalyze.pyと独立監査はhealthを含む全manifestを照合。
+  manifestはローカル事故検出用で、悪意ある同時改変への認証を主張しない。
+
+受領レビューとの対応
+--------------------
+incoming ZIP SHA256 e0f5c399d9b9c439941df7df7701cbe39ec729058e5e11d9af8a713927dde3af。
+25manifest entries一致。Proの68call反復周期22/20種、累積89,318snapshot visits等はTerraも再確認。
+同梱linear_export.patchは参考とし、今回のmode/時刻/数値比較に必要な共通callerを親が実装。
+BUILD/checkpoints/レビュー記録を保持。初回のbuildは成功したが、実機実行前レビューにより
+provider fail-closed照合とF-before reference指定を追加して再buildした。
+実測に使ったのはtop-level BUILD.jsonの最終binaryだけ。初回buildはモデル実行していない。
+
+実行設計と件数
+--------------
+事前DESIGN.json: F-before → D → F-after。モデルを同時常駐させず、各processを正常終了後に次へ。
+F前後は各correct4＋timing64×2。Dはcorrect4×3、timing64×6、calibration64×6。
+Dの時間比較順はD0,D1,D2,D2,D1,D0。結果が良い順に並べ替えたり、後から採用閾値を作ったりしない。
+全21blocks / 1,044 T1 calls。内訳: 数値比較20call、時間比較640call、6case記録384call。
+D1の台帳のみを含め正常性を検査。観測有効の全recordは19,092、うち6case分14,208。
+各blockはKV clear→同じ64token prefix→通常同期→新しいcollector session。
+first T1を除外せず保存し、firstと残りの統計も別に示す。load/warmup/prefillは別区間。
+
+数値比較
+--------
+固定wiring_fixture、位置64..67、1call129,280 F32。
+F-before / D0 / D1 / D2 / F-after の各517,120値、2,068,480bytesが完全一致。
+共通SHA256: 95430744558e7414b336f6548a6c03e064e12e1adc03cb8256fc45dcfc3187b0。
+全5ファイルのfiniteも別に確認。これは同じ固定4入力の比較であり、全入力の品質証明ではない。
+6caseではfrozenとの差分比較をしていない。timing/screenの全logits有限性を確認したと読み替えない。
+
+時間比較（1call当たり、decode_begin→output_ready、通常同期を含むhost境界）
+------------------------------------------------------------------------
+                     block平均ms                              全block平均ms
+F-before             143.334 / 148.079
+F-after              144.544 / 144.343                          F合算145.075
+D0 診断sessionなし   144.709 / 143.230                         143.970
+D1 台帳のみ          141.683 / 144.625                         143.154
+D2 route記録         144.919 / 143.666                         144.293
+
+平均比の記述値: D0/F -0.762%、D1/D0 -0.567%、D2/D1 +0.795%。
+元実装Fの4block平均の最大/最小差は3.311%。D1がD0より速く見えるなど、順序/実行変動も含む。
+これらを単一機能の純粋なspeedup/slowdownと解釈しない。FとDは別process、各Dmodeは2blocksのみ。
+engine以外の計時caller区間はF約1.6us、D2約2.9〜3.4us/call。engine内のhook/台帳負荷は
+この外側時間には含まれず、Dmode比較の対象。Pythonはtoken loopに参加しない。
+全per-call時刻、初回、mean/median/p95を保存。親analyze.pyのp95は線形補間、Terraメモは
+nearest-rankで定義を明示している。小標本のp99、信頼区間、ゼロoverheadは主張しない。
+
+6caseの記述結果
+---------------
+各case raw textをadd_special=true/parse_special=trueでtokenize。chat templateは適用していない。
+全文をtokenizeしたID/hashを保存した後、最初の64prefix＋次の64T1を使った。
+同じ64tokensがJA/ENで同じ意味量に対応するという仮定は置かない。
+
+case                         全文tokens   engine平均ms   層ごとのunique expert数中央値
+screen_cache_ja               372          135.074        76
+screen_cache_en               264          132.618        93
+screen_experiment_ja          336          136.533        81
+screen_experiment_en          260          139.272        99
+screen_mixed_log              332          138.534        95
+screen_code_python            302          128.818        80
+
+各case1blockのみ、実行順固定、全64callを保存。言語だけの因果効果ではなくtoken内容/位置/順序を含む。
+反復wiringの同統計は60だったため、この例では反復だけの記録よりexpertの種類が広がった。
+この6caseはcalibration専用でbank train/validation/holdoutには使わない。
+12family/20caseはまだ仕様案のまま。bank選択・holdout評価やGPU saved-time予測はしていない。
+
+容量と設定の確認
+--------------
+通常APIは開始前にlive PID206163、slot idle、output cap1を確認。旧診断だけがcap1024だった。
+通常APIとcap1の新callerもCUDA compute bufferは4669.26MiB、CUDA_Host約538.73MiBと表示。
+cap整合によってこの大きなworkspaceが解放されたという結果ではない。
+開始前NVML: total32768 / used29942 / free2553MiB、150W、ECC有効。
+F-before/Dのwarmup後CUDA backend memory query: free2,225,340,416bytes（2122.25MiB）、
+total34,072,559,616bytes。CUDA側APIとNVML reserved accountingを混同しない。
+GPU37..39とCPU0..36のexpert配置を維持。新しいbank allocation/admissionは行っていない。
+3072/2560MiBの既存bank guardを緩めていない。容量調査を次の優先候補とする理由はここにある。
+
+監視・復帰
+----------
+3runともhealth exited/return0、query timeout0、STOP_REQUESTEDなし。
+各runに残る最後30標本の範囲でGPU最大34C、HBM34C、CPU39C、fan40%、利用可能RAM最小67.66GiB。
+全期間の瞬間最大/最小を保証する値ではない。既存150W/ECC/fan<=70/温度/64GiB reserveを維持。
+通常APIは元のstart.pyで起動し、準備完了・元のconfig/CPU/libllama/CUDA/base hashを検査する。
+最終確認はRESTORED_RUNTIME.jsonに保存。ユーザーに追加操作を依頼するコマンドはない。
+
+次の判断
+--------
+観測用コードの負荷をさらに削る作業はここで止め、得たrouteを並列化の判断へ使う。
+まず元のGPU3層を保ったubatch512/256等の少数比較で、workspace/freeとprefill/T1への影響を
+同じ条件で評価する設計をProへ相談する。bank容量が成立する見込みなしに大きなcacheを実装しない。
+CPU absは引き続き保留。通常APIの高速化を今回新たに達成したという報告ではない。

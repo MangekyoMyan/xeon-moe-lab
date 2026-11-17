@@ -1,0 +1,337 @@
+{
+  "schema": 1,
+  "status": "proposal_template_not_executed_not_tokenized",
+  "purpose": "Small bank-selection pilot after the six-case calibration; train means fitting a placement, not updating model weights.",
+  "requires_new_natural_documents": true,
+  "external_case_hashes_and_token_ids_must_be_filled_before_execution": true,
+  "split_unit": "family; translations, language ports, windows, and conversation turns stay together",
+  "split_fixed_before_routes": true,
+  "number_of_families": 12,
+  "number_of_cases": 20,
+  "capture_calls_per_case_proposed": 64,
+  "one_session_per_case": true,
+  "total_capture_calls_if_fully_executed": 1280,
+  "records_per_case_if_complete": 2368,
+  "aggregate_records_across_sessions_if_complete": 47360,
+  "first_pilot_is_not_population_generalization_proof": true,
+  "token_prefix_policy": "For task-matched pilot, use natural rendered full prompts and record actual prefix length. Do not call unequal prefix lengths an engine-length-controlled comparison.",
+  "measurement_weights": {
+    "primary": "report each lane (ja/en/mixed/python/cpp)",
+    "diagnostic_aggregate": "equal-lane macro; family remains statistical grouping unit",
+    "production_weights": null,
+    "production_weights_policy": "Derive and freeze independently from real usage; do not invent a Japanese/English traffic share."
+  },
+  "candidate_freeze_before_holdout": [
+    "bank_ids_and_native_payload",
+    "cost_model_version",
+    "byte_budget",
+    "selection_objective",
+    "workload_weights",
+    "failure_exclusions",
+    "source_and_token_manifest_hashes"
+  ],
+  "current_positive_gpu_bank_admission": "not_evaluated; old free snapshot cannot authorize allocation",
+  "families": [
+    {
+      "family_id": "text_cache_budget",
+      "kind": "parallel_text",
+      "split": "train",
+      "variants": [
+        {
+          "case_id": "text_cache_budget_ja",
+          "language_or_content": "ja",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        },
+        {
+          "case_id": "text_cache_budget_en",
+          "language_or_content": "en",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Explain cache capacity and reuse with a library/shelf example; use independent content from the calibration passage."
+    },
+    {
+      "family_id": "text_unit_conversion",
+      "kind": "parallel_text",
+      "split": "train",
+      "variants": [
+        {
+          "case_id": "text_unit_conversion_ja",
+          "language_or_content": "ja",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        },
+        {
+          "case_id": "text_unit_conversion_en",
+          "language_or_content": "en",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Read a new table of times/quantities and explain unit conversion and checks; keep numeric facts equal across translations."
+    },
+    {
+      "family_id": "text_plan_constraints",
+      "kind": "parallel_text",
+      "split": "validation",
+      "variants": [
+        {
+          "case_id": "text_plan_constraints_ja",
+          "language_or_content": "ja",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        },
+        {
+          "case_id": "text_plan_constraints_en",
+          "language_or_content": "en",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Produce a work plan for three people from explicit scheduling constraints, using new facts."
+    },
+    {
+      "family_id": "text_document_summary",
+      "kind": "parallel_text",
+      "split": "holdout",
+      "variants": [
+        {
+          "case_id": "text_document_summary_ja",
+          "language_or_content": "ja",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        },
+        {
+          "case_id": "text_document_summary_en",
+          "language_or_content": "en",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Summarize causes, remedies and limits from a new document, with no reuse of training content."
+    },
+    {
+      "family_id": "mixed_build_log",
+      "kind": "mixed_workflow",
+      "split": "train",
+      "variants": [
+        {
+          "case_id": "mixed_build_log_ja_en_log",
+          "language_or_content": "ja+en+log",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Japanese request, English compiler log and short command; explain the diagnostic evidence."
+    },
+    {
+      "family_id": "mixed_config_change",
+      "kind": "mixed_workflow",
+      "split": "train",
+      "variants": [
+        {
+          "case_id": "mixed_config_change_ja_json",
+          "language_or_content": "ja+json",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Japanese request and JSON configuration diff; explain a key/type correction."
+    },
+    {
+      "family_id": "mixed_table_reconciliation",
+      "kind": "mixed_workflow",
+      "split": "validation",
+      "variants": [
+        {
+          "case_id": "mixed_table_reconciliation_ja_en-columns",
+          "language_or_content": "ja+en-columns",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Reconcile a new table with English column names and a Japanese question."
+    },
+    {
+      "family_id": "mixed_api_incident",
+      "kind": "mixed_workflow",
+      "split": "holdout",
+      "variants": [
+        {
+          "case_id": "mixed_api_incident_ja_en_http",
+          "language_or_content": "ja+en+http",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Explain a new HTTP incident from English logs and Japanese context, preserving uncertainty."
+    },
+    {
+      "family_id": "code_stable_grouping",
+      "kind": "code_spec",
+      "split": "train",
+      "variants": [
+        {
+          "case_id": "code_stable_grouping_python",
+          "language_or_content": "python",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        },
+        {
+          "case_id": "code_stable_grouping_cpp",
+          "language_or_content": "cpp",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Implement stable grouping and aggregation, with a new specification distinct from the calibration example."
+    },
+    {
+      "family_id": "code_interval_merge",
+      "kind": "code_spec",
+      "split": "train",
+      "variants": [
+        {
+          "case_id": "code_interval_merge_python",
+          "language_or_content": "python",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        },
+        {
+          "case_id": "code_interval_merge_cpp",
+          "language_or_content": "cpp",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Merge half-open intervals with fixed boundary examples and equivalent Python/C++ behavior."
+    },
+    {
+      "family_id": "code_bounded_queue",
+      "kind": "code_spec",
+      "split": "validation",
+      "variants": [
+        {
+          "case_id": "code_bounded_queue_python",
+          "language_or_content": "python",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        },
+        {
+          "case_id": "code_bounded_queue_cpp",
+          "language_or_content": "cpp",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Implement bounded queue behavior for empty/full/normal states."
+    },
+    {
+      "family_id": "code_utf8_line_reader",
+      "kind": "code_spec",
+      "split": "holdout",
+      "variants": [
+        {
+          "case_id": "code_utf8_line_reader_python",
+          "language_or_content": "python",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        },
+        {
+          "case_id": "code_utf8_line_reader_cpp",
+          "language_or_content": "cpp",
+          "rendered_prompt_sha256": null,
+          "reference_continuation_sha256": null,
+          "prefix_token_ids_sha256": null,
+          "continuation_token_ids_sha256": null,
+          "prefix_tokens": null,
+          "capture_t1_calls": 64
+        }
+      ],
+      "brief": "Split byte streams into lines while preserving an unfinished final line and explicit UTF-8 policy."
+    }
+  ],
+  "cases_by_split": {
+    "train": 10,
+    "validation": 5,
+    "holdout": 5
+  }
+}

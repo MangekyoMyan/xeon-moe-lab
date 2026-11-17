@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "pinned_commit": "caf35bcdd27c0240572e05a60633f07fca272844",
+  "scope": "commented checkpoint/export proposal only; no binary link, model/GPU run, or performance validation",
+  "original_sha256": "5b7f87dbf1fa9ae686fa000dbecc9f187ac1d9153aaa779dfe4dfcb4029159ee",
+  "proposed_sha256": "fabcf950b835d2038f624401296483a78ccdba802cba18bfc2de705dc28fa789",
+  "patch_sha256": "9e25b0eeb46d897ea24963d42d8ac3b404854019f55acc93273bf454ab3d7d10",
+  "git_apply_check_exit": 0,
+  "syntax_command": [
+    "g++",
+    "-std=c++17",
+    "-O2",
+    "-march=ivybridge",
+    "-mtune=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-Wall",
+    "-Wextra",
+    "-fopenmp",
+    "-pthread",
+    "-I/workspace/scratch/1f624f9ac929/xeon-moe-capture-caf35bc/archive/review-handoffs-not-for-readers/2026-11-17-route-capture",
+    "-I/workspace/scratch/1f624f9ac929/xeon-moe-capture-caf35bc/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37",
+    "-I/workspace/scratch/1f624f9ac929/xeon-moe-capture-caf35bc/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/include",
+    "-I/workspace/scratch/1f624f9ac929/xeon-moe-capture-caf35bc/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+    "-I/workspace/scratch/1f624f9ac929/xeon-moe-capture-caf35bc/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src",
+    "-I/workspace/scratch/1f624f9ac929/xeon-moe-capture-caf35bc/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/common",
+    "-I/workspace/scratch/1f624f9ac929/xeon-moe-capture-caf35bc/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src",
+    "-I/workspace/scratch/1f624f9ac929/xeon-moe-capture-caf35bc/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/tools/mtmd",
+    "-I/workspace/scratch/1f624f9ac929/xeon-moe-capture-caf35bc/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+    "-fsyntax-only",
+    "/workspace/scratch/1f624f9ac929/deliverables/route_capture_review_2026-11-17/xeon_moe_route_capture_review_2026-11-17/proposals/driver_linear_export_proposal.cpp"
+  ],
+  "syntax_exit": 0,
+  "normal_68_call_record_visits": {
+    "old_snapshot_with_final": 89318,
+    "new_snapshot_4_and_final": 2664,
+    "old_coverage": 86802,
+    "new_coverage": 2664
+  },
+  "limitations": [
+    "Abrupt exit/kill after the four-call checkpoint loses later on-disk progress; caught failures still request a full snapshot.",
+    "Metadata inconsistencies not caught by collector end/finish may be detected at final coverage instead of after each call from call 5 onward; final acceptance remains checked.",
+    "Per-call CallResult JSON append and full-vocabulary finite scan remain. This is not a complete timing harness.",
+    "No output-cap normalization, ABI, engine, collector or arithmetic change.",
+    "Existing launch hash pins must be refreshed by the implementation owner after a separate reviewed build; do not bypass them."
+  ],
+  "original_worktree_unchanged": true,
+  "independent_source_review": "Passed: close-after-read, final failed coverage, sync/finish/abandon paths reviewed; no engine execution."
+}

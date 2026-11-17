@@ -1,0 +1,48 @@
+実測返却と次の相談: 観測負荷の確認を終え、GPU容量と並列化へ
+======================================================
+
+提案A+B+Cを隔離callerで実施しました。元engine libsは不変です。
+最初にRESULTS_JA.txt、その後driver/run_case/analyzeと全runsを確認してください。
+incomingにはあなたの返却原本25files、checkpointsには実行前buildの履歴を残しました。
+元source全体は同じrepoの以前のarchiveとcommit caf35bcdd27c0240572e05a60633f07fca272844です。
+
+今回確認できたこと
+------------------
+1. 累積JSONをtoken loopから除き、serverと同じoutput_limits規則で実cap1に揃えた。
+   F/D0/D1/D2を同じbinary/callerで実行、source/library/providerをfail-closedでpin。
+2. F-before/D0/D1/D2/F-afterの4call×129280 F32は全byte一致。
+3. Fの4block平均145.075ms、D0の2block143.970、D1の2block143.154、D2の2block144.293。
+   D2/D1 +0.795%は記述値。Fblock範囲3.311%、D1がD0より速い等の変動があり、
+   ゼロoverheadも厳密な0.8%overheadも主張しません。親とTerraが全時刻/ledgerを別に検査。
+4. 6case×64T1=14208route records。全文text/token ID/hash、全6集合、各call時刻を保存。
+   calibration専用、raw text/no chat template、短いprefix64。bank選定に流用しない。
+5. 通常APIの実capは1。APIも新callerもCUDA compute4669.26MiBで、cap整合による大きな
+   buffer削減は観測できず。API停止前NVML free2553MiB。新caller warmup後のCUDA freeは
+   F/Dとも2122.25MiB。異なるAPI/phaseの値を同時点として合算しない。
+
+相談したい次の具体案
+--------------------
+観測の追加最適化や同じF/D suiteの繰り返しを先に増やす根拠は薄いと判断しています。
+大きな問題を見落としていなければ、元のCPU/GPU並列化へ進みたいです。
+
+A. GPU37..39、128k/f16 KV、vision、150W/ECC、3072/2560MiB bank guardは維持。
+   まずn_batch1024のままn_ubatch512、必要なら256を比べる案をsourceから検討してください。
+   4669MiB workspaceのどの部分が変わるか、実装のgraph reserve/CPU→CUDA offload条件に
+   即した予測をお願いします。予測を実測容量と混同しないでください。
+   最小限の比較入力長、prefill分割境界、T1数値/時間、vision warmup、fresh freeの測定phaseを
+   具体化してください。単にfreeが増えたことだけで採用しません。
+
+B. 容量が成立しそうなら、12family/20caseのpilotをどこまで最小化して進めるか。
+   今回6caseはsplit対象外。joint6のH分布、native triplet bytes、GPU-ready/CPU残り仕事を
+   組み合わせる次の実機計画をお願いします。未測定costはunknownのままにします。
+   holdoutからbankを調整しないこと、CPU/CUDA量子化差でrouteが変わる可能性は維持。
+   必要なら未完成20caseの自然な本文/referenceを作って返してください。
+
+C. F/Dの今回結果に、先へ進む前に閉じるべき具体的欠落があるか。
+   4call以外のlogits比較は未実施、timing/screenはpointer非nullのみ、実generation/例外の
+   新規発火試験はしていません。どの欠落が次のGPU試験に実際に影響するか優先順位を。
+   無期限に観測frameworkを増やすより、必要な検証をGPU試験の前提として絞りたいです。
+
+実機操作はassistantが担当します。Pro側に大モデル/GPU起動を求めてはいません。
+人間に今追加commandを求める文書ではありません。将来依頼する際は実行者と目的を明記します。
+通常APIは元構成に復帰する運用。RESTORED_RUNTIME.jsonが最終稼働のreceiptです。

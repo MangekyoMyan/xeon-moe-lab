@@ -1,0 +1,163 @@
+実機側アストラへの引き継ぎ — route captureの次の一手
+2026-11-17
+base: caf35bcdd27c0240572e05a60633f07fca272844
+対象: archive/review-handoffs-not-for-readers/2026-11-17-route-capture
+
+先に結論
+========
+実route接続は合格扱いで進めてよい。次の仕事は、観測を増やす前の小さい計測caller整備。
+毎callの全履歴JSON/coverageと、通常serverと異なる可能性が高い出力予約条件を先に閉じる。
+その後、同じcallerで4callの出力比較と短いF/D0/D1/D2時間比較、6caseの言語screenへ進む。
+CPU absの既存suiteやfull-linkの準備検査を、結果選別目的で繰り返す依頼ではない。
+
+分担
+====
+このチャット側: raw/sourceレビュー、設計、隔離したpatch案、構文検査まで完了。
+実機側assistant: 新callerの実装・build・実機検証・通常API復帰を担当する。
+人間に今追加commandを求めていない。実機側は受領時の現在状態を確認し、既に進んでいる
+作業や稼働processを重複起動しない。以前の保存PIDを現在PIDと仮定しない。
+
+今回確定したこと
+================
+- 4/68callの全台帳、先頭4callの全field一致、28共有ファイルのsize/SHAを再検査した。
+- 全call37layers、6unique IDs、drop/flags0、generation1。新しいgen遷移・異常系の実測ではない。
+- 通常API復帰receiptは元CPU/libllamaでdiagnostic_libraries_loaded=false。
+- 全logits finiteのbooleanはある。logits値/hash、per-call時間はない。
+- 68入力は20token IDs、最短周期22tokens。lag1の共通expert平均2.00565、lag22は4.49530。
+- rawをbank選択・holdout両方へ使用しない。4call+68callを独立72例と数えない。
+- 旧free2575 MiBと新used30392 MiBは別の観測。fresh free/positive admission未実施。
+
+作業A: exportと初期化条件を小さく直す
+====================================
+A1. 同梱proposals/driver_linear_export.patchを検討する。
+    元driver SHA256:
+    5b7f87dbf1fa9ae686fa000dbecc9f187ac1d9153aaa779dfe4dfcb4029159ee
+    毎成功callの全snapshot/save/coverageを4call checkpointとfinalへ移す。
+    caught failureの全snapshot、call_controlのsync/finish、undrained cleanupは維持。
+    final close後に全coverageを追加し、成功判定をそこで行う。
+
+    source上の正常68call snapshot visitsは89,318→2,664。
+    実行速度改善率は未測定。git apply --checkとg++ -fsyntax-onlyのみ成功。
+    actual engine/binaryの合格ではない。詳細receiptはproposals/LINEAR_EXPORT_PROPOSAL_CHECK.json。
+
+    tradeoff:
+    - kill等では最後のcheckpoint以降のon-disk進捗を失い得る。
+    - end/finishで捕捉されないmetadata不整合の検出は、5call以降ではfinalへ遅れ得る。
+    - CallResult JSON追加と全vocab finite scanは残る。完成したtiming callerではない。
+    必要なら最新37recordだけを固定arrayで検査するO(T)版を別の小変更にする。
+    大きいJSON frameworkや動的mapをhookに入れない。
+
+A2. 通常serverとdiagnosticの実cparamsを並べる。
+    raw diagnostic: n_batch=1024, n_ubatch=1024, n_outputs_max=1024, max_per_seq=1。
+    CUDA compute reserve=4669.26 MiB。
+    driverはcommon_init_from_paramsへ直行するが、server-context.cppは先に
+    server_output_limitsを適用する。non-embedding/non-audio/nonspeculative/parallel1なら1。
+    現在APIの実値をstartup receiptで確認し、用途に対応した同じ算出規則へ揃える。
+    1を理由なくhardcodeしたり、4.7GiBを全て回収可能と扱ったりしない。
+
+    診断のcapだけが過大なら、これは診断条件の整合であり、通常APIの新VRAM削減ではない。
+    backend_sampling=falseはcommon側もdefault false。これを未確認のAPI差として加算しない。
+
+A3. source/binary/providerのpinを更新し、元pinをbypassしない。
+    通常APIのsource/runtimeを直接置換する前に、隔離callerとして検証可能にする。
+    同じ配置・threads・NUMA・vision・128k/f16 KVの条件を記録し、実際の生成cparamsも保存する。
+
+作業B: frozenとの差を同じcallerで測る
+====================================
+B1. 四つの明示modeを持つ小さいcallerを作る。以下は設計名であり、現在のCLIではない。
+    F:  frozen CPU+libllama。route symbolをresolveしない。
+    D0: diag CPU+libllama。sessionはopenしない。
+    D1: diag。observing=0、label/ledger/登録のみ。
+    D2: diag。observing=1。全exportは計測block終了後。
+    F/D0/D1へ現在のON専用coverageを無条件に使わない。
+    Fのprovider検査でroute symbolsを必須にしない。
+
+B2. 同一teacher-forced input/開始KV/配置/実cparamsで4callの数値比較を先に行う。
+    各callの129280 F32 logitsを保存する。4callで2,068,480 B/arm。
+    byte一致を確認。差があればF対Fの再現性から切り分け、max_abs/relative_L2/top候補等を報告。
+    finite booleanだけ、同じ生成文だけを判定材料にしない。
+    観測追加による差と、将来のCPU/CUDA IQ算術差を同一の判定問題にしない。
+
+B3. 最初の時間比較は1fixture、32〜64T1程度の短いblockにする。
+    clockはhost monotonicをcaller境界で読み、事前確保配列へ保存する。
+    hook内clock、追加CUDA同期、native route記録とJSON/I/Oの混在を避ける。
+    clock epochが異なるCPU timestampとCUDA elapsedから絶対GPU-readyを作らない。
+
+    必要な時刻と区間:
+      step_begin -> decode_begin       label/準備
+      decode_begin -> decode_return    llama_decode内部
+      decode_return -> output_ready    通常logits同期・取得
+      output_ready -> validation_end   finite等を行う場合だけの診断処理
+      validation_end -> finalize_end   route ledgerの完了処理
+      finalize_end -> step_end         その他のcaller処理
+      step_begin -> next.step_begin    次token開始までの実間隔
+
+    engine区間はdecode_begin→output_ready。全体のstep間隔も併記する。
+    数値比較modeの全logits保存/全finiteをtiming modeから外すなら、そのscopeを明示する。
+    pointer readyとfull finiteを同じoutput_valid=trueの意味にしない。
+    first T1のgraph準備は別表示し、block総時間から隠さない。
+    4call checkpointのI/Oをtimed block内へ入れた場合はそのgapを必ず示す。
+
+    D0/D1/D2は同じdiag process内でreset+同prefix、順序入替のblockが可能。
+    Fは別process。load時間を除外する。DSO hot-swapや複数model同時常駐はしない。
+    mean/median/p95、first-call、全per-call列、run/block順序を保存する。
+    D0-F、D1-D0、D2-D1と測定揺れを示す。未指定の%採用閾値を後付けしない。
+    小標本でp99やゼロoverheadを主張しない。問題が特定された区間だけ追加測定する。
+
+作業C: 代表入力へ進むための6case
+===============================
+plans/CALIBRATION_TEXT_EXAMPLES.jsonの6例は、JA/EN同意味2組、混在ログ、Pythonコード。
+token化前の自作文章である。モデル/tokenizer/template identityを固定して実token IDsと
+hashを作り、各case prefix64+64T1の機械的な比較から始める。
+64callは2368recordsで4096容量内。caseごとにclose/export、KV reset、prefill/sync。
+現在の固定英文・4/68callだけのdriverには外部fixture/bounded count対応が必要。
+
+同じ64tokensがJA/ENで同じ意味量になるとは仮定しない。回答完成時間の比較はfull prompt/
+referenceの別TASK viewで実token数と共に示す。今回128k設定でも実観測位置は64..131である。
+長文が必要になったら別familyで追加し、短文の反復だけを長文代表にしない。
+
+作業D: bank候補pilotと容量を並行して設計
+=====================================
+D1. plans/WORKLOAD_FAMILY_MANIFEST_EXAMPLE.jsonは12family/20caseの仕様と分割案。
+    一般文JA/EN 8、混在4、コードPython/C++ 8。train/validation/holdout=10/5/5case。
+    実際の文書、reference、token manifestは未作成。routeを見てからsplitを選ばない。
+    翻訳/移植/window/turnは同一family。同じholdoutを見ながらbankを調整し続けない。
+
+D2. joint6からH=0..6分布、all-miss/all-hit率、連続miss長、残CPU仕事の偏りを出す。
+    layer/expert pairで識別する。count/Nのinclusionとcount/(6N)のslot頻度を区別する。
+    native triplet bytesとbank hashを保存。CPU compact bytesをGPU payloadに置換しない。
+    候補選択はtrain、絞り込みはvalidation、bank/budget/objective/weight freeze後にholdout。
+
+D3. GPU37..39は維持。既存3072/2560MiB guardも維持。
+    まず通常API/diagのoutput capとworkspaceを整合させ、reserve/warmup後のfresh freeを取得。
+    旧freeと今回usedを同じ時点として計算しない。positive admissionをした扱いにしない。
+    必要ならubatch512/256等を少数比較し、prefill/vision/request範囲/T1出力を確認する。
+    offload閾値64をまたぐ変更を容量だけの中立変更と扱わない。
+
+D4. T_pre + max(C_remaining,G_result_ready) + T_postを共通fork時点で評価する。
+    route-onlyでGPU ready/overlap/saved-timeを実測したとはしない。未測定costはunknown。
+    GPUのenqueue/転送/計算/戻しや既存GPU仕事の競合を落とさない。join待ちを二重加算しない。
+    CPU costも(6-H)*定数とは仮定しない。CPU最適化後は釣り合いを再評価する。
+
+D5. CPU/CUDA IQ算術差により、固定input tokensでも後続routingは変わり得る。
+    baseline routeで選んだbankは条件付き候補。実positive bankが可能になったらholdout入力を
+    hybridで流し、実route/output/時間を確認する。CPUとのbit一致だけを品質判定にしない。
+
+今回の完了条件
+==============
+まずA+Bの比較がreview可能な形になれば、コード複雑化による負荷の懸念を具体的な区間に
+絞れる。そこで問題がなければcollectorの追加最適化を先行させずC/Dへ進む。
+観測基盤の整備を無期限に増やさず、元のCPU/GPU並列実行を評価するために使う。
+
+戻してほしい保存物（次回レビューの最小セット）
+=============================================
+source diff/親commit、新しいbuild/provider pin、実cparams、mode/scope明記のrun manifest、
+4call logits比較結果、境界timestamp列とblock順序、6caseのtext/token hashとroute ledger。
+容量に触れた場合は同じ測定phaseのrequested/reserved/freeとguard/admission結果。
+失敗/除外/未実施を成功へ混ぜず保存する。通常API復帰のreceiptは実機側の慣行を継続する。
+
+Open WebUIの2単位ずつ出る挙動は未解決。今回のJSON負荷が原因と断定しない。
+API調査時にはengine token完了、SSE送出、受信、表示の時刻と単位の対応を別に記録する。
+今回の短いcaller比較へHTTP/ブラウザ計測を必須として詰め込む必要はない。
+
+詳細理由・source参照・再現scriptはROUTE_CAPTURE_REVIEW_JA.txtと同梱資料を参照。

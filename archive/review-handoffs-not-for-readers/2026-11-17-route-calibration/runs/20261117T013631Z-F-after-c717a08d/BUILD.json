@@ -1,0 +1,90 @@
+{
+  "command": [
+    "g++",
+    "-std=c++17",
+    "-O2",
+    "-g",
+    "-march=ivybridge",
+    "-mtune=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-Wall",
+    "-Wextra",
+    "-fopenmp",
+    "-pthread",
+    "-I/home/codex/projects/llm-lab/route37-calibration-20261117",
+    "-I/home/codex/projects/llm-lab/route37-calibration-20261117/route37",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/include",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/common",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/tools/mtmd",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+    "/home/codex/projects/llm-lab/route37-calibration-20261117/driver.cpp",
+    "-L/home/codex/projects/llm-lab/route37-calibration-20261117/runtime-frozen",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/route37-calibration-20261117/runtime-frozen:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,--no-as-needed",
+    "-lllama",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-lggml",
+    "-lllama-common",
+    "-lmtmd",
+    "-ldl",
+    "-Wl,--no-undefined",
+    "-o",
+    "/home/codex/projects/llm-lab/route37-calibration-20261117/driver"
+  ],
+  "returncode": 0,
+  "source_sha256": {
+    "driver.cpp": "f9118570dcce92b25b8e57d86c7036438eee6ff16af20a97ad4d514e62b2b54f",
+    "route_client.h": "0dcc055b507ba2d35db6d261592f72a11ee5c73de3515d74893eb406be21b216",
+    "call_control.h": "78649f314366fbfe6993cf287c89432a86aa2219a7166a93e9e83d657355d483",
+    "route37/route37.h": "1512fe9a3e285ffe33802289f80aa5e1ea6b4fb6030f4b8e70d51253e1abd4fa",
+    "CASES.json": "0e741be2dc83357357940f13ffffc94e76283ace3a36e0f7935deb64bba75967",
+    "DESIGN.json": "f1eb66daed9325e40ab5943880ae33eba3692298cf347d5e1a0144e1794d3a8a"
+  },
+  "engine_libraries": {
+    "frozen": {
+      "libggml-cuda.so.0.28.0": {
+        "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+        "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+      },
+      "libggml-base.so.0.28.0": {
+        "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+        "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+      },
+      "libggml-cpu.so.0.28.0": {
+        "path": "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0",
+        "sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3"
+      },
+      "libllama.so.0.8.0": {
+        "path": "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0",
+        "sha256": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26"
+      }
+    },
+    "diagnostic": {
+      "libggml-cuda.so.0.28.0": {
+        "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+        "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+      },
+      "libggml-base.so.0.28.0": {
+        "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+        "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+      },
+      "libggml-cpu.so.0.28.0": {
+        "path": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0",
+        "sha256": "602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81"
+      },
+      "libllama.so.0.8.0": {
+        "path": "/home/codex/projects/llm-lab/route37-integration-20261117/runtime/libllama.so.0.8.0",
+        "sha256": "83bfeefe150634c56507244ed8415bc9a863b12a2ef275ad21b32ab9a020293d"
+      }
+    }
+  },
+  "driver_sha256": "fcaf8cd1829ced3d2d8a3e16330b58c3209efa6c05b8333fd47125360a25431f"
+}

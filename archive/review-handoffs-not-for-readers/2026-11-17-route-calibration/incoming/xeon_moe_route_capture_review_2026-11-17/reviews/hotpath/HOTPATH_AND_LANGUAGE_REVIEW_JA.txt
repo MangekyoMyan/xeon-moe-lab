@@ -1,0 +1,272 @@
+route capture: hot path・診断driverの負荷・実装言語境界レビュー
+対象commit: caf35bcdd27c0240572e05a60633f07fca272844
+担当: /root/capture_hotpath
+
+判断
+====
+実routeの接続成功を否定するsource上の新しい欠陥は、この担当範囲では見つけなかった。
+ただし速度比較の前に直すべき、具体的な診断driverの負荷を確認した。
+
+最優先は、毎tokenで全履歴をJSONへ作り直し、全履歴を書き出し、全履歴のcoverageを
+再検査している処理である。68callの間にrecordを読む回数とcoverage走査は各86,802件。
+最終snapshotはさらに2,516件読む。session全体ではO(T^2)になる。
+これはCPU演算hook内の処理ではなく、decodeと通常logits同期が終わった後、次tokenへ
+入る前の診断処理である。実時間の寄与は未測定で、支配的だったとは断定しない。
+
+現在の通常APIがこのJSON経路を実行する証拠はない。RESTORED_RUNTIME.jsonでは通常の
+CPU/libllama/base/CUDAに復帰し、diagnostic_libraries_loaded=falseと記録されている。
+したがって「診断機能を足したため通常APIが既に遅くなった」という結論にはならない。
+一方、今の診断driver全体時間をengine速度に使うと、周辺処理を混ぜる具体的な理由がある。
+
+もう一つ、容量とAPI比較に重要なsource差を確認した。diagnosticはn_outputs_max=1024を
+実表示するが、通常serverのsourceは初期化前にserver_output_limitsを適用する。
+non-embedding/non-audio/nonspeculative/parallel1ならこの値は1になる。
+同じ-c/-b/-ub/GPU層でも、driverとserverの最大出力予約が一致するとは限らない。
+次の診断比較ではここを確認・整合させる方が、闇雲にbatchを下げるより先である。
+
+実施範囲
+========
+source/JSON/raw stderrを読んだ。自作stdlibスクリプトで循環回数とJSON文字列量を再構成。
+配布script、実行ELF、engine、モデル、GPU、通常APIは実行していない。新しい時間測定なし。
+repoに変更なし。監査source hashはSOURCE_MANIFEST.json（33ファイル）。
+再現: python3 audit_driver_cost.py --repo <caf35bc worktree> --output <repo外directory>
+
+パス略記
+========
+C = archive/review-handoffs-not-for-readers/2026-11-17-route-capture/
+I = archive/review-handoffs-not-for-readers/2026-11-17-route-integration/
+H = archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/
+U = H/deepseek41-bringup-20261101/source/
+R = I/route37/
+すべて指定commitのrepo相対path。以下の行番号はこのcommitに固定。
+
+1. 毎tokenの全履歴処理は、速度用driverから外す
+==============================================
+C/driver.cpp:87–95
+  各callをdrive_callで完了した後、90行でcall_resultsを追加し、92行で
+  report[trace]=snapshot(*api); save_json(RUN.json,report) を行う。
+  93行のcoverage(report[trace],i+1)も先頭から全call/attempt/recordを検査する。
+
+C/route_client.h:40–49
+  snapshotは全records、全attempts、全callsを毎回API経由でコピーし、ordered_jsonの
+  object/arrayや各recordの6要素vectorを構築する。save_jsonはdump(2)で全JSON文字列を
+  作り、temp fileへ書いてcloseし、renameする。
+
+C/driver.cpp:14–28
+  coverageは全callとその全37recordを再走査する。IDの検査でもJSONからvector<int>を
+  作り、sortとadjacent_findを毎回行う。各record6個という小さい定数でも、過去recordを
+  全tokenで繰り返し処理する点が重要。
+
+sourceから確定する回数:
+  T=4:  per-call snapshot/coverageは各37*(1+2+3+4)=370record visits。
+  T=68: per-call snapshot/coverageは各37*(1+...+68)=86,802record visits。
+  T=68の最終snapshot: 2,516record visitsを追加。
+  per-call attempt/call readもそれぞれ1+...+68=2,346件。
+
+保存RUNの形式を自作JSONで再構成した結果:
+  4call最終RUN: 元rawとbyte同一に整形可能。
+  68call最終RUN: 1,328,348B、元rawとbyte同一。
+  各runの4call時点を再構成するとSMOKE4の原本byteとも一致。
+  sourceのloop通りに各prefixを再構成したper-call RUN文字列量:
+    4call: 225,621B
+    68call: 46,045,921B
+  最初/SMOKE4/終了時の追加保存はこの合計に含めていない。
+
+この数字はJSON生成/書込要求量であって、物理diskへ実際に書いたbyte数や時間ではない。
+page cache、filesystem、他I/Oで実時間は変わる。cloud環境のJSON時間を実機の速度へ
+外挿する追加benchmarkは行っていない。
+
+改善案:
+  - call後はstatsと最新call/attempt/37recordだけを検査する。過去prefixを再検査しない。
+  - 小さい固定array/bitmapでlayerと6IDを検査し、JSON/vector/sortをこの経路から外せる。
+  - 正常経路の全JSON化・全coverageは4call checkpointと最終終了時へ移す。
+  - 失敗時は既存catch経路で、その時点の全traceを保存する。失敗証拠の保持を削らない。
+  - 長い収集で中間保存が必要なら固定長segment単位でflushし、過去segmentを再書換えしない。
+  - 速度を測る区間ではfile I/O/JSON生成を行わず、事前確保した小さいtiming配列へ保存。
+
+次の代表workloadを何十件も採る前に直す価値がある。記録数が増えるほど診断の経過時間や
+次token開始の間隔が増える仕組みなので、平均tok/sだけで覆い隠さない方がよい。
+
+2. 全logits finite検査も別の診断コストである
+===========================================
+C/driver.cpp:79 はllama_get_logits_ithで通常同期した後、vocabularyの全floatをfinite検査。
+両runのstderr:1436にn_vocab=129280。各call517,120B（約505KiB）のfloat列を走査する。
+68capture callだけで8,791,040 floatのisfinite判定。warmup/prefillにも同じ検査がある。
+
+この検査は接続/異常値検出に有用だが、通常APIのsampling等と同一の仕事ではない。
+finiteは正常な数値であるための必要条件の一部で、frozen baselineと同じ出力の証明ではない。
+RUNにはfull logitsやlogits hashがないので、現在の2runのroute一致からlogits byte一致や
+通常APIとの算術同一性を主張できない。
+
+速度用に通常logits取得直後の時刻を別途保存すれば、同期までとfinite検査の区間を分けられる。
+finite検査を計測外へ移しても次tokenの開始前に負荷が残るため、model intervalと
+caller loop全体の間隔を両方示す。計測外I/Oを残して「汚染なし」と表現しない。
+
+3. collectorそのものの経路は小さいが、無コストではない
+======================================================
+R/route37.cppは前の試作と同じ本体で、固定領域を使う。hook内にはheap allocation、mutex、
+clock、JSON/file I/O、追加barrierはない。atomic<bool>のlock-freeをstatic_assertしている。
+recordは128Bで、1正常T1 attemptは37record=4,736Bのpayload。
+
+ただし3状態を区別する。
+
+default-off（session未open）:
+  bridgeはmatchesのenabled acquireがfalseで戻る（bridge:8 / collector:22）。
+  CPU MMIDのith0はrecord関数を呼び、active acquireがfalseで戻る（collector:67）。
+  呼出し/flag load/branchや診断版contextのコード配置は残る。凍結binaryそのものではない。
+
+session observing=0:
+  label/ledgerと37gateのvalidation/binding公開は実行される。
+  gate登録時は重複確認に37*36/2=666回のprior-gate loopがある。
+  bridgeでも37modelgateの形状を確認する。hookはactive=falseで戻り、recordは0。
+  完全な無観測baselineと同じコストではない。
+
+session observing=1:
+  登録/ledgerに加え、各hookで最大37bindingのtensor検索を行う。
+  非gateのup/downではpointer検索後に同じdataのalias検索も行う。
+  CPU37層が通常のseparate gate/up/downを通る場合、111hook呼出しが期待される。
+  そのsource上のloop modelではgate pointer visits=703、up/down pointer visits=2738、
+  alias visits=2738、合計6,179candidate visitsになる。runtime counterによる実測ではない。
+  LoRA/追加MMID等を加えれば呼出し数はこのモデルと異なる。
+
+このO(L^2)はL=37という固定された小さい上限であり、driverのO(T^2)全履歴処理とは
+スケールする変数が違う。速度への寄与を測らずにどちらかが支配的とは言わない。
+
+最適化するならD1-D0、D2-D1の測定で寄与が見えてからでよい。
+初期案としてregistrationをsession/graph generation単位にcacheする余地はあるが、
+現契約のmapping検査を弱める変更になるため、いきなり導入しない。
+std::unordered_mapやtensor.extraへのlayerタグ追加を先に入れると、heap/caches/既存extra
+所有権を増やす。37要素linear scanを見ただけでそれが速くなるとは判断しない。
+
+4. 実装言語差: Pythonは毎tokenの内積経路にはいない
+=================================================
+C/run_capture.py:56–69は一つのC++driver processを既存supervisorの子として起動する。
+H/deepseek41-bringup-20261101/supervise.py:127–154は子をPopenした後、独立した監視loopを
+回し、2秒間隔で標本取得、5秒間隔のhealth保存等を行う。毎tokenのPython callbackはない。
+
+C/driver.cpp:87–89のtoken loopはcompile済みC++で、llama_decodeを直接呼ぶ。
+R/ggml-cpu.c:1849からのcollector呼出しはroute37.h:5–7のextern C ABI。
+Python interpreter/GILを挟むC→Python→C++往復ではない。
+dlsym/dladdr/provider statもC/route_client.h:21–37の初期化/provider確認であり、hook内ではない。
+APIのfunction pointer経由呼出しやPLT/branchのコストはあり得るが、言語間serializationの
+大きなコストと混同しない。
+
+今回重い仕事が確認できたJSON処理もC++である。PythonをC++へ置き換える説明では解決しない。
+アルゴリズム、実行回数、割当、I/O、同期の位置を先に直す方が具体的。
+監視processは同じhostで資源を使うため完全な影響ゼロとは言わないが、全比較armで
+既存guardを同じ条件で維持すればよい。guard停止を速度改善として提案しない。
+
+自然言語の日本語/英語差は別担当のworkload設計で扱う。実装言語の話だけで、自然言語による
+tokenization/routing差がないとは推論できない。
+
+5. 最小のoverhead/output比較: F/D0/D1/D2
+======================================
+共通の小さいbenchmark callerを使い、teacher-forced token列、開始KV、prefix、batch、
+backend配置、CPU thread/NUMA、vision allocation、出力/同期の方法を揃える。
+通常HTTP server全体との比較を同じ表へ混ぜず、まず同一callerでlibrary差を切り分ける。
+
+F  = frozen通常CPU + frozen通常libllama、route APIを要求しない。
+D0 = 診断CPU + 診断libllama、sessionを一度もopenしない。
+D1 = D0と同じlibrary、session observing=0、call label/ledgerあり。
+D2 = D0と同じlibrary、session observing=1、full routeあり。
+
+D0-F: diagnostic rebuild/コード配置と無効hook等の差。純粋なflag loadだけとは言わない。
+D1-D0: 登録・call/attemptの管理等。
+D2-D1: active hookのlookup・record等。
+
+現driverはproviders()/API constructorがroute symbolを必須にしているため、frozen Fの
+libraryへ単純にLD_LIBRARY_PATHを切り替えるだけでは起動できない。
+mode=Fではroute API/provider一覧を要求しない明示的な分岐が必要。
+D0/D1でも現coverageはrecord=37*callsを要求するので、そのまま再利用しない。
+modeに応じてrecord0/非観測ledgerを正しく確認する。
+
+先に4callの出力比較:
+  同じ固定入力・開始状態で全129,280 logitsをcallごとに保存し、F/D0/D1/D2を比較する。
+  4call分ならF32で2,068,480B/arm。full vectorは有限性だけでなくbyte/最大絶対差/
+  相対誤差等を必要に応じて検査できる。最初から生成文章の分岐だけで数値差を判定しない。
+  F同士の再現性が崩れる場合は先にその基準揺れを把握し、診断差へ全部帰属しない。
+  bit一致はその固定fixtureの証拠であり、全言語・全contextの保証ではない。
+
+続いて時間:
+  monotonic host clockをcall境界だけで読む。hook内にclock/CUDA eventを足さない。
+  最低限、step開始、decode return、通常logits同期完了、ledger finalize、
+  検査/export終了、次step開始の対応を定義する。
+  graph submit returnだけをtoken latencyにしない。normal output syncまでを必ず含める。
+  JSON/全coverageは測定後。CPU finite検査を残すならその時間区間を明示・分離する。
+  失敗cleanup用のdrain時間を正常callのlatencyへ混ぜない。
+
+順序と統計:
+  D0/D1/D2は同じ診断processで比較可能だが、各arm開始時にKV reset+同じprefixのprefillと
+  必要なwarmupを行い、順序を入れ替えたblockで評価する。
+  Fのlibraryは別processとして扱い、load時間を切り離す。Fを始めと終わりに置く等でdriftを
+  見えるようにする。モデルを複数同居させる提案にはしない。
+  tokenを独立標本として水増しせず、対応するworkload/run/blockで差を集計する。
+  ms/token差、相対差、median/p95、測定揺れを残す。未指定の採用閾値をここで新設しない。
+
+現4call/68callのprocess総時間はload/warmup/prefill/JSON/終了/監視待機込みである。
+この二つの時間差を64で割ってdecode速度にする計算は行わない。
+
+6. 容量: 最初にn_outputs_maxのdriver/server差を確認する
+======================================================
+両診断raw stderrに以下が保存されている。
+  n_ctx=131072, n_batch=1024, n_ubatch=1024
+  n_outputs_max=1024, n_outputs_max_per_seq=1
+  CUDA0 compute buffer=4669.26MiB
+  CUDA_Host compute buffer=538.73MiB
+  vision CUDA compute=97.45MiB
+
+予約経路:
+  R/llama-context.cpp:344–350
+    n_batch/n_ubatchを設定、params.n_outputs_max==0ならn_batchを使う。
+  同:748,789–846
+    n_tokens=min(n_ctx,n_ubatch)、n_outputs_pp=min(n_tokens,n_outputs_max)。
+    full memory module上のPP worst-caseを予約し、T1も予約した後、再びPPを予約して
+    inference中のallocator再割当を避ける。
+  同:2661–2719
+    予約用ubatchで実graphを作り、実schedulerのreserveへ渡す。
+  U/ggml/src/ggml-alloc.c:914–945
+    graph allocatorは新chunk要求が現在より大きい時に再確保する。小さいT1を流しただけで
+    大きいPP用bufferが必ず縮む構造ではない。
+
+したがって128k/ubatch1024のmax graph予約が4669MiBの一部を占めるという経路は説明できる。
+ただしnode別livenessやbackend poolを積算していないため、全部が回収可能な余剰ではない。
+
+driverとserverの差:
+  U/common/common.h:466 でn_outputs_maxのdefaultは0。
+  C/driver.cpp:51–55はserver用argument parserを使うが、server load_modelは通さず
+  common_init_from_paramsへ直行する。argument parserをSERVER指定にしても、server固有の
+  cparams補正まで自動的に実行するわけではない。
+  U/tools/server/server-context.cpp:1210–1213ではcommon init前にserver_output_limitsを適用。
+  同:48–67でaudio/embeddingなどを分岐し、それ以外はcommon speculative output limits。
+  U/common/speculative.cpp:2778–2786はmin(n_batch,n_parallel*(1+n_draft))を使う。
+  nonspeculative parallel1の通常text pathなら1となる。
+
+このsource条件が現在の通常APIにも該当するか、まず実際のstartup cparamsとcompute bufferを
+確認する価値がある。通常APIのn_outputs_max=1を今回この担当が実測したわけではない。
+profile JSONだけでなく、生成されたcontext設定を比べる必要がある。
+
+最小の調査順:
+  A. 元APIの実cparams/compute buffer/明示freeと診断側を同じ粒度で並べる。
+  B. 正当な通常server output capと診断の予約を整合させ、まず1点だけ測る。
+     4callのplacement/route/outputとreserve後freeを確認する。
+  C. それでも必要ならn_ubatchを1024から512/256等へ限定して調べる。
+     GPU37–39と128k/f16 KV等は固定し、変更を明示する。
+     PP backend offloadの64閾値をまたぐ変更は別の効果を持つため、無自覚に32等へ下げない。
+  D. prefillの時間/分割、通常T1、最大許容request/vision、workspace peakを確認する。
+     batch変更はneutralではなく、prefill throughputやkernel選択/丸め方を変え得る。
+  E. その構成で既存3072/2560MiB guardをそのまま再評価してからpositive bankを考える。
+
+これは今のworkerへ即時に構成変更を要求するものではない。まずsource/profileの整合確認を
+次計画へ入れる提案である。旧NVML free2575MiBや今回の最大used30392MiBから、現在の
+cudaMemGetInfo freeを逆算してadmissionを通した扱いにしない。
+
+7. 今回の優先度
+===============
+1. 診断driverのO(T^2)全履歴I/O/再検査を外し、保存と計時の境界を分ける。
+2. n_outputs_max等、driverとserverの実cparams差を確認する。
+3. 共通callerでF/D0/D1/D2の短い出力比較と境界計時を行う。
+4. 同じ軽い収集経路で代表workloadのrouteを採る。
+5. GPU37–39を保つ容量計画と、held-out saved-time評価からpositive-hot実験を決める。
+
+既存collectorを無根拠に複雑化したり、C++を別言語に置き換える工程を先に置く必要はない。
+今回のsourceが示す改善対象は、実行回数・全履歴再処理・出力予約・計時境界である。

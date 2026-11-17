@@ -1,0 +1,30 @@
+route capture 新返却の証拠triage — 2026-11-17
+
+主な読取資料（全path /home/codex/projects/llm-lab/ 以下）:
+route37-calibration-20261117/incoming/xeon_moe_route_capture_review_2026-11-17/reviews/evidence/CAPTURE_EVIDENCE_REVIEW_JA.txt
+同 reviews/hotpath/HOTPATH_AND_LANGUAGE_REVIEW_JA.txt、DRIVER_COST_AUDIT.json
+同 verification/PARENT_EVIDENCE_REPLAY.json、ROUTE_CAPTURE_REVIEW_VERIFICATION.json
+同 ROUTE_CAPTURE_REVIEW_JA.txt、ASTRA_ROUTE_CAPTURE_NEXT_ACTION_JA.txt
+比較元 route37-integration-20261117/ACTUAL_CAPTURE_AUDIT_TERRA.txt、driver.cpp、route_client.h、runs/20261117T000246Z-d4e0df3a/、runs/20261117T001035Z-68c12e67/、deepseek41-bringup-20261101/source/tools/server/server-context.cpp、source/common/speculative.cpp、route37-integration-20261117/route37/llama-context.cpp。
+
+既観測・照合: 4callは4 attempts/calls、148 records、888 ID slots、position64..67。68callは68 attempts/calls、2,516 records、15,096 ID slots、position64..131。前回独立監査では全ledger、phase2、各37層、各6個の0..383で一意のID、drop/flags0、同期・終了、provider/placementを調べた。今回その元JSONを改めて比較し、前4callの全148 records、4 attempts、4 calls、call_resultsの全fieldと順序が68callのprefixと完全一致、token配列先頭68個も一致。SMOKE4 falseはsession close前の中間snapshot、最終RUNとhealthの正常終了を併用して判断する。これは同一固定入力・モデルの2runによる接続再現性であり、4+68=72個の独立したworkloadや言語・一般trafficの再現性ではない。logitsは全語彙finiteのreceiptのみでbaselineとの値/bit一致や品質は未測定。実モデルgenerationは全1でrebuild/abort/errorの動作は未実測。
+
+固定入力の記述統計: continuation 68 tokens中20種、有限列内で成立する最短周期22、driverは2つの短い英文の固定反復をteacher-force。68call rawから同じ層で集合の共通expert数0..6のhistogramを再集計:
+ lag1: 2,479 pairs; [361,568,660,553,267,63,7]; 平均2.005647438483259/6、同順序完全一致0。
+ lag22: 1,702 pairs; [12,27,74,187,419,659,324]; 平均4.49529964747356/6、同じtop6集合324、同順序78。
+ lag44: 888 pairs; [11,21,64,136,263,285,108]; 平均4.146396396396397/6、同順序17。
+ 層内unique expert数31..101、中央値60。全68回で選ばれた層/expertは(8,336),(10,352),(11,14),(12,144),(18,147),(21,251)。これらはこの特定系列の事実であり普遍的hot expertではない。重複するpairは独立実験でなく、この反復条件から選んだbankのholdout一般化や他言語差、GPU cache hit率は分からない。4callだけはtoken4種、lag1の111 pairs [12,21,24,26,21,7,0]、平均2.3963963963963963/6。
+
+コスト: driver.cppの各成功call後snapshot/saveおよびcoverageが全累積recordsを走査し、route_client.hのsnapshotが各recordをJSON化する。68callのper-call snapshot visits = 37×(1+...+68)=86,802、別のcoverage visitsも86,802。close後最終snapshot 2,516を足した89,318はsnapshot側のrecord read visitsで、coverageの86,802を含まない。各attempt/callのper-call snapshot readは各2,346。4callはsnapshot/coverage各370、最終snapshot148、snapshot合計518。自作Pythonによる元RUNの保存formatおよび4call時SMOKE4 bytes再構成は原本と一致し、全prefixのper-call書込要求bytesは4call 225,621、68call 46,045,921、最終RUN原本85,322/1,328,348 bytes。前者は起動時・SMOKE4・最終保存を除くソースに基づく再構成値であり、実際の物理disk bytes、時間、CPU overhead、通常APIへの影響を測った値ではない。診断run全工程時間133.8034696579秒 / 144.7617585659秒はload等も含み、差を64で割ってtoken速度にしない。
+
+output cap: 68call保存stderrにn_vocab=129,280、diagnostic n_outputs_max=1024、n_outputs_max_per_seq=1、CUDA compute reserve=4669.26 MiB、CUDA_Host=538.73 MiB、vision CUDA=97.45 MiB。driverはcommon init直接、server sourceは先にserver_output_limitsを設定し、通常非audio・非embedding・非speculative・parallel1の条件ではsource式min(n_batch,n_parallel*(1+n_draft))からtotal=1。これは条件付きsource推定であり現在の通常APIの実context output capを実測した記録ではない。診断側でoutput capとPP graph reservationが関連するsource経路は見えるが、4669 MiB全体が回収可能なメモリ、変更後のfree、性能や正しさを証明しない。positive-hot CUDA admissionも今回未測定。
+
+保存health直近30sampleの再集計（process全体または連続peakを保証しない）: 4call GPU/HBM/CPU最大30/29/34℃、fan最大40%、VRAM最大30,372MiB、available RAM最小67.796421GiB。68call 29/29/35℃、fan最大40%、VRAM最大30,392MiB、RAM最小67.667332GiB。両sample群のGPU limit150WとECC Enabled。古いfree2575 MiBと別時点のused値を同時値として差引きしない。監査環境が稼働APIを新たに観測したわけではない。
+
+方針・権限: ASTRA_ROUTE_CAPTURE_NEXT_ACTION_JA.txt「実機側assistant: 新callerの実装・build・実機検証・通常API復帰を担当」「人間に今追加commandを求めていない」は外部返却の作業分担/提案であり、新しい人間の指示または従来の人間担当の長時間model起動の取り消しではない。提案されたF/D0/D1/D2、6case言語screen、patch、設定整合等は未実施の案。通常API復帰は保存receiptであって本triageでのlive検査ではない。review上のsource/現有rawとの比較に矛盾なし。過去のnormal APIへの介入や新規操作を正当化するものではない。
+
+このtriageは独自のPythonによる保存raw/JSONの読み取り再集計とsource抜粋の確認のみ。配布script、実行ELF、モデル、API、GPU/ハードウェアを起動・操作せず、時間benchmarkなし。manifest総検証・重要engine/patchの詳細は親の範囲。最終的な数値データと統計の独立保存物は上記rawが原本。
+
+親からの追加情報: 親は通常APIの現在startup logをsudoで読み、n_outputs_max=1、max_per_seq=1、n_batch/n_ubatch=1024、CUDA compute 4669.26 MiB、CUDA_Host 538.73 MiBを確認したと報告。診断側の同じ表示と比べてoutput capは異なるが表示上のcompute予約は同じであり、この観測からVRAM削減を主張できない。上記「実測した記録ではない」は新返却reviewと本独立triageの範囲を指し、親自身の追加確認を否定しない。私はそのstartup logを読んでいない。
+
+人間の追加文脈として親から「Proがやって作ってとあったらあなたがやって」と直接委任が既にあった旨を受けた。外部review自体の権限とは区別し、実行可否は親が既存のユーザー指示と制約に照らして判断する。

@@ -1,0 +1,219 @@
+route37 実captureの保存証拠・入力反復・route統計の独立監査
+2026-11-17
+対象commit: caf35bcdd27c0240572e05a60633f07fca272844
+
+結論
+====
+今回の4call/68callは、実モデルで診断callerからCPU側37層のhookまで接続し、正常な
+teacher-forced T1呼出しを記録して閉じられた、という主張を支持する。
+新しい29共有ファイル、全ledger、保存providerと準備時providerの対応、prefix4callの再現性、
+公表されたfrequency/adjacent-overlapに矛盾は見つからなかった。
+
+ただし、通常APIと観測driverの出力同一性や速度同一性を測った結果ではない。
+今回のcontinuation68入力は20種類のtoken IDからなり、最短周期22tokensで厳密に反復する。
+lag22でroute類似性が大きく上がることも再集計できた。このtraceは接続確認には有用だが、
+expert bankの選定と一般化評価、言語差の否定には使えない。
+
+1. 監査で実行した範囲
+====================
+自作の標準Pythonだけで、保存JSON/全ログ/ソース/manifestを読み、各field・hash・統計を
+再計算した。配布verify_capture.pyやrun_capture.pyは読んだが実行していない。
+実行ELF、共有ライブラリ、モデル、GPU、通常API、実機のサービスを操作していない。
+repoを変更せず、成果をrepo外のaudit/route_capture_20261117/evidenceへ保存した。
+
+再現script: audit_capture_evidence.py
+全監査JSON: CAPTURE_EVIDENCE_AUDIT.json
+反復・frequency集計: ROUTE_PERIODICITY_AND_FREQUENCIES.json
+参照ファイルhash: CAPTURE_SOURCE_SHA256.json
+
+再現:
+  python3 audit_capture_evidence.py --repo <caf35bc pinned worktree> --output <repo外の監査directory>
+
+この監査は実機で測った結果を独立に読み直す作業であり、実機試験そのものを再実行した
+意味ではない。remote backing-fileのinode/deviceやELF SHAをこちらで再検査した主張もしない。
+
+2. 配布・source・buildの整合性
+=============================
+FILES_SHA256.jsonの28項目とmanifest自身で29ファイル。全ファイル集合、size、SHA一致。
+RAW_MAPPING.jsonの12項目は、共有rawのhashと一致。health.json -> guard-health.jsonの
+変更は名前の対応だけで、hashは元receiptと一致する。実機originalが手元にないため、
+originalとのbyte比較まで新たに実施したわけではない。
+
+現在のdriver.cpp、route_client.h、call_control.h、CLIENT_BUILD.json、LINK_BUILD.json、
+run_capture.pyは隣のroute-integrationにある準備済み版と全byte一致した。
+CLIENT_BUILDがpinした各sourceも全SHA一致。LINK_BUILDがpinしたcontext/bridge/header、
+モデル専用deepseek41.cpp、models.h、llama-graph.cppのsource hashとsizeを照合した。
+Unity include/dependencyのhash、再使用object receiptとの対応も整合する。
+これはactual sourceとobject系譜の保存証拠を補強するもので、全model sourceを再buildした
+結果ではない。LINK_BUILD.model_executed=falseは準備時の状態で、後のcapture実行と矛盾しない。
+
+ACTUAL_CAPTURE_VERIFICATIONのraw hashには、意図的に非公開のserver-config.jsonも含まれる。
+この2件のhashは独立再計算不能としてJSONへ残した。READMEで非公開と明示され、必要な
+安全なargs/envはLAUNCH_MANIFESTにあるため、欠落事故とは扱わない。
+
+3. 全ledgerを原本から確認した結果
+================================
+run                         calls attempts records ID slots positions
+20261117T000246Z-d4e0df3a       4       4      148      888    64..67
+20261117T001035Z-68c12e67      68      68     2516    15096    64..131
+
+全callで次を確認した。
+  - request/sequence=0、context=1、phase=2、ubatch=0、n_tokens=1。
+  - decode_call/logical_input_token=i、position=64+i。
+  - attempt id=i+1、first_record=37*i、records37、layers=2^37-1。
+  - call first_attempt=i、attempts1、status0、completed/synchronized=true。
+  - graph_status0、observing/scope_t1/graph_returned/caller_completed=true。
+  - 全recordのordinal、親attempt、位置、generation、各tag field、flagsの一致。
+  - 各callにlayer0..36がその順序で1回ずつあり、各6IDは0..383内で相互に異なる。
+  - records/attempts/calls配列の実数とstatsが一致し、dropped_events/flagsは0。
+  - call_resultsはlabel/decode/output/finalize成功、synchronized=true、exception_stage0、
+    drain_called=false。正常成功経路だけが今回の実モデル試験対象。
+  - 最終session enabled=false、session_closed_before_owner_destruction=true。
+
+graph generationは全件1だけで、実モデルのrebuild/abort/例外/rollbackを確認した記録はない。
+manual/nonmodel fixtureで確認した事柄と実モデルの試験範囲は区別する。
+
+call_results.output_validの意味もsourceから確認した。driver.cpp:79は
+llama_get_logits_ith(ctx,-1)で通常同期を済ませ、全vocabularyのlogitsがfiniteか走査する。
+stderr:1436のn_vocabは129280。rawにはfinite判定のbooleanがあり、logits数値やhashはない。
+したがって「全要素finiteという検査を通った」receiptであって、同じlogitsを再計算できる
+資料ではない。baselineとのbit一致、数値誤差、正解・文章品質はまだ比較できない。
+
+4. SMOKE4 falseと2runの再現性
+============================
+SMOKE4のpassed=falseは初期化時のwhole-session flag。driver.cpp:92–94は4callのcoverage
+成功後、sessionを開いたままsnapshotを保存し、:96でclose後にRUNのpassed=trueを保存する。
+
+両runで、SMOKE4のrecords148/attempts4/calls4/call_results4は最終RUNのprefixと全field一致。
+stats.enabledだけは中間true、最終false。したがってSMOKE4のfalseを単独で失敗と読むのは
+誤り。一方、中間SMOKE4だけで全run終了を証明するわけでもない。
+
+2run間でも以下が一致した。
+  - prefix64 + 最初の入力4のtoken ID全68個。
+  - 先頭148 recordsの順序・IDs・全metadata。
+  - 先頭4 attempts/calls/call_resultsの全field。
+  - providers、active backend、40層placement。
+  - LAUNCH_MANIFESTはcontinue64とplanned_calls以外が全て一致。
+
+これは同じ固定入力・同一モデル環境の別runでの再現性。4callを68callの先頭に加算して
+独立72例が得られたとは数えない。独立した意味内容のworkloadは一つだけである。
+
+5. provider・配置・通常API復帰
+============================
+RUNの16functionはPROVIDERS_FINAL.jsonの準備済み情報とpath/device/inode/sizeを含め全一致。
+ACTUAL_PROVIDER_VERIFICATIONの16function + 2backend各receiptをLINK_BUILDのhashへ照合。
+全route37 APIはdiagnostic CPUの同一provider、llama_decode/logitsはdiagnostic libllama、
+schedulerはgpu-stream base。active CPU graph_computeも同じdiagnostic CPU、CUDAは既存
+cuda-sort providerに対応する。
+
+source上、driver.cpp:64–68は各40層のgate/up/down bufferを実際に確認した後でplacementを
+保存する。0..36はhost、37..39はnon-host。これはexpert weightのbuffer配置を確かめる
+検査であり、各層の全演算をCPU/GPUへ二分した証拠ではない。stderrの
+"offloaded 41/41 layers to GPU"を見てCPU expertが消えたと判断することもできない。
+vision modelのload/warmup receiptもあり、通常profileの配置を維持する意図と整合する。
+
+RESTORED_RUNTIMEはPID206163、API health ok、既存config SHA、4通常runtime libraryの
+backing hash、diagnostic_libraries_loaded=false、API/monitor/notify activeを記録。
+CPUは元33a9...ed3、libllamaは元1d1e...f26、base/CUDAも保存baselineと一致した。
+monitor errors/alertsは空、receipt時刻からmonitor時刻まで約2.9313秒。
+これは実行側の復帰receiptで、監査側の新しいremote process観測ではない。
+
+6. 監視・stderr・容量の意味
+==========================
+両guardはstatus=exited、child_returncode0、gpu timeout_count0。共有物にSTOP_REQUESTEDなし。
+stdoutは4call coverage通過と、最終passed/calls/recordsを記録する。
+
+両stderrをraw bytesでhashし、errors=replaceで全行読んだ。
+各575799B、5716行、置換文字1個。error/fatal/failed/stop_requestedに該当する行はなし。
+tok/s、eval time等の性能値を示す行もなし。この文字列走査は保存logの確認であり、
+任意の潜在的失敗や実機状態を完全に証明するものではない。
+
+保存された最後30標本からの再集計:
+4call: GPU max30C、HBM29C、CPU34C、fan40%、VRAM30372MiB、RAM min67.80GiB。
+68call: GPU max29C、HBM29C、CPU35C、fan40%、VRAM30392MiB、RAM min67.67GiB。
+すべての保存sampleで150W/ECC Enabled、RAM64GiB reserve以上。
+標本が覆う期間は各process全体より短く、瞬間peakや全工程の連続状態を保証しない。
+
+全process時間は133.8034696579秒と144.7617585659秒。
+load、vision、warmup、prefill、capture、JSON、検査、終了を含む。差分から64tokenの
+速度を算出しない。per-token完了時刻も保存されていない。
+
+stderrの容量内訳は追加調査の手掛かりになる（両run同じ記録）。
+  3432,3477,3522行: CUDA0 KV buffer 50 + 240 + 160 MiB。
+  5373行: CUDA0 compute buffer 4669.26 MiB。
+  5374行: CUDA_Host compute buffer 538.73 MiB。
+  5711行: vision CUDA0 compute buffer97.45 MiB。
+  5712行: vision CPU compute buffer5.20 MiB。
+
+特にcompute reservationは容量計画で調べる価値があるが、削除可能な余剰だと断定しない。
+batch/ubatch・graph reserve・prompt throughput等の対応を調べる必要がある。
+現在通常APIと同じgraph/workspace状態の証拠でもない。
+30392MiBはused標本で、fresh free/reservedやcudaMemGetInfo admissionの結果ではない。
+以前のfree2575と今回usedを同時のsnapshotとして足し引きしない。
+
+7. route統計 — 反復構造は実データにも強く出ている
+=================================================
+既報の全37層frequencyとadjacent histogramを独立再計算し、全field一致した。
+1層あたりunique expertsは31..101、中央値60。
+隣接同層2479pairの共通expert数0..6の件数は
+  [361,568,660,553,267,63,7]
+平均2.0056474385/6。7pairは同じtop6集合だが、順序も同じpairは0。
+これらはGPU cache hit数ではない。
+
+追加で入力tokenそのものを調べた。
+continuation68tokenは20種のIDのみで、全比較が成立する最短周期は22token。
+driver.cpp:74の二つの短い英文を繰り返すfixtureと一致する。
+同じ文章内の位置に戻るlag22では、同層1702pairの共通expert数分布が
+  [12,27,74,187,419,659,324]
+となり、平均4.4952996475/6へ上がる。324pairでtop6集合一致、78pairでID順序まで一致。
+lag44も平均4.1463963964/6。これらのpairは相互独立な1702実験ではなく、同じ一連の
+tokenと層から作った記述統計である。統計的有意性や実trafficでの再現を主張しない。
+
+このtraceの全68入力で選ばれたlayer/expertは6組ある。
+  layer8/expert336、layer10/expert352、layer11/expert14、
+  layer12/expert144、layer18/expert147、layer21/expert251。
+この条件のfrequencyとしては事実だが、「常にhotなexpert」「普遍的なbank候補」とはしない。
+expert番号はlayerごとに別の重みなので、同じ番号を層を越えて一つに合算しない。
+
+この構造から、次の分割では一般化を検証できない。
+  - 68tokenをランダムに分けてtrain/holdoutと呼ぶ。
+  - 同じ短文反復の前半でbankを選び、後半のhitを未知workload精度と呼ぶ。
+  - 4call runをtrain、68call runをholdoutにしてprefix重複を無視する。
+
+次は独立した内容/会話・コード・言語の単位で分離する必要がある。
+このcaptureには日本語等の別言語がなく、言語差がないという証拠にはならない。
+言語差の具体的なworkload/統計設計は別担当と親の提案へ委ねる。
+
+8. 観測コストの解釈
+==================
+driver.cpp:92は各token後に全累積traceをsnapshotしてRUN.jsonへ再保存し、:93は
+全累積coverageを再走査する。route_client.h:40–49はそのJSON構築とpretty-print/rename。
+したがってこのdriverは、engineのroute記録自体に加えて、累積検証・JSON構築・I/Oという
+明確な作業を行う。68callでは最終RUN.jsonだけでも1328348B。
+
+この構造を認識せず、process elapsedを通常APIのdecode速度やcollector単体overheadに
+読み替えることはできない。どの程度遅いかは測っていないので、今回既に通常APIが
+遅くなったという結論も出さない。復帰receipt上は通常APIにdiagnostic librariesはない。
+
+最小比較ではengine compute/通常logits同期までの時間と、trace snapshot/coverage/exportを
+分けるとよい。数値出力差はfiniteだけでなく固定入力に対するlogits等の比較が必要。
+その具体的な実装・測定案は親の統合提案にまとめる。
+
+証拠の区別
+==========
+確認できた: 同一入力の実endpoint接続、37層coverage、正常phase/ledger、保存provider/配置、
+              先頭4call再現、全共有hash、明示されたscope内の記述統計。
+まだ未確認: 実モデルのgeneration遷移/失敗系、通常APIとの数値同一性、observer overhead、
+              per-token timing、言語差、独立workloadへのbank一般化、GPUready/overlap、
+              positive bankのallocation/admission、fresh free。
+
+主要sourceはすべて上記commit固定。
+N = archive/review-handoffs-not-for-readers/2026-11-17-route-capture/
+I = archive/review-handoffs-not-for-readers/2026-11-17-route-integration/
+N/driver.cpp:14–28,39–50,64–96
+N/route_client.h:29–49
+N/run_capture.py:13–39,55–73
+N/runs/*/{RUN.json,SMOKE4.json,guard-health.json,LAUNCH_MANIFEST.json,server.stdout.log,server.stderr.log}
+N/{ACTUAL_CAPTURE_VERIFICATION.json,ACTUAL_PROVIDER_VERIFICATION.json,RESTORED_RUNTIME.json}
+N/{FILES_SHA256.json,RAW_MAPPING.json,CLIENT_BUILD.json,LINK_BUILD.json}
+I/{PROVIDERS_FINAL.json,provenance/model-source/*,provenance/unity_1_cxx.cxx*}

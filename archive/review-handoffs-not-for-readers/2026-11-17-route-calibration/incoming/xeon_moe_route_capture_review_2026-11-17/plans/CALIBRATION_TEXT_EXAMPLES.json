@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "status": "proposal_not_executed",
+  "copyright": "Original example passages authored for this review; code is fixture text, not executed engine code.",
+  "pinned_engine_commit": "caf35bcdd27c0240572e05a60633f07fca272844",
+  "current_driver_accepts_only_4_or_68_calls": true,
+  "requires_driver_change_to_accept_external_cases_and_requested_counts": true,
+  "engine_matched_proposal": {
+    "prefix_tokens": 64,
+    "capture_t1_calls": 64,
+    "position_range_inclusive": [
+      64,
+      127
+    ],
+    "no_repetition_padding": true,
+    "must_preflight_model_tokenizer": true,
+    "fails_preflight_if_fixture_too_short": true,
+    "one_collector_session_per_case": true
+  },
+  "semantic_pair_policy": "Full corresponding passages support a separate task-matched comparison; first 64 JA tokens and first 64 EN tokens are not assumed semantically aligned.",
+  "cases": [
+    {
+      "case_id": "screen_cache_ja",
+      "family_id": "screen_cache",
+      "language_or_content": "ja",
+      "use": "calibration_only_excluded_from_bank_train_validation_holdout",
+      "text_utf8": "ある小さな図書館では、利用者がよく借りる本を受付の近くに置いています。受付の棚には十冊しか置けず、残りの本は奥の書庫にあります。棚を広げる前に、司書は一週間の貸出記録を調べることにしました。記録には本の名前だけでなく、借りられた順番と、一度に求められた本の組も残します。同じ本が何回借りられたかだけでは、利用者をどれだけ早く案内できるかは分かりません。ある時間帯に必要な本がすべて書庫にあれば、棚に人気の本を並べても、その時間帯の待ち時間は長いままだからです。\n司書は最初の数日を使って棚の候補を選び、別の日の記録で候補を比べます。最終確認に使う一日の記録は、候補を決めるまで見ないことにします。棚の本を頻繁に入れ替えるなら、その作業にかかる時間も数える必要があります。本を置く場所を変えても、利用者が求める内容や冊数を減らしてはいけません。\n評価では、一人の利用者に対応するまでの時間と、全利用者の平均時間を別々に記録します。平均が短くなっても、特定の利用者だけ非常に長く待つ場合があります。候補の比較には同じ貸出順序を使い、棚の初期状態も揃えます。最後に、改善が別の曜日にも続くかを確認します。この例の棚と本は説明用であり、特定のコンピューターの測定結果ではありません。",
+      "utf8_bytes": 1607,
+      "unicode_codepoints": 537,
+      "sha256_utf8": "6a2a686a7c532abac032f59aeb041a91d162259f887dd07cbbda71a86be41acc",
+      "token_ids": null,
+      "model_token_count": null,
+      "tokenization_performed": false
+    },
+    {
+      "case_id": "screen_cache_en",
+      "family_id": "screen_cache",
+      "language_or_content": "en",
+      "use": "calibration_only_excluded_from_bank_train_validation_holdout",
+      "text_utf8": "A small library keeps frequently borrowed books on a shelf near the front desk. The shelf has room for only ten books, while the remaining books stay in the storage room. Before making the shelf larger, the librarian decides to examine a week of borrowing records. Each record preserves the order of requests and the group of books requested together, as well as their titles. Counting how often each title appears is not enough to tell how quickly every visitor can be served. If all the books needed during a particular period remain in storage, placing popular books on the front shelf may leave the waiting time in that period unchanged.\nThe librarian uses the first few days to choose candidate shelf arrangements and different days to compare them. One final day is kept unseen until the arrangement has been selected. If books are moved frequently, the time required to move them must also be counted. Changing a book's location must not change the content or number of books requested by a visitor.\nThe evaluation records both the time for each visitor and the average over all visitors. A lower average can still leave some visitors waiting much longer. Candidates are compared using the same request order and the same initial shelf state. Finally, the librarian checks whether the improvement continues on a different weekday. The shelf and books in this example are an explanation, not measurements from a particular computer.",
+      "utf8_bytes": 1438,
+      "unicode_codepoints": 1438,
+      "sha256_utf8": "86b3f420e0936f7a6977af0d2c55327b827289e34f2a3b6fb2a7f450f0157fbc",
+      "token_ids": null,
+      "model_token_count": null,
+      "tokenization_performed": false
+    },
+    {
+      "case_id": "screen_experiment_ja",
+      "family_id": "screen_experiment",
+      "language_or_content": "ja",
+      "use": "calibration_only_excluded_from_bank_train_validation_holdout",
+      "text_utf8": "二つの作業手順を比較するため、研究室では先に実験計画を書きました。手順Aと手順Bは同じ入力を受け取り、同じ形式の結果を返します。準備の時間、実際の作業時間、結果を保存する時間は別々に記録します。最初の実行だけで使われる準備があるため、一回の合計時間から普段の作業速度を決めることはできません。どちらの手順を先に試すかで結果が変わらないよう、実行順序も入れ替えます。\n比較を始める前に、入力の一覧と判定方法を固定します。結果が悪かった入力を後から一覧から除くことはしません。途中でエラーが起きた場合には、エラーの内容と、どこまで処理が終わったかを残します。失敗した実行を成功として平均に入れず、同じ入力で再試行した場合には、元の失敗と再試行の対応が分かるようにします。\n結果の数値が有限であることは必要ですが、それだけで正しいとは言えません。保存された基準結果と比較し、差があれば、入力が違ったのか、計算の担当が変わったのか、結果の読み出しが早すぎたのかを順番に調べます。速度の比較では平均だけでなく、個々の作業の時間も見ます。最後の評価には、手順を選ぶときに使わなかった新しい入力を用意します。この文章は実験方法を説明する例であり、実際の測定値を報告するものではありません。",
+      "utf8_bytes": 1603,
+      "unicode_codepoints": 537,
+      "sha256_utf8": "c2820276e704299b728299a368ba861715eec966f09a932a56aa35294e3e4027",
+      "token_ids": null,
+      "model_token_count": null,
+      "tokenization_performed": false
+    },
+    {
+      "case_id": "screen_experiment_en",
+      "family_id": "screen_experiment",
+      "language_or_content": "en",
+      "use": "calibration_only_excluded_from_bank_train_validation_holdout",
+      "text_utf8": "The laboratory writes an experiment plan before comparing two procedures. Procedure A and procedure B receive the same inputs and return results in the same format. Preparation time, execution time, and the time spent saving results are recorded separately. Some preparation occurs only on the first run, so the total duration of one run cannot by itself establish the normal processing speed. The order of the procedures is also reversed to check whether running one first affects the result.\nBefore the comparison begins, the list of inputs and the evaluation rules are fixed. Inputs that produce unfavorable results are not removed afterward. If an error occurs, the record preserves the error and the stage that had been completed. A failed run is not counted as a successful observation in the average. If the same input is retried, the failed run and its retry remain distinguishable.\nFinite numerical results are necessary, but finiteness alone does not prove correctness. Results are compared with a saved reference. When a difference appears, the team checks whether the input changed, whether a different component performed the computation, or whether the result was read before it was ready. Timing analysis includes individual operation times as well as their average. The final evaluation uses new inputs that were not used to select a procedure. This passage explains an experiment method and does not report actual measurements.",
+      "utf8_bytes": 1444,
+      "unicode_codepoints": 1444,
+      "sha256_utf8": "f94e26c95584e54e28dbc41a1e9e240758b489006eb47d68093c4ea75d1e1c20",
+      "token_ids": null,
+      "model_token_count": null,
+      "tokenization_performed": false
+    },
+    {
+      "case_id": "screen_mixed_log",
+      "family_id": "screen_mixed_log",
+      "language_or_content": "ja+en+log",
+      "use": "calibration_only_excluded_from_bank_train_validation_holdout",
+      "text_utf8": "次のログは、テスト用アプリが設定を読み込んだ場面を表す架空の例です。\nINFO config loaded: worker_count=4, queue_capacity=32\nINFO request accepted: request_id=sample-17, item_count=3\nWARN queue temporarily full: request_id=sample-18\nINFO request completed: request_id=sample-17, output_count=3\nERROR invalid field type: field=worker_count, expected=integer, actual=string\n日本語で原因を説明するときは、最後のERRORと直前のWARNを同じ原因だと決めつけないでください。queue temporarily fullは、その時点で待ち行列に空きがなかったことを示します。一方、invalid field typeは設定値の型に関する別の情報です。ログだけでは、二つの記録が同じ設定読込や同じ実行に属するかまでは分かりません。\nまずrequest_idと時刻、設定のversionを照合します。worker_countの値が数値の4なのか、文字列の\"4\"なのかを確認し、設定ファイルの該当箇所と読み取り側の型を対応づけます。修正後は、同じ入力で出力件数が変わらないことを確かめます。待ち行列が満杯になった問題については、設定の型を直しただけで解決したとは結論しません。必要なら受付から完了までの時間を別に調べます。これはログを読むための例であり、実際のシステム障害や性能値を示していません。",
+      "utf8_bytes": 1462,
+      "unicode_codepoints": 744,
+      "sha256_utf8": "224e03a5f2740f15832223a0d5cece1f3f284792e04eee9e9cbf83ad4ebd5302",
+      "token_ids": null,
+      "model_token_count": null,
+      "tokenization_performed": false
+    },
+    {
+      "case_id": "screen_code_python",
+      "family_id": "screen_code_python",
+      "language_or_content": "python+en-comments",
+      "use": "calibration_only_excluded_from_bank_train_validation_holdout",
+      "text_utf8": "from collections import OrderedDict\nfrom dataclasses import dataclass\nfrom typing import Iterable\n\n@dataclass(frozen=True)\nclass Event:\n    key: str\n    amount: int\n\n\ndef stable_totals(events: Iterable[Event]) -> list[tuple[str, int]]:\n    \"\"\"Sum amounts by key while preserving the first occurrence of each key.\n\n    Empty keys are rejected. Zero and negative amounts are valid. The input\n    iterable is consumed once and is never modified. An empty iterable returns\n    an empty list. The returned order depends on first appearance, not on the\n    numerical total or alphabetical order.\n    \"\"\"\n    totals: OrderedDict[str, int] = OrderedDict()\n    for event in events:\n        if not isinstance(event.key, str) or event.key == \"\":\n            raise ValueError(\"event key must be a nonempty string\")\n        if not isinstance(event.amount, int) or isinstance(event.amount, bool):\n            raise TypeError(\"event amount must be an integer\")\n        totals[event.key] = totals.get(event.key, 0) + event.amount\n    return list(totals.items())\n\n\nsample = [Event(\"alpha\", 3), Event(\"beta\", 5), Event(\"alpha\", -1)]\nexpected = [(\"alpha\", 2), (\"beta\", 5)]\nassert stable_totals(sample) == expected\nassert stable_totals([]) == []\n",
+      "utf8_bytes": 1226,
+      "unicode_codepoints": 1226,
+      "sha256_utf8": "b82e141741222a4453954dfe505e5c4312206636779bb0048afc0e2f9c8d5fbb",
+      "token_ids": null,
+      "model_token_count": null,
+      "tokenization_performed": false
+    }
+  ]
+}

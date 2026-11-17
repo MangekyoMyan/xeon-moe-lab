@@ -1,0 +1,358 @@
+xeon-moe-lab route-capture レビュー
+2026-11-17 / 対象commit caf35bcdd27c0240572e05a60633f07fca272844
+
+結論
+====
+実モデルからCPU側expertを持つ37層のrouteを採取する接続は、今回の保存証拠で確認できた。
+次は観測結果を増やす前に、診断driverの負荷と通常serverとの初期化条件を揃えるのがよい。
+具体的には、毎callの全履歴JSON・全履歴検査と、n_outputs_maxの予約条件が先の修正対象。
+その後、短いF/D0/D1/D2比較と6caseの言語・用途screenを行い、GPU常駐bankの候補作成へ進む。
+
+「コードが複雑になって遅くなる」という懸念に対して、実行回数が増える具体的な箇所が
+見つかった。ただし、それは今回の診断driver側である。通常APIの復帰receiptは元のCPU/
+libllamaを示し、診断libraryをロードしていない。現在の通常APIが既に遅くなったという
+測定結果はない。新しい言語比較や速度benchmarkも、このレビュー環境では実行していない。
+
+本レビューは、チャット側が調査・設計・コード案を担当し、実機側assistantがbuild/start/
+testを担当するという今回の相談票の分担に従う。ユーザーに追加操作を求める文書ではない。
+
+1. 今回どこまで進んだか
+======================
+                          4call run        68call run
+call / attempt            4 / 4            68 / 68
+route records             148              2,516
+expert ID slots           888              15,096
+位置                      64..67           64..131
+各callの対象              layer0..36各1回  layer0..36各1回
+各recordのexpert          6個、一意、0..383
+drop / flags              0 / 0            0 / 0
+graph generation          1のみ            1のみ
+
+原本の全record、attempt、call、call_resultsを読み直し、metadataと親子関係を検査した。
+共有manifestの28項目のsize/SHAも照合した。二つのrunの先頭4callは、token列だけでなく、
+recordの順序・全field、attempt/call/call_resultsも一致する。親の別スクリプトによる再集計も
+同じ結果になった。詳しい証拠台帳はreviews/evidenceとverificationを参照。
+
+実schedulerのCPU/CUDA provider、16functionのprovider、40層のexpert weight配置の保存
+receiptも準備時のpinと整合する。0..36のgate/up/down weightはhost、37..39は非host。
+これはexpert weightの配置の確認であり、「その層の全演算が一つのbackendだけで動く」と
+読み替えない。モデル全重みをこちらで再hashした、実機processを新たに確認した、という
+主張もしていない。
+
+今回閉じられた課題は、実モデルを使う診断driverのllama_decode経路から37層の観測へ
+到達すること、T1のphase/identity、
+正常完了台帳、固定入力に対する限定的な再現性である。前回準備時の「未起動」は過去の状態。
+同じfull-link準備やCPU absのscreenをもう一度繰り返す理由はない。
+
+残る範囲は、実モデルでのgeneration遷移・異常系、元libraryとの数値出力差、collectorの
+overhead、言語・用途の差、独立workloadへのbankの一般化、GPU結果readyと実際の並行時間、
+fresh freeとpositive bank admissionである。すべてを次の一回で試す必要はない。
+
+SMOKE4.jsonのpassed=falseはclose前の中間snapshotに残るwhole-session flag。
+原本は変更せず、4call台帳・stdout・最終RUNのpassedを合わせて判定する。
+全logits finiteのbooleanは保存されているが、logits値やhashは保存されていない。
+したがってroute一致から、frozen APIとのlogits一致や回答品質までは確認できない。[S1,S2]
+
+2. 速度低下の心配で、実際に見つかったこと
+========================================
+2.1 毎tokenで全履歴を作り直す処理
+
+driver.cpp:92-93は、call完了後にそれまでの全traceをsnapshotし、RUN.json全体を保存し、
+さらに先頭からcoverageを検査する。route_client.h:40-49は全record/attempt/callを読み、
+JSON objectとID vectorを構築し、dump(2)で文字列を作ってtemp fileへ書き、renameする。
+coverageも過去recordのID vectorを作り直してsortする。
+
+T call・37層なら、各全履歴処理のrecord visitsは
+  37 × (1 + 2 + ... + T) = 37T(T+1)/2
+となる。最終的に必要なrecord数37Tに対し、累積処理はO(T²)になる。
+
+68callについてsourceと保存JSONから再構成した量:
+  毎call snapshotのrecord読出し           86,802件
+  毎call coverageのrecord走査             86,802件
+  最終snapshotの追加読出し                  2,516件
+  毎call RUN.jsonの生成・書込要求量合計    46,045,921 B
+  最終RUN.json                             1,328,348 B
+
+JSON量は、再構成した最終RUNと4call時点が原本byteに一致することを確認して算出した。
+初期・SMOKE4・最終の追加書込は46,045,921 Bに含めていない。
+これは生成文字列/書込要求の量である。物理disk I/O量、実時間、全体に占める割合は未測定。
+「これが支配的だった」「何%速くなる」とは言えない。
+
+ただし次token開始前にこの仕事が入る構造は確実であり、engineのdecode時間と同一に扱うと
+誤る。133.80秒と144.76秒というprocess全体時間の差から、64token分の速度を求めてもいけない。
+load・vision・warmup・prefill・診断・保存・終了を含む別runである。[S2,S3]
+
+2.2 小さな修正案
+
+proposals/driver_linear_export.patchを作成した。毎成功callでの全履歴処理を外し、4callの
+gate、最終close後、捕捉できた失敗時に全snapshotを取る。最終passed=trueの前に全coverageを
+追加している。正常68callのsnapshot record visitsは89,318から2,664へ減る計算になる。
+これはrecord走査回数の削減であり、engine速度の改善率ではない。
+
+独立レビュー、git apply --check、実source headerを使ったg++ -fsyntax-onlyは成功した。
+full link、実機実行、logits比較、時間測定はまだ行っていない。repo本体も変更していない。
+
+挙動差は二つある。強制終了時には最後のcheckpoint以降のon-disk記録が残らない可能性が
+ある。また、collector end/finishが拾わないmetadata不整合の発見が、5call目以降では最終
+coverageまで遅れ得る。最終採否の検査は維持するが、従来より追加callが走る場合はある。
+毎callの進捗保存が必要な長い収集には、全履歴再保存ではなく固定segmentの追記を別途考える。
+
+このpatchは最小のexport改善案に限定した。毎callのCallResult JSON追加と全vocab finite
+scanは残る。F/D mode、外部fixture、時間計測、出力予約の整合は未実装である。
+適用後は実機側で新しいsource/binary hashをpinし直す。既存hash照合を無効にしない。
+
+2.3 collectorそのもの
+
+hook内にはheap allocation、mutex、clock、JSON/file I/O、追加barrierがない。record payloadは
+1正常T1あたり37×128=4,736 B。libraryのdlsym/dladdr/statは初期化・provider確認側にある。
+
+一方、default-offにも呼出し・atomic load・branchは残る。observing=0でも37gateの登録や
+台帳処理が動く。active時は小さいbinding配列を線形検索する。通常のseparate gate/up/down
+経路という条件では、111hook呼出しと6,179候補訪問がsource上で導ける。runtime counterで
+測った回数ではない。37層という固定上限の探索と、call数で増える全履歴処理は分けて考える。
+
+ここは先に測る。unordered_mapやtensor.extraのタグ付けを足しても、割当・cache・所有権の
+問題が増える可能性がある。line数や関数数の増加だけで、速度や最適な実装は判断できない。
+
+Pythonのrun_capture.pyは一つのC++driverを起動し、supervisorが別processで監視する。
+token loopとllama_decode呼出しはC++、CPU hookからcollectorはC ABI。毎tokenの内積で
+Python interpreter/GILを往復していない。今回のJSON負荷もC++側にある。実装言語の変更を
+先に行う根拠はなく、実行回数・割当・I/O・同期境界の改善が具体的である。[S2,S3,S4]
+
+3. 通常APIとの比較条件で見つかったn_outputs_max
+=============================================
+診断のraw stderrには、次が実際に出ている。
+  n_batch=1024 / n_ubatch=1024
+  n_outputs_max=1024 / n_outputs_max_per_seq=1
+  CUDA0 compute buffer=4669.26 MiB
+  CUDA_Host compute buffer=538.73 MiB
+
+driverはSERVER用argument parserを使うが、その後common_init_from_paramsへ直接進む。
+通常serverのload_modelは、これより前にserver_output_limitsで出力予約上限を調整する。
+defaultのn_outputs_max=0をそのまま渡すとcontext側でn_batchへ置換される。
+non-embedding / non-audio / nonspeculative / parallel1という通常text条件なら、server側の
+算出値は1になる。現在の通常APIで本当に1かは、起動時の実cparams/receiptで確認する必要がある。
+このレビューで通常APIの新しい起動logを観測したわけではない。[S5,S6,S7]
+
+予約側はn_tokens=min(n_ctx,n_ubatch)、n_outputs_pp=min(n_tokens,n_outputs_max)を使い、
+prefillのworst-case graphを予約する。T1の予約後に再びprefillを予約して保持する。
+大きいreserveを持ったまま小さいT1を流しても、bufferが必ず縮むとは限らない。
+
+このため、同じ128k/f16 KV、batch、thread、GPU37..39でも診断と通常serverのworkspaceが
+一致するとは限らない。まず実cparamsを合わせる価値がある。
+
+これは診断の条件差の発見であって、通常APIから4.7 GiBを回収できるという発見ではない。
+通常APIが既にcap1なら、本番側の追加削減余地を今回の差だけから期待できない。
+また4669 MiB全体はoutputだけのbufferでも、削除してよい余剰でもない。実allocator・graph・
+poolと正確なfreeを確認して判断する。
+
+容量調査は、通常APIと診断の実cparams/compute bufferを比較し、同じ用途の出力capを適用、
+同じreserve/warmup後の明示freeを測る順とする。その結果まだ必要ならn_ubatch=512/256等の
+少数条件を別実験にする。prefill時間、分割、最大request、vision、T1の出力差を確認する。
+offload閾値64をまたぐ変更はbackend/kernelも変え得る。batch縮小を無条件に中立と扱わない。
+
+旧free2575 MiBと今回used最大30392 MiBを同時のsnapshotのように合算しない。今回のusedは
+最後30監視標本内の最大値で、瞬間peakやfresh freeでもない。GPU37..39の配置、3072/2560 MiB
+の既存guardを維持した条件でpositive bankのallocation/admissionを別途確認する。[S1,S5]
+
+4. 反復fixtureから読み取れること
+================================
+68入力のcontinuationは20種類のtoken IDだけで構成され、最短の厳密周期は22tokensだった。
+同じ層のtop6集合の共通expert数を、異なるlagで計算すると次のとおり。
+
+離れた入力数     比較pair数    共通expert数の平均 / 6    集合が同じpair
+1                 2,479              2.00565                  7
+22                1,702              4.49530                324
+44                  888              4.14640                108
+
+lag22での大きい一致は、短い英文を反復するfixtureの構造と整合する。これらのpairは同じ
+系列のtokenと層から作った記述統計で、独立した何千件もの実験ではない。
+1層あたりのunique expert数31..101、中央値60も再集計で一致した。
+
+全68callで選ばれたlayer/expertが6組あるが、普遍的なhot expertとは呼べない。
+現在のtraceをランダムなtoken単位でtrain/holdoutに分けたり、同じ反復の前半と後半を
+分けたりしても、新しい意味内容への一般化を検証できない。4call runをtrain、68call runを
+holdoutにする場合も先頭が重複する。
+
+今回の入力は接続確認という目的に合っている。bank評価では独立した意味内容のfamilyを
+用意し、routeを見る前に分割する必要がある。設定n_ctx=131072は、今回128kの文脈を実際に
+処理したことを意味しない。観測した位置は64..131である。[S1,S2; verification/PARENT_EVIDENCE_REPLAY.json]
+
+5. 言語差の調べ方
+================
+「言語差」は以下を分離する。
+
+A. 日本語と英語で同じ内容を何tokenで表すか。
+B. 同じtoken数・同じcontext位置でもroutingやCPU/GPU仕事が変わるか。
+C. 入力がPython/C++/JSON/ログの場合、記号・識別子・コメント等で変わるか。
+D. Python/C++等の実装言語の境界にruntime overheadがあるか。
+
+Dの現sourceに関する答えは前述のとおり。A〜Cは今回の英文だけでは未測定。
+他のMoEで言語に応じたroutingの違いを報告した研究や、同意味でもtoken数が言語で違う
+ことを扱う研究がある。しかし、それらの差の大きさをこのモデルへ借用しない。[P1,P2]
+
+最初の小さいscreenは6caseに限定できる。
+  同意味の日本語/英語ペアを2題             4case
+  日本語説明+英語識別子/ログの混在          1case
+  Pythonコード                              1case
+
+具体的な自作文をplans/CALIBRATION_TEXT_EXAMPLES.jsonに収録した。これはtoken化前の
+fixture例。モデル/tokenizer/chat templateを実機側で固定し、text hash、token IDs、長さを
+保存してから使う。足りない長さを反復文やpad文で埋めない。現driverの固定英文・4/68call・
+prefix64のhardcodeを外す実装が必要で、JSONを置くだけで現CLIが実行できるわけではない。
+
+最初のengine条件比較はprefix64+64T1、各case別sessionでよい。64callは2368recordsとなり
+4096recordの固定容量内に収まる。KVをcaseごとにresetし、同じ条件でprefill/syncする。
+token windowを同じ長さに切る試験は計算条件の比較であり、JA/ENで同じ意味範囲まで進む
+とは限らない。
+
+利用者が知りたい回答完了時間は、同意味のfull prompt/referenceを使う別のTASK比較にする。
+実token数、完了時間、ms/tokenを併記する。文字数/sやbytes/sも補助値にすぎず、言語間の
+情報量が等価な指標とは扱わない。初回は意味対応文のtoken数を測るだけでも有用である。
+
+bank候補作成用には、その後に12family/20caseという小pilotを提案する。
+  一般説明4family × 日本語/英語          8case
+  混在した技術相談4family × 1variant     4case
+  コード仕様4family × Python/C++          8case
+各種類を2train/1validation/1holdoutへ事前に分け、case数は10/5/5になる。
+翻訳、同仕様の移植、同じ文書の別window、同じ会話の別turnは同一familyに置く。
+ここでのtrainはbank選択用の分割で、モデル重みの学習ではない。
+
+plans/WORKLOAD_FAMILY_MANIFEST_EXAMPLE.jsonは内容の仕様と分割案であり、完成済み20文書
+でも実行済みdatasetでもない。実機側で自然な入力とreferenceを作り、tokenizeした結果を
+freezeする。lane別の結果とequal-lane macroを出し、実利用のJA/EN比率を勝手に仮定しない。
+20caseでも一般化の証明には小さい。tokenや37層を独立family数に数えず、曖昧な場合に限り
+新しいfamilyを追加する。[詳細: reviews/workload/WORKLOAD_LANGUAGE_PLAN_JA.txt]
+
+6. 「観測のために遅くなったか」を切り分ける最小比較
+==================================================
+共通callerで次の四状態を比較する。
+  F   frozen CPU + frozen libllama。route APIを要求しない。
+  D0  診断CPU + 診断libllama。sessionをopenしない。
+  D1  診断library。observing=0、label/ledger/登録あり。
+  D2  診断library。observing=1、routeを記録。全exportは区間後。
+
+D0-Fはrebuild/コード配置と無効hook等を含む差、D1-D0は登録・台帳管理等、D2-D1はactive
+lookup/record等の差となる。完全に一つの命令だけを単離した差とは呼ばない。
+
+現driverのprovider一覧とAPI constructorはroute symbolを必須にし、coverageは全callに
+37recordsを要求する。LD_LIBRARY_PATHだけ切り替えてこの4状態を測ることはできない。
+新callerはFでroute APIを解決せず、D0ではsessionを作らず、D1ではrecord0/非観測ledgerを
+検査する明示modeが必要。元APIへのruntime変更とは別に、隔離driverとして実装する。
+
+先に同じ固定入力/初期KVで4call分のlogitsを保存して比較する。4×129280×4=2,068,480 B/
+armなので、finite booleanだけで済ませる理由はない。まずbyte差を調べ、差があればF同士の
+再現性を確認し、最大絶対差・相対L2・top候補/margin等を調べる。今回の観測追加には算術を
+変える意図がないので差は調査対象となる。将来CPU/GPUのIQ算術を切り替えるときの品質判定
+とは別であり、そこでCPU bit一致だけを唯一の正しさにしない。
+
+時間測定はhost monotonic clockをcaller境界でだけ読み、事前確保した小さい配列へ記録する。
+最低限、step開始、decode開始、decode return、通常logits同期完了、出力検査終了、
+finalize終了、後処理終了、次step開始を区別する。decode returnだけをtoken完了としない。
+engine区間とcaller全体の間隔を併記する。hook内clock、追加GPU barrier、CPUclockとCUDA
+event elapsedのepoch混同は不要。
+
+全vocab finite scanは1call129280要素、68callでは8,791,040判定である。現在のcallbackは
+通常logits取得後に全scanするため、同期完了とscan完了を別に記録する。数値検査modeと
+timing modeを分ければ、後者へ全logits保存/全scanを持ち込まずに済む。省いた検査はmetadata
+で明示し、pointer取得だけをfull-finite検査と同じ名前・結果で扱わない。
+
+最初は1fixtureの32〜64T1 blockで十分。first T1のgraph準備を別表示し、block総時間も残す。
+prefill後の最初のT1を「既にwarm」と無条件に仮定しない。D0/D1/D2は同じ診断processで
+KV reset+同prefixを使い、順序を入れ替えられる。Fは別processでload時間を分離する。
+FとDを同時に載せず、DSOを途中でhot-swapしない。
+
+CPU thread/NUMA、GPU配置、vision allocation、実cparams、出力同期、入力と開始KVを固定する。
+32/64tokenを独立な何十件もの実験とせず、run/block/workload単位で差を判断する。
+平均、median、p95、per-call列、first-call、step間隔を残す。小標本からp99や差不存在の保証は
+作らない。差が大きければその区間だけを調べ、解決済みのCPU suiteやlink試験は広げない。
+
+7. 並列化に直結させるbank評価
+============================
+今回増えたのは「実際に同時に選ばれる6expert」の観測である。次はGPUへ置く組合せの評価に
+使う。層lのbankをB_l、token tで選ばれた6個の集合をS_tlとすると、
+  H_tl = |S_tl ∩ B_l|   (0..6)
+を各call/layerで計算できる。
+
+必要な値はmean Hだけではなく、H=0..6全分布、H=0/H=6率、連続all-miss長、tokenごとの
+残CPU仕事、layer別のbyte予算、candidate hashである。inclusion頻度count/Nは合計6となり、
+slot頻度count/(6N)の合計1とは分母が違う。隣接tokenのexpert重複もbank hitとは違う。
+
+平均hitが同じでも並列の完了時間は変わる。説明用にCPU/GPUともexpert1個が1時間単位、
+overhead0と仮定すると、毎回H3はmax(3,3)=3。H0とH6が交互なら平均H3でも毎回max=6。
+この例の数字は実測ではなく、joint6の分布が必要な理由を示す。
+
+実装に対応する目的は、共通のfork時点から
+  T_mix = T_pre + max(T_CPU_remaining, T_GPU_result_ready) + T_post
+  saved_time = T_baseline - T_mix
+を評価すること。GPU側にはenqueue/転送/計算/結果返却まで、実際に必要な仕事を含める。
+maxに入れたjoin待ちを後で二重に加算しない。CPU側も単純な(6-H)×定数とは限らず、量子化、
+compact、共通入力変換、barrier、chunking等に依存する。GPU側には既存GPU仕事との競合もある。
+時間項が未測定ならsaved_timeはunknownとし、hit率からtok/sを作らない。
+
+最初のfrequency-per-byteは透明な候補作成baselineにはなる。native gate/up/down tripletの
+実byte数を使い、CPU compactのbyte数からGPU payloadを推定しない。候補はtrainで作り、
+validationで絞り、bank/cost model/budget/weight/除外規則をfreezeしてholdoutを一度評価する。
+同じholdoutを見ながらbankを直し続けた場合は、新しいfamilyを最終評価へ用意する。
+
+さらに、初期相談で確認したIQのCPU/CUDA入力量子化差がある。同じteacher-forced tokenを
+入力しても、hybridでは中間値/KV/後段routingが変わり得る。baseline trace上のoffline Hは
+「routingが維持されるなら」の割当screenであり、実hybridの保証ではない。positive bankが
+可能になった段階で、固定holdout入力を実hybridで流し、route・output・時間を再確認する。
+
+CPU最適化は並列化に引き続き重要である。CPU側が速くなれば、同じbankでもGPU側の待ちが
+支配的になる条件は変わる。CPU baselineを更新したときは、CPU/GPU仕事の釣り合いを再評価
+する。hit数だけを永続的な最適化目標にはしない。
+
+8. Open WebUIの「2個ずつ出る」観測について
+=========================================
+今回のtraceにはper-token時刻もSSE送受信時刻もない。診断JSON処理は今回のdriverの問題で、
+通常APIへ復帰したreceiptもあるため、それを以前のUI挙動の原因とすることはできない。
+
+次にAPI側を見る際は、engineのtoken完了、serverのSSE送出、clientの受信、画面描画を分ける。
+SSE event数、モデルtoken数、表示上の文字・断片数が一致するとは仮定しない。各単位の時刻と
+対応を残し、per-token/受信間隔列で周期2の長短があるか確認する。平均tok/sだけでは見えない。
+別PCの別LLMでは普通だったという観測は、切り分ける理由になるが、現時点では原因の確定に
+使わない。この調査を、まずroute overheadを測る短いcaller比較へ無理に混ぜる必要もない。
+
+9. 次の実機側作業をどこまでに絞るか
+==================================
+第一段階: 診断driverのexportを軽くし、通常serverとの実cparams差を確認する。
+第二段階: 共通callerで4callの数値比較と短いF/D0/D1/D2 timing。
+第三段階: 6caseの言語/用途screen。配線と計測が整えば代表workloadのbank pilotへ進む。
+容量調査: GPU37..39を保ち、同じ用途のworkspaceとfresh freeを対応づける。既存guardを維持。
+次の並列試験: 容量を通過し、held-outのjoint6とcostから利益が見込める候補で実ready/overlapを測る。
+
+新しいsource全体の再監査、CPU absの再screen、collector内のhash table化、実装言語の変更を
+先に積み上げる提案ではない。今回見つかった比較の障害を小さく閉じ、元のCPU/GPU並列実行
+という目標へ観測をつなげる。
+
+実施・未実施
+============
+実施: commit固定source/raw読取、保存SHA/台帳の再検査、親の独立再集計、JSON byte再構成、
+      workload例と分割案、最小patch作成、patch適用可能性とC++構文検査、独立source review。
+未実施: full link、実モデル/GPU/API実行、user実機の操作、速度/品質/language benchmark、
+        live PID/provider再確認、positive bank allocation/admission、repoへのpatch適用。
+
+主要参照
+========
+S1: route-capture/{README.txt,ACTUAL_CONSULT_PRO_JA.txt,ACTUAL_RESULTS_JA.txt,
+                 ACTUAL_CAPTURE_VERIFICATION.json,RESTORED_RUNTIME.json,runs/*}
+https://github.com/MangekyoMyan/xeon-moe-lab/tree/caf35bcdd27c0240572e05a60633f07fca272844/archive/review-handoffs-not-for-readers/2026-11-17-route-capture
+S2: route-capture/driver.cpp:14-28,51-55,64-96
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/caf35bcdd27c0240572e05a60633f07fca272844/archive/review-handoffs-not-for-readers/2026-11-17-route-capture/driver.cpp
+S3: route-capture/route_client.h:29-49
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/caf35bcdd27c0240572e05a60633f07fca272844/archive/review-handoffs-not-for-readers/2026-11-17-route-capture/route_client.h
+S4: route-integration/route37/{route37.cpp,route37-bridge.cpp,ggml-cpu.c,caller.patch}
+https://github.com/MangekyoMyan/xeon-moe-lab/tree/caf35bcdd27c0240572e05a60633f07fca272844/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37
+S5: runs/20261117T001035Z-68c12e67/server.stderr.log:3333-3345,5373-5374,5711-5716
+S6: snapshot/llm-lab/deepseek41-bringup-20261101/source/tools/server/server-context.cpp:48-67,1210-1213
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/caf35bcdd27c0240572e05a60633f07fca272844/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/tools/server/server-context.cpp
+S7: 同source/common/{common.h:466-467,common.cpp:1756-1757,speculative.cpp:2500-2533,2778-2786};
+    route-integration/route37/llama-context.cpp:344-350,748,789-846
+P1: Multilingual Routing in Mixture-of-Experts, arXiv:2510.04694v2
+https://arxiv.org/html/2510.04694v2
+P2: Do All Languages Cost the Same? Tokenization in the Era of Commercial Language Models, EMNLP2023
+https://aclanthology.org/2023.emnlp-main.614/
+
+数値とsource hashの再現資料は同梱のverification、reviews、toolsを参照。
