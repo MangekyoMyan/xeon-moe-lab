@@ -1,0 +1,14 @@
+/home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/hot-backend.cpp: In function ‘int xeon_hot_trial_set_mode(ggml_backend_t, char)’:
+/home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/hot-backend.cpp:256:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  256 |     if(s->private_gpu)ggml_backend_synchronize(s->private_gpu);s->trial_mode=mode;return 1;
+      |     ^~
+/home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/hot-backend.cpp:256:64: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  256 |     if(s->private_gpu)ggml_backend_synchronize(s->private_gpu);s->trial_mode=mode;return 1;
+      |                                                                ^
+/home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/hot-backend.cpp: In function ‘int xeon_hot_trial_snapshot(ggml_backend_t, xeon_hot_trial_stats*)’:
+/home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/hot-backend.cpp:260:5: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  260 |     for(int i=0;i<LAYERS;++i)if(s->layers[i]){out->calls[i]=s->layers[i]->calls;for(int h=0;h<=TOP;++h)out->hist[i][h]=s->layers[i]->hist[h];}return 1;
+      |     ^~~
+/home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/hot-backend.cpp:260:143: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  260 |     for(int i=0;i<LAYERS;++i)if(s->layers[i]){out->calls[i]=s->layers[i]->calls;for(int h=0;h<=TOP;++h)out->hist[i][h]=s->layers[i]->hist[h];}return 1;
+      |                                                                                                                                               ^~~~~~

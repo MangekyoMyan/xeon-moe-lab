@@ -1,0 +1,2239 @@
+{
+  "schema": 1,
+  "review_pin": "d98a17c56fadc92cf79e21ecbe80732dedeed899",
+  "method": "Independent stdlib-only read/recompute; no supplied code execution/import, engine, model, GPU, or API execution.",
+  "source_scope": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace",
+  "manifest_files": 157,
+  "raw_mapping_entries": 156,
+  "incoming": {
+    "manifest_entries": 34,
+    "total_with_manifest": 35,
+    "receipt_zip_sha256": "f808b9fb2142c8efeb0065be047c21b5f7546eafb02862f3407add7b483b86d3",
+    "zip_independently_available": true,
+    "zip_bytes": 251477,
+    "zip_members": 35
+  },
+  "source_provenance": {
+    "hot_backend_patch_exact": true,
+    "original_hot_sha256": "919d933fcf05ef0241022f756b5fb7c83a7084b413987bf1620b98b11a06dab6",
+    "capacity_hot_sha256": "9f647622e0578b86b2042b9d63f77e6bdcae80b72ac20b69a1e79d24672cd767",
+    "strict_guards_unchanged": true,
+    "native_block_element_and_byte_sizes": {
+      "iq2_s": [
+        256,
+        82
+      ],
+      "iq3_xxs": [
+        256,
+        98
+      ],
+      "iq3_s": [
+        256,
+        110
+      ],
+      "mxfp4": [
+        32,
+        17
+      ]
+    }
+  },
+  "runs": {
+    "U1024": {
+      "run": "20261117T031214Z-U1024-93e7fe85",
+      "subdir": "",
+      "cases": {
+        "short64": {
+          "case_id": "wiring_fixture",
+          "prefix_tokens": 64,
+          "T1_calls": 4,
+          "actual_ubatches": [
+            64
+          ],
+          "logits_sha256": "db2a3823e47a1dd7c04f871249b9e3b8939bd54c3462a4f43ea76f50ace8fcc5",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            64,
+            67
+          ],
+          "generation_transitions": [],
+          "generation_call_counts": {
+            "1": 4
+          },
+          "prefill_ms": 5146.671895,
+          "T1_engine_ms": [
+            181.649968,
+            200.872986,
+            139.685386,
+            147.689644
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 4
+        },
+        "long1024": {
+          "case_id": "capacity_long_ja",
+          "prefix_tokens": 1024,
+          "T1_calls": 4,
+          "actual_ubatches": [
+            1024
+          ],
+          "logits_sha256": "8d186fa6b43c5baf4e219c915fa02bf96316b6aa50f4c9a84547f2ff27413f95",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            1024,
+            1027
+          ],
+          "generation_transitions": [
+            {
+              "decode_call": 1,
+              "position": 1025,
+              "before": 1,
+              "after": 2
+            },
+            {
+              "decode_call": 3,
+              "position": 1027,
+              "before": 2,
+              "after": 3
+            }
+          ],
+          "generation_call_counts": {
+            "1": 1,
+            "2": 2,
+            "3": 1
+          },
+          "prefill_ms": 16730.957862,
+          "T1_engine_ms": [
+            157.119556,
+            162.626794,
+            152.390401,
+            137.127778
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 4
+        }
+      },
+      "memory": [
+        {
+          "phase": "M0_after_context_before_vision",
+          "cuda_free_MiB": 3638.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 28856.0,
+          "nvml_free_MiB": 3639.0,
+          "query_span_ms": 57.169192
+        },
+        {
+          "phase": "M1_after_vision_warmup",
+          "cuda_free_MiB": 2612.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 29882.0,
+          "nvml_free_MiB": 2613.0,
+          "query_span_ms": 37.809691
+        },
+        {
+          "phase": "M2_after_text64_warmup",
+          "cuda_free_MiB": 2122.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30372.0,
+          "nvml_free_MiB": 2123.0,
+          "query_span_ms": 35.239277
+        },
+        {
+          "phase": "M3_after_long1024_and4T1",
+          "cuda_free_MiB": 2102.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30392.0,
+          "nvml_free_MiB": 2103.0,
+          "query_span_ms": 31.620048
+        }
+      ],
+      "health_saved_tail": {
+        "samples_saved": 30,
+        "gpu_C_max": 31.0,
+        "hbm_C_max": 32.0,
+        "cpu_C_max": 32.0,
+        "fan_percent_max": 40.0,
+        "RAM_GiB_min": 67.70918655395508,
+        "monitor": {
+          "timeout_count": 0,
+          "recovered_queries": 0,
+          "last_event": null,
+          "max_attempts": 3,
+          "query_timeout_seconds": 5,
+          "recovery_budget_seconds": 20
+        }
+      },
+      "run_result_hash_entries": 12,
+      "omitted_server_config_hash_reconstructed": true,
+      "engine_libraries_recorded": {
+        "diagnostic": {
+          "libggml-cuda.so.0.28.0": {
+            "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+            "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+          },
+          "libggml-base.so.0.28.0": {
+            "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+            "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+          },
+          "libggml-cpu.so.0.28.0": {
+            "path": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0",
+            "sha256": "602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81"
+          },
+          "libllama.so.0.8.0": {
+            "path": "/home/codex/projects/llm-lab/route37-integration-20261117/runtime/libllama.so.0.8.0",
+            "sha256": "83bfeefe150634c56507244ed8415bc9a863b12a2ef275ad21b32ab9a020293d"
+          }
+        }
+      },
+      "active_backend_providers": [
+        {
+          "name": "CUDA0",
+          "graph_compute_provider": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0"
+        },
+        {
+          "name": "CPU",
+          "graph_compute_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+        }
+      ]
+    },
+    "capacity32": {
+      "run": "20261117T033327Z-U1024-0b6d5d01",
+      "subdir": "bank-capacity",
+      "cases": {
+        "short64": {
+          "case_id": "wiring_fixture",
+          "prefix_tokens": 64,
+          "T1_calls": 4,
+          "actual_ubatches": [
+            64
+          ],
+          "logits_sha256": "db2a3823e47a1dd7c04f871249b9e3b8939bd54c3462a4f43ea76f50ace8fcc5",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            64,
+            67
+          ],
+          "generation_transitions": [],
+          "generation_call_counts": {
+            "1": 4
+          },
+          "prefill_ms": 5319.10095,
+          "T1_engine_ms": [
+            204.180659,
+            223.722618,
+            171.600122,
+            155.858427
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 4
+        },
+        "long1024": {
+          "case_id": "capacity_long_ja",
+          "prefix_tokens": 1024,
+          "T1_calls": 4,
+          "actual_ubatches": [
+            1024
+          ],
+          "logits_sha256": "8d186fa6b43c5baf4e219c915fa02bf96316b6aa50f4c9a84547f2ff27413f95",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            1024,
+            1027
+          ],
+          "generation_transitions": [
+            {
+              "decode_call": 1,
+              "position": 1025,
+              "before": 1,
+              "after": 2
+            },
+            {
+              "decode_call": 3,
+              "position": 1027,
+              "before": 2,
+              "after": 3
+            }
+          ],
+          "generation_call_counts": {
+            "1": 1,
+            "2": 2,
+            "3": 1
+          },
+          "prefill_ms": 16658.873977,
+          "T1_engine_ms": [
+            157.206866,
+            157.030319,
+            151.599628,
+            150.283214
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 4
+        }
+      },
+      "memory": [
+        {
+          "phase": "M0_after_context_before_vision",
+          "cuda_free_MiB": 3638.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 28856.0,
+          "nvml_free_MiB": 3639.0,
+          "query_span_ms": 37.838203
+        },
+        {
+          "phase": "Gpost_bank_initialized_before_vision",
+          "cuda_free_MiB": 3136.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 29358.0,
+          "nvml_free_MiB": 3137.0,
+          "query_span_ms": 33.886439
+        },
+        {
+          "phase": "M1_after_vision_warmup",
+          "cuda_free_MiB": 2110.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30384.0,
+          "nvml_free_MiB": 2111.0,
+          "query_span_ms": 32.242986
+        },
+        {
+          "phase": "M2_after_text64_warmup",
+          "cuda_free_MiB": 1654.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30840.0,
+          "nvml_free_MiB": 1655.0,
+          "query_span_ms": 32.982522
+        },
+        {
+          "phase": "M3_after_long1024_and4T1",
+          "cuda_free_MiB": 1630.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30864.0,
+          "nvml_free_MiB": 1631.0,
+          "query_span_ms": 31.904484
+        }
+      ],
+      "health_saved_tail": {
+        "samples_saved": 30,
+        "gpu_C_max": 31.0,
+        "hbm_C_max": 30.0,
+        "cpu_C_max": 33.0,
+        "fan_percent_max": 40.0,
+        "RAM_GiB_min": 67.66760635375977,
+        "monitor": {
+          "timeout_count": 0,
+          "recovered_queries": 0,
+          "last_event": null,
+          "max_attempts": 3,
+          "query_timeout_seconds": 5,
+          "recovery_budget_seconds": 20
+        }
+      },
+      "run_result_hash_entries": 12,
+      "omitted_server_config_hash_reconstructed": true,
+      "engine_libraries_recorded": {
+        "diagnostic": {
+          "libggml-cuda.so.0.28.0": {
+            "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+            "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+          },
+          "libggml-base.so.0.28.0": {
+            "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+            "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+          },
+          "libggml-cpu.so.0.28.0": {
+            "path": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0",
+            "sha256": "602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81"
+          },
+          "libllama.so.0.8.0": {
+            "path": "/home/codex/projects/llm-lab/route37-integration-20261117/runtime/libllama.so.0.8.0",
+            "sha256": "83bfeefe150634c56507244ed8415bc9a863b12a2ef275ad21b32ab9a020293d"
+          }
+        }
+      },
+      "active_backend_providers": [
+        {
+          "name": "CUDA0",
+          "graph_compute_provider": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0"
+        },
+        {
+          "name": "CPU",
+          "graph_compute_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+        }
+      ]
+    },
+    "train5": {
+      "run": "20261117T035402Z-U1024-d22b3e04",
+      "subdir": "pilot-capture",
+      "cases": {
+        "short64": {
+          "case_id": "wiring_fixture",
+          "prefix_tokens": 64,
+          "T1_calls": 4,
+          "actual_ubatches": [
+            64
+          ],
+          "logits_sha256": "db2a3823e47a1dd7c04f871249b9e3b8939bd54c3462a4f43ea76f50ace8fcc5",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            64,
+            67
+          ],
+          "generation_transitions": [],
+          "generation_call_counts": {
+            "1": 4
+          },
+          "prefill_ms": 5060.76898,
+          "T1_engine_ms": [
+            183.169285,
+            202.499636,
+            139.273538,
+            143.414197
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 4
+        },
+        "text_cache_budget_ja": {
+          "case_id": "text_cache_budget_ja",
+          "prefix_tokens": 272,
+          "T1_calls": 64,
+          "actual_ubatches": [
+            272
+          ],
+          "logits_sha256": "b7b20530cd2612219f04a62148de90c173440b916b04b93a61ecd4620db6aa87",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            272,
+            335
+          ],
+          "generation_transitions": [],
+          "generation_call_counts": {
+            "1": 64
+          },
+          "prefill_ms": 11362.215623,
+          "T1_engine_ms": [
+            150.193471,
+            152.473567,
+            128.18661,
+            133.725943,
+            144.171618,
+            139.667728,
+            139.254891,
+            137.864,
+            138.045622,
+            127.867332,
+            125.770946,
+            124.858114,
+            123.283293,
+            125.435143,
+            125.616162,
+            125.083215,
+            128.247546,
+            128.730525,
+            127.087632,
+            127.423525,
+            126.686675,
+            126.995737,
+            126.469096,
+            125.998639,
+            128.345569,
+            142.339042,
+            130.028207,
+            126.613954,
+            131.215369,
+            131.087103,
+            128.1064,
+            128.878634,
+            129.714189,
+            126.603648,
+            128.754335,
+            127.560217,
+            131.458722,
+            127.223274,
+            130.850792,
+            128.201104,
+            130.666693,
+            138.327314,
+            132.449855,
+            129.348601,
+            127.587206,
+            125.143601,
+            127.691072,
+            124.775282,
+            136.094991,
+            136.00053,
+            127.209723,
+            126.496582,
+            126.063198,
+            127.161554,
+            124.534594,
+            124.354209,
+            125.835334,
+            131.540891,
+            147.728208,
+            138.764421,
+            139.967796,
+            138.940793,
+            141.978264,
+            129.530995
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 64
+        },
+        "text_cache_budget_en": {
+          "case_id": "text_cache_budget_en",
+          "prefix_tokens": 211,
+          "T1_calls": 64,
+          "actual_ubatches": [
+            211
+          ],
+          "logits_sha256": "7b446d1873bfa666395560a22bbd42c1137e96470ccdecbd380dd549a354a789",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            211,
+            274
+          ],
+          "generation_transitions": [
+            {
+              "decode_call": 45,
+              "position": 256,
+              "before": 1,
+              "after": 2
+            }
+          ],
+          "generation_call_counts": {
+            "1": 45,
+            "2": 19
+          },
+          "prefill_ms": 11559.461577,
+          "T1_engine_ms": [
+            152.945286,
+            150.200749,
+            128.046885,
+            123.980617,
+            124.235143,
+            125.186682,
+            124.717748,
+            126.62182,
+            123.939133,
+            123.988808,
+            125.51058,
+            131.482312,
+            146.6714,
+            141.170258,
+            141.286762,
+            139.261261,
+            140.133446,
+            129.311627,
+            126.312933,
+            126.497598,
+            130.067447,
+            126.442319,
+            125.588282,
+            123.077906,
+            125.800247,
+            126.341699,
+            128.901472,
+            123.723153,
+            126.157347,
+            125.789672,
+            127.579275,
+            123.850664,
+            131.319956,
+            138.252789,
+            126.072863,
+            127.143131,
+            127.205403,
+            123.638619,
+            128.360555,
+            124.51002,
+            128.785909,
+            123.269208,
+            127.55609,
+            127.451448,
+            126.349457,
+            143.48913,
+            152.429157,
+            123.07881,
+            129.108295,
+            133.782298,
+            145.12346,
+            126.559417,
+            129.813183,
+            125.925888,
+            125.384107,
+            125.552828,
+            125.205609,
+            125.321711,
+            126.242926,
+            126.11369,
+            127.059105,
+            128.372276,
+            129.604512,
+            126.827989
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 64
+        },
+        "mixed_build_log_ja_en_log": {
+          "case_id": "mixed_build_log_ja_en_log",
+          "prefix_tokens": 270,
+          "T1_calls": 64,
+          "actual_ubatches": [
+            270
+          ],
+          "logits_sha256": "1a8b85adbb5406365890b0c3b60d851d6ecfadebf1af8e7afffe277c4dbce66f",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            270,
+            333
+          ],
+          "generation_transitions": [],
+          "generation_call_counts": {
+            "1": 64
+          },
+          "prefill_ms": 11482.990226,
+          "T1_engine_ms": [
+            142.727567,
+            130.102808,
+            133.845449,
+            137.229,
+            127.46436,
+            135.065465,
+            133.937556,
+            127.390622,
+            130.478843,
+            129.138504,
+            137.572736,
+            132.67653,
+            126.997639,
+            128.038121,
+            135.215828,
+            149.89279,
+            138.545304,
+            150.37985,
+            152.172328,
+            145.969721,
+            134.731519,
+            128.514111,
+            127.342659,
+            128.462983,
+            127.608662,
+            126.996132,
+            127.928056,
+            127.200869,
+            128.520821,
+            127.524726,
+            130.528503,
+            131.535075,
+            125.473722,
+            128.620008,
+            131.998222,
+            133.185311,
+            150.97403,
+            130.747849,
+            128.355948,
+            129.977148,
+            144.194143,
+            156.096243,
+            128.511562,
+            135.300229,
+            134.649519,
+            129.699326,
+            129.981819,
+            128.382152,
+            130.333957,
+            132.058158,
+            128.305779,
+            148.87956,
+            154.244164,
+            133.414103,
+            126.890056,
+            128.481435,
+            128.571722,
+            126.013477,
+            127.543398,
+            127.822998,
+            134.375506,
+            131.84693,
+            129.700252,
+            129.164218
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 64
+        },
+        "code_stable_grouping_python": {
+          "case_id": "code_stable_grouping_python",
+          "prefix_tokens": 240,
+          "T1_calls": 64,
+          "actual_ubatches": [
+            240
+          ],
+          "logits_sha256": "7f28744f777a666a07dd625e7045d5e193d6dc6d65e7cec21fbc69e8b8a1ac07",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            240,
+            303
+          ],
+          "generation_transitions": [
+            {
+              "decode_call": 16,
+              "position": 256,
+              "before": 1,
+              "after": 2
+            }
+          ],
+          "generation_call_counts": {
+            "1": 16,
+            "2": 48
+          },
+          "prefill_ms": 11996.698683,
+          "T1_engine_ms": [
+            160.180207,
+            157.530437,
+            126.733759,
+            125.5653,
+            125.622705,
+            125.556277,
+            127.478201,
+            124.926864,
+            124.669982,
+            132.624256,
+            129.334104,
+            125.167065,
+            127.782846,
+            145.281697,
+            148.230773,
+            141.958963,
+            156.477415,
+            167.196331,
+            129.448027,
+            124.33389,
+            127.564931,
+            125.958676,
+            125.586689,
+            127.933612,
+            125.358196,
+            123.902062,
+            125.046324,
+            124.019393,
+            124.347509,
+            123.98925,
+            122.815317,
+            127.26392,
+            123.477641,
+            121.525378,
+            130.205175,
+            125.570686,
+            122.144977,
+            125.50823,
+            123.45903,
+            122.661347,
+            122.765098,
+            125.805342,
+            126.503614,
+            121.996749,
+            122.50271,
+            124.452378,
+            126.03725,
+            126.526848,
+            124.765304,
+            124.119375,
+            130.452903,
+            143.818391,
+            125.257665,
+            124.554918,
+            122.690171,
+            124.847494,
+            124.84869,
+            124.501622,
+            129.273747,
+            123.240433,
+            123.519161,
+            123.749545,
+            125.030044,
+            125.320177
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 64
+        },
+        "code_stable_grouping_cpp": {
+          "case_id": "code_stable_grouping_cpp",
+          "prefix_tokens": 240,
+          "T1_calls": 64,
+          "actual_ubatches": [
+            240
+          ],
+          "logits_sha256": "1e294a8fa86c7d8061068c4371fe759d0584e8bb95b40e7d97956cc468758d99",
+          "saved_F32_scalars": 646400,
+          "position_range": [
+            240,
+            303
+          ],
+          "generation_transitions": [
+            {
+              "decode_call": 16,
+              "position": 256,
+              "before": 1,
+              "after": 2
+            }
+          ],
+          "generation_call_counts": {
+            "1": 16,
+            "2": 48
+          },
+          "prefill_ms": 11941.962295,
+          "T1_engine_ms": [
+            150.698399,
+            155.790328,
+            126.888104,
+            135.419137,
+            137.747126,
+            139.49792,
+            141.137309,
+            138.077944,
+            128.314329,
+            130.135112,
+            141.912141,
+            138.666219,
+            132.593208,
+            131.280256,
+            158.687877,
+            148.394602,
+            170.7372,
+            165.421753,
+            140.769659,
+            160.239203,
+            138.764062,
+            127.832998,
+            127.767599,
+            144.975713,
+            138.18419,
+            132.928273,
+            135.495532,
+            130.914139,
+            132.709045,
+            128.658449,
+            136.84571,
+            132.75411,
+            128.105642,
+            132.068415,
+            135.216653,
+            140.868081,
+            128.722246,
+            133.506587,
+            136.413106,
+            128.916837,
+            131.412591,
+            134.788295,
+            134.604253,
+            129.863697,
+            132.031245,
+            128.77395,
+            131.614176,
+            144.824722,
+            136.005451,
+            129.864118,
+            139.699909,
+            138.353757,
+            127.367486,
+            128.816002,
+            133.079246,
+            129.466413,
+            130.831491,
+            135.784821,
+            129.550694,
+            132.689047,
+            129.741039,
+            132.649086,
+            130.686463,
+            135.87327
+          ],
+          "independently_checked_finite_rows": 5,
+          "recorded_finite_T1_calls": 64
+        }
+      },
+      "memory": [
+        {
+          "phase": "M0_after_context_before_vision",
+          "cuda_free_MiB": 3638.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 28856.0,
+          "nvml_free_MiB": 3639.0,
+          "query_span_ms": 39.983373
+        },
+        {
+          "phase": "M1_after_vision_warmup",
+          "cuda_free_MiB": 2612.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 29882.0,
+          "nvml_free_MiB": 2613.0,
+          "query_span_ms": 38.622432
+        },
+        {
+          "phase": "M2_after_text64_warmup",
+          "cuda_free_MiB": 2122.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30372.0,
+          "nvml_free_MiB": 2123.0,
+          "query_span_ms": 39.737202
+        },
+        {
+          "phase": "M3_after_train_first5",
+          "cuda_free_MiB": 2102.25,
+          "cuda_total_MiB": 32494.125,
+          "nvml_total_MiB": 32768.0,
+          "nvml_used_MiB": 30392.0,
+          "nvml_free_MiB": 2103.0,
+          "query_span_ms": 31.943494
+        }
+      ],
+      "health_saved_tail": {
+        "samples_saved": 30,
+        "gpu_C_max": 34.0,
+        "hbm_C_max": 34.0,
+        "cpu_C_max": 36.0,
+        "fan_percent_max": 40.0,
+        "RAM_GiB_min": 67.72745132446289,
+        "monitor": {
+          "timeout_count": 0,
+          "recovered_queries": 0,
+          "last_event": null,
+          "max_attempts": 3,
+          "query_timeout_seconds": 5,
+          "recovery_budget_seconds": 20
+        }
+      },
+      "run_result_hash_entries": 20,
+      "omitted_server_config_hash_reconstructed": true,
+      "engine_libraries_recorded": {
+        "diagnostic": {
+          "libggml-cuda.so.0.28.0": {
+            "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+            "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+          },
+          "libggml-base.so.0.28.0": {
+            "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+            "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+          },
+          "libggml-cpu.so.0.28.0": {
+            "path": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0",
+            "sha256": "602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81"
+          },
+          "libllama.so.0.8.0": {
+            "path": "/home/codex/projects/llm-lab/route37-integration-20261117/runtime/libllama.so.0.8.0",
+            "sha256": "83bfeefe150634c56507244ed8415bc9a863b12a2ef275ad21b32ab9a020293d"
+          }
+        }
+      },
+      "active_backend_providers": [
+        {
+          "name": "CUDA0",
+          "graph_compute_provider": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0"
+        },
+        {
+          "name": "CPU",
+          "graph_compute_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+        }
+      ]
+    }
+  },
+  "capacity_fixture": {
+    "experts": 32,
+    "selected_layers": [
+      0,
+      4,
+      23,
+      24
+    ],
+    "native_payload_bytes": 480706560,
+    "bank_buffer_allocation_bytes": 480707328,
+    "padding_bytes": 768,
+    "Gpre_free_bytes": 3814981632,
+    "Gpre_margin_bytes": 3221225472,
+    "Gpre_headroom_bytes": 113049600,
+    "Gpost_free_bytes": 3288596480,
+    "Gpost_margin_bytes": 2684354560,
+    "Gpost_headroom_bytes": 604241920,
+    "native_payload_MiB": 458.4375,
+    "bank_buffer_allocation_MiB": 458.438232421875,
+    "initial_total_free_delta_MiB": 502.0,
+    "delta_minus_buffer_MiB": 43.561767578125,
+    "GPU_graph_calls_recorded": 72,
+    "zero_output_readback_cells_recorded": 24,
+    "all_72_intermediate_outputs_saved_or_checked": false,
+    "model_used_bank": false,
+    "actual_strict_Gpre_pass": true,
+    "actual_strict_Gpost_pass": true
+  },
+  "main_model_saved_logits_comparison": [
+    {
+      "case": "short64",
+      "byte_equal": true,
+      "rows": [
+        {
+          "target": 10870,
+          "top2": [
+            10870,
+            1
+          ],
+          "margin": 9.430463790893555,
+          "target_logprob": -0.0009134495925765179
+        },
+        {
+          "target": 16,
+          "top2": [
+            16,
+            339
+          ],
+          "margin": 3.194110870361328,
+          "target_logprob": -0.10309791040980047
+        },
+        {
+          "target": 334,
+          "top2": [
+            334,
+            1
+          ],
+          "margin": 1.9903717041015625,
+          "target_logprob": -0.24051973778094515
+        },
+        {
+          "target": 16372,
+          "top2": [
+            16372,
+            13254
+          ],
+          "margin": 7.270336151123047,
+          "target_logprob": -0.00919743204921751
+        },
+        {
+          "target": 6331,
+          "top2": [
+            6331,
+            1
+          ],
+          "margin": 8.583162307739258,
+          "target_logprob": -0.0009220070326243444
+        }
+      ],
+      "scalars": 646400
+    },
+    {
+      "case": "long1024",
+      "byte_equal": true,
+      "rows": [
+        {
+          "target": 2539,
+          "top2": [
+            2539,
+            2298
+          ],
+          "margin": 6.638566970825195,
+          "target_logprob": -0.00432746422062267
+        },
+        {
+          "target": 11929,
+          "top2": [
+            11929,
+            12457
+          ],
+          "margin": 4.136137008666992,
+          "target_logprob": -0.02833280641761477
+        },
+        {
+          "target": 4553,
+          "top2": [
+            4553,
+            4220
+          ],
+          "margin": 9.251052856445312,
+          "target_logprob": -0.00036599823782803534
+        },
+        {
+          "target": 2693,
+          "top2": [
+            2693,
+            6155
+          ],
+          "margin": 8.487407684326172,
+          "target_logprob": -0.0003193361780653815
+        },
+        {
+          "target": 27467,
+          "top2": [
+            4220,
+            27467
+          ],
+          "margin": 4.330104827880859,
+          "target_logprob": -4.343429758356983
+        }
+      ],
+      "scalars": 646400
+    }
+  ],
+  "tokens": {
+    "cases": 20,
+    "families": 12,
+    "splits": {
+      "train": 10,
+      "validation": 5,
+      "holdout": 5
+    },
+    "prefix_token_range": [
+      187,
+      317
+    ],
+    "reference_token_range": [
+      195,
+      337
+    ],
+    "first5_order": [
+      "text_cache_budget_ja",
+      "text_cache_budget_en",
+      "mixed_build_log_ja_en_log",
+      "code_stable_grouping_python",
+      "code_stable_grouping_cpp"
+    ],
+    "withheld_15_route_results_in_this_handoff": false,
+    "independently_retokenized": false,
+    "strict_prefix_supported_by_source_and_success_receipt": true,
+    "template_sha256": "0ca601cb287be0caabb83c9efe48437a8a26e6fc3c7efbc895bf24dc439e69ee",
+    "corpus_sha256": "fa1f41571af7c6d8272bb639877ea0cc32b4c09747939d5579a22d2998c11f5a",
+    "per_case": [
+      {
+        "case_id": "text_cache_budget_ja",
+        "family": "text_cache_budget",
+        "split": "train",
+        "prefix": 272,
+        "reference": 303
+      },
+      {
+        "case_id": "text_cache_budget_en",
+        "family": "text_cache_budget",
+        "split": "train",
+        "prefix": 211,
+        "reference": 245
+      },
+      {
+        "case_id": "text_unit_conversion_ja",
+        "family": "text_unit_conversion",
+        "split": "train",
+        "prefix": 235,
+        "reference": 278
+      },
+      {
+        "case_id": "text_unit_conversion_en",
+        "family": "text_unit_conversion",
+        "split": "train",
+        "prefix": 200,
+        "reference": 272
+      },
+      {
+        "case_id": "text_plan_constraints_ja",
+        "family": "text_plan_constraints",
+        "split": "validation",
+        "prefix": 236,
+        "reference": 259
+      },
+      {
+        "case_id": "text_plan_constraints_en",
+        "family": "text_plan_constraints",
+        "split": "validation",
+        "prefix": 187,
+        "reference": 228
+      },
+      {
+        "case_id": "text_document_summary_ja",
+        "family": "text_document_summary",
+        "split": "holdout",
+        "prefix": 293,
+        "reference": 267
+      },
+      {
+        "case_id": "text_document_summary_en",
+        "family": "text_document_summary",
+        "split": "holdout",
+        "prefix": 211,
+        "reference": 218
+      },
+      {
+        "case_id": "mixed_build_log_ja_en_log",
+        "family": "mixed_build_log",
+        "split": "train",
+        "prefix": 270,
+        "reference": 244
+      },
+      {
+        "case_id": "mixed_config_change_ja_json",
+        "family": "mixed_config_change",
+        "split": "train",
+        "prefix": 282,
+        "reference": 286
+      },
+      {
+        "case_id": "mixed_table_reconciliation_ja_en-columns",
+        "family": "mixed_table_reconciliation",
+        "split": "validation",
+        "prefix": 276,
+        "reference": 289
+      },
+      {
+        "case_id": "mixed_api_incident_ja_en_http",
+        "family": "mixed_api_incident",
+        "split": "holdout",
+        "prefix": 317,
+        "reference": 287
+      },
+      {
+        "case_id": "code_stable_grouping_python",
+        "family": "code_stable_grouping",
+        "split": "train",
+        "prefix": 240,
+        "reference": 195
+      },
+      {
+        "case_id": "code_stable_grouping_cpp",
+        "family": "code_stable_grouping",
+        "split": "train",
+        "prefix": 240,
+        "reference": 280
+      },
+      {
+        "case_id": "code_interval_merge_python",
+        "family": "code_interval_merge",
+        "split": "train",
+        "prefix": 205,
+        "reference": 255
+      },
+      {
+        "case_id": "code_interval_merge_cpp",
+        "family": "code_interval_merge",
+        "split": "train",
+        "prefix": 205,
+        "reference": 280
+      },
+      {
+        "case_id": "code_bounded_queue_python",
+        "family": "code_bounded_queue",
+        "split": "validation",
+        "prefix": 244,
+        "reference": 290
+      },
+      {
+        "case_id": "code_bounded_queue_cpp",
+        "family": "code_bounded_queue",
+        "split": "validation",
+        "prefix": 244,
+        "reference": 337
+      },
+      {
+        "case_id": "code_utf8_line_reader_python",
+        "family": "code_utf8_line_reader",
+        "split": "holdout",
+        "prefix": 230,
+        "reference": 209
+      },
+      {
+        "case_id": "code_utf8_line_reader_cpp",
+        "family": "code_utf8_line_reader",
+        "split": "holdout",
+        "prefix": 230,
+        "reference": 238
+      }
+    ]
+  },
+  "candidate35": {
+    "native_budget_bytes": 480706560,
+    "native_payload_bytes": 475453440,
+    "native_payload_MiB": 453.427734375,
+    "unspent_native_bytes": 5253120,
+    "selected_experts": 35,
+    "selected_layers": 23,
+    "observed_distinct_pairs": 7779,
+    "selected": [
+      {
+        "layer": 1,
+        "expert": 207,
+        "training_inclusion_count": 97,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 2,
+        "expert": 131,
+        "training_inclusion_count": 131,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 2,
+        "expert": 272,
+        "training_inclusion_count": 120,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 3,
+        "expert": 13,
+        "training_inclusion_count": 109,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 3,
+        "expert": 61,
+        "training_inclusion_count": 168,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 3,
+        "expert": 306,
+        "training_inclusion_count": 101,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 4,
+        "expert": 162,
+        "training_inclusion_count": 108,
+        "native_triplet_bytes": 12810240
+      },
+      {
+        "layer": 5,
+        "expert": 263,
+        "training_inclusion_count": 107,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 5,
+        "expert": 315,
+        "training_inclusion_count": 104,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 6,
+        "expert": 104,
+        "training_inclusion_count": 113,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 6,
+        "expert": 333,
+        "training_inclusion_count": 119,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 7,
+        "expert": 19,
+        "training_inclusion_count": 137,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 7,
+        "expert": 154,
+        "training_inclusion_count": 95,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 7,
+        "expert": 331,
+        "training_inclusion_count": 102,
+        "native_triplet_bytes": 12072960
+      },
+      {
+        "layer": 8,
+        "expert": 15,
+        "training_inclusion_count": 121,
+        "native_triplet_bytes": 12810240
+      },
+      {
+        "layer": 8,
+        "expert": 104,
+        "training_inclusion_count": 153,
+        "native_triplet_bytes": 12810240
+      },
+      {
+        "layer": 10,
+        "expert": 266,
+        "training_inclusion_count": 102,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 11,
+        "expert": 231,
+        "training_inclusion_count": 102,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 13,
+        "expert": 3,
+        "training_inclusion_count": 129,
+        "native_triplet_bytes": 14100480
+      },
+      {
+        "layer": 14,
+        "expert": 124,
+        "training_inclusion_count": 119,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 15,
+        "expert": 323,
+        "training_inclusion_count": 119,
+        "native_triplet_bytes": 15298560
+      },
+      {
+        "layer": 16,
+        "expert": 0,
+        "training_inclusion_count": 111,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 16,
+        "expert": 369,
+        "training_inclusion_count": 110,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 17,
+        "expert": 312,
+        "training_inclusion_count": 113,
+        "native_triplet_bytes": 14100480
+      },
+      {
+        "layer": 19,
+        "expert": 377,
+        "training_inclusion_count": 111,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 20,
+        "expert": 262,
+        "training_inclusion_count": 135,
+        "native_triplet_bytes": 15298560
+      },
+      {
+        "layer": 20,
+        "expert": 346,
+        "training_inclusion_count": 114,
+        "native_triplet_bytes": 15298560
+      },
+      {
+        "layer": 22,
+        "expert": 237,
+        "training_inclusion_count": 119,
+        "native_triplet_bytes": 14100480
+      },
+      {
+        "layer": 28,
+        "expert": 296,
+        "training_inclusion_count": 143,
+        "native_triplet_bytes": 18800640
+      },
+      {
+        "layer": 29,
+        "expert": 72,
+        "training_inclusion_count": 165,
+        "native_triplet_bytes": 18800640
+      },
+      {
+        "layer": 33,
+        "expert": 21,
+        "training_inclusion_count": 121,
+        "native_triplet_bytes": 15298560
+      },
+      {
+        "layer": 35,
+        "expert": 78,
+        "training_inclusion_count": 128,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 35,
+        "expert": 225,
+        "training_inclusion_count": 117,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 35,
+        "expert": 306,
+        "training_inclusion_count": 105,
+        "native_triplet_bytes": 13547520
+      },
+      {
+        "layer": 36,
+        "expert": 104,
+        "training_inclusion_count": 128,
+        "native_triplet_bytes": 14100480
+      }
+    ],
+    "geometry": {
+      "H_histogram": [
+        8235,
+        3086,
+        467,
+        52,
+        0,
+        0,
+        0
+      ],
+      "mean_H": 0.3527027027027027,
+      "selected_slot_fraction": 0.05878378378378379,
+      "H0_fraction": 0.6955236486486487,
+      "H6_fraction": 0.0,
+      "all_miss_run_histogram": {
+        "1": 380,
+        "2": 113,
+        "3": 78,
+        "4": 34,
+        "5": 30,
+        "6": 15,
+        "7": 13,
+        "8": 5,
+        "9": 9,
+        "10": 3,
+        "11": 5,
+        "12": 4,
+        "13": 2,
+        "14": 2,
+        "15": 1,
+        "16": 3,
+        "17": 2,
+        "18": 2,
+        "19": 1,
+        "20": 2,
+        "21": 1,
+        "25": 1,
+        "27": 1,
+        "33": 1,
+        "36": 1,
+        "42": 1,
+        "45": 1,
+        "59": 1,
+        "60": 1,
+        "64": 95
+      },
+      "miss_runs_reset_at_each_case_and_layer": true
+    },
+    "hit_slots": 4176,
+    "total_slots": 71040,
+    "selected_layer_H_histogram": [
+      3755,
+      3086,
+      467,
+      52,
+      0,
+      0,
+      0
+    ],
+    "empty_layers": [
+      0,
+      9,
+      12,
+      18,
+      21,
+      23,
+      24,
+      25,
+      26,
+      27,
+      30,
+      31,
+      32,
+      34
+    ],
+    "all_ranked_7779_exact_Fraction_entries_match": true,
+    "per_case": [
+      {
+        "case_id": "text_cache_budget_ja",
+        "family_id": "text_cache_budget",
+        "lane": "ja",
+        "H_histogram": [
+          1260,
+          867,
+          213,
+          28,
+          0,
+          0,
+          0
+        ],
+        "mean_H": 0.5815033783783784,
+        "remaining_CPU_expert_slots_per_token": [
+          204,
+          200,
+          193,
+          201,
+          199,
+          200,
+          199,
+          198,
+          200,
+          200,
+          204,
+          203,
+          198,
+          201,
+          196,
+          195,
+          203,
+          204,
+          206,
+          199,
+          202,
+          198,
+          199,
+          199,
+          205,
+          200,
+          203,
+          201,
+          209,
+          205,
+          206,
+          201,
+          205,
+          196,
+          204,
+          197,
+          208,
+          201,
+          207,
+          197,
+          210,
+          198,
+          210,
+          202,
+          203,
+          199,
+          203,
+          198,
+          200,
+          196,
+          193,
+          196,
+          200,
+          202,
+          200,
+          197,
+          198,
+          196,
+          197,
+          199,
+          196,
+          195,
+          198,
+          199
+        ]
+      },
+      {
+        "case_id": "text_cache_budget_en",
+        "family_id": "text_cache_budget",
+        "lane": "en",
+        "H_histogram": [
+          1685,
+          600,
+          71,
+          12,
+          0,
+          0,
+          0
+        ],
+        "mean_H": 0.3285472972972973,
+        "remaining_CPU_expert_slots_per_token": [
+          215,
+          211,
+          209,
+          209,
+          209,
+          205,
+          210,
+          209,
+          206,
+          211,
+          210,
+          209,
+          210,
+          212,
+          212,
+          211,
+          212,
+          211,
+          210,
+          209,
+          210,
+          212,
+          209,
+          208,
+          212,
+          211,
+          215,
+          208,
+          213,
+          209,
+          213,
+          207,
+          213,
+          209,
+          212,
+          214,
+          212,
+          208,
+          213,
+          207,
+          215,
+          206,
+          215,
+          215,
+          211,
+          207,
+          212,
+          212,
+          205,
+          206,
+          205,
+          207,
+          207,
+          211,
+          205,
+          209,
+          207,
+          206,
+          211,
+          211,
+          208,
+          208,
+          209,
+          207
+        ]
+      },
+      {
+        "case_id": "mixed_build_log_ja_en_log",
+        "family_id": "mixed_build_log",
+        "lane": "ja+en+log",
+        "H_histogram": [
+          1550,
+          755,
+          51,
+          12,
+          0,
+          0,
+          0
+        ],
+        "mean_H": 0.3771114864864865,
+        "remaining_CPU_expert_slots_per_token": [
+          207,
+          205,
+          207,
+          204,
+          205,
+          209,
+          208,
+          208,
+          208,
+          209,
+          209,
+          210,
+          208,
+          210,
+          210,
+          209,
+          207,
+          208,
+          211,
+          208,
+          209,
+          208,
+          208,
+          210,
+          208,
+          207,
+          210,
+          207,
+          207,
+          208,
+          209,
+          206,
+          209,
+          208,
+          211,
+          208,
+          209,
+          208,
+          208,
+          208,
+          209,
+          208,
+          207,
+          208,
+          212,
+          208,
+          209,
+          206,
+          208,
+          210,
+          206,
+          210,
+          210,
+          205,
+          209,
+          208,
+          207,
+          207,
+          208,
+          204,
+          205,
+          208,
+          209,
+          208
+        ]
+      },
+      {
+        "case_id": "code_stable_grouping_python",
+        "family_id": "code_stable_grouping",
+        "lane": "python",
+        "H_histogram": [
+          1846,
+          480,
+          42,
+          0,
+          0,
+          0,
+          0
+        ],
+        "mean_H": 0.23817567567567569,
+        "remaining_CPU_expert_slots_per_token": [
+          217,
+          213,
+          215,
+          212,
+          210,
+          208,
+          210,
+          211,
+          212,
+          211,
+          214,
+          211,
+          217,
+          216,
+          214,
+          215,
+          212,
+          213,
+          214,
+          211,
+          214,
+          213,
+          213,
+          214,
+          211,
+          212,
+          212,
+          208,
+          213,
+          212,
+          210,
+          213,
+          214,
+          211,
+          214,
+          214,
+          212,
+          215,
+          218,
+          213,
+          211,
+          214,
+          215,
+          210,
+          216,
+          217,
+          213,
+          214,
+          214,
+          217,
+          213,
+          214,
+          216,
+          215,
+          211,
+          213,
+          213,
+          211,
+          215,
+          213,
+          213,
+          212,
+          216,
+          216
+        ]
+      },
+      {
+        "case_id": "code_stable_grouping_cpp",
+        "family_id": "code_stable_grouping",
+        "lane": "cpp",
+        "H_histogram": [
+          1894,
+          384,
+          90,
+          0,
+          0,
+          0,
+          0
+        ],
+        "mean_H": 0.23817567567567569,
+        "remaining_CPU_expert_slots_per_token": [
+          216,
+          213,
+          215,
+          212,
+          212,
+          217,
+          217,
+          215,
+          212,
+          209,
+          216,
+          215,
+          212,
+          212,
+          217,
+          214,
+          212,
+          212,
+          209,
+          217,
+          216,
+          212,
+          210,
+          217,
+          214,
+          213,
+          212,
+          211,
+          216,
+          209,
+          216,
+          217,
+          210,
+          213,
+          214,
+          215,
+          212,
+          212,
+          215,
+          210,
+          215,
+          215,
+          216,
+          212,
+          215,
+          210,
+          211,
+          216,
+          210,
+          210,
+          214,
+          216,
+          211,
+          211,
+          213,
+          210,
+          211,
+          213,
+          211,
+          214,
+          214,
+          215,
+          210,
+          213
+        ]
+      }
+    ],
+    "admitted": null,
+    "quality_accepted": null,
+    "saved_time": null
+  },
+  "restore_recorded_evidence": [
+    {
+      "unix": 1794886780.0704973,
+      "pid": 238218,
+      "API_health": "ok",
+      "config_sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+      "mapped_runtime_hashes": {
+        "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+        "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26",
+        "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0",
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+      },
+      "normal_runtime_backing_files_verified": true,
+      "diagnostic_libraries_loaded": false,
+      "services": {
+        "llm-deepseek41-api.service": "active",
+        "xeon-watch.service": "active",
+        "xeon-watch-notify.service": "active"
+      },
+      "monitor_errors": {},
+      "active_alerts": {},
+      "monitor_timestamp": 1794886774.3922231,
+      "normal_API_restored": true
+    },
+    {
+      "unix": 1794888149.2233028,
+      "pid": 241828,
+      "API_health": "ok",
+      "config_sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+      "mapped_runtime_hashes": {
+        "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+        "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26",
+        "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0",
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+      },
+      "normal_runtime_backing_files_verified": true,
+      "diagnostic_libraries_loaded": false,
+      "services": {
+        "llm-deepseek41-api.service": "active",
+        "xeon-watch.service": "active",
+        "xeon-watch-notify.service": "active"
+      },
+      "monitor_errors": {},
+      "active_alerts": {},
+      "monitor_timestamp": 1794888141.3332016,
+      "normal_API_restored": true
+    }
+  ],
+  "limits": [
+    "No live engine or API verification here. Hashes prove shared consistency, not independent attestation of remote execution.",
+    "Engine ELF backing files are not in this handoff; runtime library hashes are recorded provenance checked against source/launch receipts, not rehashed actual ELF here.",
+    "M1 is dummy vision graph reserve, not real-image compute. CUDA/NVML queries are sequential. M3 and saved health tails are not whole-run peaks.",
+    "Capacity32 initializes a dormant native bank; model inference does not dispatch to it. Candidate35 covers 23 layers and has not been allocated/admitted.",
+    "24 warmup final readback cells were recorded as zero after 3 compute calls each; intermediate 72 outputs are not separately available.",
+    "All saved 5-row F32 arrays independently checked. Remaining 60 pilot T1 full outputs only have source plus runtime finite-scan receipt.",
+    "Tokenizer and strict prefix use source plus success receipt; no independent model tokenizer run and no raw API token-piece responses.",
+    "Candidate uses only 5 training variants in 3 families; H is training-fit geometry, not held-out utility or saved time.",
+    "Pilot generation changes are at position256; long1024 control changes occur at positions1025 and1027. Linkage remains intact; metadata alone does not establish the causal trigger.",
+    "Teacher-forced reference windows and finite/equal saved logits do not establish sampled-answer quality or API streaming cadence."
+  ],
+  "checks_by_category": {
+    "BANK_COMPARISON T1_engine_ms": 4,
+    "BANK_COMPARISON actual_ubatches": 4,
+    "BANK_COMPARISON logits_sha256": 4,
+    "BANK_COMPARISON memory recompute": 2,
+    "BANK_COMPARISON prefill_ms": 4,
+    "BANK_COMPARISON prefix_tokens": 4,
+    "F32 byte size": 10,
+    "NVML reserved accounting": 13,
+    "T1 decode success": 340,
+    "T1 layer mask": 340,
+    "T1 monotonic timestamps": 340,
+    "T1 predicts subsequent token": 324,
+    "T1 recorded finite synchronized": 340,
+    "T1 step identity": 340,
+    "actual context settings": 3,
+    "actual graph providers": 3,
+    "actual symbol providers": 3,
+    "attempt completed": 350,
+    "attempt generation positive": 350,
+    "attempt identity status": 350,
+    "attempt label": 350,
+    "attempt position": 350,
+    "attempt positive tokens": 350,
+    "attempt scope": 350,
+    "bank comparison source pin": 1,
+    "bank main logits byte equality": 2,
+    "bank original source identity": 1,
+    "bank published patch is exact diff": 1,
+    "bank reachable warmup cells": 1,
+    "bank ready identity": 1,
+    "bank ready post free": 1,
+    "bank strict guard source unchanged": 2,
+    "bank strict guards pass": 1,
+    "bank unchanged margins": 1,
+    "build copied exactly": 3,
+    "build return code": 3,
+    "call attempts": 350,
+    "call completed": 350,
+    "call label": 350,
+    "call status": 350,
+    "candidate byte arithmetic": 1,
+    "candidate greedy native budget selection": 1,
+    "candidate independently regenerated plan bytes": 1,
+    "candidate plan exact chosen IDs": 1,
+    "candidate plan hash": 1,
+    "candidate predeclared native budget": 1,
+    "case bounded length": 10,
+    "case expected ubatches": 10,
+    "case final prefill position": 10,
+    "case input token identity": 10,
+    "case next token targets": 10,
+    "case raw actual ubatches": 10,
+    "case recorded saved finite": 10,
+    "case saved logits shape": 10,
+    "case saved row targets": 6,
+    "case single actual ubatch": 10,
+    "chat template identity": 1,
+    "comparison candidate top2": 10,
+    "comparison target logprob independent": 10,
+    "comparison top1 margin": 10,
+    "comparison top2": 10,
+    "comparison zero error": 10,
+    "corpus 12 families": 1,
+    "corpus 20 cases": 1,
+    "entire exact Fraction ranking": 1,
+    "entire per case H distribution and miss runs": 5,
+    "expert placement": 3,
+    "file hash": 214,
+    "file size": 191,
+    "fixture not connected to model": 1,
+    "fixture plan launch pin": 1,
+    "fixture predeclared membership": 1,
+    "frozen 64 inputs": 20,
+    "frozen ID range": 20,
+    "frozen T1 IDs hash": 20,
+    "frozen all original cases": 1,
+    "frozen assistant boundary": 20,
+    "frozen at least 65 targets": 20,
+    "frozen corpus identity": 1,
+    "frozen displayed first64 bytes": 20,
+    "frozen first T1 position": 20,
+    "frozen first64 byte prefix of reference": 20,
+    "frozen first65": 20,
+    "frozen joined hash": 20,
+    "frozen next token offset": 20,
+    "frozen original identity split": 20,
+    "frozen prefix IDs hash": 20,
+    "frozen prefix length": 20,
+    "frozen prompt hash": 20,
+    "frozen reference hash": 20,
+    "frozen reference length": 20,
+    "frozen rendered hash": 20,
+    "frozen split counts": 1,
+    "frozen strict prefix receipt": 20,
+    "frozen token manifest design pin": 1,
+    "full aggregate H geometry": 1,
+    "guard child exited normally": 3,
+    "guard unchanged limits": 3,
+    "incoming 34 entries": 1,
+    "incoming exact 35 files": 1,
+    "incoming prior pin": 1,
+    "input text hash": 11,
+    "launch RAM guard": 3,
+    "launch bank status": 3,
+    "launch baseline config": 3,
+    "launch build pin": 3,
+    "launch previous results pin": 3,
+    "launch ubatch": 3,
+    "ledger attempt count": 20,
+    "ledger call count": 20,
+    "ledger closed": 20,
+    "ledger complete decode count": 20,
+    "ledger flags drops": 20,
+    "ledger observing": 20,
+    "ledger one T1 attempt": 10,
+    "ledger record count": 20,
+    "memory NVML status": 13,
+    "memory queries sequential": 13,
+    "native block aligned": 360,
+    "native block definition source": 6,
+    "native contiguous": 360,
+    "native expert dimensions": 360,
+    "native projection bytes independent": 360,
+    "native source stride": 360,
+    "native triplet sum": 120,
+    "omitted config reconstructed hash": 3,
+    "output outside repository": 1,
+    "pilot 65 target correspondence": 5,
+    "pilot design launch pin": 1,
+    "pilot exact frozen full IDs": 5,
+    "pilot exclusively train": 5,
+    "pilot first64 frozen input IDs": 5,
+    "pilot full prompt prefix": 5,
+    "pilot only first5 plus control": 1,
+    "pilot predeclared first5 order": 1,
+    "plan 40 layers": 2,
+    "plan ID range": 80,
+    "plan count": 80,
+    "plan header": 2,
+    "plan layer order": 80,
+    "plan native types": 80,
+    "plan sorted unique IDs": 80,
+    "plan total count payload": 2,
+    "prefill monotonic timestamps": 10,
+    "prefill no route record": 10,
+    "prefill sum tokens": 10,
+    "previous F bytes": 1,
+    "previous ZIP hash": 1,
+    "previous ZIP member count": 1,
+    "previous ZIP member identical": 35,
+    "previous ZIP unique local match": 35,
+    "proposal control excluded": 1,
+    "proposal no validation holdout": 1,
+    "proposal raw denominator counts": 1,
+    "proposal raw source hashes": 5,
+    "proposal source pin": 1,
+    "proposal unmeasured remains null": 4,
+    "raw case count": 3,
+    "raw mapping full coverage": 1,
+    "raw mapping hash": 156,
+    "raw mapping recorded byte identity": 156,
+    "record ID range": 12580,
+    "record attempt_id": 12580,
+    "record context": 12580,
+    "record decode_call": 12580,
+    "record flags": 12580,
+    "record generation": 12580,
+    "record layer": 12580,
+    "record logical_input_token": 12580,
+    "record n_tokens": 12580,
+    "record ordinal": 12580,
+    "record phase": 12580,
+    "record position": 12580,
+    "record projection": 12580,
+    "record request": 12580,
+    "record sequence": 12580,
+    "record six experts": 12580,
+    "record ubatch": 12580,
+    "record unique experts": 12580,
+    "restore active services": 2,
+    "restore config pin": 2,
+    "restore four runtime pins": 2,
+    "restore health receipt": 2,
+    "restore no diagnostic receipt": 2,
+    "restore no monitor errors": 2,
+    "restore recent monitor": 2,
+    "restore verification receipt": 2,
+    "run completion": 3,
+    "run results hash": 41,
+    "runner source pin": 3,
+    "runtime full token count": 11,
+    "runtime text hash": 11,
+    "runtime tokenizer identity receipt": 11,
+    "same inventory U1024 pilot": 1,
+    "same inventory capacity pilot": 1,
+    "saved ECC errors": 90,
+    "saved available RAM guard": 90,
+    "saved full F32 finite": 10,
+    "saved power ECC settings": 90,
+    "selected frequency equals H hits": 1,
+    "shared exact fileset": 1,
+    "short control exact old T1 bytes": 3,
+    "short control original tokens": 3,
+    "single actual admission logs": 1,
+    "template chat mode receipt": 1,
+    "template chronology between restores": 1,
+    "template endpoints only": 1,
+    "template no inference receipt": 1,
+    "template normal config identity": 1,
+    "token manifest before pilot run receipt": 1,
+    "two model backends": 3,
+    "vocabulary": 3
+  },
+  "check_count": 236752,
+  "passed": true
+}

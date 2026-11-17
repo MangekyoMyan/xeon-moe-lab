@@ -1,0 +1,123 @@
+実機Astraへの引継ぎ: 小bankでCPU/GPU並列の実益を直接測る
+2026-11-17 / source pin d98a17c56fadc92cf79e21ecbe80732dedeed899
+
+判断
+====
+容量phase訂正、32expert fixture、train_first5のraw/planは独立再計算で一致。
+ubatch1024を維持して、35expert案の小さい並列pilotへ進めてよい。
+512/256や大規模allocator調査、残り15case全採取を先行必須にしない。
+実機操作の担当はAstra。ユーザーへcommandを要求しない。
+
+固定するもの
+============
+・元35expert/23層plan (SHA 4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596)。
+・ctx131072、batch/ubatch1024、CPU12/24、seq1/output cap1、GPU37..39、vision配置、
+  KV型、通常のpower/thermal/RAM/復帰条件。今回容量の運用条件を引き継ぐ。
+・CPU/CUDA/libllama/baseの実ロードidentity、既存compact coverage、量子化/clamp。
+・候補のnative予算は480706560 B。35案自身はまだ未allocation/未admission。
+
+最初の実装: 変更面積を限定する
+============================
+1. proposals/empty_selection_bypass.patch の2か所を隔離用sourceへ反映する。
+   initializeとxeon_hot_buildの両方で非空selectionだけ対象。
+   元source SHA 9f647622e0578b86b2042b9d63f77e6bdcae80b72ac20b69a1e79d24672cd767。
+   patchは適用checkのみ済。compile/run/採用は未確認。
+   空14層をcustomにしない。非空層のruntime H0は依然private経路で測る。
+   全空planはこの変更後、dispatcher H0の対照にならない点に注意。
+
+2. capture-only callerを既存cb_evalで作り、plans/CAPTURE_CELLS.jsonの8cellを採る。
+   proposals/bounded_moe_capture_proposal.h と bind_parent_cells_proposal.h を参照。
+   全てtext_cache_budget_ja、prefix272+最初9T1以内。新しい人工xは使わない。
+   x=元gate.src1のF32、joint6=gate.src2の元順、down全6、effective weights6、clamp、
+   type/shape/stride、compact mask、provider、call/position等を保存する。
+   callback内はbounded memcpyと検査だけ。export/finite/hashは正常完了後。
+   既存prefix+first4F32と指定8cell IDsを照合。call5/8の無callback過去中間値との
+   bit同一まで証明したとは書かない。疑義/必要がある時だけ9T1無callbackbridgeを追加。
+
+3. 同じ実x/IDsでO/C/S/Pを小operator replay。callback=null、route collector=closed。
+   O original CPU-all6; C同じbank保持でprivate CPU-all6;
+   S同じhot/coldでGPUを先にjoinしてCPU; P CPUとGPUを重ね最後にjoin。
+   S/P差分はjoin位置だけ。CPU x準備を前後へ動かす等はしない。
+   旧probeのrun順序は再利用可。banks.add_cache(routes)で当該6を追加compact化しない。
+   model original weight tensor/dataと既存compact registryを再利用する。
+   初期化で35案自身のGpre/Gpostを元vision前phaseで検査し、後続warmupまで確認。
+   operator loopへallocation、weights transfer、logging、capture、reference計算を入れない。
+
+最小の測定契約
+==============
+・host x/IDs ready→canonical host [5120,6] ready。set/get、partition、enqueue、CPU、
+  join、scatterを含める。各cell/armの生timestamp・順序・first-useを残す。
+・warmup後、事前固定の交互順で短いpaired blocksを測る。例えば各cell12blocksで
+  O/C/S/Pの順を循環させる。反復は同一fixtureの反復で、独立な入力標本数ではない。
+・Oが独立graphなら元main schedulerの費用と同一視しない。operator wallと後の
+  integrated T1 wallは別欄。meanに加えmedian/quantiles/全時系列/paired差を保存。
+・CPU残slot数→CPU時間、host join wait→GPU-readyの代入は禁止。
+  GPU-readyはunknownでよい。first answerはS−PとP−Oのmixed whole wallで出す。
+
+最小の正しさ
+============
+・O/C: 元CPU対private CPU全6。同じx/IDs/cache条件でbyte比較。不一致なら原因を絞る。
+・S/P: 同じpartitionの全6slot出力と同じ重み/元順合成をbyte比較。
+  ここでの不一致をCPU/CUDA量子化差として許容しない。
+・O/mixed: NMSE/max_abs/normを別に報告。IQ系のQ8_K/Q8_1等が違うのでCPU bit一致を
+  一般条件にしない。必要な少数cellだけ既存GGUF F32/FP64 dot参照を再利用。
+・H0でGPU操作なし。現35案の実Hは0..3。bank slot→original slotを維持。
+・PがSに勝つだけでは採用しない。PがOより得をする方向かを見る。
+
+有望だった場合だけ: current sourceへ限定統合
+===========================================
+結合点は reviews/hotpath/HOTPATH_REVIEW_JA.txt にexact source/行。
+現在のcontext/graphへ旧ファイルを丸ごと上書きしない。
+  a. CPU作成後、scheduler構築前に専用backendを追加。
+  b. 初回sched_reserve後finish一度、vision前guardを維持。
+  c. 元router後、対応T1/非空bankだけFFN本体をcustom化。
+  d. 元順6slotへ戻してrouting weight一度、元順のsum。tail policyも記録。
+prefill、空14層、既存GPU37..39、未対応条件は元graphに残す。
+generation再buildでState/bankを作り直さない。graph/owner/storage寿命を保つ。
+
+統合時の必須修正: route37のlogical routeと内部実行を分離
+======================================================
+旧private CPUはoriginal gateを使いhot slotを -1 にする。
+現collectorはそのgateをlogical元6IDsとして読むため、H1..H5でXR_IDSになる。
+H6ではCPU gateがなくXR_COVERAGE。入口だけ追加すると二重記録になる。
+  ・custom入口でpartition前original6 IDsを一度だけrecord。
+  ・private CPU専用ids tensor pointerをowner/layer/gate/shape/storage検証付きで登録し、
+    そのoriginだけhookから除外。
+  ・空層は旧CPU hook。37層coverageと6unique IDs検証は維持。
+  ・-1値で雑に除外/flags抑制/coverage削減しない。
+operator replayはcollector closedなので、この拡張を初段の前提にしなくてよい。
+
+integrated pilotでは同じtoken列でもOとmixedのhidden/KV/後続routingは変わる。
+S/P同士の一致と、O/mixedの数値差・routing変化を別欄にする。
+quality diagnosticとtimingを分ける。timingはcallback/observer offのT1 output-ready列。
+qualityは有限性、全64logit hashes、NLL/top1/margin、差分が起きたcallの根拠を保持。
+saved F32が5rowsならその範囲を明記。teacher-forced NLLを一般回答品質と呼ばない。
+性能が残った候補だけ未使用validation/holdout課題の実回答へ進める。
+
+条件付き対案は一つだけ
+======================
+plans/CONDITIONAL_CONCENTRATED_CANDIDATE.plan
+36expert/8層、480522240 B=458.26171875MiB。
+first5 training inclusion3796 (original4176の90.9004%)、active H0=504 (元3755)、
+positive2056 (元3605)、H1割合44.99% (元85.60%)。
+同予算で総hit数を元の90%以上とする最少active層DP。別実装でも確認済み。
+速度/品質/容量の最適性ではなく、同じhit位置を90%保持する意味でもない。
+元35案でH0固定費が大きければ、この対案へ一度切り替える理由がある。
+H4/H5の実cellがあるので選ぶ場合はその代表入力も採る。8層案自身のguardも未確認。
+2案×全corpus×全設定のgridは要求しない。
+
+返却してほしいもの
+==================
+・何を実装したかの小diff/source/build/runtime identities。
+・35案または明示的に選んだ1対案のadmission/後続warmupのreceipt。
+・8cellのraw/metadata、O/C/S/Pの全6出力一致結果と必要な参照誤差。
+・境界を明記した生time列、交互順、各cell paired差、H0費用。
+・fullmodelへ進んだ場合だけlogical routeのorigin分離・tail/empty/prefill/rebuildの確認。
+・性能/品質がまだ未評価の項目はunknownを保つ。悪い結果も返す。
+・通常APIの復帰receipt。
+
+現段階で実施済みの検証
+====================
+Pro側はsource/rawの読取再計算、header syntax-only、empty patch apply-checkのみ。
+モデル/GPU/API/engine benchmarkは未実行。実測速度を追加した資料ではありません。
+詳細と解釈はGPU_WORKSPACE_REVIEW_JA.txt、全証拠はreviews以下。

@@ -1,0 +1,390 @@
+CPU/GPU 並列 FFN: 現 source に合わせた最小設計
+対象 pin: d98a17c56fadc92cf79e21ecbe80732dedeed899
+担当範囲: CONSULT_PRO_JA の 2 / 3、およびそれに必要な統合・観測器の境界
+作成: 2026-11-17
+
+判定
+====
+
+次は小 bank の実益を測る段階へ進めてよい。今回の capacity fixture は bank を
+main model の演算へ使用していないので、並列推論の評価はここからである。
+最初の実装は 35-expert 候補を固定し、未選択14層を元経路へ残し、少数の実入力を
+CPU 全6 / 同じ分担の serial / concurrent で再生する。加えて private CPU 全6 を
+短い対照として置き、元 CPU 演算から dispatcher へ置換した費用を切り分ける。
+
+この資料は source レビューとコード案である。実機操作、モデル実行、供給された
+build script / ELF の実行は行っていない。別添 patch は repo 外に作成した提案で、
+本体 source は変更していない。コンパイル、数値一致、速度改善は未確認。
+
+1. まず直せる点: 静的に空の14層を custom にしない
+================================================
+
+現 bank-capacity/hot-backend.cpp は、initialize() L131–136 で eligible な層を
+すべて private CPU graph にしてから selected.empty() を調べる。一方、
+xeon_hot_build() L227–234 は eligible だけを見て custom 化する。
+このため旧コードをそのまま統合すると、bank を置かない14 CPU層も custom、
+private CPU graph、入力 set、出力 get を通る。
+
+現 plan の空 CPU層は 0,9,12,18,21,23,24,25,26,27,30,31,32,34。
+全320 T1に対して 4480 layer-call が静的に GPU benefit なしと判明している。
+したがって次の二か所の判定を揃える小変更を先に入れるのがよい。
+
+  initialize: eligible && !selected.empty() の層だけ private graph を作る。
+  xeon_hot_build: !eligible || selected.empty() なら nullptr を返す。
+
+別添 empty_selection_bypass.patch がこの変更のみを表す。plan の全40層の
+type/shape/clamp/bytes 検証、Gpre/Gpost、native weights のコピー、nonempty 層の
+算術や scatter は変更していない。上位 build_moe_ffn は nullptr を受けたときに
+元演算を構築する設計であるため、空層では元 gate/up/activation/down/tail を保つ。
+
+注意: この変更後に「全空 plan」を入れても、旧 dispatcher all-miss 対照を
+再現しない。全空 plan では全層が元経路に戻るからである。dispatcher の H0 費用は、
+非空 selection の層に対する実際の all-miss joint6、または同じ非空 plan を保持した
+private-CPU-all6 benchmark mode で測る。
+
+静的な空層と runtime H0 は異なる。後者の ids は実行時に決まり、再利用される
+graph の構築時には一般に分からない。毎token graphを作り直す H0 回避は提案しない。
+
+2. H0 の費用は残る。算術省略量から時間を推定しない
+=================================================
+
+State::compute() L167–179 は H0 で pinned input の hot copy、GPU enqueue、
+GPU synchronize をすでにスキップする。しかし nonempty 層は H0 でも次を行う。
+
+  a. runtime geometry / host buffer / unique IDs 検証と6 slot の照合。
+  b. 5120 F32 = 20 KiB の private CPU input set と6 I32 の set。
+  c. private CPU graph の計算。
+  d. 5120×6 F32 = 120 KiB の CPU output get。
+  e. custom backend の dispatch/locking と、上位 scheduler/tail の境界処理。
+
+これらの費用はソースだけでは正負も大きさも確定しない。元 graph との比較を要する。
+さらに H1–H3 でも CPU graph は6列の shape を保ち、GPU担当slotの ids を -1 にする。
+ggml-cpu.c L1747–1760 の scratch/mapping、L1749以降の入力量子化、L1811–1823 の
+MXFP4 sidecar 準備、6列の activation および output get などは、単純に (6-H)/6
+には減らない。-1 は該当出力列をゼロにし、その expert の matmul を skip する
+仕様である（L1826–1844）。「CPU 残slot数」は CPU 完了時間の代用にならない。
+
+training 内では空層を除いた7360 call中 H0=3755、H>0=3605。
+仮に H0 の平均追加費用を d0、H>0 の元経路に対する平均短縮を g とすれば、
+対象層だけの収支が正になる必要条件は 3605*g > 3755*d0 である。
+つまり g > 1.04161*d0。これは時間を測った推定ではなく、集計式の整理である。
+実際の判定には layer/type/joint6 ごとの測定差をその頻度で重み付けする。
+main graph の追加 copy、tail、GPU queue、graph rebuild の費用は別途全体へ加わる。
+
+3. 最小 benchmark は4モード。主比較はそのうち3つ
+=================================================
+
+モード O: original CPU-all6
+  現在の元 graph / CPU provider の結果を基準にする。同じ実 x と original joint6。
+  compact plan、weights、CPU threads、clamp、量子化、precision を固定する。
+
+モード C: private CPU-all6
+  nonempty 層だけ custom/private graph に置換し、GPU担当を実行上ゼロに固定する。
+  bank は S/P と同じ候補・同じ常駐状態で保持する。元6IDsを CPU へ渡す。
+  Oとの差が graph/copy/dispatch/tail の置換費用を含む対照になる。
+
+モード S: serial split
+  固定 plan と元joint6から実際のhot/coldを分ける。GPU submit と D2H を予約し、
+  GPU synchronize を完了してから private CPU を実行し、元slotへ scatterする。
+
+モード P: concurrent split
+  S と同じ input、IDs、bank、CPU mask、GPU graph、scatter を使用する。
+  GPU submit と D2H 予約の後に private CPU を実行し、最後に GPU を joinする。
+
+S と P の差分は join の位置だけにする。CPU/GPU の割当、fusion、量子化、router
+weights、cache plan、tensor形状を変えると、並列実行の寄与だけを測れない。
+O/C は CPU 内の一致を検査し、S/P は同じ混合演算の byte一致を検査する。
+O と S/P の完全一致は一般には要求できない。CPU/CUDA 入力量子化等が異なるため、
+同じ入力での誤差と参照演算への誤差を別に報告する。
+
+実装骨格（設計を示す pseudocode。既存 public API ではない）:
+
+  run(cell, mode):
+      validate frozen x / original_ids / same plan / same providers
+      derive matched hot slots and local bank ids once
+      if mode == C: effective_hot = 0; cpu_ids = original_ids
+      otherwise: cpu_ids[hot_slots] = -1
+      prepare private CPU x and ids if effective_hot < 6
+      if effective_hot > 0:
+          copy pinned_x; enqueue H2D x/ids, GPU graph, D2H output
+      if mode == S and effective_hot > 0: synchronize private GPU
+      if effective_hot < 6: compute private CPU; copy 6-slot CPU result
+      if mode == P and effective_hot > 0: synchronize private GPU
+      scatter GPU output back to original slots if effective_hot > 0
+
+CPU-input準備を GPU submit の前後で S/P 間に動かさない。serial 時に既に join
+した GPU を末尾でも余分に synchronize しない。H0 では GPU操作ゼロ、H6 では
+CPU操作ゼロの分岐を保つ。現35案は各層最大3expertなので実到達は H0..H3。
+H6 は候補の実益評価に増やす試験ではなく、残す汎用コードの境界条件である。
+
+旧 hot_ffn_probe.cpp L174–191 には同じ submit/join の比較骨格があるので、
+独立した新 scheduler や複雑な worker queue を作る必要はない。
+ただし旧 probe L209 の人工一様入力、固定6expert、および L215 の
+banks.add_cache(routes) をそのまま現baselineの代用にしない。この呼出しは
+当該6expertを compact cacheへ追加するため、現行planのcompact coverageを変え得る。
+
+最初の operator replay は route collector を閉じ、capture callback と export と
+hash計算を timing の外に置く。現 model を読み込んだ同一 process の original
+weight tensors/data と既存 compact registry を使う方が baseline を揃えやすい。
+量子化重みを別dataへ複製し、別のcacheを作る場合は別条件として明記する。
+
+4. 測定境界とタイムライン
+=========================
+
+少数実activationの取得は baseline original graph の別 capture run で行う。
+必要な実入力は x=F32[5120,1,1,1] と original IDs6。router weights6、clamp、
+projection types、generation/context/position、各slotのcompact状態も保存する。
+既存 route37 は IDs のみであるから、現snapshotに x があるとは扱わない。
+
+第一境界は「host x/ids ready → canonical host unweighted [5120,6] ready」。
+partition、input copies、CPU/GPU launch、GPU join、scatterを含む。
+weights upload、graph allocation、warmup、capture callback、disk/JSON、
+FP64 reference、および事前の全device synchronizeは timing外とする。
+同じbank保持・同じ通常モデル配置をO/C/S/Pすべてで維持し、実入力を固定して
+各モードを交互順で計測する。反復順は事前固定し、first-use/warm区間を分ける。
+
+capture callbackがnormal pathを変える懸念は、対象providerに即して扱う。
+current CPU ggml_cpu_try_fuse_opsの全体（ggml-cpu.c L3300–3332）には
+RMS_NORM+MULだけがあり、gate/up/GLUの三連fusionはない。そのため元CPU37層の
+gate-postで区切ることについて、この三連fusionを壊すという懸念は当該sourceには
+該当しない。一方CUDAはgate/up/GLUを融合できるのでGPU層まで同じ方法を広げない。
+norm/MULの途中にも新しい観測点を入れない。
+現base scheduler ggml-backend.cpp L2171–2204はcallback要求点までgraph viewを
+分割して毎回synchronizeする。ask=falseのsplitにもsyncが増えるため、capture-run
+timingは採用しない。元ordered IDs・保存済みlogitsとの短い対照でnormal pathとの
+一致を確認する。一致しなければcapture-only diagnostic inputと明記し、最小の
+worker0 bounded input copyを別案として検討する。callbackを無条件に無影響としない。
+
+ここで得る O が独立 replay graph の時間なら、それを「元 model scheduler の
+所要時間」と呼ばない。capture済み元出力との一致は算術の対照にはなるが、
+元schedulerのcopy/dispatch費用を回収できた証明ではない。
+
+そのため有望な少数cellを確認した後に、初めて隔離main graphへ同じcustomを
+つなぎ、第二境界「T1 decode 呼出し → 正常な output-ready sync」でもO/C/S/Pを
+比較する。ここでは前後のCUDA tailとのqueue競合、scheduler copy、graph rebuild
+が含まれる。どちらの境界も token/readiness時刻の列を保存し、meanだけにしない。
+
+host側の GPU join 待ち時間は GPU ready 時刻ではない。CPUが先に終わったか、
+GPUがCPUの途中で終わったかをjoin待ちだけでは復元できない。
+初段は GPU ready を unknown のまま total mixed wall と S−P を測れば十分。
+必要になった段階で private stream上のCUDA event等を別診断として設計する。
+イベント時間が host enqueue/delay や別stream contentionを全て表すとも仮定しない。
+
+比較は同じ frozen x の replay に限れば「同じ実入力」を満たせる。全modelを
+O/S/Pで別々に回す場合は同じforced-token列でも中間 x、KV、後続routing は
+異なり得る。全体試験で同じ入力だったと記述する際は「同じtoken列」と限定する。
+
+5. CPU baseline を保つ条件
+==========================
+
+現 build_lora_mm_id（current graph L1643–1692）は Hadamard、MoE cache、precision
+policy、scales、LoRA等を扱う。hot private Graph は素の mul_mat_id と clampのみ。
+したがって旧 hot graph L2320–2325 の厳しい guard を削ってはいけない。
+
+対象モデル/形状/型、T=1、6 experts、正のclampに加え、merged gate-up、bias、
+projection scale、post-expert norm、MoE cache、LoRA、Hadamard、custom precision
+がないことを確認して初めて置換する。対応しないgraphは元経路へ戻す。
+現モデルが正clampでも、その値と swiglu_clamp 分岐をcaptureに保存する。
+
+private CPU は original weight tensorをそのまま参照している。既存 sparse compact
+lookup は t->data をkeyとし、type/ne/nb/host-buffer/WEIGHTS usage を検証する
+（sparse-cache release-v2-a iq3-cache.cpp L60–65,178–186）。この経路を保てば
+private CPUでも既存cacheを参照できる設計である。ただし「同じprovider」と
+「同じexpertが実際にcompactにhitした」は別なので、短い検証でcoverageを確認する。
+
+private CPU poolは12threads、poll=0、strict、mask0..11（hot backend L117–119）。
+main manifestは12threads、poll=0、strict、mask0..23である。mask文字列は違うが、
+現CPU sourceのstrict割当（ggml-cpu.c L2946–2965,3583–3606）は先頭の許可CPUを
+順に割り当てるため、12threadsなら両者とも0..11を使う設計である。
+mask差だけをもって速度差の原因と断定しない。実provider・actual worker count・
+適用affinity・NUMA配置は短い準備検証で記録する。
+
+専用host backendを保つことにも意味がある。普通のCPU CUSTOM callbackの内部で
+private OpenMP graphを起動すると、外側CPUteamと内側teamが重なる/直列化される
+条件が生まれる。旧markerは普通CPUへ誤配置されたらabortし、専用backendだけが
+計算する構成である（L58–64,187–211）。これを通常CPU callbackへ安易に簡略化しない。
+
+6. main graph へ移すときの結合点
+================================
+
+capacity driver L139–146 は create/finish を呼ぶだけで、main schedulerのbackend
+listへ返却backendを追加しない。current llama-context.cpp と current llama-graph.cpp
+にも hot経路はない。capacity sourceをlinkしただけでは並列演算は有効にならない。
+
+旧hot sourceを現在のsourceへ丸ごと上書きせず、以下のhookを限定的にportする。
+
+  (1) current llama-context.cpp L454–458 の CPU backend作成後。
+      旧版L458–462のように、専用hot backendをCPUの直前へ追加する。
+      schedulerのbackend_ptrs/buft構築より前であることを保つ。
+
+  (2) current context constructor L568 の初回 sched_reserve() の後。
+      xeon_hot_backend_finish(backend_cpu) を1回だけ呼ぶ。
+      旧版L572–574の位置。後続sched_reserveやgraph rebuildで再初期化しない。
+      vision前のGpre/Gpostと、その後のvision/text準備の順序を保持する。
+
+  (3) current build_moe_ffn L2314–2317、元 gate/up を構築する直前。
+      旧版L2320–2330のguard＋xeon_hot_buildを挿入し、成功した層だけ元FFN本体を
+      skipする。選択ID生成やrouter probability/normalizationは元graphに残す。
+      既存GPU37..39はeligible=falseで元経路のまま。
+
+  (4) current graph L2489 の router weights乗算以降。
+      custom出力は unweighted original-order 6slot。ここへGPUの結果を正しい
+      slotへ戻してから、元 router weights を一度だけ掛ける。
+      current L2495以降のslot views＋順次加算を保持する。
+
+旧版は router weights乗算直後に xeon_hot_place_tail を呼び、weighted tensorを
+outer GPUへ明示配置する（旧graph L2507–2508、hot backend L236）。
+これは演算削除ではなく配置指定であり、費用がゼロとは限らない。
+O/C/S/P間でtail policyを勝手に変えない。operator replayはtail手前で統一し、
+main integrationの対照では actual node placementとcopy bytesを記録する。
+元経路からこのtail指定へ変えた差は C−O に含める。並列差 S−Pには含めない。
+
+7. 追加で見つかった重要点: 現 route37 と private CPU IDs が衝突する
+=================================================================
+
+これは数値算術のバグと同一視しない。現collectorの観測単位と、hybrid内部実行の
+単位が一致しないという統合問題である。
+
+現在route37-bridge.cpp L7–18はmodelの37層 original gate pointersを登録する。
+route37.cpp L66–89はそのgateをCPU hookで見たとき、6つのglobal IDsを記録する。
+ggml-cpu.c L1848–1849 は private graphでも実行される。
+hot backendは同じoriginal gateを private CPU graphへ渡し、H>0のCPU idsには
+-1を入れる（hot backend L40,132,170–172）。従って、そのまま観測すると:
+
+  H1..H5: private CPU gateをoriginal layerのrouteとして認識し、-1でXR_IDS。
+  H6: CPU gateが実行されず、37層coverageが不足する。
+  H0: private gateは元6IDsなので、この特定の衝突だけなら起きない。
+
+元6IDsをcustom入口で記録するだけでは不十分。private CPU hookも記録して
+XR_DUPLICATEになるからである。-1を許容する、flagsを無視する、coverageを減らす
+といった修正は論理routeの破損を隠すので行わない。
+
+最小案（この資料のpatchには含めない。診断専用integrationへの設計案）:
+
+  A. 既存export済み emitter xeon_route37_record_v1(original_gate, original_ids)
+     を、State::compute の入力検証・元IDs妥当性確認の後、partitionしたCPU idsを
+     graphへ渡す前に1回呼ぶ。6IDsは必ず元slot順。H0もH6もここで1回。
+
+  B. collector binding に「このlayerのprivate graph専用ids tensor pointer」を
+     optional metadataとして明示登録する。hot State内の l.cpu->ids は既存の
+     allocationであり、State寿命中安定なので新たなgate/weight copyは不要。
+
+  C. 新しい登録APIは診断session owner/context、layer、original_gate identity、
+     private ids I32[6,1,1,1] と実storageを検証し、open call/eval中の変更を禁止する。
+     同じprivate idsが複数層へ登録されることや、元route tensorとのaliasを拒否する。
+     sessionのopen/reset/closeとState破棄で登録を正しく扱う。現在のAPIを無言で
+     意味変更せず、追加symbolまたは明示versionで診断callerと同時に固定する。
+
+  D. record_v1の既存gate binding照合後、検証済みinternal ids pointerとの厳密一致
+     のときだけ内部実行としてreturnする。元logical recordのvalidity/duplicate/
+     coverage判定はそのまま残す。値が-1だから無視する処理にはしない。
+
+  E. 14空層は既存CPU hook、23対象層はcustom入口をlogical producerとして使う。
+     各T1の37records、各6unique global IDs、flags/drop=0を維持する。
+     source identityとorigin分離を短いdiagnostic runで確認後、timingでは観測off。
+
+これは既存CPU hookの関数signatureや重みdataを変えずにoriginを分離できる案である。
+collectorへの登録を準備できない構成は hybrid全routeを採れると称さず、明示的に
+未対応とする。別案としてprivate poolをorigin登録する方法もあるが、今回はCPU
+hook interfaceの変更まで広げる必要はない。
+
+最初の少数operator replayではcollectorをclosedにできるので、この観測器拡張を
+先行必須にして実益測定を止める必要はない。fullmodel hybrid route検証へ進む前に
+解決する結合問題として扱う。
+
+8. lifetime / generation / fallback の条件
+=========================================
+
+専用Stateはcontext寿命中不変のplanと Layer objectsを所有する。
+custom node userdataはLayer pointerであり、main graphを再構築してもStateを
+再作成しなければ同じ有効なLayerへbindできる。current process_ubatch L1534–1605
+ではgraph reuseができないとreset/build/allocし、その後入力設定・計算する。
+
+graph generation >1 を理由に未初期化backendへ入れたり、毎回initialize()して
+GPUbankを重ねて確保したりしない。current sourceは generation>1 を禁止していない。
+今回position256で再buildしたことは記録されているが、その原因をここでは確定しない。
+短いintegration検証に、同一case内でgen1→2を跨ぐ既存EN/Python/C++の範囲を使える。
+
+T>1、異なる形状/型、unsupported fused/scaled/adapted pathは graph構築時に元経路へ
+fallbackする。H0/H6は対応するT1 custom内の正規分岐であり、generation fallbackと
+混同しない。dynamic plan変更、並列複数context、pipeline parallelは今回増やさない。
+既存createにはsingle context、12/24 threads、singleGPU制限がある。
+
+State::compute は outputまでprivate GPUをjoinして返る。例外時もbackend_computeは
+GPUをsyncしてfailedを返す。State destructorはGPUをsyncしてからgraphs、weight
+buffers、pinned buffers、CPU pool、backendsを解放する（L74–88,187–192）。
+追加計測bufferやobserver登録もこの完了境界に合わせる。途中で例外が出た結果を
+baseline成功として扱わない。fallback可否はgraph構築時に決め、実行中の部分計算
+失敗を黙って同じdstへ上書きして隠す設計は追加しない。
+
+9. candidate容量の再確認は必要だが、最初から別のubatch試験を増やさない
+===================================================================
+
+35案はnative bytesがfixtureより小さいが、weight bankは23層、GPU graphsの数は
+sum(min(6,selected_count))=35になる。fixtureは4層×H1..H6=24graphs。
+private activation/bank buffer/driver poolの形が違うので、native bytes比較だけで
+admission済みとしない。empty-layer patch後のprivate CPU graphsは23になる。
+
+同じvision前Gpre/Gpostを新候補で通し、後続の既存vision/text準備を確認する。
+source phaseを変えたguardや、M2に同じ余白を追加要求する変更はここに含めない。
+元のGpre/Gpostを通過したfixtureを理由に、実画像peakや128k実入力まで保証する
+こともしない。今回の目的は実益を一度測ることなので、512/256やallocator tracingを
+先に必須化する必要はない。
+
+10. 実機側へ渡す短い手順
+========================
+
+担当: 実機を操作しているAstra。ユーザーへ手作業commandを追加要求しない。
+
+  1. 非空35planとprovider/CPU/cache/placement/tailの条件を固定。
+     empty_selection_bypass.patchの二か所だけを隔離版へ反映する。
+  2. 原経路capture-only runで少数の実x+joint6+weightsを採る。
+     H0と実到達H1..H3、quant/type差とcompact maskを含める。
+  3. 同じbankを保持する小operator replayを作り、O/C/S/Pを比較。
+     CPU対照・serial/parallel byte一致・scatter位置・有限値を先に確認。
+     数値referenceとtimingは分離する。実害ある負の結果も残す。
+  4. 有望ならcurrent context/graphへ限定portし、logical route originを分離。
+     未選択14層のoriginal-path、prefill fallback、gen1→2、tail配置を確認。
+  5. 無観測timingで実T1 wall列を比較。収集runの平均値を本番速度にしない。
+
+この順序で、並列推論を直接評価する方向へ進める。CPU最適化を別の大きな課題へ
+戻す提案ではない。private CPUを通す費用が並列化の利益を食うかを最小限に測り、
+有望な場合だけmain integrationへ進む。
+
+参照箇所（全て同じ固定commitのsource）
+=======================================
+
+URL共通prefix:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/
+
+N = archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/
+R = archive/review-handoffs-not-for-readers/2026-11-17-route-integration/
+H = archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/
+
+N/CONSULT_PRO_JA.txt
+N/RESULTS_JA.txt
+N/TRAIN5_CANDIDATE.plan
+N/bank-capacity/hot-backend.cpp: L34–46 private graph; L74–88 lifetime;
+  L90–114 plan; L115–158 initialize; L160–181 runtime;
+  L187–211 dedicated backend; L215–236 create/build/tail.
+N/bank-capacity/driver.cpp: L139–146 capacity-only attachment.
+N/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/LAUNCH_MANIFEST.json
+R/route37/llama-context.cpp: L454–458 backend creation; L568 initial reserve;
+  L1527–1613 graph reuse/rebuild and observation boundary.
+R/route37/route37-bridge.cpp: original gates binding.
+R/route37/route37.cpp: L40–64 begin; L66–89 record; L91–108 completion.
+R/route37/ggml-cpu.c: L1720–1865 private IDs and hook;
+  L2946–2965,3583–3606 strict thread affinity assignment;
+  L3300–3332 current CPU fusion list.
+R/provenance/model-source/src/llama-graph.cpp: L1643–1692 lora/precision/cache;
+  L2131–2515 original MoE graph, especially L2305,2314,2377,2464,2489–2510.
+H/exploration-20261112/hot-ffn/llama-context.cpp: L458–462,572–574 old hooks.
+H/exploration-20261112/hot-ffn/llama-graph.cpp: L2320–2330 guard and insertion;
+  L2507–2508 weighted tail placement.
+H/exploration-20261112/hot_ffn_probe.cpp: L174–191 comparable execution order;
+  L209–215 artificial input and per-probe compact registration.
+H/exploration-20261112/sparse-cache/release-v2-a/sources/iq3-cache.cpp:
+  L60–65,178–186 compact lookup identity.
+H/gpu-stream-20261103/ggml-backend.cpp: L2171–2204 callback graph views and sync.
+H/deepseek41-bringup-20261101/source/common/common.cpp:
+  L1795–1808,1819–1860 main threadpool parameter application.

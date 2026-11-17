@@ -1,0 +1,8 @@
+Scope: independent proposed header only; no engine link, engine execution, model load or GPU execution.
+First attempt: header directly as main translation unit, -Werror, exit 1 only because #pragma once in main file.
+Final check:
+c++ -std=c++17 -Wall -Wextra -Werror -fsyntax-only -I /workspace/scratch/1f624f9ac929/xeon-moe-workspace-d98a17c/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/include /workspace/scratch/1f624f9ac929/audit/gpu_workspace_20261117/activation/header_syntax_check.cpp
+Exit status: 0
+stdout: empty
+stderr: empty
+Not checked: linkability, loaded runtime ABI, real tensor contents, successful callback execution or correctness/performance on target hardware.

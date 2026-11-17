@@ -1,0 +1,27 @@
+--- a/archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/bank-capacity/hot-backend.cpp
++++ b/archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/bank-capacity/hot-backend.cpp
+@@ -128,12 +128,12 @@
+             cuda_check(cudaHostAlloc(&pinned_output,D*TOP*sizeof(float),cudaHostAllocPortable));
+             cuda_check(cudaHostAlloc(&pinned_ids,TOP*sizeof(int32_t),cudaHostAllocPortable));
+         }
+-        for(auto & ptr:layers){if(!ptr)continue;auto & l=*ptr;if(!l.eligible)continue;
++        // Empty selections stay on the ordinary model graph, including CPU execution.
++        for(auto & ptr:layers){if(!ptr)continue;auto & l=*ptr;if(!l.eligible||l.selected.empty())continue;
+             l.cpu=std::make_unique<Graph>(private_cpu,l.original,TOP,l.clamp);
+             std::array<float,D> zero{};std::array<int32_t,TOP> disabled;disabled.fill(-1);
+             ggml_backend_tensor_set(l.cpu->x,zero.data(),0,sizeof(zero));ggml_backend_tensor_set(l.cpu->ids,disabled.data(),0,sizeof(disabled));
+             require(ggml_backend_graph_compute(private_cpu,l.cpu->graph)==GGML_STATUS_SUCCESS,"private CPU warmup");
+-            if(l.selected.empty())continue;
+             l.weight_ctx=ggml_init({512*1024,nullptr,true});require(l.weight_ctx,"bank metadata");
+             for(int j=0;j<3;++j){auto w=l.original[j];l.gpu_weights[j]=ggml_new_tensor_3d(l.weight_ctx,w->type,w->ne[0],w->ne[1],l.selected.size());}
+             l.weight_buffer=ggml_backend_alloc_ctx_tensors(l.weight_ctx,private_gpu);require(l.weight_buffer,"bank allocation");
+@@ -227,7 +227,8 @@
+ ggml_tensor * xeon_hot_build(ggml_backend_t outer_cpu,ggml_backend_sched_t sched,ggml_context * ctx,ggml_tensor * input,ggml_tensor * ids,ggml_tensor * gate,ggml_tensor * up,ggml_tensor * down,float clamp,int layer){
+     auto s=lookup(outer_cpu);if(!s)return nullptr;
+     require(layer>=0&&layer<LAYERS,"graph layer index");if(!s->layers[layer])return nullptr;auto & l=*s->layers[layer];
+-    if(!l.eligible)return nullptr;
++    // A layer with no resident experts cannot benefit from the private dispatcher.
++    if(!l.eligible||l.selected.empty())return nullptr;
+     require(l.original==std::array<ggml_tensor*,3>{gate,up,down}&&clamp==l.clamp,"graph weight/clamp mismatch");
+     if(input->type!=GGML_TYPE_F32||input->ne[0]!=D||input->ne[1]!=1||input->ne[2]!=1||input->ne[3]!=1||ids->type!=GGML_TYPE_I32||ids->ne[0]!=TOP||ids->ne[1]!=1)return nullptr;
+     ggml_tensor * args[]={input,ids};auto node=ggml_custom_4d(ctx,GGML_TYPE_F32,D,TOP,1,1,args,2,marker,1,&l);

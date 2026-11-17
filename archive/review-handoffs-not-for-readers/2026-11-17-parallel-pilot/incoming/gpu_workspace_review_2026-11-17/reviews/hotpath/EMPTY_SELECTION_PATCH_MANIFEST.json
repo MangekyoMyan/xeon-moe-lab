@@ -1,0 +1,35 @@
+{
+  "kind": "source-only proposal; not a deployed change",
+  "repository_pin": "d98a17c56fadc92cf79e21ecbe80732dedeed899",
+  "source": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/bank-capacity/hot-backend.cpp",
+  "source_sha256": "9f647622e0578b86b2042b9d63f77e6bdcae80b72ac20b69a1e79d24672cd767",
+  "proposed_source_sha256": "5a3a1ef552c7ecbe6c6e682a0644046bbcf63331f7572e0b3be2231e0fb14780",
+  "patch_sha256": "abd79160d8cc1aebaa7a5f6cf72d3ba2928bfe05f1c39958dee2fb2490b730d0",
+  "repository_modified": false,
+  "compiled": false,
+  "executed": false,
+  "numeric_equivalence_measured": false,
+  "performance_measured": false,
+  "preserved": [
+    "native plan validation and payload accounting",
+    "Gpre/Gpost inequalities and initialization phase",
+    "nonempty-layer CPU/GPU graph arithmetic and runtime partition",
+    "GPU upload/scatter, routing weights, and reduction order"
+  ],
+  "behavior_change": [
+    "No private CPU graph or warmup for eligible layers with an empty selection",
+    "xeon_hot_build returns nullptr for empty selections, preserving the caller's ordinary graph",
+    "An entirely empty plan no longer exercises dispatcher all-miss behavior"
+  ],
+  "not_included": [
+    "main context/scheduler/graph integration",
+    "route37 logical route versus private CPU execution separation",
+    "benchmark modes or timing hooks",
+    "runtime H0 bypass for layers with a nonempty static selection"
+  ],
+  "git_apply_check": {
+    "passed": true,
+    "command": "git apply --check empty_selection_bypass.patch",
+    "scope": "Text hunk applicability to pinned worktree only; not compilation or execution."
+  }
+}

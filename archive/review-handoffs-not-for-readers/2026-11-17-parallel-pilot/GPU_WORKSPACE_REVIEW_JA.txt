@@ -1,0 +1,358 @@
+GPU workspace の評価と、CPU/GPU 並列 pilot への次の一手
+2026-11-17 / 万華鏡にゃんさん向け
+対象 commit: d98a17c56fadc92cf79e21ecbe80732dedeed899
+
+結論
+====
+
+今回は、容量を作る段階から、小さい bank の並列実益を測る段階へ進める結果です。
+ubatch1024 のまま、従来と同じ時点・同じ条件の guard を通して約458 MiBの
+native expert bank を保持できています。次を ubatch512/256 や allocator の
+大きな調査に戻す必要はありません。
+
+35 expert 案の作り方・token 境界・全 route 台帳を独立再計算し、主要な報告を
+再現しました。重大な欠落は見つかっていません。ただし今の成功は容量 fixture
+であり、35 expert の主モデル統合・並列性能・品質はまだ測っていません。
+
+次は元の35 expert案を既定として、空bank14層を元経路に残し、実 activation
+8 cell を用いた original CPU / private CPU / mixed serial / mixed parallel
+の比較を行うことを勧めます。狙うのは CPU/GPU 並列化そのものの採算です。
+CPUの個別kernelをもう一巡最適化することを、この比較の前提にはしません。
+
+今回追加で見つかった重要点は二つあります。
+  (1) 旧hot backendのprivate CPU graphと現在のroute37観測器は、そのままでは
+      IDの意味が衝突します。内部の -1 mask を元のlogical routeとして採ってしまう。
+  (2) 35 expert案は23層へ広がり、positive episodesの85.60%がH1です。
+      転送/起動/dispatcherの固定費が、GPUへ移した計算の利益を食う可能性があります。
+
+後者に対しては、同じ予算で8層へ集中する条件付き対案を一つだけ作りました。
+元案を無条件に置き換える提案ではありません。初段でH0費用が大きかった場合に、
+配置を集中させる効果を調べるための対案です。
+
+1. 今回の結果で確定したこと
+===========================
+
+1.1 容量を評価する時点が正しく揃った
+
+CUDA backend memory API、free MiB:
+  phase                         bankなし       32expert保持
+  M0 context reserve後/vision前  3638.25        3638.25
+  Gpost 私有graph初期化後        ---            3136.25
+  M1 vision dummy shape予約後    2612.25        2110.25
+  M2 text64 warmup後             2122.25        1654.25
+  M3 long1024 +4T1/export後       2102.25        1630.25
+
+32 expertは事前指定したlayers0,4,23,24 × IDs0..7。
+native payload=480,706,560 B=458.4375 MiB、実bank buffer=480,707,328 B。
+Gpre: 3,814,981,632 > 480,706,560 + 3,221,225,472 B。
+Gpost: 3,288,596,480 > 2,684,354,560 B。
+strict条件からの余裕は、それぞれ107.8125 MiB、576.25 MiBです。
+
+以前のvision後freeをvision前guardへ代入する推定は、この結果に置き換えるのが
+適切です。今回のsourceで旧guardの条件と位置が維持されていることも確認しました。
+M2にGpre/Gpostの余白をもう一度要求する新しい条件は提案しません。
+
+M1は実画像forwardではなくdummy shapeのreserveです。M3も瞬間peakではありません。
+ctx131072設定は維持されていますが、128kの実入力が試された意味ではありません。
+CUDAとNVMLは別accountingかつ順次queryなので、両者を混ぜた容量差分を作りません。
+
+1.2 保存logitsは一致した。ただしbankは主計算に使われていない
+
+short64 / long1024のそれぞれprefix最終+4T1、5×129280 F32がbankなし/保持中で
+全byte一致しました。比較する片側の総位置は1,292,800個です。
+short64のT1部分は前回F-beforeとも一致しています。
+
+一方、返却されたprivate backendはmain schedulerへ追加されていません。
+通常モデルはCUDA0/CPUで動き、bank_used_by_model=falseです。
+したがって「bankを持ったまま通常モデルを動かせた」という容量試験です。
+GPUへ実expertを分担して高速化できた、という試験ではありません。
+
+4層×H1..6×3回の72private graph callsも、各構成の最後の24出力をreadbackした
+zero-input検査です。非ゼロ実入力の算術精度検査とは区別します。
+
+1.3 token/route/候補の再集計が一致
+
+20caseのprefix/reference境界、64 inputsと65 next targets、splitを確認しました。
+実kwargsはthinking_mode=chat、assistant prefix末尾は<｜Assistant｜></think>。
+prefixとreferenceを別々にtokenizeして連結してよいとは仮定していません。
+公開されたsource/成功receipt/保存IDsを確認したもので、こちらでmodel tokenizerを
+再実行したわけではありません。
+
+実route採取はfirst5のみ: 320calls、11,840records、71,040slots。
+37層×6unique IDs、metadataの結合、flags/drop/status/syncは正常でした。
+frequency/native bytesの厳密Fraction順位7779組、greedy選択、plan全文が再現します。
+残り15caseはtokenizer前処理のみ。候補へのvalidation/holdout漏洩は見当たりません。
+
+今回共有された157 manifest entriesと156 raw mappings、前回ZIPの35membersも照合。
+実機libraryのhashは保存された実測receiptに基づきます。ELF本体の再hashや実機再現を
+こちらで行った、とは述べません。API復帰も保存receiptの確認です。
+
+2. 35 expert案の強みと、最初に測るべき弱点
+=========================================
+
+35experts /23層 /475,453,440 B=453.427734375 MiB。
+Hは各layer-callで、元6expertのうちGPU常駐集合に含まれる個数です。
+
+  H               0       1       2     3   4  5  6
+  CPU37層全体     8235    3086    467   52  0  0  0
+  bankあり23層    3755    3086    467   52  0  0  0
+
+4176/71040=5.878378%はexpert選択slotの割合です。実時間の5.878%を移せる意味では
+ありません。型、compact coverage、入力量子化、activation、固定費、CPU/GPU競合が
+あるため、(6-H)/6もCPU完了時間の比にはなりません。
+
+bankなし14層の4480 layer-callsは、選択上必ずGPU benefitがありません。
+旧コードはここもprivate CPU graphへ置換するため、先に二か所だけ変えます。
+  initialize(): eligible && !selected.empty() の層だけprivate graphを作る。
+  xeon_hot_build(): !eligible || selected.empty()ならnullptr、元graphへ戻る。
+別添 empty_selection_bypass.patch がこの変更です。git apply --checkは成功しました。
+本体は未変更、patchのコンパイル/実行/数値/性能は未検証です。
+
+非空selectionの層でruntime H0になった場合は別です。graph構築時にはIDsが未確定で、
+compute時にnullptrを返して元graphへ戻る仕組みもありません。毎token graphを再構築
+する動的回避は勧めません。まず今のH0経路の費用を測ります。
+
+H0は既にGPU enqueue/syncを省きますが、private CPU x約20KiB、6IDs、出力120KiBの
+コピー、private graph、dispatch/locking、scheduler境界は残ります。
+bankあり層でH0=3755、H>0=3605。H0の平均追加費用d0、hit時の元経路に対する平均
+短縮gを実測するなら、対象層の収支は3605*g -3755*d0です。
+正の収支にはg >1.04161*d0が必要。これは集計式であり、実測時間の推定ではありません。
+空層まで置換すると必要比は8235/3605=2.28433となります。
+
+H1はpositive3605件中3086件=85.60%。H3だけの古い人工入力probeが速くても、今回の
+実route分布の採算はまだ説明できません。まずH0/H1を丁寧に見る理由がここにあります。
+
+3. 次の比較はO/C/S/P、差分の意味を固定する
+=========================================
+
+O: Original CPU all6
+   現行の元FFNとCPU provider、元joint6、元compact coverageを使う算術/性能対照。
+C: Private CPU all6
+   同じ非空bankを保持し、custom/private CPU経路で元6IDsをCPUへ渡す。
+   GPU実行は0にする。Oとの差は経路を置換した費用を切り分ける。
+S: Mixed serial
+   実hot/cold分担、同じGPU graph/CPU graph。GPU submit後にjoinし、その後CPU計算。
+P: Mixed parallel
+   Sと同じ分担/graph。GPU submit後にCPUを計算し、最後にjoinしてscatter。
+
+S/Pで変えるのはjoin位置だけです。partition、CPU入力準備の位置、GPU graph、
+量子化、compact plan、tail policy、routing weights、加算順序を同時に変えません。
+H0ならGPU操作なし、到達するH1..3では同じCPU maskを使います。
+S/Pの差は並列化の寄与、P/Oの差は実際の採用に向けた差です。
+SよりPが速いだけでは、元Oより速いと結論できません。
+
+最初のoperator境界:
+  host x/IDs ready → 元slot順のhost未加重[5120,6]出力ready。
+partition、set/get、enqueue、CPU実行、join、scatterを含めます。
+model load、bank転送、graph allocation、warmup、callback、disk、hash、FP64参照は外。
+join待ちはGPU-ready時刻の代用にせずunknownを残してよいです。
+
+重要: Oが独立replay graphの時間なら、それは元model scheduler全体の時間では
+ありません。元modelでのcopy/dispatch/tail差は、後の少数integrated T1で測ります。
+両段階を区別し、operatorの好結果だけで本番t/sを計算しません。
+
+旧hot_ffn_probe.cppのrun順序は再利用できます。ただし人工一様xと、当該6expertを
+全てcompact化するbanks.add_cache(routes)は流用しません。既存modelのoriginal
+weight tensor/dataと現在のcompact registryを使い、providerとcoverageを確認します。
+
+private CPU mask0..11とmainの許可mask0..23は文字列が違いますが、現strict割当で
+12threadsなら先頭12の0..11を使う設計です。これだけを性能差の原因としません。
+実worker/affinity/NUMAの準備確認と、CPU/CUDA/base/libllamaの実ロードpinを揃えます。
+
+4. 実activationは8cell、採取と性能計測を分ける
+=============================================
+
+既存route37はIDsだけで、activation logはありません。新たに採る必要があります。
+欲しいxはtoken embeddingではなく、元gateのMUL_MAT_ID.src[1]、つまりHC前処理後の
+ffn_norm F32[5120,1,1,1]です。同じgateのsrc[2]がslot順の6IDs。
+さらに元down全6出力、effective routing weights6、clamp/types/shape/stride/compact
+mask/provider/position等を保存します。重み本体の複製は不要です。
+
+事前指定cellは全部text_cache_budget_jaのprefix272、最初9T1内にあります。
+  layer7  : call0/H0, call5/H1, call3/H2, call2/H3
+  layer35 : call8/H3 (IQ3_XXSのgate/up/down)
+  layer13 : call0/H1 (IQ3_S down)
+  layer28 : call2/H1 (MXFP4 gate/up/down)
+  layer20 : call2/H2 (MXFP4 down、IQ3_XXS gate/up)
+call番号は0始まり。CAPTURE_CELLS.jsonには元6IDsとGPU slotまで固定しています。
+同caseにまとめたのは小さく再現するためで、言語比較の標本ではありません。
+
+付属bounded_moe_capture_proposal.hとbinding例は、既存cb_evalでこの8箇所だけを
+事前確保配列へコピーします。数値payloadは8cell計1,147,264 B、約1.094MiBです。
+callback内にfile I/O、heap allocation、追加sync、GPU readbackは置いていません。
+C++17 -Wall -Wextra -Werror -fsyntax-onlyは成功。engine link/runは未実施です。
+
+実ロードbaseはcallback非nullの時点で同期経路が変わります。armed=falseのまま
+残すのも性能armには使えません。性能callerはcb_eval=nullptrとし、graph reuse中の
+field書換だけでcallbackが外れたと仮定しません。
+
+現CPUのgraph node fusionはRMS_NORM+MULのみであり、採るgate/down/weighted境界は
+そのpairを切りません。ただし採取downはcallback付き元graphの値です。
+既存prefix+first4の保存F32と8cellのorderedIDsをまず照合します。これだけで
+call5/8の全中間値が無callback過去runとbyte同一だとは主張しません。
+差が疑わしい場合、または全9callのbridgeが必要な場合だけ同9T1の無callback対照を
+追加します。採取値を固定fixtureとして使い、O/C/S/P自体を無callbackで比較する
+初段はこの限定を明記すれば進められます。
+
+5. route37とhot backendの統合上の衝突
+===================================
+
+現在のcollectorはoriginal gate weight pointerを照合し、6global IDsを採ります。
+旧private CPU graphも同じgateを使いますが、GPU担当slotは -1 にして渡します。
+そのままcollectorを開くとH1..H5でXR_IDS、H6でCPU gateがなくXR_COVERAGEになります。
+元6IDsをcustom入口で記録するだけだと、private CPUからも二重記録されます。
+
+最小方針:
+  ・custom入口、partition前で元のlogical6 IDsを一度だけ記録する。
+  ・当該layerのprivate CPU専用ids tensor pointerを明示的に登録し、その内部origin
+    だけをCPU hookのlogical記録対象から外す。
+  ・14空層は既存CPU hookのまま。37層×1record、6unique global IDsを保つ。
+  ・owner/session/layer/gate/storage/shapeと寿命を検証し、実行中の登録変更を禁止。
+  ・値が -1 なら無視する、flagsを抑制する、coverageを減らす対応はしない。
+
+最初のoperator replayではcollectorをclosedにできるので、この拡張を先行必須に
+して並列実益測定を遅らせません。fullmodel hybridのrouteを採る時点で解決します。
+詳しいsource結合点・追加APIの設計条件はHOTPATH_REVIEW_JA.txtへ収録しました。
+
+6. main modelへの最小移植範囲
+============================
+
+current route37 sourceへ旧ファイルを丸ごと上書きせず、hookだけを移します。
+  ・CPU backend作成後、scheduler backend listを作る前に専用hot backendを加える。
+  ・初回sched_reserve直後にfinishを一度。vision前guardの時相を保つ。
+  ・元router/ID/weight生成は維持し、T1かつ対応条件を満たす非空bank層のみFFN本体をcustom化。
+  ・unweightedの6slotを元順に戻した後、元routing weightsを一度だけ掛け、元順に加算。
+  ・prefill、空層、既存GPU37..39、未対応geometry/LoRA/scale等は元graphへ。
+
+旧customのtailはouter GPUへ配置されます。この配置/copyの費用もC−Oに含め、
+S/Pの比較中は変えません。専用backendを普通のCPU CUSTOM callbackへ簡略化して
+private OpenMP poolを入れ子にする案も、初段では採りません。
+
+graph generation>1でもState/bankを再初期化しません。Stateはcontext寿命、node
+userdataは有効なLayerを参照。rebuild時のowner/binding、error時のGPU完了/lifetimeを
+維持します。非同期作業を発行した後に、失敗を黙ってCPU再実行で隠しません。
+
+35 expert案はfixtureよりnative量が小さくても未admissionです。fixtureは4層で
+24個のH別GPU graph、35案は23層で35graph（同3warmなら105calls）になります。
+同じGpre/Gpostと後続vision/text準備で確認します。別の余白基準を追加はしません。
+
+7. 数値の正しさとqualityは三つに分ける
+====================================
+
+第一: O対C。元CPU算術とprivate CPU全6を同じx/IDs/compact条件で比較します。
+byte不一致なら、そのまま同一算術だと扱わずprojection/slot単位で原因を絞ります。
+
+第二: S対P。同じ分担、同じx、同じgraphのserial/parallelは、scatter後の全6出力と
+同じweight/順序の合成をbyte比較します。違いをCPU/CUDA量子化差で説明しません。
+両armのCPU/GPU算術は同じなので、差があればscratch、lifetime、同期、slot対応等を
+調べる対象です。
+
+第三: O対mixed。CPUのIQ系Q8_KとCUDAのQ8_1など、入力量子化が違います。
+CPUとのbit一致を採用条件にはせず、NMSE/max_abs/出力norm/weighted誤差を報告。
+必要な実cellで、現GGUFをF32展開・dot FP64累積・projection F32・SwiGLU F32の
+参照へ比べます。これは量子化前モデルの正解ではありません。
+全stageの追加dumpは差の原因を切り分ける必要が生じたcellに限定します。
+
+model全体では同じteacher-forced token列でもhidden/KV/後続routeが変わり得ます。
+S/P同士とO/mixedを分け、実際のhybrid route、全64のlogit hash/finite/target NLL、
+top1/margin/初回差分を診断として残します。F32全vectorは保存範囲を明記します。
+logit差や参照文NLLは一般回答品質の点数ではありません。
+
+性能が有望な構成に絞れたら、未使用の課題で実回答を生成し、仕様/正答で評価します。
+validationは配置や条件の調整用、holdoutは凍結後の最終確認とし、最終結果を見て
+配置を直したらそれはもうholdout結果として再利用しません。
+残り15caseの全routeを初段の必須作業にはしません。
+
+8. 条件付き対案: 36 expert /8層へ集中
+====================================
+
+originalと同じ458.4375 MiB予算内、trainingのヒット総数を元案4176の90%以上
+(ceil=3759)にするという設計条件を先に置き、active層数を最小化しました。
+同じ層ではexpertあたりnative bytesが同じなので、n個を置く時の上位n頻度を
+選ぶのがinclusion count最大です。各層のnを選ぶ整数DPで厳密に解きました。
+90%は比較案を作る工学上の条件で、実時間の重みや品質閾値を推定した値ではありません。
+
+比較 (同じfirst5のtraining内):
+                         original35        条件付き集中案
+  experts                35                36
+  active layers          23                8
+  native MiB             453.427734375     458.26171875
+  training inclusion     4176              3796 (元総数の90.9004%)
+  active H0 episodes     3755              504
+  H>0 episodes           3605              2056
+  H0/H>0                 1.04161           0.245136
+  H1 among positives     85.60%            44.99%
+
+集中案の全H: [9784,925,609,445,67,10,0]。
+29空層を元経路に残すため全体H0は増えますが、customへ入る層のH0は減ります。
+少ない層でH2以上が増え、GPU投入をまとめやすくなる狙いです。
+
+layers:2,3,6,7,8,20,29,35。
+7層以下の最大countは3685、8層で3796なので、定義した制約内の最少は8層。
+別実装のstdlib Pareto DPでも1〜8層のfrontierとplanを独立確認しました。
+ただし保存するのは「総ヒット件数の約91%」で、元の同じhit位置を91%保持する
+意味ではありません。時系列のjoint6や各caseのhitも変わります。
+
+これは速度最適配置の証明ではありません。CPUで減る実時間、GPUが遅い層、H4/H5の
+待ち、queue競合、coverage一般化を最適化していません。元案は実H最大3ですが、
+集中案は実H5まであるので、その入力での正しさ/性能を別途確認する必要があります。
+native量は予算内でも、私有GPU graph34個のH/shapeが違うためadmission未確認です。
+
+まず35案でH0とH1..3を測り、H0固定費が採算を悪くしていた場合だけ、この対案に
+切り替える判断が明確です。二つの候補を全corpusで総当たりする提案ではありません。
+
+9. 言語差、generation、2token表示について
+=========================================
+
+original35のslot hit率は次のとおりです。
+  日本語text   9.6917%
+  英語text     5.4758%
+  mixed/log    6.2852%
+  Python       3.9696%
+  C++          3.9696%
+同じ配置でもcaseごとに命中が変わることは確認できます。ただし5caseは3familyで、
+prompt/reference/token長/内容/各caseの役割も違います。言語そのものによる速度差や
+日本語への一般的な有利不利を確定した数字ではありません。
+後の固定配置評価では日本語/英語/コードを分けて時間と品質を出す価値があります。
+
+generationはrequest IDではなく、観測session内のgraph rebuild世代です。
+EN/Python/C++のposition256更新は、raw KVの256単位paddingとmask reuse shape条件に
+整合します。ただし各reuse条件の値は保存されず、唯一の原因を実測したわけではありません。
+同じ共有物のlong1024はgeneration=[1,2,2,3]で、position1025/1027でも更新します。
+したがって「常に256tokenごとに増える」という一般化も不適切です。
+
+この2stepの世代列だけでOpen WebUIの2token表示を説明できません。保存callerは
+HTTP/SSE/UI表示を観測していません。今後の実API評価で、token output-readyの時刻列、
+SSE送信/受信、画面更新を対応させればengine側と表示側を切り分けられます。
+今回の初段operator比較へAPI表示解析を必須として加える必要はありません。
+
+10. 実機Astraへの優先順
+=======================
+
+優先1: empty-layer二か所の変更、原35plan保持、8cellのcapture、O/C/S/P同入力比較。
+優先2: 有望ならcurrent context/graphへ限定portし、route37のlogical/internal origin分離。
+優先3: callback/observer offの少数integrated T1。PがOへ勝つかをwhole wallで確認。
+優先4: 有望な候補だけ未使用caseへ広げ、固定配置の速度/実回答品質を確認。
+条件付き: H0費用が大きいなら8層集中案を一度試す。
+
+担当は実機Astraです。ユーザーが追加commandを実行する前提ではありません。
+作業中のservice停止/復帰等は既存の運用権限・手順内で扱い、今回の資料は新たな
+本番採用や恒久設定変更を代わりに承認するものではありません。
+
+ここでの実施範囲
+================
+
+固定commitの文書/source/rawを読み、独自の読取・再集計scriptと提案コードを作成。
+並列で証拠監査、hotpath/source、activation/generationを確認し、親が統合・追加DPを実施。
+供給された実行script/ELF、モデル/GPU/APIは実行していません。通常APIの変更なし。
+capture headerはsyntax-only、empty-layer patchは適用checkまで。性能の新しい実測なし。
+
+参照
+====
+
+N = https://github.com/MangekyoMyan/xeon-moe-lab/tree/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace
+主報告: N/CONSULT_PRO_JA.txt, RESULTS_JA.txt, BANK_COMPARISON.json,
+TRAIN5_PROPOSAL.json, PILOT_TOKENS.json, PILOT_DESIGN.json, RESTORED_RUNTIME.json。
+raw/sourceのexact path/hash、source行は reviews/evidence、reviews/hotpath、reviews/activation。
+親の追加計算は plans/BANK_TRADEOFF_RECOMPUTED.json、tools/recompute_bank_tradeoff.py。
+元plan SHA:4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596。

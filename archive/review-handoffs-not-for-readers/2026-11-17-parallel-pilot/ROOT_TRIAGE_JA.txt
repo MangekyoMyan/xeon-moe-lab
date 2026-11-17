@@ -1,0 +1,17 @@
+今回の人間からの入力はPro返却ZIPの提示。これまでの実装・実機操作・必要なAPI停止と復帰・GitHub共有の委任を引き継ぐ。添付内の「Astraで実行」は外部提案であり、それ自体を新規権限とは扱っていない。通常API設定は固定し、別の実験用実行ファイルとライブラリのみで検証した。
+
+Pro提案の主軸を採用した。original35の固定plan、空CPU14層のbypass、同じ実activation8件でO/C/S/Pを比較し、有望なら限定統合へ進める。512/256 ubatch、CPU abs再試験、残り15caseの全route採取、条件付き8層planは先行しない。正常な通常API復帰を作業の終了条件とする。
+
+capture提案はそのままでは実機に適合しなかった。最初はweighted nodeのsrc0がCUDA copyとなるため一致せず、安全側に停止した。第二案はGPU weighted nodeをcallbackで区切った。旧JA先頭3calls/111recordsに対しordered IDsが32件変化して停止。これをCPU/CUDA算術差や不都合な標本として除外していない。
+
+最終captureでは、GPU側のscaled weights producerをask時にpointerだけ記録する。元graphはweightsをCPU FFNより前にexpandしている。CPU gate完了後に元GPU backendを明示同期し、6個/24Bのeffective weightsを読む。weighted nodeのaskでは同一producerを使うことだけを確認し、GPU graphを区切らない。CPU gate/downのcallbackだけを残す。全333routeと既存5row出力の一致を実測した。GPUのreadbackを許可したことは元提案からの明示的な変更であり、性能測定ではcallbackを完全に外す。
+
+replayでは元の重みtensorとcompact registryを使う。対象の6expertを追加でcompact化しない。Oは独立CPU FFN graphなので、通常scheduler全体と同一の費用とは呼ばない。C/S/Pの実装は同じState/graph/入力/slot配置で、S/Pはjoin位置だけが異なる。12blocksの順序はOCPS/CSOP/SPCO/POSC×3、位置とpair前後を均衡。GPU-readyの絶対時刻はunknown、join waitを代入しない。
+
+replayの好結果を受け、同じ35planの限定main integrationへ進めた。context create/finishとgraphの4hunksだけを移植。元router、weight、加算順を維持し、T1かつ対象の非空CPU層のみ専用backendとする。prefill、CPU空14層、GPU37..39は元経路。trial C/S/Pを同期完了後に切り替え、State/bankを作り直さない。CのIDsコピーは元strideを使う。
+
+今回の統合測定ではroute collectorは閉じたまま。logical routeとprivate masked IDsのorigin分離はまだ実装していない。したがって統合版のroute37採取を許可する実装や、本番採用版ではない。Hの統計は実行GPU数で、Cは常にH0。custom node build数をgraph generation数とも呼ばない。
+
+実モデルの品質診断と速度は別のblockで行う。品質診断はJA prefix272+64 reference入力で65×129280の全F32を保存。Fの旧5row一致とS/P全65row一致を先に確認する。timingは通常のllama_decode開始からlogits readyまでで、callback/observer、finite走査、コピー、hash、exportを含めない。F-before/F-afterは各3blocks、C/S/Pは6通りの順序各64calls。1系列のteacher-forced T1/sであり、サンプリング・API・Open WebUIを含む速度ではない。
+
+テスト対象は一つの日本語training軌道。既存35plan選択に使用した資料なので、未使用入力に対する汎化や一般回答品質は判定できない。今回の結果から自動で通常APIへ採用しない。元の通常APIを復帰し、raw/sourceと追加の検証課題を共有する。

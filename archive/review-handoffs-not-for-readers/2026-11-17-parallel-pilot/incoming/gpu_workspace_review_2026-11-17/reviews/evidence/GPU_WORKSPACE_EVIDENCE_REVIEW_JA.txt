@@ -1,0 +1,315 @@
+GPU workspace / capacity32 / train-first5 の独立証拠監査
+2026-11-17
+
+対象 pin
+  d98a17c56fadc92cf79e21ecbe80732dedeed899
+  archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/
+
+対象資料
+  https://github.com/MangekyoMyan/xeon-moe-lab/tree/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace
+
+要点
+
+保存された raw と source は、今回の報告の主要な数値・対象範囲と一致する。
+元の ubatch1024、同じ時相の従来 guard のまま、32 expert の容量 fixture が
+実際に初期化され、その bank を保持した状態で主モデルの short64 / long1024
+試験が完了している。以前の post-vision free を pre-vision guard と比較して
+いた容量不足推定は、今回の実測によって修正するのが適切である。
+
+ただし、この成功は「32 expert の容量 fixture を確保できた」という結果。
+主モデルはその bank を演算に使っていない。first5 から選んだ 35 expert / 23層
+案は別の配置で、未 allocation・未 admission・未統合である。並列性能や回答品質
+の採用判定へ読み替える根拠は、この package にはない。
+
+1. 今回実際に行ったこと
+
+CONSULT_PRO_JA.txt、RESULTS_JA.txt、README.txt を読み、caller、token freeze、
+offline analysis、guard 追加ログ、restore verification の source を確認した。
+同梱 analyze_*.py / freeze_*.py / run_*.py 等は実行・import していない。
+独自の Python 標準ライブラリだけの読取・再集計 script を作成して実行した。
+engine / ELF / model / CUDA / API の実行、build、service 操作、repo 編集は行わない。
+
+成果物:
+  audit_gpu_workspace_evidence.py     独自再計算 script
+  GPU_WORKSPACE_EVIDENCE_AUDIT.json   全結果、run別 metadata、計算根拠、限界
+  SOURCE_SHA256.json                 読み取った資料の byte 数 / SHA-256
+  GPU_WORKSPACE_EVIDENCE_REVIEW_JA.txt 本解釈
+
+script の検査数は細粒度フィールド照合の個数であり、独立な推論実験の本数ではない。
+独立再計算が通ったことと、遠隔実機上の実行を第三者が再現したことも区別する。
+
+2. ファイル、build、launch、raw の連鎖
+
+共有 FILES_SHA256.json の157 entriesの size / SHA と実際の共有 fileset が一致。
+manifest 本体込み158ファイル。RAW_MAPPING.json の156 entriesも各 public copy
+の SHA と一致し、対応範囲に欠落はなかった。
+
+incoming の前回レビューは34 payload files + manifest =35 files。すべて一致。
+手元の前回 ZIP 本体も照合できた:
+  bytes: 251477
+  SHA-256:
+  f808b9fb2142c8efeb0065be047c21b5f7546eafb02862f3407add7b483b86d3
+ZIP の35 file membersを展開先と byte 比較し、同一だった。
+
+3run の BUILD.json、source_sha256、runner、LAUNCH_MANIFEST、RESULTS_SHA256 を照合。
+private server-config.json は公開から省略されているが、runner が書き出す形式を
+source から確認し、公開 launch の command / environment を同じ JSON serialization
+にした byte 列の SHA が3runとも元 server-config の記録 SHA と一致した。
+health.json は公開名 guard-health.json に対応させて元 SHA と照合した。
+
+runtime provider の実測記録は PROVIDER_EXPECTED と一致し、主モデル backend は
+CUDA0 / CPU の2つ。診断用 CPU / libllama の記録 pin と、通常 API 復帰後の
+CPU / libllama pin は混同しない。ELF 本体はこの handoff に含まれないため、
+この監査では ELF を再 hash したとは扱わない。
+
+bank-capacity/hot-backend-capacity.patch は旧 snapshot の hot-backend.cpp との差分
+そのものと byte 一致した。従来の strict > guard の条件は残り、主な追加は
+Gpre/Gpost ログと zero-input warmup 最終結果の有限・ゼロ検査である。
+
+3. 容量 fixture の実測
+
+fixture は事前固定の layers 0,4,23,24 × expert IDs 0..7 =32 experts。
+IQ2_S / IQ3_XXS / IQ3_S / MXFP4 の組み合わせを含む。native triplet byte は
+source の block size と tensor shapeから独立に算出し、inventory・planと一致。
+  IQ2_S   256 elements / 82 bytes
+  IQ3_XXS 256 elements / 98 bytes
+  IQ3_S   256 elements / 110 bytes
+  MXFP4    32 elements / 17 bytes
+
+native payload:      480706560 B =458.4375 MiB
+bank buffer request: 480707328 B =458.438232421875 MiB
+差:                         768 B
+
+実際のログから guard を独立に再評価:
+  Gpre free 3814981632 B > payload 480706560 B + margin 3221225472 B
+  headroom =113049600 B =107.8125 MiB
+  Gpost free 3288596480 B > margin 2684354560 B
+  headroom =604241920 B =576.25 MiB
+
+Gpre / Gpost はいずれも vision 前。Gpost は private graph / pool / reachable H
+warmup の後であり、M1 / M2 の値を guard に代入したのではない。
+
+CUDA API free MiB:
+  phase                              bankなし       32expert保持
+  M0 context reserve後/vision前       3638.25         3638.25
+  Gpost private bank初期化後          該当なし       3136.25
+  M1 vision dummy shape reserve後    2612.25         2110.25
+  M2 text64 warmup後                 2122.25         1654.25
+  M3 long1024+4T1/export後            2102.25         1630.25
+
+初期の free 差502 MiBから bank bufferを引くと43.561767578125 MiB。
+これは今回のその他初期化費の合計差であり、個別 allocator/graph/pool の内訳でも、
+別配置へ使える普遍的な固定 overhead でもない。
+
+CUDA と NVML は順次問い合わせ。CUDA total=32494.125 MiB、NVML total=32768 MiB。
+記録の NVML free は CUDA free+0.75 MiB。これらを混ぜた差分を payload としない。
+query span は約31.62–57.17ms。M3 は export 後の保持量であり瞬間 peakではない。
+M1 は vision dummy shape reserveであり、実画像 forward の peakは未試験。
+ctx131072 の予約をしているが、実 workloadが131072 tokensだった意味でもない。
+
+source参照:
+  bank-capacity/hot-backend.cpp:116–158 初期化・guard・reachable H warmup
+  bank-capacity/driver.cpp:130–148 M0、create/finish、Gpost、vision の順番
+  bank-capacity/BANK_DESIGN.json / capacity.plan 事前固定 fixture
+  bank-capacity/runs/20261117T033327Z-U1024-0b6d5d01/server.stderr.log 実測 guard
+
+4. warmup と主モデル出力一致が示している範囲
+
+GPU private graph は4層 × H1..6 ×3 repeats =72 graph computes。
+source とログは24 cellsの最終出力 readback が finiteかつゼロだったことを示す。
+各cellの3回を終えてから1回 readbackするので、72回すべての中間出力をそれぞれ
+保存・照合したという意味ではない。zero inputは実 activation精度試験ではない。
+
+主モデルでは short64 と long1024、それぞれ prefix最終出力 +4T1 の5 rows、
+1row129280 F32のbyte列が bankなし/保持で完全一致した。
+比較する片側の総スカラー数は1292800。
+top2、top1 margin、target logprobも独立に再算出し BANK_COMPARISON と一致。
+short64 のT1 4rowsは前回 F-before の correct_F.f32とも完全一致。
+
+全3runを通じて保存された10case×5rows=6464000 F32 valuesは独立にfinite検査。
+pilot の残り60T1/caseについては、sourceのfull-vector scanと正常完了記録が
+有限性を支持するが、生のF32 vectorは保存されていない。独立再検査済みと
+主張できるのは保存済み5rows/caseに限る。
+
+actual prefill ubatchesは raw attemptsから [64] / [1024] と再確認。
+prefill時間はshort約5.147秒/5.319秒、long約16.731秒/16.659秒。各1回だけであり、
+高速化・劣化・同等性の性能推定に使うには不足する。
+
+5. 20caseの token freeze と next-token 対応
+
+前回の合成corpus hashは維持され、20case/12families、train10/validation5/holdout5
+の分割もそのまま。元prompt/reference、rendered prefix、joined text、prefix IDs、
+first64 input IDsのhashと相互対応を再確認した。
+
+prefix長187–317、reference継続195–337 tokensで全caseに65 targets以上ある。
+assistant boundaryは全case <｜Assistant｜></think> 。tokenizer flags、記録された
+thinking_mode=chat、template hashを照合。prefixとreferenceをjoinしてtokenize後、
+prefixが厳密なtoken prefixであることを検査するsourceがあり、その成功記録がある。
+元APIのtoken-piece response全体は保存されておらず、この監査でモデルtokenizer
+を動かして再tokenizeしたわけではない。
+
+API preprocessはsource上 /props、/apply-template、/tokenize だけを使う。
+残り15caseのtemplate/tokenizerを凍結したことを、その15caseのrouteを測定したこと
+と混同しない。今回のmodel inferenceは下記first5とshort64 controlだけである。
+
+next-tokenのoff-by-oneは見当たらなかった。reference tokenをC0,C1,...とすると:
+  prefix最終logit -> C0を評価
+  T1 #0にC0を入力 -> 次のC1を評価
+  ...
+  T1 #63にC63を入力 -> 次のC64を評価
+このため64回のT1入力に対して65個のtargetが必要。
+raw、PILOT_TOKENS、callerの3者が対応する。
+first64のdecoded bytesは元referenceのbyte prefixであることも確認した。
+
+source参照:
+  freeze_pilot_tokens.py:24–48 template設定、join prefix検査、first65/64凍結
+  pilot-capture/driver.cpp:149–181 再tokenize照合、prefix/continuation/target保存
+
+6. first5 route、generation
+
+case                              prefix    T1 position    generation
+text_cache_budget_ja              272       272..335       1×64
+text_cache_budget_en              211       211..274       1×45,2×19
+mixed_build_log_ja_en_log          270       270..333       1×64
+code_stable_grouping_python       240       240..303       1×16,2×48
+code_stable_grouping_cpp          240       240..303       1×16,2×48
+
+5×64=320calls、各37layers、11840records、6IDs/record、71040slotsを独立に数えた。
+request/sequence/context、attempt/call、phase、position、logical token、generation、
+37layer mask、IDのrange/一意性、flag/drop/status/syncの全対応が正常。
+
+ENはdecode_call45/position256、Python/C++はcall16/position256でgeneration1→2。
+これはcaller/sourceのgraph lifetimeを調べる対象であり、label破綻の証拠ではない。
+
+追加で、U1024とcapacity32のlong1024 controlは両方とも4T1のgenerationが
+[1,2,2,3]だった。position1025および1027で更新している。したがってgeneration
+の変化を「必ず256token境界で1回だけ」に一般化してはならない。
+これらも全metadata対応は正常で、主モデル出力はbankなし/保持でbyte一致。
+この資料だけでgeneration更新の原因やAPIの2tokenずつ表示を断定はできない。
+
+7. 35expert案の選択・native budget
+
+PILOT_DESIGNのnative budget480706560 Bで、first5 trainingだけの頻度を集計。
+7779 observed(layer,expert) pairs全部を、頻度/native triplet bytesの厳密なFraction、
+同率時layer/expert昇順で並べ直した。全rankingが元proposalと一致。
+順に予算内なら採用するgreedyを再実行し、選択集合と並びが一致。
+40層plan全文を独立に再生成してbyte一致した。
+
+  selected experts:35
+  selected layers:23
+  native bytes:475453440 B =453.427734375 MiB
+  unused budget:5253120 B
+  plan SHA:
+  4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596
+
+頻度/native byteのgreedyが一般に最適な配置であるという証明はしていない。
+この監査の結論は「宣言したルールを正しく再現している」である。
+
+8. H分布の全再計算
+
+H    0       1       2     3    4  5  6
+件数 8235    3086    467   52   0  0  0
+
+selected expert slots =4176 /71040 =5.878378378378379%
+mean H =0.3527027027027027
+H0 fraction=69.55236486486487%
+
+全185(case,layer)の64個ずつのH、各tokenのremaining CPU expert slots、
+all-miss連続長、case/layer境界でのrun resetまで元proposalと完全一致。
+
+空bankの14層は必ずH0なので、H0の4480件はその構造的な部分。
+bankのある23層だけではH0..6=[3755,3086,467,52,0,0,0]、総7360cells。
+H0は約51.02%。全体69.55%とbankあり層の51.02%を使い分ける必要がある。
+
+空bank層:
+  0,9,12,18,21,23,24,25,26,27,30,31,32,34
+
+選択上限は層ごと最大3expertsであり、このproposalにH6がないことは異常ではない。
+容量fixtureの4層×8expertsと異なり、23層に分散しているので、native総量が小さい
+ことだけではprivate graph/pool込みのguard通過は保証されない。
+最終的なCPU残り時間・GPU ready時間・overlapによるsaved timeは未測定のまま。
+
+source参照:
+  analyze_pilot.py:47–64 control除外、trainingだけの頻度、Fraction、greedy
+  analyze_pilot.py:65–90 H全分布、plan、未測定フィールドnull
+
+9. 正常復帰とguard記録
+
+RESTORED_BEFORE_PILOT と RESTORED_RUNTIME の両方で、元config hash、通常CPU、
+libllama、CUDA、baseの4library hashが一致。最終PID241828、API health ok、
+診断libraryなし、3services active、monitor errors / active alertsとも空という
+記録を確認。monitor timestampも記録時点45秒以内。
+
+verify_restore.pyは/healthを待ち、/proc/maps上のpathとbacking file hashを照合する。
+今回の監査が現在の遠隔PIDを直接読んだという意味ではない。
+
+3runはguard health上normal exit / child_returncode0。
+保存されている各run末尾30samplesでは、総合最大GPU34℃、HBM34℃、CPU36℃、
+fan40%、available RAM最小67.66760635375977 GiB。
+150W、ECC Enabled、ECC error0、元の温度/fan/RAM guardと整合。
+保存された末尾samplesの範囲であり、長時間の全履歴や瞬間peak保証ではない。
+
+source参照:
+  verify_restore.py:14–43 config/maps/backing files/health/monitor/services
+  RESTORED_RUNTIME.json 復帰成功の保存記録
+
+10. この証拠から次へ引き継げること
+
+・ubatch512やallocator probeを先に必須とする根拠は、今回のfixtureでは解消した。
+・元のparallel目標へ戻る前提として、小さいnative bankをU1024で初期化できる
+  こと、teacher forcing/route/token境界を固定できることが整った。
+・次のactual bank候補を確保するときは、その候補固有のlayer数/reachable Hで
+  同じguardを通し、32expert fixtureのadmissionを流用しない。
+・35expert案のnative fitとH分布は再現できる。速さの価値は実activationと実時間の
+  測定へ委ね、hit率やremaining slotsだけで採用しない。
+・validation/holdoutのrouteは未使用。現段階でtrainingに合った配置という位置付け
+  を維持できている。
+・APIの2tokenずつ表示、実際のparallel overlap、回答品質は今回の評価範囲外。
+  それらを今回のbank保持成功やgeneration記録だけで説明しない。
+
+再実行例（own scriptのみ）
+
+python audit_gpu_workspace_evidence.py \
+  --repo /absolute/path/to/clean/d98a17c/checkout \
+  --out /absolute/path/outside/repository/evidence \
+  --previous-zip /absolute/path/xeon_moe_route_calibration_review_2026-11-17.zip
+
+previous ZIPがない場合は引数を省略可。その場合、incoming34filesとINTAKE記録を
+照合するがZIP本体を独立再hashしたとは出力しない。
+
+付録: 親の条件付き8層案の独立検算
+
+主監査完了後、親が追加した bank tradeoff script と結果・planを読み、別方式の
+標準ライブラリだけの疎なPareto frontier DPを作ってraw first5から再計算した。
+親のNumPy DPやrepo scriptは実行・importしていない。
+
+ここでの条件は「native予算480706560 B以内で、元35expert案のtraining inclusion
+count4176の90%以上、すなわち3759以上を残す最小active layer数」。同じ個々のhitを
+90%残す条件でも、速度・品質の90%を保証する条件でもない。
+
+各層では1expert当たりのnative byteが同一なので、n個選ぶときは頻度上位n個が
+aggregate count最大。他の層から何を選ぶかと独立に成立する。この層ごとの
+0..n選択肢を37層についてDPし、stageとactive layer数が同じ状態で、少ないbyteで
+同等以上のcountを持つ状態に支配された状態だけを除外した。
+
+active layers    最大training inclusion count    同最大値での最小native bytes
+1                1433                            470845440
+2                2228                            470845440
+3                2768                            470845440
+4                3131                            479692800
+5                3359                            472780800
+6                3551                            478586880
+7                3685                            480245760
+8                3796                            480522240
+
+親のfirst8 frontier全体と一致。7層以下では3759に届かず、8層なら届く。
+出力planの40層header/型/count/ID文法、raw頻度、native byteを独立確認し、
+36expert /8層 /480522240 B /3796hits、H=[9784,925,609,445,67,10,0]と一致。
+
+これはdefaultの35expert案を置き換える採用判断ではない。元案のH0固定費が実測で
+大きい場合に比較する、条件付きoffline案1つとして位置付けるのが適切。
+同じfirst5にfitしているため、一般化・wall time・GPU admissionは依然未評価。
+
+追加成果物:
+  verify_conditional_dp_independently.py
+  CONDITIONAL_DP_INDEPENDENT_CHECK.json

@@ -1,0 +1,45 @@
+{
+  "candidate": "original35",
+  "plan_sha256": "4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596",
+  "experts": 35,
+  "active_layers": 23,
+  "native_bytes": 475453440,
+  "guards": "unchanged3072/2560 vision-before",
+  "modes": [
+    "O",
+    "C",
+    "S",
+    "P"
+  ],
+  "blocks": 12,
+  "warmup_per_mode": 4,
+  "order": [
+    "OCPS",
+    "CSOP",
+    "SPCO",
+    "POSC",
+    "OCPS",
+    "CSOP",
+    "SPCO",
+    "POSC",
+    "OCPS",
+    "CSOP",
+    "SPCO",
+    "POSC"
+  ],
+  "output_byte_gates": [
+    "O-C",
+    "S-P",
+    "O-captured down"
+  ],
+  "timing_boundary": "host x/IDs ready -> canonical unweighted host six-slot output ready",
+  "integration": false,
+  "GPUready": "unknown",
+  "reference_cells": [
+    3,
+    6
+  ],
+  "order_rationale": "Williams balanced4x4 repeated3; every mode in every position3times, every pair before/after6:6",
+  "O_output_readback": "artifact extraction outside measured boundary, matching private canonical output ready",
+  "worker_preflight": "12-task CPU custom probe outside timing for both O and private pool; each unique CPU0..11 with single-bit affinity"
+}

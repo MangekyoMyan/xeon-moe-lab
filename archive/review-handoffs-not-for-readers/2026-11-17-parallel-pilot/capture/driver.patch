@@ -1,0 +1,79 @@
+--- /home/codex/projects/llm-lab/gpu-workspace-20261117/pilot-capture/driver.cpp
++++ /home/codex/projects/llm-lab/parallel-pilot-20261117/capture/driver.cpp
+@@ -14,6 +14,7 @@
+ #include <cstring>
+ #include <iostream>
+ #include <memory>
++#include "capture_io.h"
+ 
+ static int64_t ns() {
+     return std::chrono::duration_cast<std::chrono::nanoseconds>(
+@@ -84,6 +85,7 @@
+ }
+ 
+ int main(int argc,char **argv) {
++    auto cap=std::make_unique<bounded_moe_capture::Capture>();
+     Resources resources;std::unique_ptr<API>api;llama_context *ctx=nullptr;bool session=false;
+     std::filesystem::path out,cases_path,old_reference;
+     json report={{"schema",1},{"passed",false},{"memory_phases",json::array()},{"cases",json::array()}};
+@@ -103,18 +105,19 @@
+         need(!out.empty()&&std::filesystem::is_directory(out)&&!std::filesystem::exists(out/"RUN.json"),"fresh directory");
+         auto pin=read_json(out/"PROVIDER_EXPECTED.json");report["providers"]=providers(true);need(report["providers"]==pin["providers"],"pinned providers");
+         common_params params;need(common_params_parse(args.size(),args.data(),params,LLAMA_EXAMPLE_SERVER),"parse arguments");
++        params.cb_eval=bounded_moe_capture::Capture::callback;params.cb_eval_user_data=cap.get();
+         params.warmup=false;params.sampling.backend_sampling=false;auto limits=output_limits(params);params.n_outputs_max=limits.total;params.n_outputs_max_per_seq=limits.per_seq;
+         need(params.n_ctx==131072&&params.n_batch==1024&&(params.n_ubatch==1024||params.n_ubatch==512||params.n_ubatch==256)&&params.n_parallel==1&&params.cpuparams.n_threads==12&&params.cpuparams_batch.n_threads==24&&params.no_extra_bufts&&!params.no_op_offload&&params.moe_cache_size==0&&limits.total==1&&limits.per_seq==1,"fixed profile");
+-        report["requested_ubatch"]=params.n_ubatch;report["scope"]="Bank-free first5 training route capture; full prompt plus64 teacher-forced reference inputs; first5 output vectors saved, all64 finite-scanned; no holdout or sampled quality";save_json(out/"RUN.json",report);
++        report["requested_ubatch"]=params.n_ubatch;report["scope"]="Bank-free bounded8 real activation capture; full JA prefix plus9 teacher-forced inputs; observer/callback diagnostic only, not timing";save_json(out/"RUN.json",report);
+         llama_backend_init();resources.init=common_init_from_params(params);need(resources.init&&resources.init->context()&&resources.init->model(),"model initialization");
+-        ctx=resources.init->context();auto *model=resources.init->model();const auto &cp=ctx->get_cparams();
++        ctx=resources.init->context();auto *model=resources.init->model();need(model->hparams.expert_weights_scale==1.5f,"fixed scaled weights producer");need(bind_parent_selected_cells(*cap,*model),"bind actual cells");const auto &cp=ctx->get_cparams();
+         report["cparams"]={{"n_ctx",cp.n_ctx},{"n_batch",cp.n_batch},{"n_ubatch",cp.n_ubatch},{"n_seq_max",cp.n_seq_max},{"n_outputs_max",cp.n_outputs_max},{"n_outputs_max_per_seq",cp.n_outputs_max_per_seq},{"threads",12},{"threads_batch",24},{"n_rs_seq",cp.n_rs_seq}};
+         need(cp.n_ubatch==uint32_t(params.n_ubatch)&&cp.n_outputs_max==1&&cp.n_rs_seq==0,"actual cparams");
+         auto scheduler=ctx->get_sched();ggml_backend_dev_t gpu=nullptr;report["active_backend_providers"]=json::array();
+         for(int i=0;i<ggml_backend_sched_get_n_backends(scheduler);++i){auto b=ggml_backend_sched_get_backend(scheduler,i);Dl_info info{};
+             need(dladdr(reinterpret_cast<void *>(b->iface.graph_compute),&info)&&info.dli_fname,"backend provider");
+             report["active_backend_providers"].push_back({{"name",ggml_backend_name(b)},{"graph_compute_provider",std::filesystem::canonical(info.dli_fname).string()}});
+-            if(ggml_backend_dev_type(ggml_backend_get_device(b))==GGML_BACKEND_DEVICE_TYPE_GPU){need(!gpu,"singleGPU");gpu=ggml_backend_get_device(b);}
++            if(ggml_backend_dev_type(ggml_backend_get_device(b))==GGML_BACKEND_DEVICE_TYPE_GPU){need(!gpu,"singleGPU");gpu=ggml_backend_get_device(b);cap->gpu_backend=b;}
+         }
+         need(gpu&&report["active_backend_providers"]==pin["active_backend_providers"],"actual scheduler pin");
+         need(model->layers.size()==40,"40 layers");report["placement"]=json::array();
+@@ -145,7 +148,7 @@
+         auto finite=[&](const float *p){if(!p)return false;for(int i=0;i<nv;++i)if(!std::isfinite(p[i]))return false;return true;};
+         set_batch(tokens[0],0,64);int rc=llama_decode(ctx,batch);if(rc){llama_synchronize(ctx);throw std::runtime_error("warmup decode");}need(finite(llama_get_logits_ith(ctx,-1)),"warmup finite");memory("M2_after_text64_warmup");
+         auto output_rows=[&](const std::string &name,int ci,int prefix,int count=4){
+-            need(count==4||count==64,"bounded continuation count");
++            need(count==4||count==9,"bounded continuation count");
+             std::vector<float> values(size_t(nv)*5);std::vector<Step>steps(count);const float *ptr=nullptr;
+             llama_memory_clear(llama_get_memory(ctx),true);llama_synchronize(ctx);set_batch(tokens[ci],0,prefix);
+             need(api->open(ctx,1,0,4096,512,128),"prefill session");session=true;
+@@ -160,18 +163,26 @@
+             need(b["actual_ubatches"]==b["expected_ubatches"],"actual split differs; investigate, do not round");
+             need(api->open(ctx,1,1,4096,512,128),"T1 session");session=true;
+             for(int i=0;i<count;++i){auto &s=steps[i];s.stamp[0]=ns();set_batch(tokens[ci],prefix+i,1);xeon_route37_label label{};label.phase=XR_DECODE;label.decode_call=i;label.logical_token=i;
++                if(ci==2)cap->begin_call(i);
+                 s.result=drive_call(*api,ctx,label,[&](){s.stamp[1]=ns();int z=llama_decode(ctx,batch);s.stamp[2]=ns();return z;},[&](){ptr=llama_get_logits_ith(ctx,-1);s.stamp[3]=ns();bool ok=finite(ptr);s.stamp[4]=ns();return ok;},[&](){llama_synchronize(ctx);});s.stamp[5]=ns();
+                 if(!s.result.synchronized&&s.result.label_accepted)resources.abandon=true;
+-                need(s.result.ok(),"T1 result");if(i<4)std::memcpy(values.data()+size_t(i+1)*nv,ptr,nv*sizeof(float));s.stamp[6]=ns();
++                need(s.result.ok(),"T1 result");if(ci==2){bool ok=cap->end_call();if(!ok){report["capture_failure"]=json::array();for(size_t ci2=0;ci2<cap->count;++ci2){const auto &c=cap->cells[ci2];report["capture_failure"].push_back({{"cell",ci2},{"call",c.key},{"layer",c.layer},{"seen",c.seen},{"flags",c.flags}});}save_json(out/"RUN.json",report);}need(ok,"capture callback flags");}if(i<4)std::memcpy(values.data()+size_t(i+1)*nv,ptr,nv*sizeof(float));s.stamp[6]=ns();
+             }
+             need(api->close(ctx),"T1 close");session=false;b["T1_trace"]=snapshot(*api);validate_ledger(b["T1_trace"],prefix,count,false);
+             for(int i=0;i<count;++i)b["T1"].push_back({{"index",i},{"position",prefix+i},{"next_target_token_id",tokens[ci][prefix+i+1]},{"boundaries_ns",steps[i].stamp},{"decode_status",steps[i].result.decode_status},{"full_logits_finite",true},{"synchronized",steps[i].result.synchronized}});
+             b["next_token_targets_for_saved_rows"]=std::vector<llama_token>(tokens[ci].begin()+prefix,tokens[ci].begin()+prefix+5);b["all_saved_logits_finite"]=true;b["logits_shape"]={5,nv};b["logits_type"]="native little-endian F32; row0 final prefix, rows1..4 after first four continuation inputs; later T1 F32 vectors not saved";
+             std::ofstream f(out/(name+".f32"),std::ios::binary);need(bool(f),"logits open");f.write(reinterpret_cast<const char*>(values.data()),values.size()*sizeof(float));f.close();need(!f.fail(),"logits write");b["logits_file"]=name+".f32";
+             if(prefix==64&&ci==0){std::ifstream fref(old_reference/"correct_F.f32",std::ios::binary|std::ios::ate);need(bool(fref)&&size_t(fref.tellg())==size_t(4)*nv*sizeof(float),"old logits size");std::vector<float>old_values(size_t(4)*nv);fref.seekg(0);fref.read(reinterpret_cast<char*>(old_values.data()),old_values.size()*sizeof(float));need(bool(fref),"old logits read");b["T1_byte_equal_previous_F_before"]=std::memcmp(old_values.data(),values.data()+nv,old_values.size()*sizeof(float))==0;save_json(out/(name+".json"),b);need(b["T1_byte_equal_previous_F_before"]==true,"short64 numeric gate");}
++            if(ci==2){export_capture(*cap,*model,out,b["T1_trace"]);
++                const auto baseline=read_json(std::filesystem::path("/home/codex/projects/llm-lab/gpu-workspace-20261117/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/text_cache_budget_ja.json"));
++                need(baseline["next_token_targets_for_saved_rows"]==b["next_token_targets_for_saved_rows"],"baseline targets");
++                std::ifstream oldf("/home/codex/projects/llm-lab/gpu-workspace-20261117/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/text_cache_budget_ja.f32",std::ios::binary|std::ios::ate);
++                need(bool(oldf)&&size_t(oldf.tellg())==values.size()*sizeof(float),"baseline size");std::vector<float> oldvalues(values.size());oldf.seekg(0);oldf.read(reinterpret_cast<char*>(oldvalues.data()),values.size()*sizeof(float));
++                b["prefix_first4_byte_equal_old_callback_free"]=bool(oldf)&&std::memcmp(oldvalues.data(),values.data(),values.size()*sizeof(float))==0;
++                save_json(out/(name+".json"),b);need(b["prefix_first4_byte_equal_old_callback_free"]==true,"callback-free bridge mismatch");}
+             save_json(out/(name+".json"),b);report["completed_cases"].push_back(name);save_json(out/"RUN.json",report);std::cout<<"completed "<<name<<" prefix="<<prefix<<'\n'<<std::flush;
+         };
+-        report["completed_cases"]=json::array();output_rows("short64",0,64);for(int ci=2;ci<7;++ci)output_rows(input["cases"][ci]["case_id"].get<std::string>(),ci,input["cases"][ci]["prefix_tokens"],64);memory("M3_after_train_first5");
++        report["completed_cases"]=json::array();output_rows("short64",0,64);output_rows("text_cache_budget_ja",2,input["cases"][2]["prefix_tokens"],9);memory("M3_after_capture8");
+         report["passed"]=true;report["session_closed_before_owner_destruction"]=!session;save_json(out/"RUN.json",report);
+         if(resources.vision){mtmd_free(resources.vision);resources.vision=nullptr;}if(resources.has_batch){llama_batch_free(batch);resources.has_batch=false;}resources.init.reset();llama_backend_free();std::cout<<"capacity stage passed\n";return 0;
+     }catch(const std::exception &e){report["error"]=e.what();try{if(ctx&&!resources.abandon)llama_synchronize(ctx);if(session&&api){try{report["failure_trace"]=snapshot(*api);}catch(...){}if(!api->close(ctx))resources.abandon=true;else session=false;}}catch(...){resources.abandon=true;report["cleanup_incomplete"]=true;}report["unsafe_cleanup_avoided"]=resources.abandon;if(!out.empty())try{save_json(out/"RUN.json",report);}catch(...){}std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

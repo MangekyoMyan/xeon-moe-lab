@@ -1,0 +1,69 @@
+35エキスパートの小bankで、実モデルの生成計算の速度が約4.8%向上する結果が得られた。
+速度の比では +4.795%、1トークン時間では -4.575%。通常APIは元の構成へ復帰し、この候補は未採用。
+
+比較は一つの日本語training軌道、prefix272＋64 reference入力のteacher-forced T1。サンプリング、HTTP/SSE、Open WebUIを含まない。一般入力や回答品質の向上を意味しない。
+
+全モデル・通常output-readyまでの測定
+  条件                 平均ms/T1        T1/s       F bracket比
+  F-before              129.2868        7.73475
+  F-after               128.2909        7.79478
+  F前後の合計           128.78882       7.76465    1.00000
+  C private CPU-all6    130.78775       7.64598    0.98472
+  S GPU分担・直列       124.53110       8.03012    1.03419
+  P GPU分担・並列       122.89632       8.13694    1.04795
+
+Fは同じ統合実験用libllamaでhotを無効化した対照。CPU/CUDA/baseは全arm同じで、route recorderは閉じたまま。通常APIのfrozen本番binaryを直接置換した対照ではない。Fの旧prefix+first4出力一致も検査した。
+F-before/F-afterは各192 timed calls、C/S/Pは各384。合計1536 timed callsと、別の品質診断320 T1 calls。CSPは6通りの順序を用い、mode位置と各pairの前後を均衡。29blocksの全時刻列を保存した。独立promptが1536件あるという意味ではない。
+
+主な解釈
+・GPUに置いたexpertへ計算を移す効果が大きい。SだけでもF比+3.42%。
+・PのSに対する上乗せは約1.33%。GPU使用率の最大化を目標とせず、最終wall timeで判断した。
+・CはFより平均約2.0ms/T1長く、経路を置き換える費用も残る。これはH0だけの費用ではない。
+・一つの配置・日本語軌道・3processの記述比較。言語、長文、別モデルや実trafficへの一般化はしない。
+
+数値の切り分け
+各quality armでprefix最終＋64T1、65×129280 F32をすべて保存した。
+・F-before = F-after = C: 全byte一致。
+・S = P: 全byte一致。並列化の追加による出力変化はこの軌道では検出されない。
+・S/P対F: prefix行は一致、T1の64行はbyteが異なる。NMSE=0.00446801695、最大絶対差2.34470272。
+・全65地点でtop1 IDは一致。ただしreference文を強制入力した軌道であり、自然生成した会話が一致する証明ではない。
+・固定reference tokenの平均NLL差は +0.00768692482。一般的な回答品質の点数でも、採用可否の閾値でもない。
+
+GPU使用数の集計も、元trainingの予測と全く同じとは限らない。
+  元JA・非空23層のH: [364,867,213,28,0,0,0]、選択slots1377
+  統合S/PのH:        [362,870,211,29,0,0,0]、実行slots1379
+S/P各blockの集計は同じ。個別の元6IDs/hidden値は今回の統合では採取していないため、どこで変わったかは未判定。CのHは実行GPU数なので全て0であり、全missと解釈してはいけない。
+
+先行した実activation8セルのoperator比較
+  cell / layer / H     paired O/P中央値
+  0 / 7  / 0           1.00248
+  1 / 7  / 1           1.08811
+  2 / 7  / 2           1.30579
+  3 / 7  / 3           1.67608
+  4 / 35 / 3           1.55029
+  5 / 13 / 1           1.10776
+  6 / 28 / 1           1.11247
+  7 / 20 / 2           1.28404
+境界はhost x/IDs readyからcanonical host未加重6slot ready。転送、partition、CPU、join、scatterを含む。Oは独立FFN graphであり、main schedulerではない。12 balanced blocks×4arms×8cells=384 timed samples。H0の小差やMXのS/P逆転も残した。
+全8セルでO=C=capture、S=P、cold slots P=Oのbyte一致。GPUへ移したslotについてはCPU/CUDA算術差を別に評価した。
+FP64累積dequant参照をcell3/6だけ追加した。cell3の出力NMSEはCPU3.50220e-4、P2.25108e-4。cell6はどちらも約1.18359e-4。現GGUFを展開した参照であり、量子化前モデルの正解や一般品質ではない。
+
+配置・容量
+元35expert/23層planを維持した。native475453440B=453.427734375MiB。
+旧3072/2560MiBのstrict guardをvision前に維持。operator stageで35案の全native byteをGPUから読み戻して照合した。統合stageは別bank個体を作るため、その個体の全byte照合を再実施したとは主張しない。
+統合CSP: Gpost3126.25MiB、vision dummy reserve後2100.25、text64 warmup後1642.25、終了時1618.25。最後の値は瞬間peakではない。画像forward・128kの実入力は未試験。
+CPU専用graphは非空23層だけ。空CPU14層、GPU37..39、prefillは元graph。各blockで23×64 callsを実測し、生成とprefillの切替時のcustom node再構築を確認。State/bankのinitializeはcontextにつき一度。これは自然な256位置跨ぎの全条件を検証した意味ではない。
+
+観測方法で見つかった落とし穴
+初回captureはweightedのCUDA copyを未対応で停止。第二回はweighted GPU nodeでgraphを分割し、旧最初3callsと32/111 route recordsが異なり停止した。失敗rawは両方公開。
+最終captureはGPU graphを区切らず、CPU gate完了後に明示GPU同期し、先に計算済みの6weight/24Bを読む。元9calls/333recordsと全fields一致、既存prefix+first4出力も一致した。call5/8のcallback-free中間値のbyte一致までは証明していない。性能armはcallback=null。
+
+残る課題
+logical routeとprivate masked IDsのorigin分離は未実装。今回の統合はroute collector closed専用で、本番採用版ではない。未使用入力での回答/性能、実会話・長context、より大きなbankでの利益と品質を測る前に、この実装と証拠をレビューする。条件付き8層planへの切替やubatch変更は行っていない。
+
+通常APIはPID261483で復帰、health ok。元configとCPU/libllama/CUDA/baseの4つのbacking hashを照合済み。監視2serviceもactive、復帰receipt時のalert/errorなし。GPU150W/ECC/fan<=70、RAM reserve64GiBを維持。新しいモデル・ライブラリを通常APIへ適用していない。ユーザーに必要なコマンドはない。
+
+一次データ
+INTEGRATED_ANALYSIS.json / REPLAY_ANALYSIS.json / CAPTURE_ANALYSIS.json
+各stage/runs/*/RUN.json、quality-*.f32、cell*.f32/.i32、guard-health.json、RESULTS_SHA256.json
+ENGINE_BUILD.json / BUILD.json / 各source・patch / 独立Terra監査

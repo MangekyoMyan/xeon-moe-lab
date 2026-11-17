@@ -1,0 +1,47 @@
+--- /home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src/llama-graph.cpp
++++ llama-graph.cpp
+@@ -1,3 +1,4 @@
++#include "hot-backend.h"
+ #include "llama-graph.h"
+ 
+ #include "llama-impl.h"
+@@ -2313,6 +2314,20 @@
+ 
+     ggml_tensor * up = nullptr;
+     ggml_tensor * experts = nullptr;
++    const auto has_custom_precision = [&](const ggml_tensor * weight) {
++        return prec_policy && (prec_policy->prec_acc.count(weight) || prec_policy->prec_src1.count(weight));
++    };
++    if (arch == LLM_ARCH_DEEPSEEK41 && il >= 0 && uint32_t(il) < hparams.n_layer_all && n_tokens == 1 && n_embd == 5120 && n_expert == 384 && n_expert_used == 6 &&
++        !weight_before_ffn && type_op == LLM_FFN_SILU && gate_exps && up_exps && down_exps && !gate_up_exps &&
++        !up_exps_b && !gate_exps_b && !down_exps_b && !gate_up_exps_b &&
++        !up_exps_s && !gate_exps_s && !down_exps_s && !post_exp_norm && !slots && !moe_cache &&
++        (!loras || loras->empty()) && !hdmd &&
++        !has_custom_precision(gate_exps) && !has_custom_precision(up_exps) && !has_custom_precision(down_exps)) {
++        experts = xeon_hot_build(backend_cpu, sched, ctx0, cur, selected_experts,
++                gate_exps, up_exps, down_exps, hparams.swiglu_clamp_exp[il], il);
++    }
++    const bool xeon_hot_used = experts != nullptr;
++    if (!xeon_hot_used) {
+ 
+     if (gate_up_exps) {
+         // merged gate_up path: one mul_mat_id, then split into gate and up views
+@@ -2470,6 +2485,8 @@
+         }
+     }
+ 
++    }
++
+     if (down_exps_s) {
+         cb(experts, "ffn_moe_down_scaled", il);
+     }
+@@ -2488,6 +2505,9 @@
+ 
+     if (!weight_before_ffn) {
+         experts = ggml_mul(ctx0, experts, weights);
++        if (xeon_hot_used) {
++            xeon_hot_place_tail(backend_cpu, sched, experts);
++        }
+         cb(experts, "ffn_moe_weighted", il);
+     }
+ 

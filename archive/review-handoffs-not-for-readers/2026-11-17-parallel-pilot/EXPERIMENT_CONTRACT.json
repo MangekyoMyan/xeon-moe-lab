@@ -1,0 +1,162 @@
+{
+  "schema": "xeon-moe-small-parallel-pilot-contract-v1",
+  "source_commit": "d98a17c56fadc92cf79e21ecbe80732dedeed899",
+  "status": "review design only; no new hardware inference measurement",
+  "owner": "actual-machine Astra assistant",
+  "default_candidate": {
+    "source": "TRAIN5_CANDIDATE.plan",
+    "sha256": "4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596",
+    "experts": 35,
+    "active_layers": 23,
+    "native_bytes": 475453440,
+    "admitted": null
+  },
+  "conditional_candidate": {
+    "file": "CONDITIONAL_CONCENTRATED_CANDIDATE.plan",
+    "condition": "Only if measured private H0 overhead makes dispersed plan unattractive",
+    "admitted": null,
+    "performance": null,
+    "quality": null
+  },
+  "capture": {
+    "cells": "CAPTURE_CELLS.json",
+    "case": "text_cache_budget_ja",
+    "prefix_tokens": 272,
+    "teacher_forced_calls": 9,
+    "count": 8,
+    "x": "original gate.src[1], F32[5120,1,1,1]",
+    "ids": "original gate.src[2], ordered I32[6,1,1,1]",
+    "extras": [
+      "unweighted original down F32[5120,6,1,1]",
+      "effective router weights F32[1,6,1,1]",
+      "clamp",
+      "native types/shapes/strides",
+      "compact mask",
+      "runtime providers",
+      "token and plan identities",
+      "attempt labels"
+    ],
+    "timing_valid": false,
+    "cb_eval_nonnull_changes_scheduler_sync": true,
+    "baseline_bridge": "reuse existing final-prefix + first4 F32 and ordered IDs for all8; do not claim later call5/8 intermediates equal old callback-free run"
+  },
+  "modes": [
+    {
+      "mode": "O",
+      "name": "Original CPU all6",
+      "cpu_ids": "original ordered six",
+      "effective_gpu_H": 0,
+      "meaning": "original CPU arithmetic; independent replay wall is not main scheduler wall"
+    },
+    {
+      "mode": "C",
+      "name": "Private CPU all6",
+      "cpu_ids": "original ordered six",
+      "effective_gpu_H": 0,
+      "meaning": "same bank held, original route matched_H logged separately from executed H=0"
+    },
+    {
+      "mode": "S",
+      "name": "Mixed serial",
+      "cpu_ids": "GPU slots replaced by -1",
+      "order": "prepare CPU; submit GPU; join GPU once; compute CPU; scatter"
+    },
+    {
+      "mode": "P",
+      "name": "Mixed parallel",
+      "cpu_ids": "same as S",
+      "order": "prepare CPU; submit GPU; compute CPU; join GPU once; scatter"
+    }
+  ],
+  "timing": {
+    "operator_start": "host frozen x and ordered IDs ready, before runtime partition/copies",
+    "operator_end": "canonical host unweighted 6-slot output ready after scatter",
+    "included": [
+      "partition",
+      "CPU input set",
+      "pinned input copy",
+      "GPU enqueue and D2H",
+      "CPU graph",
+      "CPU output get",
+      "GPU join",
+      "slot scatter"
+    ],
+    "excluded": [
+      "model/bank load",
+      "allocation",
+      "graph warmup",
+      "capture",
+      "exports",
+      "FP64 reference",
+      "finite scan",
+      "hash calculation"
+    ],
+    "performance_cb_eval": null,
+    "performance_route_collector": "closed",
+    "suggested_paired_blocks_per_cell": 12,
+    "suggested_order": "cyclic rotations of O,C,S,P, fixed before data; one sample of each arm per block",
+    "raw_columns": [
+      "cell_id",
+      "source_x_sha256",
+      "plan_sha256",
+      "block",
+      "order",
+      "mode",
+      "matched_H",
+      "executed_gpu_H",
+      "first_use",
+      "input_ready_ns",
+      "output_ready_ns",
+      "cpu_begin_end_if_available",
+      "join_begin_end_if_available",
+      "status"
+    ],
+    "GPU_ready": null,
+    "statistics": "raw sequence, paired differences, median and limited-sample quantiles; warm repetitions are not independent prompts",
+    "integrated_boundary": "llama_decode begin to normal output-ready completion; separate unobserved run"
+  },
+  "correctness": {
+    "O_C": "byte compare same x, ordered IDs, current CPU arithmetic and compact state; investigate mismatches",
+    "S_P": "byte compare same partition and same graph after original-slot scatter and same-order weighted merge",
+    "CPU_mixed": "reference error separately from parallelism; CPU bit equality not general requirement",
+    "reference": "existing GGUF dequant F32; dot accumulation FP64; projection F32; SwiGLU F32",
+    "minimal_metrics": [
+      "finite",
+      "byte_equal",
+      "NMSE",
+      "max_abs",
+      "output norm",
+      "per-slot and weighted output differences"
+    ]
+  },
+  "integration": {
+    "empty_selection": "build-time bypass and skip private initialization",
+    "runtime_H0": "still measure private CPU/copies/dispatch",
+    "route37_origin_fix": "logical original IDs once at custom entry; registered private IDs origin excluded, retain all validation",
+    "route37_fix_before_initial_operator_replay": false,
+    "route37_fix_before_full_hybrid_route_capture": true,
+    "state_lifetime": "context; no bank initialization on each graph rebuild",
+    "preserve": [
+      "router selection and effective weights",
+      "original expert slot order",
+      "original merge order",
+      "GPU37..39",
+      "prefill fallback",
+      "guards and phase",
+      "runtime provider pin",
+      "CPU compact state"
+    ]
+  },
+  "decision": {
+    "first": "Measure actual-input H0/H1/H2/H3 and S-P plus P-O without a new capacity/observer suite",
+    "advance": "Promising cells -> bounded main integration -> callback/observer-free whole-T1 results -> unused-task quality",
+    "decline": "Record negative result; do not automatically collect remaining15 routes or start broad configuration grid"
+  },
+  "not_claimed": [
+    "35 or36 bank admission",
+    "new GPU speed measurements",
+    "general language advantage",
+    "sampled-answer quality",
+    "Open WebUI streaming cause"
+  ]
+}

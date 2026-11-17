@@ -1,0 +1,82 @@
+--- /home/codex/projects/llm-lab/gpu-workspace-20261117/bank-capacity/hot-backend.cpp
++++ /home/codex/projects/llm-lab/parallel-pilot-20261117/replay/hot-backend.cpp
+@@ -24,12 +24,19 @@
+ #include <stdexcept>
+ #include <string>
+ #include <vector>
++#include <chrono>
+ 
+ namespace {
+ constexpr int D=5120,F=2304,E=384,TOP=6,LAYERS=40;
+ constexpr size_t GiB=size_t(1024)*1024*1024;
+ void require(bool ok,const char * msg){if(!ok)throw std::runtime_error(std::string("xeon-hot: ")+msg);}
+ void cuda_check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string("xeon-hot CUDA: ")+cudaGetErrorString(e));}
++struct SampleStamp {
++    int64_t begin=0, partition_end=0, cpu_set_end=0, submit_end=0;
++    int64_t cpu_begin=0, cpu_end=0, join_begin=0, join_end=0, end=0;
++    int matched=0,executed=0,gpu_ops=0;
++};
++int64_t hot_ns(){return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();}
+ struct State;
+ struct Graph{
+     ggml_context * ctx=nullptr;ggml_backend_buffer_t buffer=nullptr;ggml_backend_t backend=nullptr;
+@@ -128,12 +135,11 @@
+             cuda_check(cudaHostAlloc(&pinned_output,D*TOP*sizeof(float),cudaHostAllocPortable));
+             cuda_check(cudaHostAlloc(&pinned_ids,TOP*sizeof(int32_t),cudaHostAllocPortable));
+         }
+-        for(auto & ptr:layers){if(!ptr)continue;auto & l=*ptr;if(!l.eligible)continue;
++        for(auto & ptr:layers){if(!ptr)continue;auto & l=*ptr;if(!l.eligible||l.selected.empty())continue;
+             l.cpu=std::make_unique<Graph>(private_cpu,l.original,TOP,l.clamp);
+             std::array<float,D> zero{};std::array<int32_t,TOP> disabled;disabled.fill(-1);
+             ggml_backend_tensor_set(l.cpu->x,zero.data(),0,sizeof(zero));ggml_backend_tensor_set(l.cpu->ids,disabled.data(),0,sizeof(disabled));
+             require(ggml_backend_graph_compute(private_cpu,l.cpu->graph)==GGML_STATUS_SUCCESS,"private CPU warmup");
+-            if(l.selected.empty())continue;
+             l.weight_ctx=ggml_init({512*1024,nullptr,true});require(l.weight_ctx,"bank metadata");
+             for(int j=0;j<3;++j){auto w=l.original[j];l.gpu_weights[j]=ggml_new_tensor_3d(l.weight_ctx,w->type,w->ne[0],w->ne[1],l.selected.size());}
+             l.weight_buffer=ggml_backend_alloc_ctx_tensors(l.weight_ctx,private_gpu);require(l.weight_buffer,"bank allocation");
+@@ -157,7 +163,8 @@
+         ready=true;
+         LLAMA_LOG_INFO("xeon-hot-ready experts=%zu native_payload=%zu GPU_bank_allocation=%zu GPU_free_before_vision=%zu CPUthreads=12 original-weights-retained=1\n",planned_count,payload,allocation,free);
+     }
+-    void compute(Layer & l,ggml_tensor * dst){
++    void compute(Layer & l,ggml_tensor * dst,char mode='P',SampleStamp * stamp=nullptr){
++        require(mode=='C'||mode=='S'||mode=='P',"replay mode");
+         require(ready&&l.eligible&&l.cpu,"uninitialized layer");
+         const auto x=dst->src[0],ids=dst->src[1];
+         require(x&&ids&&x->type==GGML_TYPE_F32&&ids->type==GGML_TYPE_I32&&x->ne[0]==D&&x->ne[1]==1&&x->ne[2]==1&&x->ne[3]==1&&ggml_is_contiguous(x)&&ids->ne[0]==TOP&&ids->ne[1]==1&&ids->ne[2]==1&&ids->ne[3]==1&&dst->type==GGML_TYPE_F32&&dst->ne[0]==D&&dst->ne[1]==TOP&&dst->ne[2]==1&&dst->ne[3]==1&&ggml_is_contiguous(dst),"runtime tensor geometry");
+@@ -169,15 +176,23 @@
+             require(e>=0&&e<E&&!seen[e],"invalid routing ID");seen[e]=true;
+             if(l.local[e]>=0){hot_slots[hot]=slot;pinned_ids[hot]=l.local[e];++hot;cpu_ids[slot]=-1;}else cpu_ids[slot]=e;
+         }
++        if(stamp){stamp->matched=hot;stamp->partition_end=hot_ns();}
++        if(mode=='C'){hot=0;std::memcpy(cpu_ids.data(),ids->data,TOP*sizeof(int32_t));}
++        if(stamp)stamp->executed=hot;
+         if(hot<TOP){ggml_backend_tensor_set(l.cpu->x,x->data,0,D*sizeof(float));ggml_backend_tensor_set(l.cpu->ids,cpu_ids.data(),0,TOP*sizeof(int32_t));}
++        if(stamp)stamp->cpu_set_end=hot_ns();
+         if(hot){auto & g=*l.gpu[hot];std::memcpy(pinned_input,x->data,D*sizeof(float));
+             ggml_backend_tensor_set_async(private_gpu,g.x,pinned_input,0,D*sizeof(float));ggml_backend_tensor_set_async(private_gpu,g.ids,pinned_ids,0,hot*sizeof(int32_t));
+             require(ggml_backend_graph_compute_async(private_gpu,g.graph)==GGML_STATUS_SUCCESS,"GPU graph failed");
+             ggml_backend_tensor_get_async(private_gpu,g.y,pinned_output,0,size_t(hot)*D*sizeof(float));
+         }
+-        if(hot<TOP){require(ggml_backend_graph_compute(private_cpu,l.cpu->graph)==GGML_STATUS_SUCCESS,"CPU graph failed");ggml_backend_tensor_get(l.cpu->y,dst->data,0,size_t(D)*TOP*sizeof(float));}
+-        if(hot){ggml_backend_synchronize(private_gpu);for(int j=0;j<hot;++j)std::memcpy(static_cast<float*>(dst->data)+hot_slots[j]*D,pinned_output+j*D,D*sizeof(float));}
+-        if(l.calls==0)LLAMA_LOG_INFO("xeon-hot-first layer=%d H=%d resident=%zu\n",l.index,hot,l.selected.size());
++        if(stamp){stamp->submit_end=hot_ns();stamp->gpu_ops=hot?4:0;}
++        auto join=[&](){if(stamp)stamp->join_begin=hot_ns();ggml_backend_synchronize(private_gpu);if(stamp){stamp->join_end=hot_ns();++stamp->gpu_ops;}};
++        if(hot&&mode=='S')join();
++        if(hot<TOP){if(stamp)stamp->cpu_begin=hot_ns();require(ggml_backend_graph_compute(private_cpu,l.cpu->graph)==GGML_STATUS_SUCCESS,"CPU graph failed");ggml_backend_tensor_get(l.cpu->y,dst->data,0,size_t(D)*TOP*sizeof(float));if(stamp)stamp->cpu_end=hot_ns();}
++        if(hot&&mode=='P')join();
++        if(hot)for(int j=0;j<hot;++j)std::memcpy(static_cast<float*>(dst->data)+hot_slots[j]*D,pinned_output+j*D,D*sizeof(float));
++        if(!stamp&&l.calls==0)LLAMA_LOG_INFO("xeon-hot-first layer=%d H=%d resident=%zu\n",l.index,hot,l.selected.size());
+         ++l.calls;++l.hist[hot];
+     }
+ };
+@@ -227,7 +242,7 @@
+ ggml_tensor * xeon_hot_build(ggml_backend_t outer_cpu,ggml_backend_sched_t sched,ggml_context * ctx,ggml_tensor * input,ggml_tensor * ids,ggml_tensor * gate,ggml_tensor * up,ggml_tensor * down,float clamp,int layer){
+     auto s=lookup(outer_cpu);if(!s)return nullptr;
+     require(layer>=0&&layer<LAYERS,"graph layer index");if(!s->layers[layer])return nullptr;auto & l=*s->layers[layer];
+-    if(!l.eligible)return nullptr;
++    if(!l.eligible||l.selected.empty())return nullptr;
+     require(l.original==std::array<ggml_tensor*,3>{gate,up,down}&&clamp==l.clamp,"graph weight/clamp mismatch");
+     if(input->type!=GGML_TYPE_F32||input->ne[0]!=D||input->ne[1]!=1||input->ne[2]!=1||input->ne[3]!=1||ids->type!=GGML_TYPE_I32||ids->ne[0]!=TOP||ids->ne[1]!=1)return nullptr;
+     ggml_tensor * args[]={input,ids};auto node=ggml_custom_4d(ctx,GGML_TYPE_F32,D,TOP,1,1,args,2,marker,1,&l);

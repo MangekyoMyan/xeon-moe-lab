@@ -1,0 +1,134 @@
+実 activation / joint6 最小採取案と graph generation の解釈
+対象 pin: d98a17c56fadc92cf79e21ecbe80732dedeed899
+対象相談: 2026-11-17-gpu-workspace CONSULT_PRO_JA.txt の 4 / 5
+
+結論
+====
+次の小さい一手は、bank-free の元 CPU 経路から事前指定した 4～8 cell の実入力を保存し、その同じ入力・joint6・同じ bank 選択で CPU 全6 / mixed serial / mixed concurrent を比較すること。
+既存 cb_eval 契約で caller 側に限定採取を追加でき、まず CPU library の新 hook や route37 ABI の拡張は不要。
+ただし callback が非 null であるだけで scheduler の同期経路が変わるため、この採取 replay の時間を性能値として使ってはいけない。性能 arm は callback=null にする。
+
+このレビューでは repository、engine、API、モデル、GPU を変更・実行していない。読んだ source と保存済み JSON から設計した。付属 helper は C++17 の syntax-only 確認までで、engine への link、モデル動作確認、capture 成功の実証はしていない。
+
+1. 何を採れば本物の入力になるか
+==============================
+DeepSeek41 の元 graph は、HC FFN 前処理後に RMS normalization を行い、その ffn_norm を router、routed expert の gate/up、および shared expert へ渡している。
+したがって欲しい x は residual や token embedding ではなく、元 gate の MUL_MAT_ID.src[1]。現在の T1 形状は F32 [5120,1,1,1]、約20 KiB。
+同じ gate の src[2] が実 slot 順の joint6 IDs、I32 [6,1,1,1]。これを sort して保存しない。後の出力 slot、hot/cold 分割、weighted sum の対応に順番が必要。
+
+元 CPU kernel は src[1] の F32 を scratch へ量子化して使い、元 F32 自体は書き換えない。既存 route37 hook はこの gate の weight pointer と IDs を照合しているので、この点を src[1] も含む限定採取へ使える。CPU0..36 の元 route は CPU 側でこの入力を消費するが、capture 実装も host/F32/shape をその場で検査し、期待と違えば CPU と推定して続けない。
+
+元 down の MUL_MAT_ID 出力は F32 [5120,6,1,1]。6 experts の未加重出力は122,880 Bであり、少数 cell なら保存費用は小さい。直後の ffn_moe_weighted の src[1] が、router 選択後・正規化後・倍率適用後の effective routing weights、F32 [1,6,1,1]。選択 bias は選択に使われ、重みには別の probs を使う。IDs だけから重みを推測したり、router logits を別に再計算したりしない。
+元 graph は weighted expert slot を 0,1,2,3,4,5 の順に逐次 add する。重み込みの再現比較ではこの順番を保つ。
+
+1 cell の必須数値 payload を x + IDs + 元 down 全6 + effective weights とすると143,408 B。8 cells でも1,147,264 B＋小さい metadata で済む。全層・全 token activation dump は要らない。
+
+参考 source:
+- route-integration/provenance/model-source/src/models/deepseek41.cpp:861–909
+- 同 src/llama-graph.cpp:2247–2304,2336–2400,2451–2528
+- route-integration/route37/ggml-cpu.c:1780–1860
+完全な repository 相対 path、pin URL、行抜粋、file SHA は activation_source_evidence.json に収録。
+
+2. 既存 callback を使う最小構成
+==============================
+capture caller だけ common_params.cb_eval / cb_eval_user_data に helper を設定する。warmup=false とし、モデル初期化後に exact model.layers[layer].ffn_gate_exps / ffn_down_exps pointer を bind、対象 case/call の直前で arm する。モデル pointer を固定し、graph node pointer はその call 内だけ使う。
+
+ask=true では対象ノードかどうかだけを返す。ask=false で、その node の計算が終わり backend が同期した後に以下を即時コピーする。
+ (a) 元 gate: src[1] の x と src[2] の IDs。
+ (b) 元 down: 未加重の全6出力。
+ (c) 元 weighted MUL: src[1] の effective weights。
+deferred pointer を持って llama_decode の後にデータを読む設計は避ける。graph allocator は元 buffer を次の node / split で再利用できるため、そこで値を保持している保証がなくなる。
+
+付属 bounded_moe_capture_proposal.h はこの3点だけを採る最大8cellの実装案。事前確保した配列への memcpy だけで、callback 内に file I/O、heap allocation、追加 backend sync、GPU readback を置いていない。exact weight pointer / shape / host / IDs / duplicate / missing を検査する。失敗は flags に残し、callback の観測戻り値は true を保つ。正常の caller 完了・同期後に fail する。観測 callback の false を「全体を安全に中断する」API として流用しない。
+helper はこのモデルの original CPU T1 graph 専用である。bias、post-expert norm、LoRA、別の down scale graph、cache slot 置換などが有効なら、現在の直接 down→weighted MUL の前提が崩れるので、対象条件を manifest で確認し、helper の incomplete を無視して進めない。
+
+重要な timing 契約:
+実ロード base の対応 source gpu-stream-20261103/ggml-backend.cpp:2170–2211 は callback 非 null の場合、対象ノードが無くても split の graph_compute_async 後に ggml_backend_synchronize を呼ぶ。つまり armed=false の callback を残すだけでは通常の経路に戻らない。
+さらに llama-context.cpp:1559 の scheduler callback 設定は graph 再構築の枝にある。reuse 中に params の field を書き換えれば全て切り替わる、と仮定しない。
+最小で確実なのは capture 専用 caller/run と、params.cb_eval=nullptr の performance caller/run を分けること。元 scheduler の同期や fusion を変えた capture 時間を C/H/G/overlap と混ぜない。
+
+この CPU provider の graph fusion は RMS_NORM+MUL が対象。gate / down / weighted の境界で区切る案は、その RMS norm pair を途中で区切る必要がない。それでも callback で算術が絶対変わらないと先に断定しない。初段では既存証拠を使い、capture replay の prefix最終出力＋最初4 T1のF32を保存して、既存callback-free baselineの5行とbyte照合する。8cellsのordered IDsも既存routeと照合する。新しい9 T1 callback-free baseline replayや同じF/D suiteの反復を、最初から必須gateにはしない。
+厳密には c.down は「callback付き元graphの採取値」であり、「無callbackの元graphから直接保存した値」ではない。上記のprefix＋first4 logitsとordered IDsの一致は、call5/8の中間値が過去の無callbackrunとbit同一だったことまで証明しない。ここでは採取時に実際に得たF32 xを固定fixtureとして保存し、その同じxを使うcallback-free operator比較へ進む。この限定の下で少数実activationの比較は成立する。callbackによる差が疑われる場合、既存F32/IDsとの不一致がある場合、または全9callの無callback baselineとのbridgeを主張する必要がある場合だけ、追加9 T1 baseline replayで切り分ける。その差を許容誤差で黙って流さず、callback区切り/allocator/CPU kernel選択を確認する。sourceで確認した現在のfusionはRMS_NORM+MULのみであり、gate/up/SwiGLUのnode fusionは存在しないが、これは将来のproviderにも自動適用する保証ではない。
+
+3. callback を使えない場合だけの小さい代案
+==========================================
+既存 CPU の worker0 route hook は mul_mat_id 内、既存 thread barrier の前にある。ここに、事前指定された layer/case/call のときだけ src1 の20 KiBと IDs24 Bをコピーする hook を追加できる。元 F32 は読み取り専用なので、そのための追加 barrier は不要。caller が scope と保存先を事前公開し、worker0 が bounded record を書き、通常の CPU 完了後に caller が回収する。
+この代案は CPU library の再buildと追加分岐を必要とするので、既存 callback 案の方が変更面積は小さい。代案を入れるなら x+IDs 限定とし、down の全 worker 完了を新しい barrier で待つ観測器へ広げない。元 down 参照が必要なら capture-only callback を使う。
+この hook は本レビューでは実装・build していない。
+
+4. capture manifest の最低限
+============================
+各 cell:
+- case ID、training split/family/language label、prefix/continuation token manifest の SHA、rendered template SHA/kwargs。新しい tokenizer や template を挟まず、今回凍結した token IDs を使う。
+- decode_call、logical_input_token、実 position、request/sequence/context、prefill/T1 区分、n_tokens=1、入力 token ID と対応する next-target token ID。入力 token とその後を予測する target を混同しない。
+- layer、元 slot 順 joint6 IDs、選んだ bank policy の SHA / hot mask / H。H は「6 expert のうち GPU 常駐集合へ入る数」で固定。
+- x の F32 bits、ne/nb、host 判定。元 gate/up/down 各 weight の名前・quant type・ne/nb・native expert stride。再現で使用する GGUF の hash / tensor metadata と結ぶ。重み本体を毎 cell 複製する必要はない。
+- hparams.swiglu_clamp_exp[layer] と実分岐。DeepSeek41 元 graph は limit>1e-6 のとき swiglu_clamp、そうでなければ swiglu_split。単に helper が常に clamp を作るから正しいとは扱わない。
+- 元 down の全6 F32、effective routing weights6。weighted sum まで比較するなら元 graph と同じ slot 順で乗算・加算する。
+- capture source/build hash、実ロード CPU/CUDA/libllama/libggml-base の provider paths と hashes、CPU compact/cache 適用状態、threads、callback enabled、capture-only。
+- 同じ attempt の route37 graph generation と完了/flags。generation は cell の識別を補強する metadata であり、異なる fresh run の数値を request ID のように結合しない。
+
+finite check、metadata の整形、SHA 計算、file 保存は decode 後の capture caller 側で行う。callback 内にこれらを入れない。
+
+5. cell 選定と replay の最小判断順
+================================
+既存 raw による事前選定で十分。親レビューの bank 選択に合わせ、代表的 IQ mixed の H1/H2/H3 と MXFP4 の H0/H1、必要なら generation 境界の前後を合わせて合計4～8 cell程度にする。全 H×全型×全層の直積にしない。今回候補は max H3 なので H4/H5/H6 を実 route と称して作らない。
+parent 側で指定する exact tuples を採用し、観測した時間や誤差が良かった cell へ後から置き換えない。対象 call に達するための prefix/teacher-forced inputs は元 token 列どおり再生する。残り train5 / validation5 / holdout5 の計15件をここで開ける必要はない。
+
+親が確定した今回の最小集合は ../parent/CAPTURE_CELLS.json の8cells。全て text_cache_budget_ja、prefix272、最初9 T1以内であり、generation境界の追加採取は今回不要。
+  layer7: call0 H0、call5 H1、call3 H2、call2 H3
+  layer35: call8 H3（IQ3_XXS triplet）
+  layer13: call0 H1（down IQ3_S）
+  layer28: call2 H1（MXFP4 triplet）
+  layer20: call2 H2（down MXFP4）
+これは演算・slot処理用の少数実activation fixtureで、言語比較の標本ではない。元記録はgeneration1だがfresh replayで同じgeneration値を絶対条件にせず、capture sessionの実値を記録してcase/call/position/IDsへ結び付ける。bind_parent_cells_proposal.h にこの8cellsの設定例を同梱した。
+
+同じ saved x と joint6 から、順に検査する。
+
+A. 固定した同じxに対する original CPU operator(O)とprivate CPU 全6(C)の照合。
+  前述の既存prefix＋first4F32と8cell IDsの照合を利用し、採取時のactual F32 xを固定fixtureにする。O/Cは両方callback-freeで同じx・joint6を使うことが必須。新規9call baseline replayは初段必須ではない。captureから保存したdownは追加診断に使えるが、call5/8を含め過去の無callback元graphのdownとbit同一だった、と表現しない。
+  元 weight、入力量子化、SwiGLU clamp、CPU compact coverage、threads を揃える。まず byte equality を見る。違った場合は「private graph は元と同じ」という前提を確定せず、どの projection / slot から違ったかを確認する。
+  旧 probe の banks.add_cache(routes) は全6を compact にするので、現 provider の compact coverage を保つ比較へ無条件で流用しない。
+
+B. 同じ hot mask に対する mixed serial と mixed concurrent の照合。
+  出力を元 slot へ戻した後の全6 downを byte 比較し、同じ effective weights と元の順の加算も比較する。共有 scratch、input lifetime、CUDA stream 完了、slot scatter、CPU/GPU 同期の不具合をこの対に閉じ込める。
+  この比較と「CPU全6との差」は異なる判定。CPU/CUDA の入力量子化・scale・丸め・accumulation order が違うので、CPU全6との bit 不一致だけで concurrent の誤りと判定しない。
+
+C. 少数実入力における算術誤差。
+  CPU全6・serial・concurrentについて NMSE と max_abs、各 slot の norm、weighted sum の誤差を保存。gate/up→SwiGLU→down のどこで増えたかは、差が問題になった cell に限定して stage 出力を追加する。
+  調べる参照は「現在の量子化済み weight をF32に展開し、内積をFP64で累積、projectionをF32へ戻し、SwiGLUはF32」という既存定義を明記する。量子化前モデルの精度や回答品質の基準ではない。
+  小さい参照出力・expert 間 cancellation で相対誤差だけが大きくなることがあるので、absolute 誤差と出力 norm も一緒に読む。
+
+D. quality と performance。
+  上記が通った後の小さい integrated hybrid run では、同じ token 入力・同じ placement・同じ bank の serial/concurrent を分けて比較する。CPU→CUDA の変更は logitsだけでなく、後続 activation/KV/routingも変え得る。教師強制をしても内部状態が同一になるわけではない。
+  callback-free の fixed continuation で next-target NLL、top1/margin、finite、routing を見るのは診断として有用だが、少数の参照文の尤度やbyte equalityから一般回答品質が上がった/下がったとは言わない。新しい全品質suiteを先に必須化せず、性能候補が残った時に凍結した課題の実回答へ進む。
+  performance は親が指定する original all-CPU / dispatcher H0 / mixed serial / mixed concurrent の最小 arm。GPU-ready が直接取れなければ bound/unknown を残し、join wait を GPU 総時間と呼ばない。
+
+観測器と hybrid の注意:
+既存 route37 は元 gate weight pointer を見る。private CPU graph は同じ元 weight を使い hot slotsを -1 にするため、開いた既存 collector はそれを logical route と誤認して XR_IDS を立てる。H6 では CPU gateが無く XR_COVERAGEになる。capture helper は bank-free の元 graph に限定し、standalone private replayでは collectorを閉じる。integrated hybridでroute観測を継続する場合だけ、split前の original logical6IDsをcustom入口で一度記録し、private CPU projectionを別 originとして除外する。flagsを単に無視する修正はしない。
+
+6. position256 の generation1→2
+===============================
+保存 JSON を独立に読み直すと、EN は call45/position256、PythonとC++はcall16/position256で generation2 になる。JA(prefix272)とmixed(prefix270)は64callずっとgeneration1。この再集計を activation_source_evidence.json に保存した。
+
+source で確定できる意味:
+- llama-context.cpp は res->can_reuse(gparams) 等が false で graph を作り直したとき route37_rebuilt=true。
+- route37_begin_eval_v1 は rebuilt || generation==0 のとき世代を +1。
+- よって同一 collector session 内で1→2になったことは graph rebuild の報告。requestの新規開始でも、tokenを捨てたという意味でも、算術異常flagでもない。session最初はreuseだった場合でも0→1にする。
+
+source と整合する position256 の説明:
+raw KV の get_n_kv() は used_max_p1 を256単位へ切り上げる。DSV4 raw context は memory apply後にこの n_kv を更新し、raw attention mask の can_reuse は既存 ne[0]==n_kv を要求する。連続1sequenceで格納長が256→257になる境界では、256→512へのshape変更がrebuildを必要とする、という説明が成立する。
+ただし ledger は各 can_reuse 条件の結果や実 n_kv を保存していない。CSA/HCA/LIDのcompressed plan input shapes等にもreuse判定がある。position256の唯一の原因を直接実測した、とまでは言えない。
+
+特に generation全般を「256tokenごとに増えるカウンタ」と解釈してはいけない。今回同じ保存物のlong1024 4T1は、bankなしとcapacity32あり両方で position1024,1025,1026,1027 に generation=[1,2,2,3]だった。この非256境界の実例がある。
+現ledgerはcall/attempt/layer/IDsの対応が保たれており、generation変更だけを理由に追加instrumentationや大きなrebuild原因調査を次の必須gateにする必要はない。もし実際に古いbindingを再利用するバグや生成の時間スパイクを調べる段になったら、対象前後だけの旧新n_kvとfalseになったreuse項目で十分。新しい汎用observerは不要。
+
+検証履歴とファイル
+==================
+- extract_activation_evidence.py: 自作stdlib script。source18箇所と既存generation JSONを読み、抜粋・hash・小さい再集計を作成。供給されたscriptを実行していない。
+- bounded_moe_capture_proposal.h: capture-only実装案。エンジンに未統合。
+- header_syntax_check.cpp: headerをincludeするだけ。
+- syntax_check.txt: C++17 -Wall -Wextra -Werror -fsyntax-only成功の記録。直接headerを主入力とした最初の確認は #pragma once in main file をWerrorにしたため失敗、include用translation unitに変えた確認はexit0。code動作・ABI・callback runtime契約を実証する試験ではない。
+- activation_source_evidence.json: source抜粋とgeneration再集計。
+
+ここまででrepo変更、モデルload、engine build/link/run、GPU/API操作、新しい推論benchmark、API停止/再起動は行っていない。

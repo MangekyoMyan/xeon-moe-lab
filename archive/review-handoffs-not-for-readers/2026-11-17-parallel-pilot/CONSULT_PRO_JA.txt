@@ -1,0 +1,22 @@
+小bankは実モデルでも約4.8%の速度向上になりました。次の拡大・実用採用へ進む前に、実装と証拠をレビューしてください。実機操作・build・API停止/復帰は引き続きこちらが担当します。ユーザーへコマンド実行を要求する前提ではありません。
+
+最初にRESULTS_JA.txtを参照してください。要約だけでなく全source、差分、build/linkのidentity、失敗を含むraw、full65-row logits、時系列を残しています。全ファイルへの入口はFILES_SHA256.jsonです。長文や生データを省略する必要はありません。
+
+今回確定した重要点
+1. 元35案はそのままadmissionを通過。empty CPU14層の専用経路を省いた。
+2. 実activation8cellでCPU-all6対private CPU-all6が完全一致、mixed serial対parallelも完全一致。P/OはH1で約1.09–1.11、H2で1.28–1.31、H3で1.55–1.68。H0の差は小さい。
+3. narrow main integration後、全65rowでF-before=F-after=C、S=P。PはF bracket7.76465→8.13694 T1/s（+4.7947%）、S8.03012。
+4. S/P対Fはrow1以降のlogitsが違う。65地点top1は同じ、固定reference平均NLLは+0.0076869。元JA routeからのH集計も1377slots→実行1379slotsに変わる。一般回答品質は未評価。
+5. 観測callbackでGPU graphを区切ると、元routeが変わり得た。二つの失敗を残し、最後はscaled producer pointerを先に記録→CPU gate完了→GPU明示drain→24B readbackとした。weighted nodeはaskで検査するだけでfalse。元333route/保存5rowと一致。性能はcallbackもroute recorderもoff。
+
+最も確認してほしいこと
+・計時境界、provider/compact/slot対応、65rowのquality gate、runtime/set-mode/lifetimeに、改善の解釈を無効化する点がないか。
+・C−F約2.0ms/T1のうち、次に小さく切り分ける価値があるもの。operator H0では微小だった費用がmainでは残る。コピーを単に無くす前に、必要な同期/ownershipを保つ最小実験を相談したい。
+・元training routeと実hybridのHが違うため、route37のlogical/internal origin分離を次にどう最小実装するか。今回の統合はclosed-onlyで、その修正をしたかのようには扱っていない。値が-1なら無視する方式は採らない。
+・同予算の8層集中案をここで試す方がよいか、先に未使用case/実回答を確認すべきか。大量gridではなく、今の結果から判断が変わる少数の実験を提案してほしい。
+・もっと大きな配置へ進める場合、ubatchを下げてworkspaceを空ける案や、現在丸ごとGPUにある層の予算をexpert単位のbankへ再配分する案を、何を計測して比較すべきか。現時点でその方が速いとは主張していない。現35案は元からCPU compactがある領域を使うため、CPUで重いexpertへの配置という以前の人間のアイディアも、費用/頻度/同時Hを分けて検討したい。
+・以前のhot14系で出力差を保留にした問題に対し、今回のF=CとS=Pの分離で何が解明され、何が残るか。top1一致だけで回答品質合格にしない方針を維持する。
+
+今回の実機条件は変更していない。E5-2630L v2×2、12 physical/24 logical、512GB、単体Volta32GB、GPU150W/ECC/fan<=70。normal ctx131072/f16KV、batch/ubatch1024、CPU12/24、GPU expert layers37..39、既存CPU compact120GiB、vision配置を維持。operatorはactual original tensors/cacheを使い、当該6expertを追加compact化していない。
+
+実用APIは元config/4librariesへ戻した。新実装は通常API未適用。RUNTIMEの復帰receiptを同梱し、実験controllerは終了している。外部レビュー内の提案と、仲介する人間の方針変更は今後も区別して扱う。

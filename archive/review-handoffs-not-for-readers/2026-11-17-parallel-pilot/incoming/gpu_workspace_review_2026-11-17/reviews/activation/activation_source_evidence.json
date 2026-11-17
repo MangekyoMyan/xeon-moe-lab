@@ -1,0 +1,287 @@
+{
+  "pin": "d98a17c56fadc92cf79e21ecbe80732dedeed899",
+  "method": "stdlib read-only; no supplied scripts, model or engine execution",
+  "evidence": [
+    {
+      "title": "input_is_ffn_norm",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/models/deepseek41.cpp",
+      "file_sha256": "7bb456802be2a753edd60194cfa8d830af3ebbbda00a4bad6b262f7e4323bffd",
+      "first_line": 861,
+      "last_line": 909,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/models/deepseek41.cpp#L861-L909",
+      "excerpt": "861:         inpL = build_hc_post(cur, residual, attn_mix.post, attn_mix.comb, il);\n862:         cb(inpL, \"hc_attn_post\", il);\n863: \n864:         residual = inpL;\n865:         const hc_mixes ffn_mix = build_hc_mixes(inpL, layer.hc_ffn_fn, layer.hc_ffn_scale, layer.hc_ffn_base, il);\n866:         pre_prev = ffn_mix.pre;\n867: \n868:         cur = build_hc_pre(inpL, attn_mix.pre, il);\n869:         cb(cur, \"hc_ffn_pre\", il);\n870: \n871:         ggml_build_forward_expand(gf, residual);\n872:         ggml_build_forward_expand(gf, ffn_mix.post);\n873:         ggml_build_forward_expand(gf, ffn_mix.comb);\n874: \n875:         cur = build_norm(cur, layer.ffn_norm, nullptr, LLM_NORM_RMS, il);\n876:         cb(cur, \"ffn_norm\", il);\n877: \n878:         // F32 router accumulation: expert selection is near-tie sensitive\n879:         ggml_tensor * logits = build_lora_mm(layer.ffn_gate_inp, cur);\n880:         ggml_prec_set_acc(logits, GGML_PREC_F32);\n881:         cb(logits, \"ffn_moe_logits\", il);\n882: \n883:         // image (embedding) tokens use the vision router bias, as DeepSeek-V4\n884:         ggml_tensor * exp_probs_b = layer.ffn_exp_probs_b;\n885:         if (ubatch.embd != nullptr && layer.ffn_exp_probs_b_vl) {\n886:             exp_probs_b = layer.ffn_exp_probs_b_vl;\n887:         }\n888: \n889:         // the reference normalizes only when it routes to more than one expert\n890:         ggml_tensor * moe_out = build_moe_ffn(cur,\n891:                 layer.ffn_gate_inp,\n892:                 layer.ffn_up_exps,\n893:                 layer.ffn_gate_exps,\n894:                 layer.ffn_down_exps,\n895:                 exp_probs_b,\n896:                 n_expert, hparams.n_expert_used(),\n897:                 LLM_FFN_SILU, hparams.expert_weights_norm && hparams.n_expert_used() > 1,\n898:                 hparams.expert_weights_scale,\n899:                 (llama_expert_gating_func_type) hparams.expert_gating_func,\n900:                 il, logits);\n901:         cb(moe_out, \"ffn_moe_out\", il);\n902: \n903:         ggml_tensor * ffn_shexp = build_ffn(cur,\n904:                 layer.ffn_up_shexp, nullptr, nullptr,\n905:                 layer.ffn_gate_shexp, nullptr, nullptr,\n906:                 layer.ffn_down_shexp, nullptr, nullptr,\n907:                 nullptr, LLM_FFN_SILU, LLM_FFN_PAR, il);\n908:         cb(ffn_shexp, \"ffn_shexp\", il);\n909: "
+    },
+    {
+      "title": "weights_are_normed_scaled_in_original_order",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp",
+      "file_sha256": "d72fa58939970f16372d36e1a401986a7b44ad1569973080467191933f9b5c74",
+      "first_line": 2247,
+      "last_line": 2304,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp#L2247-L2304",
+      "excerpt": "2247:     ggml_tensor * selected_experts = selected_experts_in;\n2248:     if (selected_experts == nullptr) {\n2249:         selected_experts = ggml_argsort_top_k(ctx0, selection_probs, n_expert_used); // [n_expert_used, n_tokens]\n2250:         cb(selected_experts->src[0], \"ffn_moe_argsort\", il);\n2251:     }\n2252:     cb(selected_experts, \"ffn_moe_topk\", il);\n2253: \n2254:     if (arch == LLM_ARCH_GROVEMOE && n_expert != hparams.n_expert) {\n2255:         // TODO: Use scalar div instead when/if implemented\n2256:         ggml_tensor * f_sel = ggml_cast(ctx0, selected_experts, GGML_TYPE_F32);\n2257:         selected_experts = ggml_cast(ctx0, ggml_scale(ctx0, f_sel, 1.0f / float(hparams.n_group_experts)), GGML_TYPE_I32);\n2258:         probs = ggml_reshape_3d(ctx0, probs, 1, hparams.n_expert, n_tokens);\n2259:     } else {\n2260:         probs = ggml_reshape_3d(ctx0, probs, 1, n_expert, n_tokens);\n2261:     }\n2262: \n2263:     ggml_tensor * weights = ggml_get_rows(ctx0, probs, selected_experts); // [1, n_expert_used, n_tokens]\n2264:     cb(weights, \"ffn_moe_weights\", il);\n2265: \n2266: \n2267:     if (gating_op == LLAMA_EXPERT_GATING_FUNC_TYPE_SOFTMAX_WEIGHT) {\n2268:         weights = ggml_reshape_2d(ctx0, weights, n_expert_used, n_tokens);\n2269:         weights = ggml_soft_max(ctx0, weights); // [n_expert_used, n_tokens]\n2270:         weights = ggml_reshape_3d(ctx0, weights, 1, n_expert_used, n_tokens);\n2271:         cb(weights, \"ffn_moe_weights_softmax\", il);\n2272:     }\n2273: \n2274:     if (norm_w) {\n2275:         weights = ggml_reshape_2d(ctx0, weights, n_expert_used, n_tokens);\n2276: \n2277:         ggml_tensor * weights_sum = ggml_sum_rows(ctx0, weights); // [1, n_tokens]\n2278:         cb(weights_sum, \"ffn_moe_weights_sum\", il);\n2279: \n2280:         if (arch == LLM_ARCH_DEEPSEEK41) {\n2281:             // model.py Gate.forward: weights / (sum + 1e-20); the sum can fall below the F16 clamp below\n2282:             weights_sum = ggml_scale_bias(ctx0, weights_sum, 1.0f, 1e-20f);\n2283:         } else {\n2284:             // Avoid division by zero, clamp to smallest number representable by F16\n2285:             weights_sum = ggml_clamp(ctx0, weights_sum, 6.103515625e-5, INFINITY);\n2286:         }\n2287:         cb(weights_sum, \"ffn_moe_weights_sum_clamped\", il);\n2288: \n2289:         weights = ggml_div(ctx0, weights, weights_sum); // [n_expert_used, n_tokens]\n2290:         cb(weights, \"ffn_moe_weights_norm\", il);\n2291: \n2292:         weights = ggml_reshape_3d(ctx0, weights, 1, n_expert_used, n_tokens);\n2293:     }\n2294:     if (w_scale != 0.0f && w_scale != 1.0f) {\n2295:         weights = ggml_scale(ctx0, weights, w_scale);\n2296:         cb(weights, \"ffn_moe_weights_scaled\", il);\n2297:     }\n2298: \n2299:     //call early so that topk-moe can be used\n2300:     ggml_build_forward_expand(gf, weights);\n2301: \n2302:     // the experts of host-resident layers may be read from the MoE cache\n2303:     ggml_tensor * slots = build_moe_cache_slots(selected_experts, up_exps, gate_exps, down_exps, gate_up_exps, il);\n2304: "
+    },
+    {
+      "title": "gate_input_and_clamp",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp",
+      "file_sha256": "d72fa58939970f16372d36e1a401986a7b44ad1569973080467191933f9b5c74",
+      "first_line": 2336,
+      "last_line": 2400,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp#L2336-L2400",
+      "excerpt": "2336:     } else {\n2337:         // separate gate and up path\n2338:         up = build_lora_mm_id(up_exps, cur, selected_experts, up_exps_s, slots); // [n_ff, n_expert_used, n_tokens]\n2339:         cb(up, \"ffn_moe_up\", il);\n2340: \n2341:         if (up_exps_s) {\n2342:             cb(up, \"ffn_moe_up_scaled\", il);\n2343:         }\n2344: \n2345:         if (up_exps_b) {\n2346:             up = ggml_add_id(ctx0, up, up_exps_b, selected_experts);\n2347:             cb(up, \"ffn_moe_up_biased\", il);\n2348:         }\n2349: \n2350:         if (gate_exps) {\n2351:             cur = build_lora_mm_id(gate_exps, cur, selected_experts, gate_exps_s, slots); // [n_ff, n_expert_used, n_tokens]\n2352:             cb(cur, \"ffn_moe_gate\", il);\n2353:         } else {\n2354:             cur = up;\n2355:         }\n2356: \n2357:         if (gate_exps_s) {\n2358:             cb(cur, \"ffn_moe_gate_scaled\", il);\n2359:         }\n2360: \n2361:         if (gate_exps_b) {\n2362:             cur = ggml_add_id(ctx0, cur, gate_exps_b, selected_experts);\n2363:             cb(cur, \"ffn_moe_gate_biased\", il);\n2364:         }\n2365:     }\n2366: \n2367:     const bool has_gate = gate_exps || gate_up_exps;\n2368: \n2369:     switch (type_op) {\n2370:         case LLM_FFN_SILU:\n2371:             if (gate_exps) {\n2372:                 if (il >= 0) {\n2373:                     const float limit = hparams.swiglu_clamp_exp[il];\n2374:                     constexpr float eps = 1e-6f;\n2375:                     if (limit > eps) {\n2376:                         if (arch == LLM_ARCH_MAPLE || arch == LLM_ARCH_DEEPSEEK4 || arch == LLM_ARCH_DEEPSEEK41 || arch == LLM_ARCH_GLM5_NEXT || (arch == LLM_ARCH_DFLASH && hparams.dsv4_hc_mult > 0) || arch == LLM_ARCH_HY_V4) {\n2377:                             cur = ggml_swiglu_clamp(ctx0, cur, up, limit);\n2378:                         } else {\n2379:                             up = ggml_clamp(ctx0, up, -limit, limit);\n2380:                             cb(up, \"ffn_moe_up_clamped\", il);\n2381:                             ggml_tensor * gate_act = ggml_silu(ctx0, cur);\n2382:                             cb(gate_act, \"ffn_moe_silu\", il);\n2383:                             gate_act = ggml_clamp(ctx0, gate_act, -INFINITY, limit);\n2384:                             cb(gate_act, \"ffn_moe_silu_clamped\", il);\n2385:                             cur = ggml_mul(ctx0, gate_act, up);\n2386:                         }\n2387:                         cb(cur, \"ffn_moe_swiglu_limited\", il);\n2388:                         break;\n2389:                     }\n2390:                 }\n2391:             }\n2392: \n2393:             if (has_gate) {\n2394:                 cur = ggml_swiglu_split(ctx0, cur, up);\n2395:                 cb(cur, \"ffn_moe_swiglu\", il);\n2396:             } else {\n2397:                 cur = ggml_silu(ctx0, cur);\n2398:                 cb(cur, \"ffn_moe_silu\", il);\n2399:             } break;\n2400:         case LLM_FFN_SITU:"
+    },
+    {
+      "title": "down_weights_sum",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp",
+      "file_sha256": "d72fa58939970f16372d36e1a401986a7b44ad1569973080467191933f9b5c74",
+      "first_line": 2451,
+      "last_line": 2528,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp#L2451-L2528",
+      "excerpt": "2451: \n2452:     {\n2453:         // TODO: this graph-level rescaling should only be applied when the corresponding backend does not support\n2454:         //       ggml_prec_set_src(experts, GGML_PREC_BF16, 1);\n2455:         //       the amax op cannot be split across devices, so these architectures are denied -sm tensor [TAG_MOE_AMAX_SCALE]\n2456:         //       ref: https://github.com/ggml-org/llama.cpp/pull/30656#issuecomment-6269597922\n2457:         llm_graph_amax_src1 amax_src1 = { nullptr, nullptr };\n2458: \n2459:         if (arch == LLM_ARCH_MISTRAL4 || arch == LLM_ARCH_MELLUM || arch == LLM_ARCH_FLINT || arch == LLM_ARCH_LAGUNA) {\n2460:             amax_src1 = build_amax_src1_f16(cur);\n2461:             cur = amax_src1.res;\n2462:         }\n2463: \n2464:         experts = build_lora_mm_id(down_exps, cur, selected_experts, down_exps_s, slots); // [n_embd, n_expert_used, n_tokens]\n2465:         //ggml_prec_set_src(experts, GGML_PREC_BF16, 1); // (see TODO above)\n2466:         cb(experts, \"ffn_moe_down\", il);\n2467: \n2468:         if (amax_src1.scale_s) {\n2469:             experts = ggml_mul(ctx0, experts, amax_src1.scale_s);\n2470:         }\n2471:     }\n2472: \n2473:     if (down_exps_s) {\n2474:         cb(experts, \"ffn_moe_down_scaled\", il);\n2475:     }\n2476: \n2477:     if (down_exps_b) {\n2478:         experts = ggml_add_id(ctx0, experts, down_exps_b, selected_experts);\n2479:         cb(experts, \"ffn_moe_down_biased\", il);\n2480:     }\n2481: \n2482:     // an expert output can be scaled by a norm weight, then normalized, before the router weights apply\n2483:     if (post_exp_norm) {\n2484:         experts = ggml_mul(ctx0, experts, post_exp_norm);\n2485:         experts = ggml_rms_norm(ctx0, experts, post_exp_norm_eps);\n2486:         cb(experts, \"ffn_moe_post_exp_norm\", il);\n2487:     }\n2488: \n2489:     if (!weight_before_ffn) {\n2490:         experts = ggml_mul(ctx0, experts, weights);\n2491:         cb(experts, \"ffn_moe_weighted\", il);\n2492:     }\n2493: \n2494:     ggml_build_forward_expand(gf, experts);\n2495: \n2496:     ggml_tensor * cur_experts[LLAMA_MAX_EXPERTS] = { nullptr };\n2497: \n2498:     assert(n_expert_used > 0);\n2499: \n2500:     // order the views before the adds\n2501:     // Use per-layer n_expert_used to bound the graph even during warmup (avoids\n2502:     // the large-add-nodes issue for uniform arches; for Puzzle the per-layer\n2503:     // value is correct). ref: https://github.com/ggml-org/llama.cpp/pull/14753\n2504:     const uint32_t n_expert_used_il = hparams.n_expert_used(il);\n2505:     for (uint32_t i = 0; i < n_expert_used_il; ++i) {\n2506:         cur_experts[i] = ggml_view_2d(ctx0, experts, n_embd, n_tokens, experts->nb[2], i*experts->nb[1]);\n2507: \n2508:         ggml_build_forward_expand(gf, cur_experts[i]);\n2509:     }\n2510: \n2511:     // aggregate experts\n2512:     ggml_tensor * moe_out = cur_experts[0];\n2513: \n2514:     for (uint32_t i = 1; i < n_expert_used_il; ++i) {\n2515:         moe_out = ggml_add(ctx0, moe_out, cur_experts[i]);\n2516: \n2517:         ggml_build_forward_expand(gf, moe_out);\n2518:     }\n2519: \n2520:     if (n_expert_used_il == 1) {\n2521:         // avoid returning a non-contiguous tensor\n2522:         moe_out = ggml_cont(ctx0, moe_out);\n2523:     }\n2524: \n2525:     cb(moe_out, \"ffn_moe_out\", il);\n2526: \n2527:     return moe_out;\n2528: }"
+    },
+    {
+      "title": "callback_name",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/llama-context.cpp",
+      "file_sha256": "1e227a17431ead6e40927f3bffde6c835fcf676190f6d0fc9bc31fb7ae9066c4",
+      "first_line": 2886,
+      "last_line": 2893,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/llama-context.cpp#L2886-L2893",
+      "excerpt": "2886: llm_graph_cb llama_context::graph_get_cb() const {\n2887:     return [&](const llama_ubatch & ubatch, ggml_tensor * cur, const char * name, int il) {\n2888:         if (il >= 0) {\n2889:             ggml_format_name(cur, \"%s-%d\", name, il);\n2890:         } else {\n2891:             ggml_set_name(cur, name);\n2892:         }\n2893: "
+    },
+    {
+      "title": "callback_contract",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/include/ggml-backend.h",
+      "file_sha256": "6926bee0487ed349cce290466bbd4b24e2f9af2758f6fac3cd77adef3a421799",
+      "first_line": 314,
+      "last_line": 322,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/include/ggml-backend.h#L314-L322",
+      "excerpt": "314:     // Evaluation callback for each node in the graph (set with ggml_backend_sched_set_eval_callback)\n315:     // when ask == true, the scheduler wants to know if the user wants to observe this node\n316:     // this allows the scheduler to batch nodes together in order to evaluate them in a single call\n317:     //\n318:     // when ask == false, the scheduler is passing the node tensor to the user for observation\n319:     // if the user returns false, the scheduler will cancel the graph compute\n320:     //\n321:     typedef bool (*ggml_backend_sched_eval_callback)(struct ggml_tensor * t, bool ask, void * user_data);\n322: "
+    },
+    {
+      "title": "callback_sync",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp",
+      "file_sha256": "002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd",
+      "first_line": 2170,
+      "last_line": 2211,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp#L2170-L2211",
+      "excerpt": "2170: \n2171:         if (!sched->callback_eval) {\n2172:             enum ggml_status ec = ggml_backend_graph_compute_async(split_backend, &split->graph);\n2173:             if (ec != GGML_STATUS_SUCCESS) {\n2174:                 return ec;\n2175:             }\n2176:         } else {\n2177:             // similar to ggml_backend_compare_graph_backend\n2178:             for (int j0 = 0; j0 < split->graph.n_nodes; j0++) {\n2179:                 struct ggml_tensor * t = split->graph.nodes[j0];\n2180: \n2181:                 // check if the user needs data from this node\n2182:                 bool need = sched->callback_eval(t, true, sched->callback_eval_user_data);\n2183: \n2184:                 int j1 = j0;\n2185: \n2186:                 // determine the range [j0, j1] of nodes that can be computed together\n2187:                 while (!need && j1 < split->graph.n_nodes - 1) {\n2188:                     t = split->graph.nodes[++j1];\n2189:                     need = sched->callback_eval(t, true, sched->callback_eval_user_data);\n2190:                 }\n2191: \n2192:                 struct ggml_cgraph gv = ggml_graph_view(&split->graph, j0, j1 + 1);\n2193: \n2194:                 enum ggml_status ec = ggml_backend_graph_compute_async(split_backend, &gv);\n2195:                 if (ec != GGML_STATUS_SUCCESS) {\n2196:                     return ec;\n2197:                 }\n2198: \n2199:                 // TODO: pass backend to the callback, then the user can decide if they want to synchronize\n2200:                 ggml_backend_synchronize(split_backend);\n2201: \n2202:                 if (need && !sched->callback_eval(t, false, sched->callback_eval_user_data)) {\n2203:                     break;\n2204:                 }\n2205: \n2206:                 j0 = j1;\n2207:             }\n2208:         }\n2209: \n2210:         // record the event of this split\n2211:         if (sched->events[split_backend_id][sched->cur_copy] != NULL) {"
+    },
+    {
+      "title": "cpu_original_input_quantization",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/ggml-cpu.c",
+      "file_sha256": "ce6a78a1a34c0fe9623a116320b9fad8d1ae0cb83102ba9a4cb8fbd58a473988",
+      "first_line": 1780,
+      "last_line": 1860,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/ggml-cpu.c#L1780-L1860",
+      "excerpt": "1780:         const size_t nbw3 = nbw2*ne12;\n1781: \n1782:         assert(params->wsize >= ne13*nbw3);\n1783:         GGML_ASSERT(src1->type == GGML_TYPE_F32);\n1784: \n1785: #if 0\n1786:         for (int64_t i13 = 0; i13 < ne13; ++i13) {\n1787:             for (int64_t i12 = ith; i12 < ne12; i12 += nth) {\n1788:                 for (int64_t i11 = 0; i11 < ne11; ++i11) {\n1789:                     from_float((float *)((char *) src1->data + i13*nb13 + i12*nb12 + i11*nb11),\n1790:                                (void *)               (wdata + i13*nbw3 + i12*nbw2 + i11*nbw1),\n1791:                                ne10);\n1792:                 }\n1793:             }\n1794:         }\n1795: #else\n1796:         for (int64_t i13 = 0; i13 < ne13; ++i13) {\n1797:             for (int64_t i12 = 0; i12 < ne12; ++i12) {\n1798:                 for (int64_t i11 = 0; i11 < ne11; ++i11) {\n1799:                     size_t bs = ggml_blck_size(vec_dot_type);\n1800:                     int64_t ne10_block_start = (ith * ne10/bs) / nth;\n1801:                     int64_t ne10_block_end   = ((ith + 1) * ne10/bs) / nth;\n1802:                     from_float((float *)((char *) src1->data + i13*nb13 + i12*nb12 + i11*nb11 + ne10_block_start*bs*nb10),\n1803:                                (void *)               (wdata + i13*nbw3 + i12*nbw2 + i11*nbw1 + ne10_block_start*nbw0),\n1804:                                (ne10_block_end - ne10_block_start) * bs);\n1805:                 }\n1806:             }\n1807:         }\n1808: #endif\n1809:     }\n1810: \n1811:     if (mx_enabled) {\n1812:         // The same worker has just quantized these blocks. Prequantized inputs\n1813:         // use their original strides. No worker reads another worker's blocks.\n1814:         const int first = (ith*(ne10/32))/nth;\n1815:         const int end = ((ith+1)*(ne10/32))/nth;\n1816:         const size_t qrow = ggml_row_size(vec_dot_type, ne10);\n1817:         for (int64_t input=0;input<ne11;++input) {\n1818:             const char * rhs = src1->type==vec_dot_type\n1819:                 ? (const char *)src1->data + input*nb11\n1820:                 : (const char *)params->wdata + input*qrow;\n1821:             mx_flags[input*nth+ith] = xeon_mxfp4_rhs_prepare_v1(ne10, rhs, first, end,\n1822:                 (char *)mx_rhs + input*mx_stride);\n1823:         }\n1824:     }\n1825: \n1826:     if (ith == 0) {\n1827:         // initialize matrix_row_counts\n1828:         memset(matrix_row_counts, 0, n_as*sizeof(int64_t));\n1829: \n1830:         // group rows by src0 matrix\n1831:         for (int64_t iid1 = 0; iid1 < ids->ne[1]; ++iid1) {\n1832:             for (int id = 0; id < n_ids; ++id) {\n1833:                 const int32_t i02 = *(const int32_t *) ((const char *) ids->data + iid1*ids->nb[1] + id*ids->nb[0]);\n1834: \n1835:                 assert(i02 == -1 || (i02 >= 0 && i02 < n_as));\n1836: \n1837:                 if (i02 == -1) {\n1838:                     memset((char *) dst->data + id*nb1 + iid1*nb2, 0, ne0*sizeof(float));\n1839:                     continue;\n1840:                 }\n1841: \n1842:                 MMID_MATRIX_ROW(i02, matrix_row_counts[i02]) = (struct mmid_row_mapping) {id, iid1};\n1843:                 matrix_row_counts[i02] += 1;\n1844:             }\n1845:         }\n1846:     }\n1847: \n1848:     // Diagnostic only: registered gates, one worker, before the existing barrier.\n1849:     if (ith == 0) xeon_route37_record_v1(src0, ids);\n1850: \n1851:     // reset current_chunk\n1852:     for (int cur_a = ith; cur_a < n_as; cur_a += nth) {\n1853:         atomic_int * current_chunk_ctr = (atomic_int *)(atomic_current_chunk + cur_a);\n1854:         *current_chunk_ctr = nth;\n1855:     }\n1856: \n1857:     ggml_barrier(params->threadpool);\n1858: \n1859:     uint64_t mx_safe_mask = 0;\n1860:     if (mx_enabled) {"
+    },
+    {
+      "title": "cpu_fusion_scope",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/ggml-cpu.c",
+      "file_sha256": "ce6a78a1a34c0fe9623a116320b9fad8d1ae0cb83102ba9a4cb8fbd58a473988",
+      "first_line": 3296,
+      "last_line": 3334,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/ggml-cpu.c#L3296-L3334",
+      "excerpt": "3296: // Try to fuse the current node with subsequent nodes for better performance.\n3297: // Returns the number of nodes skipped by fusion (>=1), or 0 if no fusion was applied.\n3298: static bool ggml_cpu_disable_fusion = false;  // initialized once in ggml_cpu_init(), read-only afterwards\n3299: \n3300: static int ggml_cpu_try_fuse_ops(\n3301:         const struct ggml_cgraph * cgraph,\n3302:         const int node_n,\n3303:         const struct ggml_compute_params * params,\n3304:         const struct ggml_cplan * cplan) {\n3305: \n3306:     if (ggml_cpu_disable_fusion || cplan->use_ref) {\n3307:         return 0;\n3308:     }\n3309: \n3310:     struct ggml_tensor * node = cgraph->nodes[node_n];\n3311: \n3312:     if (node->op == GGML_OP_RMS_NORM) {\n3313:         // RMS_NORM + MUL fusion\n3314:         const enum ggml_op fuse_ops[] = { GGML_OP_RMS_NORM, GGML_OP_MUL };\n3315:         if (ggml_can_fuse(cgraph, node_n, fuse_ops, 2)) {\n3316:             struct ggml_tensor * mul_node = cgraph->nodes[node_n + 1];\n3317:             const struct ggml_tensor * mul_w = (mul_node->src[0] == node)\n3318:                 ? mul_node->src[1] : mul_node->src[0];\n3319:             if (node->src[0]->type  == GGML_TYPE_F32 &&\n3320:                 mul_node->type      == GGML_TYPE_F32 &&\n3321:                 mul_w->type         == GGML_TYPE_F32 &&\n3322:                 mul_w->ne[0]        == node->ne[0]   &&\n3323:                 mul_w->nb[0]        == sizeof(float)) {\n3324: \n3325:                 ggml_compute_forward_rms_norm_mul_fused(params, node, mul_node);\n3326:                 return 1;\n3327:             }\n3328:         }\n3329:     }\n3330: \n3331:     return 0;\n3332: }\n3333: \n3334: static thread_ret_t ggml_graph_compute_thread(void * data) {"
+    },
+    {
+      "title": "graph_reuse_callback_install",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/llama-context.cpp",
+      "file_sha256": "1e227a17431ead6e40927f3bffde6c835fcf676190f6d0fc9bc31fb7ae9066c4",
+      "first_line": 1528,
+      "last_line": 1607,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/llama-context.cpp#L1528-L1607",
+      "excerpt": "1528:     if (mctx && !mctx->apply()) {\n1529:         LLAMA_LOG_ERROR(\"%s: failed to apply memory context\\n\", __func__);\n1530:         ret = GGML_STATUS_FAILED;\n1531:         return nullptr;\n1532:     }\n1533: \n1534:     bool route37_rebuilt = false;\n1535:     auto * res = get_gf_res_prev();\n1536:     auto * gf  = res->get_gf();\n1537: \n1538:     // the new graph parameters\n1539:     // in order to correctly reuse a graph, it's full topology has to be uniquely determined by these parameters\n1540:     const auto gparams = graph_params(res, ubatch, mctx, gtype);\n1541: \n1542:     if (!graph_reuse_disable && gf_res_prev_active == res && res->can_reuse(gparams)) {\n1543:         //LLAMA_LOG_DEBUG(\"%s: reusing previous graph\\n\", __func__);\n1544: \n1545:         // with pipeline parallelism, the previous graph_compute_async may still be running\n1546:         // on the GPU. we must synchronize before set_inputs to avoid overwriting input tensors\n1547:         // that the previous compute is still reading.\n1548:         if (cparams.pipeline_parallel) {\n1549:             ggml_backend_sched_synchronize(sched.get());\n1550:         }\n1551: \n1552:         n_reused++;\n1553:     } else {\n1554:         route37_rebuilt = true;\n1555:         gf_res_prev_active = nullptr;\n1556:         res->reset();\n1557: \n1558:         ggml_backend_sched_reset(sched.get());\n1559:         ggml_backend_sched_set_eval_callback(sched.get(), cparams.cb_eval, cparams.cb_eval_user_data);\n1560: \n1561:         //const auto t_start_us = ggml_time_us();\n1562: \n1563:         gf = model.build_graph(gparams);\n1564: \n1565:         //LLAMA_LOG_INFO(\"graph build time: %.3f ms\\n\", (ggml_time_us() - t_start_us)/1000.0);\n1566: \n1567:         if (!gf) {\n1568:             LLAMA_LOG_ERROR(\"%s: failed to initialize graph\\n\", __func__);\n1569:             ret = GGML_STATUS_FAILED;\n1570:             return nullptr;\n1571:         }\n1572: \n1573:         if (!ggml_backend_sched_alloc_graph(sched.get(), gf)) {\n1574:             LLAMA_LOG_ERROR(\"%s: failed to allocate graph\\n\", __func__);\n1575:             ret = GGML_STATUS_ALLOC_FAILED;\n1576:             return nullptr;\n1577:         }\n1578: \n1579:         gf_res_prev_active = res;\n1580:     }\n1581: \n1582:     // set the input data for the input tensors\n1583:     {\n1584:         //const auto t_start_us = ggml_time_us();\n1585: \n1586:         // FIXME this call causes a crash if any model inputs were not used in the graph and were therefore not allocated\n1587:         res->set_inputs(&ubatch);\n1588: \n1589:         //LLAMA_LOG_INFO(\"graph set inputs time: %.3f ms\\n\", (ggml_time_us() - t_start_us)/1000.0);\n1590:     }\n1591: \n1592:     const int route37_ticket = xeon_route37_bridge_begin(this, ubatch, route37_rebuilt, cparams.pipeline_parallel);\n1593:     ggml_status status;\n1594:     try {\n1595:         status = graph_compute(res->get_gf(), ubatch.n_tokens > 1);\n1596:     } catch (...) {\n1597:         // The pinned CPU provider returns only after its workers finish.\n1598:         // Preserve failure on unwind; caller must still drain submitted work.\n1599:         if (route37_ticket) xeon_route37_end_eval_v1(this, GGML_STATUS_FAILED);\n1600:         throw;\n1601:     }\n1602:     // CPU backend execution is synchronous within scheduler submission. This\n1603:     // closes CPU route production only; it does not claim GPU tail completion.\n1604:     // The diagnostic caller must later finalize the call after its normal sync.\n1605:     if (route37_ticket) xeon_route37_end_eval_v1(this, status);\n1606:     if (status != GGML_STATUS_SUCCESS) {\n1607:         LLAMA_LOG_ERROR(\"%s: failed to compute graph, compute status: %d\\n\", __func__, status);"
+    },
+    {
+      "title": "generation_and_gate_identity",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/route37.cpp",
+      "file_sha256": "8f8aca9be203043ea5cb5f82bfc90cdcfcd37e8ed027faaccaf6e7f5b4ec8865",
+      "first_line": 40,
+      "last_line": 88,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/route37.cpp#L40-L88",
+      "excerpt": "40: int xeon_route37_begin_eval_v1(const void *owner,const ggml_tensor *const *gates,size_t count,\n41:     int rebuilt,uint32_t nt,uint32_t npos,uint32_t nseq,int32_t seq,int64_t pos,int pipeline){\n42:     if(!owns(owner))return 0;\n43:     if(!d.call_open||d.eval_open){mark(XR_UNTAGGED);return 0;}\n44:     if(d.na==d.alimit){mark(XR_OVERFLOW);++d.dropped;d.calls[d.nc-1].flags|=XR_OVERFLOW;return 0;}\n45:     auto &c=d.calls[d.nc-1];auto &a=d.attempts[d.na++];a={};a.label=c.label;\n46:     a.id=d.na;a.first_record=d.nr;a.context=d.context;a.ubatch=uint32_t(c.attempts++);\n47:     if(rebuilt||!d.generation)++d.generation;\n48:     a.generation=d.generation;a.position=pos;a.n_tokens=nt;a.observing=d.observing;\n49:     a.scope_t1=nt==1;d.eval_open=true;\n50:     if(pipeline||npos!=1||nseq!=1||seq!=a.label.sequence||pos<0||!nt)a.flags|=XR_GEOMETRY;\n51:     if(a.label.phase==XR_DECODE&&nt!=1)a.flags|=XR_GEOMETRY;\n52:     // Multi-token prefill is explicitly out of this collector's scope.\n53:     if(count!=L||!gates)a.flags|=XR_MAPPING;\n54:     if(!(a.flags&XR_MAPPING))for(size_t i=0;i<L;++i){\n55:         const auto *w=gates[i];\n56:         if(!w||!w->data||!host(w)||!supported(w->type)||w->ne[0]<=0||w->ne[0]%256||w->ne[1]<=0||w->ne[2]!=384||w->ne[3]!=1){a.flags|=XR_MAPPING;break;}\n57:         for(size_t j=0;j<i;++j)if(gates[j]==w||gates[j]->data==w->data)a.flags|=XR_MAPPING;\n58:         auto &b=d.binding[i];b.tensor=w;b.data=w->data;b.type=w->type;\n59:         std::memcpy(b.ne,w->ne,sizeof(b.ne));std::memcpy(b.nb,w->nb,sizeof(b.nb));\n60:     }\n61:     mark(a.flags);\n62:     // Release publishes the immutable label and bindings to CPU worker0.\n63:     // The caller does not modify them until CPU work has returned.\n64:     active.store(d.observing&&a.scope_t1&&!a.flags,std::memory_order_release);return 1;\n65: }\n66: void xeon_route37_record_v1(const ggml_tensor *w,const ggml_tensor *ids){\n67:     if(!active.load(std::memory_order_acquire))return;\n68:     auto &a=d.attempts[d.na-1];size_t layer=L;\n69:     for(size_t i=0;i<L;++i)if(d.binding[i].tensor==w){layer=i;break;}\n70:     if(layer==L){\n71:         // Non-gate up/down weights are deliberately ignored. A copied gate\n72:         // tensor sharing its backing data is explicitly invalid, not guessed.\n73:         if(w)for(size_t i=0;i<L;++i)if(d.binding[i].data==w->data){a.flags|=XR_MAPPING;mark(XR_MAPPING);break;}\n74:         return;\n75:     }\n76:     const auto &b=d.binding[layer];uint32_t flags=0;\n77:     if(w->data!=b.data||w->type!=b.type||std::memcmp(w->ne,b.ne,sizeof(b.ne))||std::memcmp(w->nb,b.nb,sizeof(b.nb)))flags|=XR_MAPPING;\n78:     const bool good=ids&&ids->data&&ids->type==GGML_TYPE_I32&&ids->ne[0]==6&&ids->ne[1]==1&&ids->ne[2]==1&&ids->ne[3]==1&&ids->nb[0]>=4;\n79:     if(!good)flags|=XR_GEOMETRY;\n80:     const uint64_t bit=UINT64_C(1)<<layer;if(a.layers&bit)flags|=XR_DUPLICATE;a.layers|=bit;\n81:     if(d.nr==d.rlimit){a.flags|=flags|XR_OVERFLOW;mark(flags|XR_OVERFLOW);++d.dropped;return;}\n82:     auto &r=d.records[d.nr];r={};r.ordinal=d.nr++;r.attempt=a.id;r.request=a.label.request;r.sequence=a.label.sequence;\n83:     r.decode_call=a.label.decode_call;r.ubatch=a.ubatch;r.logical_token=a.label.logical_token;r.position=a.position;\n84:     r.graph_generation=a.generation;r.context=a.context;r.layer=uint16_t(layer);r.phase=a.label.phase;r.projection=1;r.n_tokens=a.n_tokens;\n85:     for(int j=0;j<6;++j){r.ids[j]=-1;if(good)std::memcpy(&r.ids[j],static_cast<const char*>(ids->data)+size_t(j)*ids->nb[0],4);\n86:         if(r.ids[j]<0||r.ids[j]>=384)flags|=XR_IDS;\n87:         for(int k=0;k<j;++k)if(r.ids[k]==r.ids[j])flags|=XR_IDS;\n88:     }"
+    },
+    {
+      "title": "raw_mask_dimension_reuse",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp",
+      "file_sha256": "d72fa58939970f16372d36e1a401986a7b44ad1569973080467191933f9b5c74",
+      "first_line": 869,
+      "last_line": 887,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp#L869-L887",
+      "excerpt": "869: static bool dsv4_can_reuse_raw_kq_mask(\n870:         ggml_tensor * kq_mask,\n871:         const llama_kv_cache_dsv4_raw_context * mctx,\n872:         const llama_ubatch & ubatch,\n873:         int64_t n_stream) {\n874:     const auto n_kv     = mctx->get_n_kv();\n875:     const auto n_tokens = ubatch.n_tokens;\n876: \n877:     GGML_ASSERT(n_stream > 0);\n878: \n879:     bool res = true;\n880: \n881:     res &= (kq_mask->ne[0] == n_kv);\n882:     res &= (kq_mask->ne[1] == n_tokens/n_stream);\n883:     res &= (kq_mask->ne[2] == 1);\n884:     res &= (kq_mask->ne[3] == n_stream);\n885: \n886:     return res;\n887: }"
+    },
+    {
+      "title": "all_dsv4_input_reuse",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp",
+      "file_sha256": "d72fa58939970f16372d36e1a401986a7b44ad1569973080467191933f9b5c74",
+      "first_line": 1051,
+      "last_line": 1078,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-route-integration/provenance/model-source/src/llama-graph.cpp#L1051-L1078",
+      "excerpt": "1051: bool llm_graph_input_dsv4::can_reuse(const llm_graph_params & params) {\n1052:     const auto * mctx = static_cast<const llama_kv_cache_dsv4_context *>(params.mctx);\n1053: \n1054:     this->mctx = mctx;\n1055:     inp_raw->mctx = mctx->get_raw();\n1056: \n1057:     bool res = true;\n1058: \n1059:     const auto & plan_csa = mctx->get_csa_plan(params.ubatch);\n1060:     const auto & plan_hca = mctx->get_hca_plan(params.ubatch);\n1061:     const auto & plan_lid = mctx->get_lid_plan(params.ubatch);\n1062:     const int64_t n_stream = plan_csa.n_stream;\n1063: \n1064:     const auto * raw_ctx = mctx->get_raw();\n1065:     inp_raw->mctx = raw_ctx;\n1066: \n1067:     if (inp_raw->self_k_idxs && inp_raw->self_k_idxs->buffer) {\n1068:         res &= inp_raw->self_k_idxs->ne[0] == raw_ctx->get_n_write();\n1069:     }\n1070:     if (inp_raw->self_kq_mask && inp_raw->self_kq_mask->buffer) {\n1071:         res &= dsv4_can_reuse_raw_kq_mask(inp_raw->self_kq_mask, raw_ctx, params.ubatch, n_stream);\n1072:     }\n1073: \n1074:     res &= dsv4_can_reuse_comp_input(inp_csa, plan_csa, params.ubatch.n_tokens, n_stream);\n1075:     res &= dsv4_can_reuse_comp_input(inp_hca, plan_hca, params.ubatch.n_tokens, n_stream);\n1076:     res &= dsv4_can_reuse_comp_input(inp_lid, plan_lid, params.ubatch.n_tokens, n_stream);\n1077: \n1078:     return res;"
+    },
+    {
+      "title": "kv_padding",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache.cpp",
+      "file_sha256": "40205d197380761b373658d6206f4ccd91455b4f2f45a3e35c18c3f9ea0ee6f3",
+      "first_line": 1311,
+      "last_line": 1325,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache.cpp#L1311-L1325",
+      "excerpt": "1311: uint32_t llama_kv_cache::get_n_kv(const slot_info & sinfo) const {\n1312:     uint32_t result = 0;\n1313: \n1314:     // pad the n_kv value so that the graph remains constant across batches and can be reused\n1315:     // note: this also helps some backends with performance (f.ex https://github.com/ggml-org/llama.cpp/pull/16812#issuecomment-3455112220)\n1316:     const uint32_t n_pad = 256;\n1317: \n1318:     for (uint32_t s = 0; s < sinfo.n_stream(); ++s) {\n1319:         const auto & cells = v_cells[sinfo.strm[s]];\n1320: \n1321:         result = std::max(std::min(cells.size(), std::max(n_pad, GGML_PAD(cells.used_max_p1(), n_pad))), result);\n1322:     }\n1323: \n1324:     return result;\n1325: }"
+    },
+    {
+      "title": "raw_context_kv_update",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-dsv4.cpp",
+      "file_sha256": "0c10df475bcfffbb94f796b260d6ee9a57333f2b5cb12a8f8fc4893f114d6481",
+      "first_line": 1996,
+      "last_line": 2025,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-dsv4.cpp#L1996-L2025",
+      "excerpt": "1996: bool llama_kv_cache_dsv4_raw_context::apply() {\n1997:     bool res = true;\n1998: \n1999:     if (ctx_base_mem) {\n2000:         res = res & ctx_base_mem->apply();\n2001:     }\n2002:     if (ctx_swa_mem) {\n2003:         res = res & ctx_swa_mem->apply();\n2004:     }\n2005:     if (!ubatches_write.empty()) {\n2006:         kv_swa->apply_ubatch(sinfos_write[i_next], ubatches_write[i_next]);\n2007:         n_kv = kv_swa->get_n_kv(sinfos_read[i_next]);\n2008:     }\n2009: \n2010:     return res;\n2011: }\n2012: \n2013: llama_memory_status llama_kv_cache_dsv4_raw_context::get_status() const {\n2014:     return status;\n2015: }\n2016: \n2017: const llama_ubatch & llama_kv_cache_dsv4_raw_context::get_ubatch() const {\n2018:     assert(status == LLAMA_MEMORY_STATUS_SUCCESS);\n2019: \n2020:     return ubatches[i_next];\n2021: }\n2022: \n2023: uint32_t llama_kv_cache_dsv4_raw_context::get_n_kv() const {\n2024:     return n_kv;\n2025: }"
+    },
+    {
+      "title": "compressed_plan_padding",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-dsv4.cpp",
+      "file_sha256": "0c10df475bcfffbb94f796b260d6ee9a57333f2b5cb12a8f8fc4893f114d6481",
+      "first_line": 674,
+      "last_line": 683,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/src/llama-kv-cache-dsv4.cpp#L674-L683",
+      "excerpt": "674:     }\n675: \n676:     // Keep the mask (and with it the compressed-attention branch) present even\n677:     // before the first block is visible, so the graph topology never changes.\n678:     // Padded slots are masked out; comp cache buffers are zero-initialized.\n679:     plan.n_kv = std::max<int64_t>(GGML_PAD(plan.n_kv, 256u), 256);\n680: \n681:     std::sort(persist_rows.begin(), persist_rows.end(),\n682:             [](const persist_row & a, const persist_row & b) {\n683:                 return a.dst < b.dst;"
+    },
+    {
+      "title": "capacity_helper_clamp",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/bank-capacity/hot-backend.cpp",
+      "file_sha256": "9f647622e0578b86b2042b9d63f77e6bdcae80b72ac20b69a1e79d24672cd767",
+      "first_line": 27,
+      "last_line": 44,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/bank-capacity/hot-backend.cpp#L27-L44",
+      "excerpt": "27: \n28: namespace {\n29: constexpr int D=5120,F=2304,E=384,TOP=6,LAYERS=40;\n30: constexpr size_t GiB=size_t(1024)*1024*1024;\n31: void require(bool ok,const char * msg){if(!ok)throw std::runtime_error(std::string(\"xeon-hot: \")+msg);}\n32: void cuda_check(cudaError_t e){if(e!=cudaSuccess)throw std::runtime_error(std::string(\"xeon-hot CUDA: \")+cudaGetErrorString(e));}\n33: struct State;\n34: struct Graph{\n35:     ggml_context * ctx=nullptr;ggml_backend_buffer_t buffer=nullptr;ggml_backend_t backend=nullptr;\n36:     ggml_tensor * x=nullptr,* ids=nullptr,* y=nullptr;ggml_cgraph * graph=nullptr;\n37:     Graph(ggml_backend_t b,const std::array<ggml_tensor*,3>&w,int slots,float clamp):backend(b){try{\n38:         ctx=ggml_init({512*1024,nullptr,true});require(ctx,\"private graph metadata\");\n39:         x=ggml_new_tensor_3d(ctx,GGML_TYPE_F32,D,1,1);ids=ggml_new_tensor_2d(ctx,GGML_TYPE_I32,slots,1);\n40:         auto up=ggml_mul_mat_id(ctx,w[1],x,ids);auto gate=ggml_mul_mat_id(ctx,w[0],x,ids);\n41:         auto act=ggml_swiglu_clamp(ctx,gate,up,clamp);y=ggml_mul_mat_id(ctx,w[2],act,ids);\n42:         graph=ggml_new_graph_custom(ctx,32,false);ggml_build_forward_expand(graph,y);\n43:         for(int i=0;i<ggml_graph_n_nodes(graph);++i)require(ggml_backend_supports_op(backend,ggml_graph_node(graph,i)),\"private unsupported op\");\n44:         buffer=ggml_backend_alloc_ctx_tensors(ctx,backend);require(buffer,\"private activation allocation\");ggml_backend_buffer_clear(buffer,0);"
+    },
+    {
+      "title": "baseline_call_geometry",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/driver.cpp",
+      "file_sha256": "49ee0b18b6e02732f9e19a106eecf78a8bddf927106bc5e8fd070c6ed7e05dec",
+      "first_line": 144,
+      "last_line": 178,
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/d98a17c56fadc92cf79e21ecbe80732dedeed899/archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/driver.cpp#L144-L178",
+      "excerpt": "144:         auto set_batch=[&](const std::vector<llama_token>&tok,int first,int count){need(count<=1024,\"logical batch bound\");batch.n_tokens=count;for(int i=0;i<count;++i){batch.token[i]=tok[first+i];batch.pos[i]=first+i;batch.n_seq_id[i]=1;batch.seq_id[i][0]=0;batch.logits[i]=(i==count-1);}};\n145:         auto finite=[&](const float *p){if(!p)return false;for(int i=0;i<nv;++i)if(!std::isfinite(p[i]))return false;return true;};\n146:         set_batch(tokens[0],0,64);int rc=llama_decode(ctx,batch);if(rc){llama_synchronize(ctx);throw std::runtime_error(\"warmup decode\");}need(finite(llama_get_logits_ith(ctx,-1)),\"warmup finite\");memory(\"M2_after_text64_warmup\");\n147:         auto output_rows=[&](const std::string &name,int ci,int prefix,int count=4){\n148:             need(count==4||count==64,\"bounded continuation count\");\n149:             std::vector<float> values(size_t(nv)*5);std::vector<Step>steps(count);const float *ptr=nullptr;\n150:             llama_memory_clear(llama_get_memory(ctx),true);llama_synchronize(ctx);set_batch(tokens[ci],0,prefix);\n151:             need(api->open(ctx,1,0,4096,512,128),\"prefill session\");session=true;\n152:             xeon_route37_label tag{};tag.phase=XR_PREFILL;std::array<int64_t,4> ts{};\n153:             auto pr=drive_call(*api,ctx,tag,[&](){ts[0]=ns();int z=llama_decode(ctx,batch);ts[1]=ns();return z;},[&](){ptr=llama_get_logits_ith(ctx,-1);ts[2]=ns();bool ok=finite(ptr);ts[3]=ns();return ok;},[&](){llama_synchronize(ctx);});\n154:             if(!pr.synchronized&&pr.label_accepted)resources.abandon=true;\n155:             need(pr.ok(),\"prefill result\");need(api->close(ctx),\"prefill close\");session=false;auto prefill_trace=snapshot(*api);validate_ledger(prefill_trace,prefix,1,true);\n156:             std::memcpy(values.data(),ptr,nv*sizeof(float));\n157:             json b={{\"case_id\",input[\"cases\"][ci][\"case_id\"]},{\"name\",name},{\"prefix_tokens\",prefix},{\"continuation_inputs\",std::vector<llama_token>(tokens[ci].begin()+prefix,tokens[ci].begin()+prefix+count)},{\"next_token_targets_prefix_and_all_T1\",std::vector<llama_token>(tokens[ci].begin()+prefix,tokens[ci].begin()+prefix+count+1)},{\"logical_prefill_output_positions\",{prefix-1}},{\"prefill_trace\",prefill_trace},{\"prefill_decode_begin_ns\",ts[0]},{\"prefill_decode_return_ns\",ts[1]},{\"prefill_output_ready_ns\",ts[2]},{\"prefill_finite_end_ns\",ts[3]},{\"actual_ubatches\",json::array()},{\"expected_ubatches\",json::array()},{\"T1\",json::array()}};\n158:             for(const auto &a:prefill_trace[\"attempts\"])b[\"actual_ubatches\"].push_back(a[\"n_tokens\"]);\n159:             for(int rem=prefix;rem>0;){int n=std::min(rem,params.n_ubatch);b[\"expected_ubatches\"].push_back(n);rem-=n;}\n160:             need(b[\"actual_ubatches\"]==b[\"expected_ubatches\"],\"actual split differs; investigate, do not round\");\n161:             need(api->open(ctx,1,1,4096,512,128),\"T1 session\");session=true;\n162:             for(int i=0;i<count;++i){auto &s=steps[i];s.stamp[0]=ns();set_batch(tokens[ci],prefix+i,1);xeon_route37_label label{};label.phase=XR_DECODE;label.decode_call=i;label.logical_token=i;\n163:                 s.result=drive_call(*api,ctx,label,[&](){s.stamp[1]=ns();int z=llama_decode(ctx,batch);s.stamp[2]=ns();return z;},[&](){ptr=llama_get_logits_ith(ctx,-1);s.stamp[3]=ns();bool ok=finite(ptr);s.stamp[4]=ns();return ok;},[&](){llama_synchronize(ctx);});s.stamp[5]=ns();\n164:                 if(!s.result.synchronized&&s.result.label_accepted)resources.abandon=true;\n165:                 need(s.result.ok(),\"T1 result\");if(i<4)std::memcpy(values.data()+size_t(i+1)*nv,ptr,nv*sizeof(float));s.stamp[6]=ns();\n166:             }\n167:             need(api->close(ctx),\"T1 close\");session=false;b[\"T1_trace\"]=snapshot(*api);validate_ledger(b[\"T1_trace\"],prefix,count,false);\n168:             for(int i=0;i<count;++i)b[\"T1\"].push_back({{\"index\",i},{\"position\",prefix+i},{\"next_target_token_id\",tokens[ci][prefix+i+1]},{\"boundaries_ns\",steps[i].stamp},{\"decode_status\",steps[i].result.decode_status},{\"full_logits_finite\",true},{\"synchronized\",steps[i].result.synchronized}});\n169:             b[\"next_token_targets_for_saved_rows\"]=std::vector<llama_token>(tokens[ci].begin()+prefix,tokens[ci].begin()+prefix+5);b[\"all_saved_logits_finite\"]=true;b[\"logits_shape\"]={5,nv};b[\"logits_type\"]=\"native little-endian F32; row0 final prefix, rows1..4 after first four continuation inputs; later T1 F32 vectors not saved\";\n170:             std::ofstream f(out/(name+\".f32\"),std::ios::binary);need(bool(f),\"logits open\");f.write(reinterpret_cast<const char*>(values.data()),values.size()*sizeof(float));f.close();need(!f.fail(),\"logits write\");b[\"logits_file\"]=name+\".f32\";\n171:             if(prefix==64&&ci==0){std::ifstream fref(old_reference/\"correct_F.f32\",std::ios::binary|std::ios::ate);need(bool(fref)&&size_t(fref.tellg())==size_t(4)*nv*sizeof(float),\"old logits size\");std::vector<float>old_values(size_t(4)*nv);fref.seekg(0);fref.read(reinterpret_cast<char*>(old_values.data()),old_values.size()*sizeof(float));need(bool(fref),\"old logits read\");b[\"T1_byte_equal_previous_F_before\"]=std::memcmp(old_values.data(),values.data()+nv,old_values.size()*sizeof(float))==0;save_json(out/(name+\".json\"),b);need(b[\"T1_byte_equal_previous_F_before\"]==true,\"short64 numeric gate\");}\n172:             save_json(out/(name+\".json\"),b);report[\"completed_cases\"].push_back(name);save_json(out/\"RUN.json\",report);std::cout<<\"completed \"<<name<<\" prefix=\"<<prefix<<'\\n'<<std::flush;\n173:         };\n174:         report[\"completed_cases\"]=json::array();output_rows(\"short64\",0,64);for(int ci=2;ci<7;++ci)output_rows(input[\"cases\"][ci][\"case_id\"].get<std::string>(),ci,input[\"cases\"][ci][\"prefix_tokens\"],64);memory(\"M3_after_train_first5\");\n175:         report[\"passed\"]=true;report[\"session_closed_before_owner_destruction\"]=!session;save_json(out/\"RUN.json\",report);\n176:         if(resources.vision){mtmd_free(resources.vision);resources.vision=nullptr;}if(resources.has_batch){llama_batch_free(batch);resources.has_batch=false;}resources.init.reset();llama_backend_free();std::cout<<\"capacity stage passed\\n\";return 0;\n177:     }catch(const std::exception &e){report[\"error\"]=e.what();try{if(ctx&&!resources.abandon)llama_synchronize(ctx);if(session&&api){try{report[\"failure_trace\"]=snapshot(*api);}catch(...){}if(!api->close(ctx))resources.abandon=true;else session=false;}}catch(...){resources.abandon=true;report[\"cleanup_incomplete\"]=true;}report[\"unsafe_cleanup_avoided\"]=resources.abandon;if(!out.empty())try{save_json(out/\"RUN.json\",report);}catch(...){}std::cerr<<\"FAIL: \"<<e.what()<<'\\n';return 1;}\n178: }"
+    }
+  ],
+  "pilot_generation_transitions": [
+    {
+      "case_id": "text_cache_budget_ja",
+      "prefix": 272,
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/text_cache_budget_ja.json",
+      "sha256": "c12248067032cff93484f2b5c58f8d755a9c00024894d8d75c1338316a163064",
+      "transitions": [
+        {
+          "index": 0,
+          "position": 272,
+          "generation": 1
+        }
+      ],
+      "count": 64
+    },
+    {
+      "case_id": "text_cache_budget_en",
+      "prefix": 211,
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/text_cache_budget_en.json",
+      "sha256": "f49c0632e927be4311806bc0e1645409e9b5065106dc591f7755fa7037e8985c",
+      "transitions": [
+        {
+          "index": 0,
+          "position": 211,
+          "generation": 1
+        },
+        {
+          "index": 45,
+          "position": 256,
+          "generation": 2
+        }
+      ],
+      "count": 64
+    },
+    {
+      "case_id": "mixed_build_log_ja_en_log",
+      "prefix": 270,
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/mixed_build_log_ja_en_log.json",
+      "sha256": "9914bc94d9b43f5c6d0c4e5a7577edf4fdd0481aefed3acb204098f318a7fcbb",
+      "transitions": [
+        {
+          "index": 0,
+          "position": 270,
+          "generation": 1
+        }
+      ],
+      "count": 64
+    },
+    {
+      "case_id": "code_stable_grouping_python",
+      "prefix": 240,
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/code_stable_grouping_python.json",
+      "sha256": "9640a7a409405b9437d943a8b2ecd78da2c6543294eeb6d175cb3819ed12812e",
+      "transitions": [
+        {
+          "index": 0,
+          "position": 240,
+          "generation": 1
+        },
+        {
+          "index": 16,
+          "position": 256,
+          "generation": 2
+        }
+      ],
+      "count": 64
+    },
+    {
+      "case_id": "code_stable_grouping_cpp",
+      "prefix": 240,
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/code_stable_grouping_cpp.json",
+      "sha256": "a45f0531e0342fd8d47aad78b06720c904dfb9e30f29a61957e84dbb967dc056",
+      "transitions": [
+        {
+          "index": 0,
+          "position": 240,
+          "generation": 1
+        },
+        {
+          "index": 16,
+          "position": 256,
+          "generation": 2
+        }
+      ],
+      "count": 64
+    }
+  ],
+  "counterexample_to_general_256_rule": [
+    {
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/runs/20261117T031214Z-U1024-93e7fe85/long1024.json",
+      "generation": [
+        1,
+        2,
+        2,
+        3
+      ],
+      "positions": [
+        1024,
+        1025,
+        1026,
+        1027
+      ]
+    },
+    {
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/bank-capacity/runs/20261117T033327Z-U1024-0b6d5d01/long1024.json",
+      "generation": [
+        1,
+        2,
+        2,
+        3
+      ],
+      "positions": [
+        1024,
+        1025,
+        1026,
+        1027
+      ]
+    }
+  ]
+}
