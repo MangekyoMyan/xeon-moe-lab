@@ -1,0 +1,11 @@
+--- archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/checkpoint-engine-before-C-stride/hot-backend.cpp
++++ archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp
+@@ -177,7 +177,7 @@
+             if(l.local[e]>=0){hot_slots[hot]=slot;pinned_ids[hot]=l.local[e];++hot;cpu_ids[slot]=-1;}else cpu_ids[slot]=e;
+         }
+         if(stamp){stamp->matched=hot;stamp->partition_end=hot_ns();}
+-        if(mode=='C'){hot=0;std::memcpy(cpu_ids.data(),ids->data,TOP*sizeof(int32_t));}
++        if(mode=='C'){hot=0;for(int slot=0;slot<TOP;++slot)std::memcpy(&cpu_ids[slot],static_cast<const char*>(ids->data)+slot*ids->nb[0],sizeof(int32_t));}
+         if(stamp)stamp->executed=hot;
+         if(hot<TOP){ggml_backend_tensor_set(l.cpu->x,x->data,0,D*sizeof(float));ggml_backend_tensor_set(l.cpu->ids,cpu_ids.data(),0,TOP*sizeof(int32_t));}
+         if(stamp)stamp->cpu_set_end=hot_ns();

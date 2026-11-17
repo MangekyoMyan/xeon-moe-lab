@@ -1,0 +1,705 @@
+{
+  "responses": [
+    {
+      "case_id": "text_plan_constraints_ja",
+      "mode": "F",
+      "answer_file": "answers/text_plan_constraints_ja/F.txt",
+      "sha256": "1089e7ae95bba7d2926ff9c1d9f601fc512913ba4c7147feeb10cc01f7295522",
+      "generated_count": 1024,
+      "stop_reason": "length",
+      "response_complete": false,
+      "parent_read_entire_answer": true,
+      "schedule": {
+        "passed": true,
+        "checks": [
+          {
+            "test": "duration_and_availability_S",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_I",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_E",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_R",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_F",
+            "passed": true
+          },
+          {
+            "test": "S_before_I",
+            "passed": true
+          },
+          {
+            "test": "I_before_E",
+            "passed": true
+          },
+          {
+            "test": "I_before_R",
+            "passed": true
+          },
+          {
+            "test": "E_before_F",
+            "passed": true
+          },
+          {
+            "test": "R_before_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_I",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_R",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_E",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_R",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_E_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_R_F",
+            "passed": true
+          },
+          {
+            "test": "earliest_finish_10_45",
+            "passed": true
+          }
+        ],
+        "critical_path": [
+          "S",
+          "I",
+          "E",
+          "F"
+        ],
+        "lower_bound_minutes": 105,
+        "scope": "Feasibility/optimal finish of transcribed intervals. Parent separately checks explanation, omissions, contradictions and truncation. Assigned people are inherited from the prompt; spelling their names again is not required."
+      },
+      "transcribed_times": {
+        "S": [
+          "09:00",
+          "09:20"
+        ],
+        "I": [
+          "09:20",
+          "09:50"
+        ],
+        "E": [
+          "09:50",
+          "10:30"
+        ],
+        "R": [
+          "09:50",
+          "10:15"
+        ],
+        "F": [
+          "10:30",
+          "10:45"
+        ]
+      },
+      "table_evidence": [
+        {
+          "line": 90,
+          "text": "| S | Aya | 09:00 | 09:20 |"
+        },
+        {
+          "line": 91,
+          "text": "| I | Aya, Ben | 09:20 | 09:50 |"
+        },
+        {
+          "line": 92,
+          "text": "| E | Ben, Chen | 09:50 | 10:30 |"
+        },
+        {
+          "line": 93,
+          "text": "| R | Aya | 09:50 | 10:15 |"
+        },
+        {
+          "line": 94,
+          "text": "| F | Aya, Ben, Chen | 10:30 | 10:45 |"
+        }
+      ],
+      "proof_present": true,
+      "proof_reading": "Precedence chain S20 -> I30 -> E40 -> F15 yields earliest10:45; R25 overlaps E without personnel conflicts. This does not require literal105 in the answer.",
+      "conflicting_schedule_found": false,
+      "semantic_requirements_observed_met": true,
+      "observed_response_language": "Chinese",
+      "language_note": "JA prompt is Japanese but has no explicit language command. Both modes answered Chinese; usability caveat, not a new P-only defect.",
+      "qualification": "Original1024-ID response retained, final repeated explanation cuts mid-sentence. Complete valid table and optimality argument precede cut. Do not call this a completed response or assume missing text."
+    },
+    {
+      "case_id": "text_plan_constraints_ja",
+      "mode": "P",
+      "answer_file": "answers/text_plan_constraints_ja/P.txt",
+      "sha256": "d057e2abaf03275b4bdfdf63b733d68d8417c78719dc6b6d6fedf8bef8b49692",
+      "generated_count": 1023,
+      "stop_reason": "eog",
+      "response_complete": true,
+      "parent_read_entire_answer": true,
+      "schedule": {
+        "passed": true,
+        "checks": [
+          {
+            "test": "duration_and_availability_S",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_I",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_E",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_R",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_F",
+            "passed": true
+          },
+          {
+            "test": "S_before_I",
+            "passed": true
+          },
+          {
+            "test": "I_before_E",
+            "passed": true
+          },
+          {
+            "test": "I_before_R",
+            "passed": true
+          },
+          {
+            "test": "E_before_F",
+            "passed": true
+          },
+          {
+            "test": "R_before_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_I",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_R",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_E",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_R",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_E_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_R_F",
+            "passed": true
+          },
+          {
+            "test": "earliest_finish_10_45",
+            "passed": true
+          }
+        ],
+        "critical_path": [
+          "S",
+          "I",
+          "E",
+          "F"
+        ],
+        "lower_bound_minutes": 105,
+        "scope": "Feasibility/optimal finish of transcribed intervals. Parent separately checks explanation, omissions, contradictions and truncation. Assigned people are inherited from the prompt; spelling their names again is not required."
+      },
+      "transcribed_times": {
+        "S": [
+          "09:00",
+          "09:20"
+        ],
+        "I": [
+          "09:20",
+          "09:50"
+        ],
+        "E": [
+          "09:50",
+          "10:30"
+        ],
+        "R": [
+          "09:50",
+          "10:15"
+        ],
+        "F": [
+          "10:30",
+          "10:45"
+        ]
+      },
+      "table_evidence": [
+        {
+          "line": 87,
+          "text": "| S | 09:00 | 09:20 | Aya |"
+        },
+        {
+          "line": 88,
+          "text": "| I | 09:20 | 09:50 | Aya, Ben |"
+        },
+        {
+          "line": 89,
+          "text": "| E | 09:50 | 10:30 | Ben, Chen |"
+        },
+        {
+          "line": 90,
+          "text": "| R | 09:50 | 10:15 | Aya |"
+        },
+        {
+          "line": 91,
+          "text": "| F | 10:30 | 10:45 | Aya, Ben, Chen |"
+        }
+      ],
+      "proof_present": true,
+      "proof_reading": "Precedence chain S20 -> I30 -> E40 -> F15 yields earliest10:45; R25 overlaps E without personnel conflicts. This does not require literal105 in the answer.",
+      "conflicting_schedule_found": false,
+      "semantic_requirements_observed_met": true,
+      "observed_response_language": "Chinese",
+      "language_note": "JA prompt is Japanese but has no explicit language command. Both modes answered Chinese; usability caveat, not a new P-only defect.",
+      "qualification": "Observed task requirements met in a completed answer; no general-quality inference."
+    },
+    {
+      "case_id": "text_plan_constraints_en",
+      "mode": "P",
+      "answer_file": "answers/text_plan_constraints_en/P.txt",
+      "sha256": "c07639796d189fd521494e7dfecbac0da0075c589ef19fe7118ccd4b648abd7c",
+      "generated_count": 893,
+      "stop_reason": "eog",
+      "response_complete": true,
+      "parent_read_entire_answer": true,
+      "schedule": {
+        "passed": true,
+        "checks": [
+          {
+            "test": "duration_and_availability_S",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_I",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_E",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_R",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_F",
+            "passed": true
+          },
+          {
+            "test": "S_before_I",
+            "passed": true
+          },
+          {
+            "test": "I_before_E",
+            "passed": true
+          },
+          {
+            "test": "I_before_R",
+            "passed": true
+          },
+          {
+            "test": "E_before_F",
+            "passed": true
+          },
+          {
+            "test": "R_before_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_I",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_R",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_E",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_R",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_E_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_R_F",
+            "passed": true
+          },
+          {
+            "test": "earliest_finish_10_45",
+            "passed": true
+          }
+        ],
+        "critical_path": [
+          "S",
+          "I",
+          "E",
+          "F"
+        ],
+        "lower_bound_minutes": 105,
+        "scope": "Feasibility/optimal finish of transcribed intervals. Parent separately checks explanation, omissions, contradictions and truncation. Assigned people are inherited from the prompt; spelling their names again is not required."
+      },
+      "transcribed_times": {
+        "S": [
+          "09:00",
+          "09:20"
+        ],
+        "I": [
+          "09:20",
+          "09:50"
+        ],
+        "E": [
+          "09:50",
+          "10:30"
+        ],
+        "R": [
+          "09:50",
+          "10:15"
+        ],
+        "F": [
+          "10:30",
+          "10:45"
+        ]
+      },
+      "table_evidence": [
+        {
+          "line": 85,
+          "text": "| S    | 09:00   | 09:20   | Aya            |"
+        },
+        {
+          "line": 86,
+          "text": "| I    | 09:20   | 09:50   | Aya, Ben       |"
+        },
+        {
+          "line": 87,
+          "text": "| E    | 09:50   | 10:30   | Ben, Chen      |"
+        },
+        {
+          "line": 88,
+          "text": "| R    | 09:50   | 10:15   | Aya            |"
+        },
+        {
+          "line": 89,
+          "text": "| F    | 10:30   | 10:45   | Aya, Ben, Chen |"
+        }
+      ],
+      "proof_present": true,
+      "proof_reading": "Precedence chain S20 -> I30 -> E40 -> F15 yields earliest10:45; R25 overlaps E without personnel conflicts. This does not require literal105 in the answer.",
+      "conflicting_schedule_found": false,
+      "semantic_requirements_observed_met": true,
+      "observed_response_language": "English",
+      "language_note": null,
+      "qualification": "Observed task requirements met in a completed answer; no general-quality inference."
+    },
+    {
+      "case_id": "text_plan_constraints_en",
+      "mode": "F",
+      "answer_file": "answers/text_plan_constraints_en/F.txt",
+      "sha256": "79a642954205345834a0f228bf2ed02b3a24579042afa01d64c7b9eca08344b0",
+      "generated_count": 887,
+      "stop_reason": "eog",
+      "response_complete": true,
+      "parent_read_entire_answer": true,
+      "schedule": {
+        "passed": true,
+        "checks": [
+          {
+            "test": "duration_and_availability_S",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_I",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_E",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_R",
+            "passed": true
+          },
+          {
+            "test": "duration_and_availability_F",
+            "passed": true
+          },
+          {
+            "test": "S_before_I",
+            "passed": true
+          },
+          {
+            "test": "I_before_E",
+            "passed": true
+          },
+          {
+            "test": "I_before_R",
+            "passed": true
+          },
+          {
+            "test": "E_before_F",
+            "passed": true
+          },
+          {
+            "test": "R_before_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_I",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_R",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_S_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_E",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_R",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_I_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_E_F",
+            "passed": true
+          },
+          {
+            "test": "no_shared_person_overlap_R_F",
+            "passed": true
+          },
+          {
+            "test": "earliest_finish_10_45",
+            "passed": true
+          }
+        ],
+        "critical_path": [
+          "S",
+          "I",
+          "E",
+          "F"
+        ],
+        "lower_bound_minutes": 105,
+        "scope": "Feasibility/optimal finish of transcribed intervals. Parent separately checks explanation, omissions, contradictions and truncation. Assigned people are inherited from the prompt; spelling their names again is not required."
+      },
+      "transcribed_times": {
+        "S": [
+          "09:00",
+          "09:20"
+        ],
+        "I": [
+          "09:20",
+          "09:50"
+        ],
+        "E": [
+          "09:50",
+          "10:30"
+        ],
+        "R": [
+          "09:50",
+          "10:15"
+        ],
+        "F": [
+          "10:30",
+          "10:45"
+        ]
+      },
+      "table_evidence": [
+        {
+          "line": 89,
+          "text": "| S    | 09:00   | 09:20   | Aya            |"
+        },
+        {
+          "line": 90,
+          "text": "| I    | 09:20   | 09:50   | Aya, Ben       |"
+        },
+        {
+          "line": 91,
+          "text": "| E    | 09:50   | 10:30   | Ben, Chen      |"
+        },
+        {
+          "line": 92,
+          "text": "| R    | 09:50   | 10:15   | Aya            |"
+        },
+        {
+          "line": 93,
+          "text": "| F    | 10:30   | 10:45   | Aya, Ben, Chen |"
+        }
+      ],
+      "proof_present": true,
+      "proof_reading": "Precedence chain S20 -> I30 -> E40 -> F15 yields earliest10:45; R25 overlaps E without personnel conflicts. This does not require literal105 in the answer.",
+      "conflicting_schedule_found": false,
+      "semantic_requirements_observed_met": true,
+      "observed_response_language": "English",
+      "language_note": null,
+      "qualification": "Observed task requirements met in a completed answer; no general-quality inference."
+    },
+    {
+      "case_id": "code_bounded_queue_python",
+      "mode": "F",
+      "answer_file": "answers/code_bounded_queue_python/F.txt",
+      "sha256": "146aba4474ace3367ffe2c2f0a2796324ceaa8c057f657b0a1cdfce59fbef09c",
+      "generated_count": 829,
+      "stop_reason": "eog",
+      "response_complete": true,
+      "parent_read_entire_answer": true,
+      "code_file": "answers/code_bounded_queue_python/F.py",
+      "code_sha256": "a3059b99aaf481699236427bca3146b6737b4269b1b544f76a7df01ffd36ebac",
+      "behavior": {
+        "passed": true,
+        "behavior_only": true,
+        "counts": {
+          "invalid_capacity_rejected": 5,
+          "empty_optional": 831,
+          "successful_push": 7623,
+          "full_rejection": 3036,
+          "successful_pop": 7623,
+          "valid_capacity_cases": 4,
+          "given_example": 1
+        },
+        "failures": [],
+        "success_push_return_checked": false,
+        "ring_direction_prescribed": false,
+        "structural_ring_and_explanation": "Parent must assess generated source and answer separately",
+        "empty_adapter": "None; alternative documented Optional representation requires separate adapter",
+        "source_sha256": "a3059b99aaf481699236427bca3146b6737b4269b1b544f76a7df01ffd36ebac",
+        "class_AST_sha256": "2d25150767ac29af77758589acc21adc7b9e6afdcdb22236c53d9252678a55a5",
+        "parent_review_required": true
+      },
+      "structural_review": {
+        "fixed_capacity_array": true,
+        "oldest_index_and_count": true,
+        "no_element_shifting": true,
+        "full_failure_before_mutation": true,
+        "empty_failure_before_mutation": true,
+        "capacity_range_checked": true
+      },
+      "explanation_review": {
+        "wraparound_explained": true,
+        "given_example_correct": true,
+        "failed_operation_state_unchanged_explained": true
+      },
+      "semantic_requirements_observed_met": true,
+      "qualification": "Manually reviewed original code, executed unchanged class in separate non-root resource-bounded process. Only this task/these answers; not a general code-generation benchmark."
+    },
+    {
+      "case_id": "code_bounded_queue_python",
+      "mode": "P",
+      "answer_file": "answers/code_bounded_queue_python/P.txt",
+      "sha256": "7fd37e8d0021a1c4737ff6dd9cfae4a994b1f2b24e606ed2becfc79adbfc3446",
+      "generated_count": 809,
+      "stop_reason": "eog",
+      "response_complete": true,
+      "parent_read_entire_answer": true,
+      "code_file": "answers/code_bounded_queue_python/P.py",
+      "code_sha256": "0f7a86214f532feb517c8898762f94d61bb015742088f146b4cf67b60fc8c7b9",
+      "behavior": {
+        "passed": true,
+        "behavior_only": true,
+        "counts": {
+          "invalid_capacity_rejected": 5,
+          "empty_optional": 831,
+          "successful_push": 7623,
+          "full_rejection": 3036,
+          "successful_pop": 7623,
+          "valid_capacity_cases": 4,
+          "given_example": 1
+        },
+        "failures": [],
+        "success_push_return_checked": false,
+        "ring_direction_prescribed": false,
+        "structural_ring_and_explanation": "Parent must assess generated source and answer separately",
+        "empty_adapter": "None; alternative documented Optional representation requires separate adapter",
+        "source_sha256": "0f7a86214f532feb517c8898762f94d61bb015742088f146b4cf67b60fc8c7b9",
+        "class_AST_sha256": "6c27d289cbfcef8e24b9afb4505029c95a958258e1c601715230a51e325d64ca",
+        "parent_review_required": true
+      },
+      "structural_review": {
+        "fixed_capacity_array": true,
+        "oldest_index_and_count": true,
+        "no_element_shifting": true,
+        "full_failure_before_mutation": true,
+        "empty_failure_before_mutation": true,
+        "capacity_range_checked": true
+      },
+      "explanation_review": {
+        "wraparound_explained": true,
+        "given_example_correct": true,
+        "failed_operation_state_unchanged_explained": true
+      },
+      "semantic_requirements_observed_met": true,
+      "qualification": "Manually reviewed original code, executed unchanged class in separate non-root resource-bounded process. Only this task/these answers; not a general code-generation benchmark."
+    }
+  ],
+  "independent_review": "ANSWER_REVIEW_TERRA.txt",
+  "scope": "Three validation variants, two task families; one free answer per case/mode. Not six independent tasks.",
+  "general_quality_proven": false,
+  "P_only_clear_task_regression_observed": false,
+  "adopted": false
+}

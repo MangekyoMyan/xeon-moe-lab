@@ -1,0 +1,50 @@
+--- archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/replay/hot-backend.cpp
++++ archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp
+@@ -76,7 +76,7 @@
+     ggml_backend_t private_cpu=nullptr,private_gpu=nullptr;ggml_threadpool_t pool=nullptr;
+     std::array<std::unique_ptr<Layer>,LAYERS> layers;
+     float * pinned_input=nullptr,*pinned_output=nullptr;int32_t * pinned_ids=nullptr;
+-    std::mutex execution_mutex;bool ready=false;size_t payload=0,allocation=0,planned_count=0;
++    std::mutex execution_mutex;char trial_mode='P';uint64_t trial_builds=0;bool ready=false;size_t payload=0,allocation=0,planned_count=0;
+     explicit State(const llama_model * m):model(m){}
+     ~State(){
+         if(private_gpu)ggml_backend_synchronize(private_gpu);
+@@ -177,7 +177,7 @@
+             if(l.local[e]>=0){hot_slots[hot]=slot;pinned_ids[hot]=l.local[e];++hot;cpu_ids[slot]=-1;}else cpu_ids[slot]=e;
+         }
+         if(stamp){stamp->matched=hot;stamp->partition_end=hot_ns();}
+-        if(mode=='C'){hot=0;std::memcpy(cpu_ids.data(),ids->data,TOP*sizeof(int32_t));}
++        if(mode=='C'){hot=0;for(int slot=0;slot<TOP;++slot)std::memcpy(&cpu_ids[slot],static_cast<const char*>(ids->data)+slot*ids->nb[0],sizeof(int32_t));}
+         if(stamp)stamp->executed=hot;
+         if(hot<TOP){ggml_backend_tensor_set(l.cpu->x,x->data,0,D*sizeof(float));ggml_backend_tensor_set(l.cpu->ids,cpu_ids.data(),0,TOP*sizeof(int32_t));}
+         if(stamp)stamp->cpu_set_end=hot_ns();
+@@ -203,7 +203,7 @@
+     auto & s=*static_cast<State*>(b->context);std::lock_guard<std::mutex>lock(s.execution_mutex);
+     try{for(int i=0;i<ggml_graph_n_nodes(graph);++i){auto node=ggml_graph_node(graph,i);if(ggml_op_is_empty(node->op))continue;
+         require(marked(node),"unexpected node in dedicated backend");ggml_custom_op_params p{};std::memcpy(&p,node->op_params,sizeof(p));auto layer=static_cast<Layer*>(p.userdata);
+-        require(layer&&layer->owner==&s,"wrong context owner");s.compute(*layer,node);
++        require(layer&&layer->owner==&s,"wrong context owner");s.compute(*layer,node,s.trial_mode);
+     }return GGML_STATUS_SUCCESS;}catch(const std::exception & e){if(s.private_gpu)ggml_backend_synchronize(s.private_gpu);LLAMA_LOG_ERROR("%s\n",e.what());return GGML_STATUS_FAILED;}
+ }
+ const char * device_name(ggml_backend_dev_t){return "XEON_HOT_FFN";}
+@@ -245,7 +245,19 @@
+     if(!l.eligible||l.selected.empty())return nullptr;
+     require(l.original==std::array<ggml_tensor*,3>{gate,up,down}&&clamp==l.clamp,"graph weight/clamp mismatch");
+     if(input->type!=GGML_TYPE_F32||input->ne[0]!=D||input->ne[1]!=1||input->ne[2]!=1||input->ne[3]!=1||ids->type!=GGML_TYPE_I32||ids->ne[0]!=TOP||ids->ne[1]!=1)return nullptr;
+-    ggml_tensor * args[]={input,ids};auto node=ggml_custom_4d(ctx,GGML_TYPE_F32,D,TOP,1,1,args,2,marker,1,&l);
++    ++s->trial_builds;ggml_tensor * args[]={input,ids};auto node=ggml_custom_4d(ctx,GGML_TYPE_F32,D,TOP,1,1,args,2,marker,1,&l);
+     ggml_set_name(node,("xeon_hot_ffn_"+std::to_string(layer)).c_str());ggml_backend_sched_set_tensor_backend(sched,node,s->self);return node;
+ }
+ void xeon_hot_place_tail(ggml_backend_t outer_cpu,ggml_backend_sched_t sched,ggml_tensor * tail){if(auto s=lookup(outer_cpu))ggml_backend_sched_set_tensor_backend(sched,tail,s->outer_gpu);}
++
++// Isolated single-context trial controls. Caller must be synchronized and recorder closed.
++int xeon_hot_trial_set_mode(ggml_backend_t cpu,char mode){auto s=lookup(cpu);if(!s)return 0;
++    require(mode=='C'||mode=='S'||mode=='P',"trial mode");std::lock_guard<std::mutex>lock(s->execution_mutex);
++    if(s->private_gpu){ggml_backend_synchronize(s->private_gpu);}
++    s->trial_mode=mode;return 1;
++}
++int xeon_hot_trial_snapshot(ggml_backend_t cpu,xeon_hot_trial_stats *out){auto s=lookup(cpu);if(!s||!out)return 0;
++    std::lock_guard<std::mutex>lock(s->execution_mutex);*out={};out->builds=s->trial_builds;out->mode=s->trial_mode;out->ready=s->ready;out->payload=s->payload;out->allocation=s->allocation;
++    for(int i=0;i<LAYERS;++i)if(s->layers[i]){out->calls[i]=s->layers[i]->calls;for(int h=0;h<=TOP;++h)out->hist[i][h]=s->layers[i]->hist[h];}
++    return 1;
++}

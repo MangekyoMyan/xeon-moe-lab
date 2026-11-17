@@ -1,0 +1,20 @@
+Independent final supplemental Python-only ABBA audit, 2026-11-17
+Scope: saved python-repeat run receipts, RUN.json, LAUNCH_MANIFEST.json, provider pins, per-process build and ANALYSIS.json; corresponding initial timing receipts and fixed case. No model, service, API or hardware operation; no repeated measurement. Existing timing sample order is retained without exclusions.
+
+All four runs have health status exited, child_returncode=0, RUN passed=true, 9/9 RESULTS_SHA256 entries independently verified and manifest SHA equals STATE receipt. Exact expected F/P/P/F DESIGN specs, frozen Python prefix244, 64 continuation inputs, 65 targets, positions, and common JA warmup + four T1 prep match. Each block has 64 successful status0, positive intervals and monotonic nonoverlapping start/output-ready timestamps. All 256 per-call milliseconds independently reconstructed from raw nanoseconds exactly equal ANALYSIS.json's arrays, including first calls. For P, expected 23 specific bank layers show exactly 64 call increments, seven nonnegative H deltas summing to each layer's calls, all other layers zero, and prefix custom calls zero.
+
+Actual driver-recorded function providers and scheduler backend provider list equal both PROVIDER_EXPECTED.json and the corresponding initial process with the same mode. Driver binary SHA and engine DSO manifest pins match initial. Frozen input plan, bank plan, model manifest, original baseline configuration and guard source hashes match corresponding initial launch receipts; repeat runtime DESIGN changes case order/number deliberately. All 4 run paths and exact totals:
+F: python-repeat/caller/runs/20261117T084603Z-timing-0-F-6be0dd17; total 8550.059502 ms; mean 133.59467971875 ms; first 151.789432 ms.
+P: python-repeat/caller/runs/20261117T084851Z-timing-1-P-219b60bb; total 8446.325597 ms; mean 131.973837453125 ms; first 157.402578 ms.
+P: python-repeat/caller/runs/20261117T085138Z-timing-2-P-dc1c1adb; total 8455.477266 ms; mean 132.11683228125 ms; first 157.695644 ms.
+F: python-repeat/caller/runs/20261117T085425Z-timing-3-F-51a8d967; total 8488.264719 ms; mean 132.629136234375 ms; first 151.273495 ms.
+
+Raw-derived aggregate F mean 133.1119079765625 ms => 7.51247589491448 T1/s; P mean 132.0453348671875 ms => 7.57315660569008 T1/s; F/P = 1.008077325188715, or P throughput +0.8077325188715%, and P saves 1.066573109375 ms per call. Paired F/P ratios are 1.0122815422882638 and 1.003877658465459; signed F-after minus F-before = -0.965543484375 ms. These reproduce ANALYSIS.json. Analysis pins DECISION.json SHA correctly.
+
+Original initial mixed-case sequence, separately (see SUPPLEMENT_REVIEW_TERRA.txt): Python F 132.458527125 ms, P 131.4052114140625 ms, F/P=1.00801578338943 (+0.801578338943%), F-before/after difference +1.7990310625 ms. The follow-up was selected after seeing that initial data and runs only Python after common prep, rather than Python in a three-case sequence. The two results are compatible observations of small gains in this narrow teacher-forced setup, not a confidence interval, statistical significance test, service-throughput measure, or broad task guarantee. Per-token calls within one process are serial and not independent process replicates.
+
+POSTPROCESS_NOTE.txt records an initial offline analyzer unpacking error before output, then source-only correction; it reports no measurement rerun or raw change. Four run receipts and samples above are intact, and independent arithmetic matches the final analysis. No claim on why variation occurred is supported.
+
+Receipt presentation issue: at inspection python-repeat/STATE.json still said phase 'Running timing-3-F' even though all four entries were status passed and COMPLETE.json recorded passed=true, timed_calls=256. This is stale phase metadata rather than evidence of a failed timing run. Parent has been notified to finalize phase or explain it; do not substitute the phase string for health, manifest and raw receipts.
+
+Parent finalization addendum: python-repeat/STATE.json phase was updated to completed after the reviewer observation. Raw run receipts/ANALYSIS are unchanged.

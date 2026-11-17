@@ -1,0 +1,116 @@
+--- archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/capture/checkpoint-build2/bounded_moe_capture_proposal.h
++++ archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/capture/bounded_moe_capture_proposal.h
+@@ -4,7 +4,7 @@
+ // This helper is not integrated, linked or run against the model.
+ // Never enable it in the performance arm: a non-null cb_eval changes scheduler
+ // synchronization even when no cell is armed. Allocate Capture outside decode.
+-// No file I/O, heap allocation, extra backend sync or GPU readback in callback.
++// No file I/O, heap allocation, heap allocation in callback. This isolated diagnostic permits a 24-byte routing weight readback after normal callback backend sync.
+ // Caller supplies exact ORIGINAL model layer gate/down pointers and a unique
+ // case/call key. Attach labels, provider hashes, clamp and route37 generation
+ // to the resulting records OUTSIDE callback after normal call completion.
+@@ -34,6 +34,11 @@
+     const ggml_tensor * down_weight = nullptr;
+     std::array<int32_t, n_used> expected_ids{};
+     char weighted_name[GGML_MAX_NAME]{};
++    char down_copy_name[GGML_MAX_NAME]{};
++    char weights_name[GGML_MAX_NAME]{};
++    const ggml_tensor * weights_producer=nullptr;
++    bool weights_ready_after_gate=false;
++    bool routing_weight_readback=false,down_via_cuda_copy=false;
+ 
+     // Owned, bounded storage; exported only after caller synchronization.
+     std::array<float, n_embd> x{};
+@@ -51,6 +56,7 @@
+     size_t count = 0;
+     uint64_t current_key = 0;
+     bool armed = false;
++    ggml_backend_t gpu_backend=nullptr;
+ 
+     // Run before model inference. Duplicate (key, layer) is prohibited.
+     bool prepare(size_t n) {
+@@ -69,6 +75,8 @@
+             }
+             std::snprintf(c.weighted_name, sizeof(c.weighted_name),
+                           "ffn_moe_weighted-%d", c.layer);
++            std::snprintf(c.down_copy_name,sizeof(c.down_copy_name),"CUDA0#ffn_moe_down-%d#0",c.layer);
++            std::snprintf(c.weights_name,sizeof(c.weights_name),"ffn_moe_weights_scaled-%d",c.layer);
+         }
+         return true;
+     }
+@@ -78,7 +86,7 @@
+         current_key = key;
+         armed = true;
+         for (size_t i = 0; i < count; ++i) if (cells[i].key == key) {
+-            cells[i].flags = 0; cells[i].seen = 0; cells[i].down_node = nullptr;
++            cells[i].flags = 0; cells[i].seen = 0; cells[i].down_node = nullptr;cells[i].weights_producer=nullptr;cells[i].weights_ready_after_gate=false;
+         }
+     }
+     bool end_call() { // AFTER the existing normal completion/synchronization
+@@ -108,7 +116,10 @@
+     static int match(const Cell & c, const ggml_tensor * t) {
+         if (t->op == GGML_OP_MUL_MAT_ID && t->src[0] == c.gate_weight) return 1;
+         if (t->op == GGML_OP_MUL_MAT_ID && t->src[0] == c.down_weight) return 2;
+-        if (t->op == GGML_OP_MUL && c.down_node && t->src[0] == c.down_node &&
++        if (t->op == GGML_OP_MUL && c.down_node && t->src[0] &&
++            (t->src[0] == c.down_node ||
++             (t->src[0]->op == GGML_OP_NONE && std::strcmp(t->src[0]->name,c.down_copy_name)==0 &&
++              shape(t->src[0],GGML_TYPE_F32,n_embd,n_used,1,1))) &&
+             std::strcmp(t->name, c.weighted_name) == 0) return 4;
+         return 0;
+     }
+@@ -119,8 +130,22 @@
+         for (size_t i = 0; i < s.count; ++i) {
+             auto & c = s.cells[i];
+             if (c.key != s.current_key) continue;
++            // Remember the actual scaled weights producer without requesting any
++            // CUDA graph cut. This must be visited before the CPU gate executes.
++            if(ask && std::strcmp(t->name,c.weights_name)==0){
++                if(c.weights_producer || c.seen || t->op!=GGML_OP_SCALE ||
++                   !shape(t,GGML_TYPE_F32,1,n_used,1,1))c.flags|=invalid_setup;
++                else c.weights_producer=t;
++                continue;
++            }
+             const int what = match(c, t);
+             if (!what) continue;
++            // Validate the consumer uses exactly the already-copied producer.
++            // Return false: preserve the original CUDA weighted/merge graph.
++            if(what==4){
++                if(!ask || c.seen!=3 || !c.weights_ready_after_gate || t->src[1]!=c.weights_producer){c.flags|=invalid_setup;continue;}
++                c.down_via_cuda_copy=t->src[0]!=c.down_node;c.seen|=4;continue;
++            }
+             wanted = true;
+             if (ask) continue;
+             if (c.seen & what) { c.flags |= duplicate; continue; }
+@@ -139,6 +164,17 @@
+                     c.ids_ne[d] = ids->ne[d]; c.ids_nb[d] = int64_t(ids->nb[d]);
+                 }
+                 if (c.ids != c.expected_ids) c.flags |= bad_ids;
++                // In this fixed model scaled weights are expanded before CPU FFN.
++                // Its producer was encountered in a prior GPU split (or an earlier
++                // CPU node). The CPU gate has now completed. Explicitly drain the
++                // original GPU backend before the diagnostic 24-byte read, avoiding
++                // assumptions about cudaStreamPerThread vs the scheduler stream.
++                const auto *w=c.weights_producer;
++                if(!w || !w->data || !s.gpu_backend){c.flags|=invalid_setup;continue;}
++                if(host(w))std::memcpy(c.routing_weight.data(),w->data,sizeof(c.routing_weight));
++                else{ggml_backend_synchronize(s.gpu_backend);c.routing_weight_readback=true;
++                    ggml_backend_tensor_get(w,c.routing_weight.data(),0,sizeof(c.routing_weight));}
++                c.weights_ready_after_gate=true;
+             } else if (what == 2) {
+                 if (!shape(t, GGML_TYPE_F32, n_embd, n_used, 1, 1)) {
+                     c.flags |= bad_shape; continue;
+@@ -146,13 +182,6 @@
+                 if (!host(t)) { c.flags |= not_host; continue; }
+                 std::memcpy(c.down.data(), t->data, sizeof(c.down));
+                 c.down_node = t;
+-            } else {
+-                const auto * w = t->src[1];
+-                if (!shape(w, GGML_TYPE_F32, 1, n_used, 1, 1)) {
+-                    c.flags |= bad_shape; continue;
+-                }
+-                if (!host(w)) { c.flags |= not_host; continue; }
+-                std::memcpy(c.routing_weight.data(), w->data, sizeof(c.routing_weight));
+             }
+             c.seen |= uint8_t(what);
+         }

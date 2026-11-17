@@ -1,0 +1,33 @@
+{
+  "source_commit": "d4d50b651ff7754ee2189228762468fc02971bfa",
+  "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp",
+  "source_sha256": "270b7f6f4398f5d1978026bebc18e129614956d028414a98daf76f91374a881c",
+  "proposed_source_sha256": "e863eb438a923f4fec4d37201efa8fa75b59015f9124a855a3dc7f14166f017c",
+  "patch_sha256": "53c68ee3a285fdbe1d6040001433501930bec500f0cf327988d5196f45d699fb",
+  "status": "optional source-only diagnostic proposal, not deployed",
+  "flag": "GGML_XEON_HOT_TRIAL_KEEP_ORIGINAL_GRAPH",
+  "default": "unset or 0 preserves existing behavior",
+  "one": "keep create/finish/native bank/private graph warmup, return original graph at build",
+  "lifetime": "read once by State constructor; not runtime mutable",
+  "unchanged": [
+    "plan validation",
+    "Gpre/Gpost and phase",
+    "bank/pinned buffers/private pools",
+    "C/S/P arithmetic",
+    "input/output ownership and synchronization"
+  ],
+  "caller_work_still_required": [
+    "add explicit B-held arm",
+    "expect hot backend present",
+    "record bank/pool identities",
+    "expect zero custom calls/builds",
+    "do not pass B to C/S/P set_mode",
+    "F/B/C output comparison"
+  ],
+  "git_apply_check": true,
+  "repo_clean": true,
+  "compiled": false,
+  "engine_run": false,
+  "numerically_verified": false,
+  "performance_measured": false
+}

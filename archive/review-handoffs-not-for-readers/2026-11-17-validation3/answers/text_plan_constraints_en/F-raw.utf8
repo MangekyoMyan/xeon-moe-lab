@@ -1,0 +1,113 @@
+Let's go step-by-step.
+
+---
+
+## 1. Understanding the tasks and constraints
+
+We have:
+
+- **S** (20 min) — requires **Aya**
+- **I** (30 min) — requires **Aya + Ben**, must follow S
+- **E** (40 min) — requires **Ben + Chen**, must follow I
+- **R** (25 min) — requires **Aya**, must follow I
+- **F** (15 min) — requires **Aya + Ben + Chen**, must follow both E and R
+
+No person can do two tasks at once.  
+Tasks can run in parallel if they use different people.
+
+All available from 09:00 to 11:00 (but we can finish earlier).
+
+---
+
+## 2. Precedence constraints
+
+- S → I
+- I → E
+- I → R
+- E → F
+- R → F
+
+Also, resource constraints:  
+- Aya: S, I, R, F  
+- Ben: I, E, F  
+- Chen: E, F
+
+---
+
+## 3. Finding earliest possible schedule
+
+We want to minimize the finish time of F.
+
+### Step 1 — Start with S
+S must be first for Aya.  
+Earliest start: 09:00  
+S: 09:00–09:20 (Aya busy)
+
+---
+
+### Step 2 — After S, task I can start
+I needs Aya + Ben.  
+Aya free at 09:20, Ben free at 09:00.  
+So I can start at 09:20.
+
+I: 09:20–09:50 (Aya + Ben busy)
+
+---
+
+### Step 3 — After I, E and R can start in parallel
+- E needs Ben + Chen (40 min)
+- R needs Aya (25 min)
+
+At 09:50:  
+Aya free (just finished I), Ben free, Chen free.
+
+So both E and R can start at 09:50.
+
+E: 09:50–10:30 (Ben + Chen)  
+R: 09:50–10:15 (Aya)
+
+---
+
+### Step 4 — F can start when both E and R are done
+- R finishes at 10:15
+- E finishes at 10:30
+
+So F cannot start until 10:30 (because E is later).
+
+F needs Aya + Ben + Chen for 15 min.  
+At 10:30:  
+Aya free since 10:15, Ben free since 10:30, Chen free since 10:30.
+
+F: 10:30–10:45
+
+---
+
+## 4. Final schedule
+
+| Task | Start   | Finish  | People         |
+|------|---------|---------|----------------|
+| S    | 09:00   | 09:20   | Aya            |
+| I    | 09:20   | 09:50   | Aya, Ben       |
+| E    | 09:50   | 10:30   | Ben, Chen      |
+| R    | 09:50   | 10:15   | Aya            |
+| F    | 10:30   | 10:45   | Aya, Ben, Chen |
+
+Earliest completion: **10:45**.
+
+---
+
+## 5. Why it cannot be earlier
+
+- S must be first for Aya: earliest finish 09:20.
+- I cannot start until S finishes (09:20) and takes 30 min → earliest finish 09:50.
+- E cannot start until I finishes (09:50) and takes 40 min → earliest finish 10:30.
+- F cannot start until E finishes (10:30) and takes 15 min → earliest finish 10:45.
+
+Even though R finishes earlier (10:15), E is the bottleneck because it takes longer after I.  
+No way to shorten E or start it earlier because it depends on I, which depends on S.  
+Thus 10:45 is the earliest possible completion.
+
+---
+
+**Final answer:**  
+Earliest completion time is **10:45** with the schedule above.

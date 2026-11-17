@@ -1,0 +1,282 @@
+parallel-pilot d4d50b6：保存された一次データの独立監査
+2026-11-17 / 担当 parallel_evidence
+
+対象commit：d4d50b651ff7754ee2189228762468fc02971bfa
+以下の相対pathの起点：
+archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/
+
+【判断】
+
+原報告の限定された結論を覆す、公開rawの欠落・hash不一致・集計誤り・
+時刻の逆転・品質出力の取り違えは見つからなかった。
+独自のstdlib/NumPyプログラムで8,228項目を照合し、不整合0。
+
+確認できる成果は、固定された日本語training軌道の生成計算について、
+同一統合実験エンジン内のF対Pで7.76465→8.13694 T1/sになり、SとPの
+保存した全出力が同じだったこと。これは通常APIへの採用、一般回答品質、
+別言語・別prompt・長文・WebUIの体感、旧9.8 token/sとの優劣を直接確定
+する証拠ではない。原RESULTSはこの範囲をほぼ正確に記載している。
+
+【監査方法と成果物】
+
+実行したのは当監査者が作成した audit_parallel_pilot.py のみ。
+供給されたanalyze.py、replay_shared.py、build/runner、ELF、モデル、
+CUDA、APIは実行・importしていない。repositoryに変更なし。
+
+INDEPENDENT_EVIDENCE_AUDIT.json に再計算値、層別H、全325行のNLL/top1、
+29blocksの計時、8セルの出力誤差・時間、runtime pin照合と検査件数を保存。
+JSONのpassed=trueは「保存資料の整合性」の合格であり、本番採用判定ではない。
+供給analyzerの数値を入力として再出力せず、raw F32と整数nsから計算した。
+
+1. 公開データと受領資料の完全性
+
+FILES_SHA256.jsonに列挙された338 payload、合計193,373,776 bytesのhashと
+sizeを全確認。manifest自身を除いた実ファイル集合も一致した。
+RAW_MAPPING.jsonの337件はmanifestからRAW_MAPPING自身を除いた集合と一致。
+各shared fileの実hashも一致した。ただしoriginal側の実機ファイルを新たに
+読んだわけではなく、その側との同一性は保存されたmappingの主張に依存する。
+
+前回の返却ZIPがこの共有workspaceに残っていたため、さらに次を独立確認した。
+  xeon_moe_gpu_workspace_review_2026-11-17.zip
+  size 130571 bytes
+  SHA256 4c5cfaff5437b9e31e68be95ecca9b221e8dfcd9d7b287972804d40d4c38bf7f
+  30 file members、うちFILE_MANIFEST以外29 payload。
+ZIP内の全fileと今回incomingの全fileがbyte一致した。
+前回の未実測提案を今回の測定値へ読み替える必要はない。
+
+capture3runs（失敗2・成功1）、replay1run、integrated3runsの合計7runについて、
+それぞれ元RESULTS_SHA256も照合した。公開時health.json→guard-health.jsonは
+名前だけの変更でhash一致。省略されたserver-config.jsonは保存launchのcommand/
+environmentを元runnerのJSON形式で再構成したところ、元hashと一致した。
+
+根拠：README.txt:9–19、FILES_SHA256.json、RAW_MAPPING.json、INTAKE.json、
+incoming/gpu_workspace_review_2026-11-17/FILE_MANIFEST.json、各run/RESULTS_SHA256.json。
+FILES_SHA256.json自身のSHA256：
+f86e973c92267b97ed2cd97e1cfdc68c4e66688ee9f552c2473e66807f993a7e
+
+2. 本体の計時を再計算
+
+                         timed calls  blocks   平均ms/T1       T1/s
+F-before                       192       3    129.286731839   7.734745753
+F-after                        192       3    128.290909151   7.794784577
+F前後合計                      384       6    128.788820495   7.764649107
+C private CPU-all6             384       6    130.787751380   7.645975938
+S CPU/GPU直列                  384       6    124.531103734   8.030122355
+P CPU/GPU並列                  384       6    122.896319695   8.136940166
+
+F対Pの速度比1.047946926、時間減少4.575%。S対Pの差は1.634784039ms/T1。
+C−Fは1.998930885ms/T1。C−Fを「GPU missのためだけの費用」とは呼べない。
+Cは全6expertをCPUで計算する実験経路で、Hカウンタは実行GPU数を数える。
+
+timed合計1536calls=24blocks。別途qualityが5blocks×64calls=320callsあり、
+prefix末尾も含めて5×65=325行のlogitsが保存されている。
+CSP順序はCSP,PSC,SPC,CPS,PCS,SCP。各modeの位置、pairの前後は均衡する。
+全start/end整数nsについて、start<end、隣のcallと逆転・重複がないこと、
+prefill→T1→次blockが順序通りであることを確認した。statusは全callで0。
+
+source境界はset_batch後、llama_decode直前からllama_get_logits_ith取得後。
+quality保存・有限値scan、block JSON、prefill、KVのclearはT1計時外。
+したがってこれは「272 tokenのpromptを読んで64 tokenを返すrequest全体」
+の速度ではない。timing armに毎回の巨大logit保存費用を混ぜてはいない。
+毎blockでKVをclearし同じ272 prefixを作り直すため、繰返しは24独立prompt
+ではない。多prompt・多言語に対する標本数として1536を使ってはいけない。
+
+Fも統合実験用libllamaでhotを無効化したもの。F前後で値が一致し速度差も
+小さいことは当該実験のよい対照になるが、通常APIのfrozen production
+binaryを新たに測ったものではない。
+
+根拠：integrated/driver.cpp:83–85,131–159、RESULTS_JA.txt:4–22、
+integrated/runs/20261117T054354Z-F-before-U1024-fc9df30e/RUN.json、
+integrated/runs/20261117T054816Z-CSP-U1024-2ff29532/RUN.json、
+integrated/runs/20261117T055916Z-F-after-U1024-cc94b0a3/RUN.json。
+
+3. 本体のF32を全行・全要素で独立確認
+
+5 files×65 rows×129280 F32=42,016,000要素を読んだ。NaN/Infなし。
+shape/bytesは全て宣言通りで、次tokenのtarget IDsも全blockで同じ固定列。
+
+F-before=F-after=Cの全33,612,800 bytesが一致。
+  共通SHA256 35d028fed9fa08bbe8f304c598ced362ff466aff176ecf407133c0a1870bbd64
+S=Pの全33,612,800 bytesが一致。
+  共通SHA256 fee91f11f8800feff98d2f95065f65eee5c53eb5d2911dc417ac372a77d810b9
+
+S/P対Fはprefix行0が一致し、T1後の行1–64が不一致。
+全325行のsha256、top1、top1-top2 margin、reference logit、安定化logsumexp
+によるNLLを独自再計算し、原analyzerと丸め差以内で一致した。
+  NMSE 0.00446801695057605
+  max absolute difference 2.34470272064209
+  top1変更 0/65
+  reference mean NLL差 +0.007686924820127563 nats
+
+平均差だけを読むと実態を落とす。行ごとのNLL差は−0.451186〜+0.645467 nats。
+「平均が小さい→どの場所も小差」「正答率が0.77%悪化」のどちらも導けない。
+これは固定referenceの条件付き尤度。自由な文章生成の回答品質ではない。
+Fでもreference targetとtop1が同じなのは50/65。prefix行0で既にreference
+target1131とgreedy top1 68840が違うため、自然なgreedy生成はこの保存軌道から
+最初の出力時点で外れる。この点だけでも、65地点top1一致から自然生成一致へ
+進めないことが具体的に分かる。
+
+F=Cは本軌道でCPU側の新しい経路が同じ算術を保った証拠、S=Pは本軌道で
+並行実行の追加による値の変化が出なかった証拠である。S/P対Fの差はその
+いずれとも区別して扱える。これで全入力の競合状態不存在まで証明するもの
+ではない。また保存した全logitsはquality blocksのもので、timing blocksの
+1536出力を全要素再照合したわけではない。
+
+根拠：integrated/driver.cpp:137–158、5本のquality-*.f32、各RUN.jsonの
+blocks[].next_targets、INTEGRATED_ANALYSIS.jsonのquality/quality_comparisons。
+
+4. 元routingと実hybridの差
+
+元JAの非空23層×64callsのH分布： [364,867,213,28,0,0,0]、GPU該当1377 slots。
+実統合S/Pの分布：               [362,870,211,29,0,0,0]、GPU実行1379 slots。
+Hはその層・そのtokenの6expertのうちGPU resident bankへ送れる個数。
+
+全S/P各7blocks（quality1+timing6）は、aggregateだけでなく層別Hまで一致。
+各CSP blockのcalls差分は非空23層で各64、空14層と既存GPU3層で0。
+builds差分は各block23。原報告の「prefillは元graph、非空23層のT1だけ新経路」
+と整合する。
+
+しかし元trainingとの比較では23層のうち11層でH分布が異なる。
+層：2,3,4,10,11,14,17,19,28,35,36。
+全体の+2 slotsだけでは相殺された変化を見落とす。これは層別の分布比較で、
+どのtoken/IDが最初に変わったかを同定したものではない。今回統合では
+logical route collectorを閉じており、個別IDs/hiddenは保存していない。
+origin分離を実装済みとは扱えない。
+
+根拠：RESULTS_JA.txt:32–35,55,62、各RUN.jsonのblocks[].before/after.H/calls、
+前回gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/
+text_cache_budget_ja.jsonのT1_trace.records。
+
+5. 実activation8セルの独立replay
+
+captureのx/IDs/down/weightsを実ファイルから読み、全て有限値、6IDsと順序、
+GPU slot分類、quant型、元route ordinalを照合した。予定8セルと一致。
+全8セルで保存O=C=capture、S=P、GPUへ送らないcold slotsのP=Oがbyte一致。
+6slotの重み付き合計もF32乗算・順次F32加算で独立再計算し、原指標と一致。
+各セル52時刻（first use4 + timed48）の順序、正の時間、実行H、GPU操作数、
+直列はGPU join後にCPU開始、並列はCPU終了後にGPU join、を照合した。
+GPU内部ready時刻自体は測っていない。GPU操作数5はsource呼出数であって、
+hardware trace由来ではない。
+
+cell  layer H   paired O/P median    平均S−P ms
+0       7   0      1.002483420       +0.016728667
+1       7   1      1.088108632       +0.016118750
+2       7   2      1.305794675       +0.022237250
+3       7   3      1.676078614       +0.088317917
+4      35   3      1.550294724       +0.077933250
+5      13   1      1.107755535       +0.012376833
+6      28   1      1.112468283       −0.039684167
+7      20   2      1.284037984       +0.044104250
+
+H0の小さな差を確実な高速化と断定しない。cell6 MXFP4ではPがSより平均遅い。
+これは消さず残すべき結果で、必ず並列の方が速いとは限らない。
+
+cell3の保存dequant/F64参照に対するNMSEはO=3.502199954e-4、P=2.251079174e-4。
+重み付き合計後はO=3.150930484e-4、P=1.579213685e-4。
+cell6はO/Pとも約1.183586079e-4、P対O自体は9.560615832e-17。
+今回も「CPU結果を唯一の正解とみなす」前提は成立しない。
+ただしこの参照は量子化済みGGUFを展開したもので元非量子化モデルではない。
+独立監査では保存参照との誤差を再計算した。モデルがないためdequant/F64
+参照そのものの新たな生成はしていない。
+
+operatorはO用独立FFN graph。main schedulerを通すFと同じ境界ではない。
+両poolの保存receiptは12 distinct workersとCPU0–11のstrict affinityを示す。
+operator出力はbaseline4本を保存。その後のwarm/timed結果は実機sourceが
+毎回baselineとbyte比較して失敗時停止する設計だが、全timed出力ファイルは
+残っていないため、それらを独立に全要素検証したとは言わない。
+
+根拠：replay/operator_replay.h:16–35,43–60,63–120、
+replay/runs/20261117T053052Z-U1024-1563d936/REPLAY.json、cell0–7.json、
+各cell{0..7}-{O,C,S,P}.f32、cell3-reference.f32、cell6-reference.f32。
+
+6. 失敗したcaptureも含めた観測の監査
+
+20261117T051531Z-U1024-4725007c：passed=false、rc1、37route recordsで停止。
+weighted CUDA copy対応不足という説明に対応する失敗flagが保存されている。
+20261117T051936Z-U1024-9d4e6e9e：passed=false、rc1、111recordsで停止。
+元baselineとIDsが異なる32recordsを独立に数え直した。
+最終20261117T052657Z-U1024-3483cb75：9calls×37層=333recordsが元資料と
+全fields一致し、保存したprefix+first4の5logit rowsもbyte一致した。
+
+最終sourceはscaled weights producerをaskで記録し、CPU gate完了後に明示GPU
+synchronizeして6weights/24 bytesを読み、weighted GPU nodeに新しいgraph cutを
+要求しない。8セルで計192 bytesのrouting weight readback。これは観測が処理を
+変え得ることを検出して方法を修正した例であり、capture速度は性能比較に使えない。
+call5/8のcallback-freeの中間activationが同じだったことは未証明のまま。
+最終のroute/logit一致をその未保存中間値まで広げない原報告の限定は妥当。
+
+根拠：capture/bounded_moe_capture_proposal.h:126–190、失敗2run/RUN.jsonの
+failure_trace/capture_failure、成功run/CAPTURE.jsonおよびtext_cache_budget_ja.json、
+RESULTS_JA.txt:57–59。
+
+7. bank容量・runtime identity・復帰
+
+integrated/replay capacity.planはbyte一致。35expert/23非空CPU層のnative sumは
+475453440 bytes=453.427734375MiB、bank allocationは475457024 bytes。
+空CPU14層は専用graphなし。既存GPU37–39層はそのまま。
+operator stageは全native bytesのGPU readback照合receiptを保存している。
+統合stageの別bank個体を再readbackしたとまでは主張できない。
+
+sourceと実ログのGpre/Gpostを照合：
+Gpre free3638.25MiB、必要native453.427734MiB+margin3072MiBを満たす。
+Gpost free3126.25MiB、margin2560MiBを満たす。
+Gpre→Gpostのfree減少は512MiB。native payload453.43MiBと同じ量ではない。
+単にresident weightのsizeだけから「次は残り全部をbankへ」と予算を組めない。
+当該初期化のfree差の内訳を全て切り分けたわけではない。
+
+統合CSP：context/bank後3126.25、vision dummy後2100.25、text64後1642.25、
+終点1618.25MiB。CUDA query→NVML queryの時刻順を確認。これらは同時測定でなく、
+最後の1618.25MiBは常時peakの保証ではない。画像forward、128k実入力、同時request
+を通したadmission試験ではない。
+
+3 integrated runsの保存BUILD/LAUNCH/PROVIDER_EXPECTED/RUNは整合した。
+共有source hashは実ファイルと一致し、failed/checkpoint buildもhashで解決できた。
+以下は「保存された診断libraryのpin」であり、このworkspaceにELFはない。
+  CPU   602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81
+  CUDA  45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0
+  base  2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558
+  llama aff89d6bd4ab7419edd6b85190ef15e7a24a810db69e10a42c331298c2e9ec1a
+source/build/runtimeの3種類を同一視していない。baseも実行時providerは保存資料の
+gpu-stream runtimeであり、build/binからロードしたと読み替えていない。
+
+RESTORED_RUNTIME.jsonはPID261483、health ok、通常config hash一致、通常CPU/
+libllamaの元hash、CUDA/baseの元hash、3service active、alert/errorなしを記録。
+新diagnostic librariesは載っておらず、STATEのcandidate未採用と整合する。
+これは当該時点の保存receipt。監査者が現在のAPIへ接続して再確認したものではない。
+
+根拠：replay/operator_replay.h:75–78、integrated capacity.plan、各RUN.jsonの
+native_expert_inventory/memory_phases、replay stderr:5389,5425–5426、
+integrated CSP stderr:5385,5421–5422、ENGINE_BUILD.json、各BUILD/LAUNCH/
+PROVIDER_EXPECTED、RESTORED_RUNTIME.json、RESULTS_JA.txt:51–55,64。
+
+8. 次の判断に使ってよいこと／まだ使えないこと
+
+使ってよい：固定35案とこの軌道で実際に改善があり、直列GPU分担Sだけでも
+大部分の改善が出た。Pの上乗せも小さいながら実時刻に現れている。CPU専用
+新経路CはFと算術一致だが約2msの費用がある。これらを次実験の動機にできる。
+
+まだ使えない：GPU使用率やhit率だけでbank拡大の効果を確約すること、top1一致を
+一般品質合格にすること、元training routeを現hybridの完全な予測とすること、
+8セルoperatorの倍率を全モデル倍率にすること、SSE/UIの2token表示を本計時で
+説明し切ること、保存memory値を将来全入力でのpeak保証にすること。
+
+次は未使用の少数caseで固定35を評価する、F/C差を小さい実験で分解する、
+logical/internal route originを明示する、という順序に十分な根拠がある。
+この監査は新plan、閾値、ubatch変更、API再起動の実行許可ではなく、実機担当が
+レビュー可能な次実験を選ぶための証拠確認である。
+
+【重要source SHA256】
+integrated/driver.cpp
+ da5af20a347f36300e8339c4b436e18e4c769a709842e5beb4e6cc4ecca365c7
+replay/operator_replay.h
+ 10751d13b995aa7b477696cd2d754a5b2b13a2cba474e8335e342ccdcb0a8547
+capture/driver.cpp
+ c2d4530f3abd4b6896f4d5d8924d06cf7e80e31fc28740a9915df2ef85c4be0a
+capture/bounded_moe_capture_proposal.h
+ 14c3a3d94130009d7b2e97ace8774af085b997e133baeacdf1aff928174367af
+integrated/hot-backend.cpp
+ 270b7f6f4398f5d1978026bebc18e129614956d028414a98daf76f91374a881c
+integrated/ENGINE_BUILD.json
+ 7c6d226a74b15364c0c5c92876fd75c62430fe02640dbfce73c062e80058e0c9
+RESTORED_RUNTIME.json
+ 047274c54e992a247f0ba529250e1a9714c6fec6a54e8ef7cfee80a32e620565

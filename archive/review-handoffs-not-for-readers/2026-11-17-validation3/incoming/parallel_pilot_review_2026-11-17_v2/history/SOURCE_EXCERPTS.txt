@@ -1,0 +1,1346 @@
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-current/review/CURRENT_NOTE_JA.txt
+SHA256 5b54a01db71835d11fc372770070d954dfee2859908e403bcee1e19041a25e5e
+3: このZIPは、11月12日の未公開改善を含む「現在のコード・設定・実行物・保存済み測定」のレビュー用スナップショットです。
+4: 2026-11-16 15:54 JSTの観測で通常APIはfinal、PID11151。設定のcommand/envと実プロセスの照合に成功。ライブラリのbacking file、inode、SHA256も別記録へ固定しました。
+5: 今回、エンジン・API・監視の変更、再起動、性能テストはしていません。性能値は11月12日等の保存結果であり、本日の再測定ではありません。
+6: 
+7: 採用中
+8:   final: CPU RAMのexpert単位compact選択、MXFP4の入力補正/scale再利用、CUDA expert ID分類改善。
+9:   12生成/24入力スレッド、NUMA interleave、入力batch1024、GPU expert層37-39、CPU expert層0-36。
+10:   128k、f16 KV、1slot、GPU150W/ECC、fan上限70%方針。
+11:   対象はorcarouter DeepSeek-V4.1-Flash-1017 abliterated Mix-256G（正確なファイル名は設定参照）。
+12:   11/12の直接ABBA: 6.719 -> 7.590 tok/s、約12.96%改善。8入力・各構成2回・128tokenで出力hash一致。
+13: 
+14: 未採用
+15:   hot14-reviewed: 約14GiB/1,035 expertをGPU常駐、hit GPUとmiss CPUを並行処理。
+16:   平均7.575 -> 8.427 tok/s、最大入力別10.285 tok/s。対照2回/候補1回で完全ABBAではない。
+17:   4096入力は約4.95%遅く、自由生成8件中7件で出力変化。固定prefix256地点中251で次token一致。
+18:   計算精度と一般品質を同一視せず保留。IQのCPU Q8_K/CUDA Q8_1差を調査済み、因果寄与は未分離。
+19:   native/mixed threadpool、IQ入力再利用等の不採用案は保存結果に記載。古いcontrollerを再実行する指示ではありません。
+21: 実機
+22:   Xeon E5-2630L v2 x2、計12物理/24論理、AVX/SSSE3/F16C、AVX2なし。
+23:   DMI: board_name X9DR3-F / board_vendor Sugon / BIOS3.4。申告のSupermicro系名称と実DMIを区別。
+24:   32GB DIMM x16、512GB、DMI設定1600MT/s。購入ブランドA-Tech、SPD表示はMicron/Samsung等。
+25:   Tesla PG500-216、32GiB、driver580.196.07、150W、ECC Enabled。kernel6.12.113+deb13-amd64。
+26:   CPU主threadのaffinityだけでworker全体を推定しない。設定と採取情報はreview/capture/へ。
+27: 
+28: 表示条件
+29:   ユーザー確認: Open WebUI v0.11.1、比較モデル Qwen3.8 27B。
+30:   このAPIの待受は http://10.10.10.2:8000/v1 。メインPC側の実設定、比較モデルの量子化/実行engine/endpoint、同一アプリ条件は未確認。
+31:   添付外部レビューには「2個ずつに見える」との観測が記載されるが、内部token完了/SSE到着/画面描画の時系列は未測定。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/EVENING_RESULTS_JA.txt
+SHA256 78426712f87488822d91af8d8c137edcc9f1de8ed924833aeeb0237a4bf0f5ec
+3: 通常APIの採用構成
+4:   profiles/final.json。今回開始時との直接ABBAで生成6.719→7.590 tok/s、+12.96%。
+5:   新しい8入力×各設定2回、各128生成tokenの全文・全token IDsが一致。
+6:   CPU RAMのexpert単位compact選択、MXFP4入力補正/scale再利用、CUDA expert ID分類改善を採用。
+7:   以前の96→120GiB cache拡大は開始時点に含まれるため、今回の改善率へ重複計上しない。
+8:   詳細はcheckpoint-1600/RESULTS_JA.txt。終了時の実稼働確認はEVENING_FINAL_STATUS.json。
+9: 
+10: 追加したGPU expert常駐の実験
+11:   約14GiBに1,035個の(layer,expert)をgate/up/down一組で配置。
+12:   原重みをCPU RAMへ保持し、T=1のGPU hitとCPU missを並行計算。GPU側の結果は別pinned領域へ回収後、元の6slot順で合成。
+13:   schedulerへは入力とIDsだけを渡し、元のrouter重み・加算順を維持。T>1は既存の処理。
+14:   既存GPU常駐3層をCPUへ戻し、GPUと重なるCPU compact2,402slotsを除去して約14.844GiB回収。
+15:   CPU planは80→87行へ更新し、CPU compact payloadは19,200→16,798slots。
+16:   現12物理core/Volta/DeepSeek41/1context用の明示的な実験。別CPU・モデルには再検証が必要。
+18: 実モデルの結果
+19:   生成: 7.575 → 8.427 tok/s (+11.25%)。
+20:   対照2回、候補1回の観測。両対照は候補より前で、positive案の完全ABBAではない。
+21:   入力と生成数は同じだが、自由生成の128 IDsが完全一致したのは8件中1件。
+22:   fresh-dedup: 7.739 → 8.972 tok/s (+15.93%) /128 IDs一致=False
+23:   fresh-resistors: 7.716 → 8.310 tok/s (+7.70%) /128 IDs一致=False
+24:   fresh-library-ja: 7.733 → 9.752 tok/s (+26.11%) /128 IDs一致=False
+25:   fresh-rectangle: 7.794 → 8.403 tok/s (+7.82%) /128 IDs一致=True
+26:   fresh-sql: 7.603 → 8.597 tok/s (+13.08%) /128 IDs一致=False
+27:   fresh-plants-de: 7.017 → 6.777 tok/s (-3.41%) /128 IDs一致=False
+28:   fresh-queue-ja: 7.792 → 10.285 tok/s (+32.01%) /128 IDs一致=False
+29:   fresh-map-fr: 7.288 → 7.416 tok/s (+1.75%) /128 IDs一致=False
+30:   4096入力: 32.354 → 33.955秒、4.95%長くなった（各1回）。
+31:   実pilot全体のGPU hitは98,166/319,440=30.73%。
+32:   40層全てで実行カウンタを確認。層37–39には訓練censusがなく、GPU cache選択も0。
+33:   訓練集計44.77%はCPU層0–36のみの値で、この実測hit率と分母・入力が異なる。
+34: 
+35: 固定prefixでの数値比較
+36:   baselineの64token列を固定し、候補の生成tokenを次の入力に混ぜず、毎回1tokenだけ追加入力。
+37:   対照は256/256地点で自己再現。候補のgreedy一致は251/256 (98.05%)。
+38:   255地点でraw top100 logprobを比較。UTF8表示都合の1地点欠落を補完せず扱った。
+39:   最大共通token確率差は約19.86 percentage points、平均共通部分L1差は約0.01976。
+40:   教師token logprob差の平均は-0.005726 nats。
+41:   同じprefixのT1処理時間平均133.302→119.033ms、10.70%短縮。
+42:   n_probs100付きの測定であり、連続自由生成tok/sとは別。完全KL/TVD、PPL、一般回答品質の評価ではない。
+44: 機能とメモリ
+45:   新聞画像: MEN WALK ON MOON。画像の観測VRAM最大28918MiB。
+46:   16k入力: 140.332秒。
+47:   継続はcache_n=16399/prompt_n=1、入力処理0.136507秒。
+48:   長文側の観測GPU最大MiB: 28918.0。
+49:   context131072設定は維持。128k全域の性能・品質を実測した意味ではない。
+50: 
+51: 採否
+52:   GPU常駐は有効な候補として保存。今回の静的配置では入力処理と一部入力の生成が遅くなり、出力も変わる。
+53:   一般品質をこの比較だけで判断せず、通常APIは出力一致を確認したfinal構成へ戻す。
+54:   必要な次の検討は全40層の実routingと、入力による配置の偏り、CPU/GPU計算差の評価。今回はここで区切る。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/checkpoint-1600/RESULTS_JA.txt
+SHA256 2f50581ae57a427e674ec4507d34313fbeea431b9fb7f5dd04ccd12acfa453fd
+1: 2026-11-12 追加最適化・16時頃の第1区切り
+2: 
+3: この記録は16時頃に検証した構成の保存用。ユーザーの依頼により、20時頃まで探索を継続する。
+4: 以下の「最終」はこの区切り内での選択を指す。後続の実験・採否とは分離して扱う。
+5: 
+6: 今回の結論
+7:   生成速度: 6.719 → 7.590 tok/s、+12.96%。
+8:   入力処理時間: 7.934 → 7.728 秒/要求、2.59%短縮。
+9:   選択した構成: gpu-sort-candidate。通常起動用の最終profile: profiles/final.json。
+10:   APIは稼働中、コンテキスト設定は131072、GPU150W/ECC有効、ファン上限70%の方針を維持。
+11: 
+12: 比較条件
+13:   今回開始時のoptimization-20261112/prefill64を基準とした直接ABBA。
+14:   基準には以前のCPU cache120GiB・GPU offload閾値64が既に含まれる。
+15:   訓練と以前の候補選定に使っていない8入力を、最終選択前に固定。各設定2回、各入力128生成token。
+16:   全文および非streamで取得した全128token IDsが、すべて一致した。
+17:   生成速度は総decode steps/総predicted_ms。1要求のstepsはserver定義どおりn_gen-1=127。
+18:   入力時間はserver prompt_msで、クライアントのstream TTFT実測ではない。
+19:   品質ベンチマークではなく、同じ仕事の速度と出力一致の検証。個別改善率の足し算・乗算はしない。
+20: 
+21: 最終比較の内訳
+22:   fresh-dedup: 6.676 → 7.789 tok/s (+16.68%)
+23:   fresh-resistors: 6.764 → 7.740 tok/s (+14.43%)
+24:   fresh-library-ja: 6.706 → 7.728 tok/s (+15.25%)
+25:   fresh-rectangle: 6.737 → 7.734 tok/s (+14.80%)
+26:   fresh-sql: 6.716 → 7.608 tok/s (+13.29%)
+27:   fresh-plants-de: 6.744 → 7.071 tok/s (+4.85%)
+28:   fresh-queue-ja: 6.666 → 7.817 tok/s (+17.25%)
+29:   fresh-map-fr: 6.748 → 7.304 tok/s (+8.24%)
+30: 
+31: 効果が確認できた変更
+32:   1. CPU RAMの展開済み重みをexpert内行列単位で選択。
+33:      同じ118.65234375GiBで19,200個を固定頻度planへ配置。GPU動的cacheではない。
+34:      訓練8入力/2048生成tokenで配置を決定。最初の別8入力で+9.52%（各設定1回）。
+35:      最新の総合効果は上記の直接ABBAを採用する。元GGUFと量子化形式は維持。
+36:   2. MXFP4の入力補正とscaleを再利用。
+37:      単体kernelでは約15–24%、実モデルABBAでは+3.19%。両者は別の指標。
+38:      計算順を保持し、-128や非有限scale等は従来経路へ戻す。
+39:   3. CUDA expert ID分類を安定したcount/prefix/scatterへ変更。
+40:      演算fixture88条件・3variantで出力byte hash一致。
+41:      実モデルの128/1024/4096入力で、入力時間4.43–5.61%短縮。
+42:      GPU kernel自体や量子化精度を変える変更ではない。
+43: 
+44: 
+45: CPU数・待機方式
+46:   wait-t12-default          7.298 tok/s / CPU 1.608 s/step / IMC読込 31.37 GB/s
+47:   wait-t24-default          7.262 tok/s / CPU 3.134 s/step / IMC読込 31.27 GB/s
+48:   wait-t24-spin10000        6.942 tok/s / CPU 2.512 s/step / IMC読込 30.17 GB/s
+49:   wait-t24-passive          6.659 tok/s / CPU 2.349 s/step / IMC読込 28.74 GB/s
+50:   wait-t12-passive          6.744 tok/s / CPU 1.289 s/step / IMC読込 29.05 GB/s
+51:   wait-t12-spin10000        7.046 tok/s / CPU 1.325 s/step / IMC読込 30.33 GB/s
+52:   wait-t6-default           4.653 tok/s / CPU 1.273 s/step / IMC読込 20.10 GB/s
+53:   このscreenはcount/codeの2入力。default12だけ前後2回、ほかは各1回。
+54:   全回答一致。decodeで実際にCPU時間を使ったworkerのaffinityも設定と一致。
+55:   6物理coreは両socket3coreずつ。6/12ともuser cycles/reference比は約1.0833で、clock差はほぼない。
+56:   6→12はこの実モデルで約1.57倍。以前の単体kernel約1.9倍と混同しない。
+57:   ただしchunk分割も変わるため、純粋なcore数だけの比較ではない。CPU交換後は再計測する。
+58:   PASSIVEはCPU時間を約20%減らす一方、生成を約8%遅くした。IPC上昇だけで高速化とは判断できない。
+59:   CPU時間は論理CPU時間で、物理core数や消費電力ではない。IMCはsystem全体の実測。
+60:   IMCは各run内を時間加重し、上表はrun平均。理論帯域との単純比較だけで律速を断定しない。
+61: 
+62: 追加比較と採否
+63:   - loop unroll縮小: 遅くなったため不採用。
+64:   - 重さも加味したCPU cache plan: frequency比+0.316%の単回差。優位未確認。
+65:   - NUMA行配置: ABBA+0.70%。効果が小さく構成依存が強いため標準はinterleave。
+66:   - IQ3_XXS入力補正の再利用: 同じ新framework内で+0.51%。旧MX版を超える根拠が不足。
+67:   - active counter初期化/最終barrier削減/MX worker maskの組合せ: ABBA -0.79%、不採用。
+68:   - batch1536: 長文入力では速いが、日本語の回答とtoken確率に変化。実験profileのみ。標準1024。
+69:   - 24論理threads、spin10000、PASSIVE: 平均で標準12物理threads/defaultを上回らず。
+70:   - native pthread graph/poll0: decode -2.36%、実測stream TTFT 4.61%短縮（ABBA）。標準には不採用。初期化にはOpenMPを保持。
+71:   - masterを含むworker配置回転（不採用）: 生成 +0.60%、128入力時間 -2.56%短縮、1024入力 -1.46%短縮。同一binary0/1比較。利益全部をGPU localityだけには帰属しない。
+72: 
+73: 機能・cache確認
+74:   同じ最終APIプロセスで画像→長文→継続を確認。
+75:   既存の新聞画像: MEN WALK ON MOON。観測VRAM最大 30118 MiB。
+76:   16384入力token: 入力処理 134.973秒。
+77:   返却された全token IDsを連結して続行: cache_n=16399、新規prompt_n=1。
+78:   継続の入力処理 0.140秒、要求全体 2.220秒。
+79:   128k確保は128k全域の速度・品質を実測した意味ではない。
+80:   最後のOpenAI chat APIの簡単な確認も成功（2+3→5）。
+81:   API PID 428797、config SHA256 963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43。
+82:   稼働libraryとplanのSHA256を最終確認。xeon-watchは稼働を確認。
+83: 
+84: 実行環境
+85:   CPU: Intel(R) Xeon(R) CPU E5-2630L v2 @ 2.40GHz ×2（12物理core/24logical）。
+86:   Board: Sugon X9DR3-F。
+87:   RAM: 公称512GiB。最終MemTotal 503.86GiB、MemAvailable 67.90GiB。
+88:   GPU: PG500-216 / Volta sm70 / 約32GB、150W、ECC有効。PCIe 0000:84:00.0、NUMA node1。
+89:   Kernel: 6.12.113+deb13-amd64。
+90:   Context131072 / f16 KV / batch1024 / GPU resident expert layers37–39。
+91: 
+92: 使い方
+93:   既存のAPI URL: http://10.10.10.2:8000/v1
+94:   Model alias: deepseek-v4.1-flash-1017-mix256
+95:   次回の通常起動: sudo python3 /home/codex/projects/llm-lab/deepseek41-bringup-20261101/start.py
+96:   今回開始時へ戻す: sudo python3 /home/codex/projects/llm-lab/exploration-20261112/switch_and_wait.py baseline
+97:   API再起動が必要になる。元モデル・以前の凍結記録・公開repositoryは変更していない。
+98: 
+99: 証拠
+100:   FINAL_ABBA.json / FINAL_STATUS.json / FINAL_PROFILE_MANIFEST.json
+101:   cpu-wait/RESULTS.json / mx-prepack/LIVE_ABBA.json / cuda-sort/LIVE_ABBA.json
+102:   native-pool/ / cpu-coordination-mx/ / iq-rhs/ / row-local/ / execution/
+103:   kernelのbit一致、sanitizer、実回答一致は異なる範囲の検証として保存。
+104:   旧SSE試験のtoken hashは観測stream IDのhashで、UTF-8処理により全raw IDsではない場合がある。
+105:   最終fresh比較と長文継続は非streamの全IDsを使い、この制約を避けた。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/optimization-20261112/RESULTS_JA.txt
+SHA256 59e81db3b2f514dd72868e13ee3b29883e1e4ce2ea7a76c0f42283c6fc440ae7
+1: 2026-11-12 最適化検証結果
+2: 検証・採用・最終稼働確認は完了。APIは候補prefill64で待受け中。
+3: 最終稼働確認は FINAL_STATUS.json、現在の状態は STATE.json を参照。
+4: 
+5: 採用対象
+6: 1. CPUの展開済みIQ重みキャッシュ予算を96GiBから120GiBへ拡張。
+7: 2. GPUへ処理を回す入力数の下限を通常512/MXFP4 1024から、両方64へ変更。
+8: 元モデル、量子化、GPU常駐層37/38/39、128k f16 KV、生成12/入力24スレッド、
+9: GPU150W・ECC・ファン上限70%は維持。今回、GPUのexpert常駐配置は変更していない。
+10: 検証対象と同一内容の設定ファイルは profiles/prefill64.json。
+11: 最終起動・確認が完了したことは FINAL_STATUS.json の存在と各項目で判断する。
+12: 
+13: CPUキャッシュ拡張の結果
+14: 実使用94.922→118.652GiB、40→50テンソル。追加RAMは約23.73GiB。
+15: 16～20層のIQ3_XXS gate/upが展開キャッシュに加わった。
+16: 同じ合成入力・同じ出力で、生成速度の中央値は以下。
+17:   code:     6.4106→6.6912 tok/s、+4.38%
+18:   count:    6.3012→6.6241 tok/s、+5.12%
+19:   Japanese: 6.4369→6.7492 tok/s、+4.85%
+20: 基準2～3回、候補各3回。出力文字列と返却トークン列のハッシュ一致。
+21: 768グラフ試験・672768出力でビット不一致ゼロ。算術は変更せず上限を拡張した。
+22: 未変更対照ソース2個を再コンパイル、元ライブラリ2個を再リンクし、すべて元とSHA一致。
+23: 元の64GiB空きRAM確認は各割当時に保持。ただし稼働中ずっと64GiBを確保する機能ではない。
+24: 候補の起動直後MemAvailableは以前の測定で約67.96GiBだった。
+25: 根拠: API_COMPARISON.json、CACHE120_RESULTS_JA.txt、cache120/control/CHECK.json。
+26: 
+27: 短い入力でもGPUを使う変更の結果
+28: 元の入力数の下限ではCPU側に残っていた処理を、既存GPU実装へ早めに回す。
+29: 新しいGPUカーネルや量子化形式を導入した変更ではない。
+30: CPUキャッシュ120GiBは両群で共通。固定問題をcache_prompt=falseで比較した。
+31: 
+32: 問題                     入力token    旧設定TTFT      候補TTFT     短縮率
+33: 台帳計算                       163        15.83秒        10.14秒       35.9%
+34: 整数リスト選別                 170        16.18秒         9.83秒       39.3%
+35: 倉庫の商品金額                 189        17.81秒        10.33秒       42.0%
+36: 日本語在庫計算                 190        16.94秒         9.14秒       46.0%
+37: ソート済みリストのmergeコード  157        15.37秒         9.58秒       37.6%
+38: 連続する値の個数を数えるコード 174        16.92秒        10.22秒       39.6%
+39: 訂正付き日本語抽出             190        17.19秒         9.66秒       43.8%
+40: 短いレコード選別                83         8.99秒         7.24秒       19.4%
+41: 36行の請求明細計算             563        18.78秒        14.04秒       25.2%
+42: 
+43: 9問とも両設定で正答、回答文字列も一致。各問題・各設定1回の測定で、統計的な保証ではない。
+44: 生成コードはEOSまで取得し、計41ケース（空配列・負数・重複など）を両設定で通過。
+45: コード採点はAST制限・CPU/メモリ/時間制限付きの一般権限プロセスを使用。
+46: 初回の候補採点は/home/codexの通過権限により失敗した。モデル失敗とは区別し、元の
+47: RESULT.jsonを保存したまま、同じ出力を再採点したRESCORE.jsonで補足した。再推論は不要だった。
+48: 根拠: NATURAL_COMPARISON_PREFILL64.json、SEMANTIC_COMPARISON.json、semantic/。
+49: 64トークンの繰り返し比較は、旧設定2回/候補3回でTTFT中央値7.190→6.386秒、11.18%短縮。
+50: 返却トークン列と出力文字列は一致。生成速度の中央値は6.698→6.703tok/sで実質同程度。
+51: 根拠: SHORT64_COMPARISON.json。
+52: 
+53: 数値と品質についての限界
+54: このGPU振り分け変更はビット一致する変更ではない。
+55: 同じ固定prefixの全129280語彙の次トークン確率をCPU/GPUで比較すると、候補64では
+56: 6か所のうち5か所が経路変更の対象。TVD最大約0.0481、単一確率差最大約0.0375。
+57: 全6か所で最有力トークンは一致したが、基準の上位確率差が大きい容易な判断点なので、
+58: これだけで品質同等とは言えない。別の合成code128生成では出力ハッシュが変わった。
+59: CPUのQ8_KとGPUのQ8_1による活性値量子化粒度の違いを実装で確認しているが、
+60: 全モデルの差をこの一要因だけに帰することはできない。積和の順序や後続routingも関係し得る。
+61: 今回主張できるのは、固定9問で機能上の退行を確認せず、入力待ち時間が短縮したこと。
+62: 一般の長文品質、128k全域、画像入力、複数同時利用の品質/速度を検証したものではない。
+63: 根拠: QUALITY_COMPARISON_PREFILL64.json、quality/。
+64: 
+65: 改善しなかった試験も保存
+66: ・GPU常駐層の入れ替え: CPUで重かった層16/18/19へ変更しても差は約0～2%。
+67:   計測の揺れを超える安定した改善を示せず、元の37/38/39へ戻した。
+68: ・CPUの2出力行共有とそのunroll版: ビット一致したが遅くなり不採用。
+69: ・IQ3_XXS活性値bias: 単コアでは改善したが、増えるメモリ量により12コアで利益が安定せず不採用。
+70:   正しさ592208出力ビット一致を確認。詳細はexecution/とcpu-*。
+71: 
+72: ユーザー提案: GPUには頻出だけでなく重い処理を優先
+73: 評価軸は「頻度×1回に節約できる待ち時間÷VRAM使用量」が候補。
+74: 重みの再転送を避ける価値と、CPU/GPU並行処理に隠れる時間も考慮する。
+75: 今回の層単位比較では安定した利益がなかったが、expert単位の選別は未検証。
+76: CPUキャッシュ拡張後にはCPUの費用が変わるので、現状で再計測してから判断する。
+77: 詳しい未実装の検討メモ: PLACEMENT_VALUE_NOTES_JA.txt。
+78: 
+79: 通常起動（次回モデルが停止している時）
+80: sudo python3 /home/codex/projects/llm-lab/deepseek41-bringup-20261101/start.py
+81: 
+82: GPU振り分けだけ旧条件へ戻す（CPUキャッシュ拡張は維持、停止/再ロードを伴う）
+83: sudo python3 /home/codex/projects/llm-lab/optimization-20261112/switch_and_wait.py cache120
+84: 
+85: 今回の変更をすべて元へ戻す（停止/再ロードを伴う）
+86: sudo python3 /home/codex/projects/llm-lab/optimization-20261112/switch_and_wait.py baseline
+87: 
+88: 元のモデル、旧ライブラリ、凍結baseline、比較ログは保存。公開リポジトリへのpushはしていない。
+89: 最終確認時はAPI/監視/通知サービスがactive、ロード済み2ライブラリのSHAと環境変数を確認。
+90: MemAvailable約67.94GiB、GPU150W/ECC有効。通常の監視は既存サービスが継続する。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/fresh_probe.py
+SHA256 2ab803289ab4d6eb28da272ec74992e2c1b31a44fed46a3ec5185f08e2653a0c
+1: """Final frozen prompt set, complete native output tokens via nonstreaming responses."""
+2: from pathlib import Path
+3: import argparse,fcntl,hashlib,json,os,time,urllib.request
+4: from heldout_probe import ROOT,CONFIG,helpers,private_write
+5: def main():
+6:     parser=argparse.ArgumentParser();parser.add_argument('--label',required=True);parser.add_argument('--freeze-only',action='store_true');a=parser.parse_args()
+7:     assert a.label.replace('-','').isalnum()
+8:     lock=(ROOT/'.benchmark.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+9:     raw=CONFIG.read_bytes();config=json.loads(raw);key=Path(config['api_key_file']).read_text().strip()
+10:     headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'}
+11:     url=f"http://{config['host']}:{config['port']}";opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
+12:     def query(route,body=None):
+13:         with opener.open(urllib.request.Request(url+route,headers=headers,data=None if body is None else json.dumps(body,ensure_ascii=False).encode()),timeout=240) as response:return json.load(response)
+14:     assert query('/health')['status']=='ok' and not any(s.get('is_processing') for s in query('/slots'))
+15:     source=ROOT/'FRESH_PROMPTS.json';spec=json.loads(source.read_text());fixed=ROOT/'FRESH_INPUTS.json'
+16:     source_sha=hashlib.sha256(source.read_bytes()).hexdigest()
+17:     if not fixed.exists():
+18:         cases=[]
+19:         for case in spec['cases']:
+20:             formatted=query('/apply-template',{'messages':[{'role':'user','content':case['text']}]})['prompt']
+21:             tokens=query('/tokenize',{'content':formatted,'add_special':True,'parse_special':True})['tokens']
+22:             assert 32<=len(tokens)<1024
+23:             cases.append({'name':case['name'],'tokens':tokens})
+24:         private_write(fixed,{'source_sha256':source_sha,'cases':cases,'generated_tokens':spec['generated_tokens']})
+25:     manifest=json.loads(fixed.read_text());assert manifest['source_sha256']==source_sha
+26:     if a.freeze_only:
+27:         print('Frozen final input token IDs: '+str(fixed),flush=True);return
+28:     folder=ROOT/'heldout'/f'{time.strftime("%Y%m%d-%H%M%S")}-{a.label}';folder.mkdir(parents=True,mode=0o700)
+29:     if os.geteuid()==0:os.chown(folder,ROOT.stat().st_uid,ROOT.stat().st_gid)
+30:     pid=helpers.api_pid()
+31:     record={'label':a.label,'started_unix':time.time(),'config_sha256':hashlib.sha256(raw).hexdigest(),'input_sha256':hashlib.sha256(fixed.read_bytes()).hexdigest(),'cases':[],'complete':False,'error':None,
+32:             'token_collection':'Complete generated token IDs from native nonstream final response','ttft_measurement':'Server prompt_ms proxy; no streaming wall TTFT measured',
+33:             'libraries':sorted({line.split()[-1] for line in Path(f'/proc/{pid}/maps').read_text().splitlines() if 'libggml' in line or 'libllama' in line})}
+34:     private_write(folder/'RESULT.json',record)
+35:     try:
+36:         for case in manifest['cases']:
+37:             initial=helpers.watch();assert CONFIG.read_bytes()==raw and helpers.api_pid()==pid
+38:             assert not any(s.get('is_processing') for s in query('/slots'))
+39:             body={'prompt':case['tokens'],'n_predict':manifest['generated_tokens'],'ignore_eos':True,'temperature':0,'seed':42,'cache_prompt':False,'stream':False,'return_tokens':True}
+40:             start=time.monotonic();result=query('/completion',body);wall=time.monotonic()-start
+41:             assert not result.get('error') and not result.get('truncated',False)
+42:             timing=result['timings'];assert timing['cache_n']==0 and timing['prompt_n']==len(case['tokens'])
+43:             assert len(result['tokens'])==timing['predicted_n']==manifest['generated_tokens']
+44:             after=helpers.watch();assert initial['host_counters']==after['host_counters']
+45:             record['cases'].append({'name':case['name'],'prompt_tokens':len(case['tokens']),'timings':timing,'stop_type':result.get('stop_type'),'ttft_s':timing['prompt_ms']/1000,'elapsed_s':wall,
+46:                 'output_sha256':hashlib.sha256(result['content'].encode()).hexdigest(),'token_sha256':hashlib.sha256(json.dumps(result['tokens']).encode()).hexdigest(),'output_token_count':len(result['tokens'])})
+47:             private_write(folder/'RESULT.json',record,replace=True)
+48:             print(json.dumps({'name':case['name'],'decode_tok_s':timing['predicted_per_second'],'tokens':len(result['tokens'])}),flush=True)
+49:         record['complete']=True
+50:     except BaseException as error:record['error']=repr(error);raise
+51:     finally:
+52:         record['finished_unix']=time.time();private_write(folder/'RESULT.json',record,replace=True)
+53:     print('Saved '+str(folder),flush=True)
+54: if __name__=='__main__':main()
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/prepare_hot_profiles.py
+SHA256 b485817f7584eb75819d684656ab5052e7fa8a829e5f16f00ffc20ec678f2ed4
+1: """Freeze a validated engine and separate disabled/all-miss/small/full residency profiles."""
+2: from pathlib import Path
+3: import hashlib,json,shutil
+4: R=Path(__file__).resolve().parent;OUT=R/'hot-ffn'
+5: def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+6: def main():
+7:     validation=json.loads((OUT/'BACKEND_VALIDATION.json').read_text());assert validation['passed']
+8:     build=json.loads((OUT/'ENGINE_BUILD.json').read_text());lib=Path(build['library']);assert sha(lib)==build['sha256']==validation['library_sha256']
+9:     for name,value in build['sources'].items():assert sha(OUT/name)==value
+10:     release=OUT/'release-a'
+11:     if release.exists():assert sha(release/lib.name)==sha(lib)
+12:     else:
+13:         release.mkdir();shutil.copy2(lib,release/lib.name)
+14:         for name in ['libllama.so','libllama.so.0']:(release/name).symlink_to(lib.name)
+15:     rows=[]
+16:     for profile,enabled,budget,cpu_layers in [('hot-disabled',0,'0GiB',37),('hot-miss',1,'0GiB',37),('hot-small',1,'0p5GiB',37),('hot14',1,'14GiB',40),('hot16',1,'16GiB',40)]:
+17:         hot_plan=OUT/f'hot-{budget}.plan';assert hot_plan.is_file()
+18:         c=json.loads((R/'profiles/final.json').read_text());env=c['environment'];env['LD_LIBRARY_PATH']=str(release)+':'+env['LD_LIBRARY_PATH']
+19:         env['GGML_XEON_HOT_FFN']=str(enabled);env['GGML_XEON_HOT_PLAN']=str(hot_plan)
+20:         c['study_libraries']=[x for x in c['study_libraries'] if Path(x['file']).name!=lib.name]+[{'file':str(release/lib.name),'sha256':sha(lib)}]
+21:         c['study_files'].append({'file':str(hot_plan),'sha256':sha(hot_plan)})
+22:         if cpu_layers==40:
+23:             cpu_plan=OUT/f'cpu40-without-hot-{budget}.plan';assert cpu_plan.is_file()
+24:             c['command'][c['command'].index('--n-cpu-moe')+1]='40';c['n_cpu_moe']=40;c['gpu_resident_expert_layers']=[]
+25:             old=env['GGML_CPU_IQ_PLAN'];env['GGML_CPU_IQ_PLAN']=str(cpu_plan)
+26:             c['study_files']=[x for x in c['study_files'] if x['file']!=old]+[{'file':str(cpu_plan),'sha256':sha(cpu_plan)}]
+27:             c['cpu_iq3_compact_profile'].update(name='frequency19200-minus-GPU-hot',selection='Remove GPU hot overlap; add zero-selected inventory for formerly GPU37-39; no refill',compact_payload_bytes=int(cpu_plan.read_text().splitlines()[0].split()[3]))
+28:         c['tested_on_real_model']=False
+29:         c['optimization_study'].update(profile=profile,status='isolated-scheduler-validated-awaiting-fullmodel',hot_backend_enabled=bool(enabled),hot_plan=str(hot_plan),GPU_hot_payload_bytes=int(hot_plan.read_text().splitlines()[0].split()[-1]),CPU_expert_layers=cpu_layers,
+30:             GPU_CPU_precision_note='GPU activation quantization/reduction may differ; standalone numeric checks are not wholemodel quality proof')
+31:         if enabled:c['gpu_stream_profile']['decode_policy']='Dedicated FFN: GPU resident hits concurrently with CPU misses; T>1 existing graph/offload thresholds'
+32:         target=R/'profiles'/f'{profile}.json';raw=(json.dumps(c,indent=2)+'\n').encode()
+33:         if target.exists():assert target.read_bytes()==raw
+34:         else:target.write_bytes(raw);target.chmod(0o600)
+35:         rows.append({'profile':profile,'sha256':sha(target)})
+36:     (OUT/'PROFILES.json').write_text(json.dumps({'library_sha256':sha(lib),'profiles':rows,'not_deployed':True},indent=2)+'\n')
+37:     print(json.dumps({'frozen_engine':str(release),'profiles':[r['profile'] for r in rows]}),flush=True)
+38: if __name__=='__main__':main()
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/tools/server/server-common.h
+SHA256 335a09e65306cb14d18760b2be6710d586b08a23316c79d7ebfab3148e82ba1b
+414:     uint64_t n_draft_accepted    = 0;
+415:     uint64_t n_draft_verif_steps = 0;
+416: 
+417:     // these are absolute timestamps (in us)
+418:     // note: must be signed - they are subtracted before the later ones are set
+419:     int64_t t_start       = 0;
+420:     int64_t t_prompt_last = 0;
+421:     int64_t t_gen_last    = 0;
+422: 
+423:     // can only move one direction: start -> prompt -> gen
+424:     void update_prompt_start() {
+425:         GGML_ASSERT(t_start == 0);
+426:         t_start = ggml_time_us();
+427:     }
+428:     void set_prompt_last(int64_t t_us) {
+429:         GGML_ASSERT(t_start > 0);
+430:         t_prompt_last = t_us;
+431:     }
+432:     void update_prompt_last() {
+433:         set_prompt_last(ggml_time_us());
+434:     }
+435:     void update_gen_last() {
+436:         GGML_ASSERT(t_prompt_last > 0);
+437:         t_gen_last = ggml_time_us();
+438:     }
+439: 
+440:     // these are time durations
+441:     int64_t t_elapsed_us() const {
+442:         return ggml_time_us() - t_start;
+443:     }
+444:     double t_prompt_ms() const {
+445:         if (t_prompt_last == 0) {
+446:             return 0.0; // the prompt is not processed yet
+447:         }
+448:         return (t_prompt_last - t_start) / 1000.0;
+449:     }
+450:     int64_t t_gen_us() const {
+451:         if (t_gen_last == 0) {
+452:             return 0; // the generation is not started yet
+453:         }
+454:         // clamp to 1 us, the first token can land in the same us as t_prompt_last
+455:         return std::max<int64_t>(1, t_gen_last - t_prompt_last);
+456:     }
+457:     double t_gen_ms() const {
+458:         return t_gen_us() / 1000.0;
+459:     }
+460: 
+461:     // number of decode steps spent on generation
+462:     // the first token is free, it comes from the logits of the last prompt batch
+463:     uint64_t n_gen_steps() const {
+464:         return n_gen > 0 ? n_gen - 1 : 0;
+465:     }
+466: 
+467:     // other derived metrics
+468:     // note: all of them return 0.0 if the divisor is not known yet
+469:     double t_prompt_per_token_ms() const {
+470:         return n_prompt_processed > 0 ? t_prompt_ms() / n_prompt_processed : 0.0;
+471:     }
+472:     double t_gen_per_token_ms() const {
+473:         return n_gen_steps() > 0 ? t_gen_ms() / n_gen_steps() : 0.0;
+474:     }
+475:     double n_prompt_tps() const {
+476:         const double t_ms = t_prompt_ms();
+477:         return t_ms > 0.0 ? 1e3 / t_ms * n_prompt_processed : 0.0;
+478:     }
+479:     double n_gen_tps() const {
+480:         const double t_ms = t_gen_ms();
+481:         return t_ms > 0.0 ? 1e3 / t_ms * n_gen_steps() : 0.0;
+482:     }
+483: 
+484:     // false if the slot never started, i.e. the task result carries no stats
+485:     bool is_set() const {
+486:         return t_start > 0;
+487:     }
+488: 
+489:     json to_json() const;
+490: };
+491: 
+492: // shared between server_context_impl and server_task_result_*
+493: // unlike server_slot_stats, server_metrics is server-global and cumulative, not tied to a slot
+494: struct server_metrics {
+495:     int64_t t_start = 0;
+496: 
+497:     struct bucket {
+498:         uint64_t count = 0; // number of tokens
+499:         uint64_t steps = 0; // number of decode steps,
+500:                             // this excludes first generated token (logits from prompt batch)
+501:         uint64_t time  = 0; // in microseconds
+502: 
+503:         // the rate uses the decode steps, so that "free" tokens do not inflate it
+504:         double n_per_second() const {
+505:             return time > 0 ? (double) steps / (double) time * 1e6 : 0.0;
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/tools/server/server-common.cpp
+SHA256 b686729ed7d098e2f0c3da1ba28325d0e6d30721dab09f71cb9b53f342710ddb
+135: }
+136: 
+137: //
+138: // server_slot_stats
+139: //
+140: 
+141: json server_slot_stats::to_json() const {
+142:     json base = {
+143:         {"cache_n",                n_prompt_cached},
+144: 
+145:         {"prompt_n",               n_prompt_processed},
+146:         {"prompt_ms",              t_prompt_ms()},
+147:         {"prompt_per_token_ms",    t_prompt_per_token_ms()},
+148:         {"prompt_per_second",      n_prompt_tps()},
+149: 
+150:         {"predicted_n",            n_gen},
+151:         {"predicted_ms",           t_gen_ms()},
+152:         {"predicted_per_token_ms", t_gen_per_token_ms()},
+153:         {"predicted_per_second",   n_gen_tps()},
+154:     };
+155: 
+156:     if (n_draft_tokens > 0) {
+157:         base["draft_n"]          = n_draft_tokens;
+158:         base["draft_n_accepted"] = n_draft_accepted;
+159:     }
+160: 
+161:     return base;
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-next-optimization/CONSULT_PRO_JA.txt
+SHA256 b69660b56d6bfbe218d0c47c9a46104f5c7bda4e34a48ac76c0e48e619fcbea2
+1: GPT Proへの実装前相談 / 2026-11-16
+2: 
+3: 今回の依頼
+4: 返却いただいた現行レビューを受け、提示されたabs-input probeを改変せずXeon実機で実行しました。
+5: 本体の新しいkernel・dispatch・workspaceにはまだ手を入れていません。以下は設計提案です。
+6: 要約だけで判断せず、添付した元のsourceと全raw測定、以前の失敗・不採用記録も読んで、別の有望な方針があれば提案してください。
+7: ユーザーは、Pro側のトークン消費を抑えるより、元データから独立した発想を得ることを重視しています。
+8: 
+9: 基準となる現行実装
+10: https://github.com/MangekyoMyan/xeon-moe-lab/tree/7d8b077afcf1258602366245f1567e820255defa/archive/review-handoffs-not-for-readers/2026-11-16-current
+11: この配下をH、H/snapshot/llm-lab/exploration-20261112をEと呼びます。
+12: 今回の返却資料45fileもincoming/に原文のまま同梱します。先方のEPYC測定と今回のXeon測定を分けてください。
+13: 
+14: 実機と現況
+15: CPU E5-2630L v2 x2、12物理/24論理、RAM512GB、GPU PG500-216 32GB。
+16: APIは引き続きfinal、config SHA256 963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43。
+17: GPU150W/ECC/fan<=70%、128k f16 KV、IQ cache約118.652GiB payload/configured120GiB、reserve64GiBを維持。
+18: CPU/GPUの実library・build・全現行sourceはHに固定済み。今回APIの起動停止・モデル再読込・生成要求・配置変更は行っていません。
+19: 
+20: 今回行ったこと
+21: 1. 返却ZIP44記載fileのSHAを確認。残り1fileはmanifest自身。
+22: 2. 親がrun_iq_abs_rhs_probe.pyとiq_abs_rhs_probe.cppを全文確認。
+23: 3. c++14.2.0、-O3 -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -fno-fast-math -ffp-contract=offで提示sourceをそのままcompile。
+24: 4. 正しさ: abs対現行61,440出力bit一致、unsafe4,800拒否、旧bias62の20,480出力bit一致。
+25: 5. CPU3/NUMA0に固定しbench全16条件。別のCPU9/NUMA1で同じbinaryを用いて全16条件を反復。
+26:    コマンドの外側をnumactl --physcpubind=3 --membind=0、反復は9/1で包みました。
+27:    node1用RESULTは同じcorrectness receiptとprobeをコピーして再使用しています。correctness件数を2倍に数えないでください。
+28: 6. APIは開始前・全測定後に待機中、config hash不変。最後のhost counterはAPI開始時と一致し、monitor errorsなし。
+29:    APIが測定中ずっとidleだった連続traceや、温度peak、CPU clockの時系列は取っていません。OSも隔離していません。
+30: 
+31: 生データの入口（この相談票と同じdirectory）
+32:   abs-original-xeon/RESULT.json: CPU3/node0。compile argv、source hashes、correctness stdout、全16条件のbenchmark stdoutとparsed arrays。
+33:   abs-socket1-xeon/RESULT.json: CPU9/node1。最後に追加されたcommandとbenchmark_rowsがこの反復。前のcommand記録も残っています。
+34:   incoming/xeon_moe_review_2026-11-16/cpu/iq_abs_rhs_probe.cpp: 実行したC++原文。
+35:   同run_iq_abs_rhs_probe.py: 実行したrunner原文。
+36:   RUN_CONTEXT.json、BASELINE_IDLE.json、AFTER_SCREEN.json、EXPERIMENT_PLAN.txt。
+37:   CPU_SCREEN_RESULTS.json/.tsv: 固定した期待16条件を明示検証した比較表。analyze_screen.pyも添付。
+38:   E/iq-rhs/: 旧bias62の実装・実測・不採用記録。今回bias62とabsを同じものとして扱わない。
+39:   E/FINAL_ABBA.jsonとE/heldout/: 現finalの全モデル比較。今回のmicrobenchとは異なる証拠。
+40: 
+41: 今回の数値（wall paired medianの速度増加、左CPU3、右CPU9）
+42:                        K2304/M256    K2304/M8192    K5120/M256    K5120/M8192
+43: abs IQ3_XXS             +4.19/+3.54   +4.89/+3.53    +4.01/+3.13   +2.86/+2.79
+44: abs IQ2_S               +5.06/+4.42   +3.57/+3.70    +4.18/+4.42   +3.99/+4.19
+45: abs IQ3_S               +5.72/+5.40   +5.80/+5.75    +4.69/+4.89   +4.64/+5.10
+46: 旧bias62 IQ3_XXS        +4.39/+6.13   +4.96/+6.53    +5.72/+7.33   +5.20/+7.24
+47: 
+48: 全absの保持paired比は1を超えました。速度判定前に定めた実務screenは「wall中央値>=1.03、保持4比すべて>1、thread CPUでも方向と大きさが対応」。IQ3_XXS K5120/M8192を保留とし、残り11/12条件が両socketで通りました。
+49: これは有意差や一般性の証明ではありません。特にIQ2_S K2304/M8192のnode1には1.011315〜1.086003の幅があり、全値をrawに残しています。
+50: wall/thread CPUは概ね対応します。今回の値をdecode tok/sの改善へ換算しません。
+51: 各比較は提示probeの独立したABBA/BAAB blockです。absとbiasの数値を直に割って厳密な直接A/B比較と呼ばないでください。
+52: 
+53: 今回の限界
+54: 単一thread、synthetic weights、input1本、K2304/5120、rows256/8192。
+55: 実FFNのK5120 x M2304とK2304 x M5120、12workers、6expert、downの6本の入力、raw/cached mixはまだ測っていません。
+56: 準備は各matrix traversalのtimed regionに含み、F32->Q8_Kは双方共通として除外。
+57: 同じseed/同じbinaryでsocketを変えた再現性確認であり、独立な入力分布を増やしたわけではありません。
+58: 旧bias62は全モデルで約+0.51%に留まったため、局所の数％だけで統合を正当化しない方針です。
+59: 
+60: 第一提案: IQ2_S/IQ3_Sへ絞った実形状・multiworker検証
+61: IQ3_XXSに新しいabsを入れる優先度は低いと考えています。旧案に対する明瞭な優位がなく、実形状の大きな条件もscreen未達です。
+62: IQ2_S/IQ3_Sのabsは固定144B weightsを維持し、既存cache coverage/大きなRAM payloadを変えずに試せます。
+63: ただしdownではQ8_Kとabsを6入力分保持すると約28.9KiBとなり、32KiB L1Dに対して余裕が小さい。実際の他working setやthread分割を含めて見ないと期待と逆になる可能性があります。
+64: 
+65: 本体を変更する前に作る予定の評価harness
+66:   - 現144B、abs144B、IQ3_XXSの旧bias62を同一条件で比較。型ごとに適用可能なものを明示。
+67:   - K5120/M2304 up/gate、K2304/M5120 down、1/6入力、1/6/12 workerを段階的に。
+68:   - 6workerは両socket3coreずつ、12workerは両socket6coreずつ。socket数を変えたcore比較と混同しない。
+69:   - 入力準備・flags合成・barrier・dispatchも計測へ含め、dotだけの勝ちを採用条件にしない。
+70:   - 配置は現行interleaveに合わせる比較と局所配置の小試験を区別。real weightsを使う場合も同じ入力とroutingを固定。
+71:   - expected casesを事前manifestに固定。失敗・欠落・重複・非finite・unsafe分類を明示し、空集合all-passを禁止。
+72:   - 先にcorrectness、次に速度。両socketの小試験とreal12workerで再現しなければ統合案を棄却。
+73: 
+74: もし上を通った場合の統合設計案（まだ未実装）
+75: 対象はE/mx-prepack/release-candidate-a/sources/ggml-cpu.cを基点とする別の実験library。
+76: E/prepare_iq_rhs_backend.pyに既存IQ3 bias用のworkspace/worker-maskの接続例があります。ただし旧候補全体を再採用しません。
+77:   - 型は最初IQ2_S/IQ3_Sのみ。compact hitかつT=1だけ新dotを選ぶ。raw fallback/他の型/MXFP4は現在の経路。
+78:   - src1 F32->Q8_Kの変換に続き、同workerが自分のcomplete256 block範囲だけabsを準備。
+79:   - n_inputs1..64、K正かつ256倍数、対応stride/shapeを明示検査。plannerと実行側で同じworkspace sizing。
+80:   - abs workspaceはalign64(K)*n_inputs、workerごと64bitのsafe mask等を別途予約。元Q8_Kはscaleと符号に必要なので残す。
+81:   - empty block担当も有効maskを書き、既存barrierの後に全worker maskをANDする。-128/非finite scaleが一つでもある入力は現在のdotへ戻す。
+82:   - 当該入力にcompact hitが一つもない場合の準備を省けるか検討。ただしmask計算そのものの費用を比較し、共有状態の早読みを作らない。
+83:   - cache owner・registry・144B row stride・選択plan・weight packingは変えない。runtimeのpointer差替え/evictionも追加しない。
+84:   - dot選択はrowのinner block loopの外。lane累積、水平和、最後のscale係数の順序を維持。
+85:   - `use_ref`、prequantized input、n_inputs=64のshift、unsafe一部、欠けたcache、複数graph呼出、異なるworker数を境界試験。
+86:   - 新旧libraryは別pathへ凍結し、初期はopt-in、現finalの戻し先を維持。ライブラリ読込とdispatch回数の証明も保存。
+87: 上記に簡素で正しい代案があれば変更してください。まだ実装していないので設計を変えやすい段階です。
+88: 
+89: 相談したい判断
+90: 1. この実測と旧bias62の結果から、IQ2_S/IQ3_Sのmultiworker評価へ進む価値はありますか。kernel/入力側作業/キャッシュ動作を見て、もっと筋のよいCPU案があれば提案してください。
+91: 2. 上のworkspace・barrier・safe mask・fallbackの設計に穴はありますか。限られた改善のために複雑さを増やしすぎていないかも評価してください。
+92: 3. CPU案よりGPU配置を優先すべきなら、全40層・6expert共起・CPU/GPU完了時間を取る最小の計測設計を具体化してください。既存の同期が守る寿命と、計測overheadをどう扱うかを重視します。
+93: 
+94: GPUの次案についての現時点の意向
+95: 返却レビューで、hit数/VRAMの目的ではhot14の詰め方が上限に近いと分かりました。同じcount目的のsolver高度化はしません。
+96: 次は同一hitでも短縮できる全体時間が違う点を測り、CPUとGPUの終了の遅い側を減らす配置へ進みたいです。
+97: H=2/4/5とIQ3_Sの非ゼロcoverage補完、old37-39の移動との交絡分離を先に行う案は支持します。
+98: 一方、現在のAPIを載せたままではprivate GPU reserve条件を満たすとは限りません。guardを緩めて試す予定はありません。
+99: 観測前にGPU側scatterや非同期化を大改造せず、byte削減と待ち時間削減のどちらが効くかを切り分けたいです。
+100: この方向を含め、同梱の元コードと過去データから別の高価値案を出しても構いません。
+101: 
+102: 今回の合意・制約
+103: ユーザーは最適化再開とGitHubの自由な利用を許可し、重要な実装前にPro相談を挟むことを希望。
+104: 重要コードの実読と編集は親担当、Terraは測定ログの整理。
+105: 本相談の公開はAPIへ変更を適用する操作ではありません。今の通常生成速度は新microbenchの分だけ更新されたわけではありません。
+106: Proが局所環境で検証する場合は実機と異なるCPU/GPU/ISA/実行条件を明示し、代数・正しさと性能を分けて報告してください。
+107: 過去の探索を繰り返さないため、既試行/今回新規/未検証を区別してください。必要なら候補コードや再現fixtureを返してもらい、こちらで実機検証・内容確認を行います。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/RESULTS_JA.txt
+SHA256 af85c7bc3cf9f2f4023c010c299363e508c84ea3945ee07d96b6971095d5b876
+1: IQ入力abs共有の実ggml統合・Xeon実測結果（2026-11-16）
+2: ===================================================
+3: 
+4: 結論
+5: ----
+6: Proの返却案を実際のggml CPU演算へ試験実装した。通常APIは変更していない。
+7: IQ2_Sの共有方式は次段階に残す。IQ3_Sは同一ライブラリ内では改善したが、凍結版との
+8: 直接比較では事前の2%基準に届かなかったため、本番採用を保留する。
+9: private方式を含む試作・生データを保存し、現在の通常APIはfinalのまま維持する。
+10: 
+11: 型・実形状              同一library shared/無効 r1,r2   凍結版/shared    直接比較の時間変化
+12: IQ2_S K5120 M2304,input1  1.04998,1.05399                 1.06675         -6.258%
+13: IQ3_S K2304 M5120,input6  1.02416,1.02680                 1.01510         -1.488%
+14: 
+15: 比率は「対照時間/候補時間」。速度+6.675%と時間-6.258%は同じ結果の別表現である。
+16: これは6 expert・12物理コアの単一projection演算。全モデルのtok/sやprefill改善率ではない。
+17: CPUで処理するexpert、型、cache hit率、GPUとの重なりにより全体への寄与は変わる。
+18: 
+19: 実装の内容
+20: ----------
+21: 元のcompact重み144 B/blockを維持し、Q8_K入力の絶対値を先に計算して複数行へ再利用する。
+22: mode0=既存compact算術、mode1=全入力の共有前処理、mode2=worker-private lazy前処理。
+23: 試験ライブラリの既定はmode0。ハーネスが公開テスト関数で切り替える。通常API用の
+24: 環境変数や起動profileには組み込んでいない。単にLD_LIBRARY_PATHを変えても有効化しない。
+25: 
+26: 対象はIQ2_S/IQ3_S、T=1、入力1..64、F32/Q8_K、Kが256倍数の経路に限定。
+27: sharedは各workerが量子化済みの完全blockだけを前処理し、既存barrierで公開する。
+28: worker別safe maskをbarrier後にANDし、新しいbarrierを足していない。
+29: privateは必要なcache hitを担当した時に1入力だけ準備し、chunkをまたいで再利用する。
+30: -128/非有限scaleは現在のcompact readerへfallbackする。raw readerへcompact重みを渡さない。
+31: 作業領域はmode/use_ref/cacheの状態から独立して予約し、絶対pointerを64byte整列する。
+32: 元のcache形式、packing、registry、選択plan、expert割当、NUMA/chunk schedulerは変更しない。
+33: sharedはall-missでも前処理する単純な対照。前段のrow-map早読みやlookupの二重化はない。
+34: 
+35: 測定条件
+36: --------
+37: E5-2630L v2×2、12物理コア、512GB。実際のOpenMP pin0..11をwarmup後に確認。
+38: numactl interleave0,1を使用し、ggml_is_numa=falseを実測。両者を同じ設定とは扱わない。
+39: GPU150W/ECC/fan<=70を変更せず、GPU試験もしていない。
+40: 
+41: 実GGUFからblk.0.ffn_up_exps.weight（IQ2_S）、blk.13.ffn_down_exps.weight（IQ3_S）を
+42: read-only mmap。8 group×6=48 expertだけをcompact化し、payload303.75MiB/試行。
+43: 6 expert/要求、重複なし。実重みを使用する一方、入力とrouteは固定seedの人工データ。
+44: キャッシュall-hit/all-missで比較。mixed-hitの性能はまだ測っていない。
+45: F32量子化、graph計画、準備、row-map、同期、lookup、dispatch、dot、出力書込みを計時。
+46: 入力設定、cache構築、読戻し、出力比較、診断counter、記録I/Oは計時外。
+47: 
+48: 同一library試験は16 ABBA/BAAB block、各8回のgraph平均。8 groupを逆順条件で反復。
+49: 2型×2回×2cache×128=1,024個のtimed chunkを全保存。独立request1,024件ではない。
+50: 共有方式は両型で2回とも事前screenを通過。privateはIQ2のみ通過した。
+51: IQ2の対照時間には外れ値と順序差があり、比を割ってshared/privateの優劣を断定しない。
+52: 
+53: 凍結版との直接比較
+54: ------------------
+55: 各型を frozen,off,shared,shared,off,frozen の別process順に実行。
+56: 32 block/process、各32 graph平均。全12 process成功、768個のtimed chunkを保存。
+57: 各armは2 processだけであり、信頼区間や汎用的な効果量の確定とは扱わない。
+58: 同じblockの対称process平均同士の比を作り、その中央値を報告する。
+59: 全processで同じ入力・各cache条件の正解出力hashが一致。非有限の実重み出力は拒否する。
+60: 
+61: all-hitのprocess内中央値ms（2 processずつ）:
+62: IQ2: frozen .87820,.85116 / off .83829,.83521 / shared .79494,.80965
+63: IQ3: frozen .89411,.89531 / off .89375,.89198 / shared .87984,.89402
+64: 
+65: all-missの凍結版比: IQ2 off1.04822/shared1.04873、IQ3 off.99673/shared.99334。
+66: sharedのall-miss中央値時間悪化はIQ3で約0.67%、事前の1%以内。
+67: IQ2では新処理を無効にしたoffも速い。compiler/code配置やprocess間の変動を未分離なので、
+68: 直接比較6.7%の全てをabs前処理の利益とは呼ばない。同一libraryの約5%改善が別の裏付け。
+69: IQ3の直接比較1.5%は2%基準未達。良かった測定だけを使って採用しない。
+70: 
+71: 正しさとメモリ検査
+72: ------------------
+73: 最終validation: 凍結版5,730 graphの正解に対し、試作3 modeで17,190 graphを実行。
+74: 4,565,700出力比較がbit一致。独立・一意な数値4,565,700個という意味ではない。
+75: 変更したC/C++ translation unitとハーネスをASAN+UBSANで再buildし、同じ検証が成功。
+76: 再利用した既存objectやbase library全体はinstrumentしていない。全エンジンのrace自由を
+77: 証明したものではない。sanitizerの検証回数を新しい一意な正解数として加算しない。
+78: 
+79: K256/2304/5120、入力1/6/64/65、12→1→24 threads、F32/Q8_K、stride付きview、
+80: cache none/all/partial、safe→all unsafe→safe→partly unsafe→safe、use_ref、-1/重複IDs、
+81: T=3非対象、IQ3_XXS非対象、MXFP4/F32非対象を検証。
+82: workspace baseは意図的に16 mod64、前後canary付き。同じplan/workspaceで入力とmodeを変更。
+83: 診断counterで高速経路の行数、共有blockの分割、空worker、private all-missの準備0を確認。
+84: 実operator性能測定は通常のbackend workspace allocationも使用している。
+85: 逐次混合型の大きいgraph/全モデル入力分布、race detector、全浮動小数点環境の組合せは
+86: 今回の新しいoperator検証では網羅していない。以前の単体fixture検証と混同しない。
+87: 
+88: 運用と限界
+89: ----------
+90: 各試行は別process/実行lock、時間上限、RAM64GiB reserve、API活動時abortのguard付き。
+91: 常駐監視のsnapshotを読む仕組みで、0.5秒ごとの読取りが0.5秒ごとの新鮮な温度測定ではない。
+92: 短い試行ではsensor timestampが開始前のままのものがある。温度peakや連続無throttleを
+93: 保証したと書かない。終了時は監視正常、API health ok、config/ロードCPU libraryは凍結版一致。
+94: 
+95: API/モデル起動・再起動・GPU配置変更・fan変更・モデルdownloadは行っていない。
+96: GPU route/timing collector、offset4 cache、IQ3_XXS absは今回実装していない。
+97: これらは返却ZIPの提案で、試験した機能と区別する。
+98: 
+99: 次段階
+100: ------
+101: IQ2_Sを中心にmixed-hitと実モデルA/Bへ進む価値は残る。今の試験値だけで本番へ採用しない。
+102: IQ3_Sは保留。実装を簡素化する場合も今回のfrozen/library/harnessを保存して別artifactにする。
+103: モデル長時間起動を避けた今回の範囲では、通常APIはそのまま使える。
+104: 重要な次案はCONSULT_PRO_JA.txtに記した。元データとコードを省かずGitHubで共有する。
+105: 
+106: 資料案内
+107: --------
+108: ANALYSIS.json + analyze.py: 全rawの完全性/出力hash検証、同一library/直接比較の再集計。
+109: execution/: 全build/validation/timingのstdout,stderr,STATUS。初期compiler警告も保存。
+110: change.patch / ggml-cpu.c / iq-abs.*: 現行frozenへの差分と実装本体。
+111: probe.cpp / fixed_probe.cpp / BUILD類 / source hash: 実際の検証とcompile/link条件。
+112: checkpoint-screen-r1r2/: 初回screen時点のsource/build/hash。最終probeでは境界検証のみ追加。
+113: FIXED_RECEIPT.json / correctness/: 出力・入力hashと圧縮した正解データ（重みは含めない）。
+114: LOG_*_TERRA.txt: ログ専門の独立再集計。r1文書のmismatch記述はr2文書で明示訂正。
+115: incoming/: 今回Proから返却された原文、実験source、EPYC側証拠。Xeon実測と区別する。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-17-mixed-operator/RESULTS_JA.txt
+SHA256 97eb502426c331924ea479f5bb4b78cc5db78641601a2ec2d8418b24d7452d2f
+1: IQ2 mixed-cache実機検証 — 2026-11-17
+2: ==================================
+3: 
+4: 結論
+5: ----
+6: Proの提案を親が確認し、既存CPUライブラリを変えずに新しい共通harnessで測定した。
+7: mixedでもsharedの利益は残ったが、frozen対sharedの全未命中・総時間が事前基準を外した。
+8: 今回は本番化/全モデル候補buildへ進めず、CPU absの採用判断を保留する。
+9: 良い結果が出るまでの再試行、外れ値の除外、事後の基準変更は行っていない。
+10: 
+11: ユーザー本人への確認では今回の方針変更はない。本人の途中の補足と外部レビューの提案を
+12: 区別して確認・記録するという注意を継続する。詳細はPOLICY_AND_PLAN_JA.txt。
+13: 
+14: 何を測ったか
+15: ------------
+16: E5-2630L v2×2、12物理コア0..11、interleave0,1、ggml NUMA=false。
+17: 実GGUFのIQ2_S blk.0.ffn_up_exps.weight、K5120/M2304、入力1、1回6expert。
+18: 同じ人工入力8個、48 expert IDs、同じF/E CPU library、同じbase、同じharnessを全試行で使用。
+19: F=通常final、E=以前のabs試作。E内O=mode0、S=shared mode1。
+20: F内のlogical O/Sはどちらもactual mode0で、順序・外乱による差を見る対照とした。
+21: 
+22: C0=compact cacheなし、C6=48 expert全てcompact、Cplan=現行planと48 IDsの交差39expert。
+23: Cplanの各groupのhit数は[5,5,5,5,3,5,6,5]。CPU compactのhitでありGPU resident hitではない。
+24: 人工routeのmixed診断であり、実利用のhit率や全モデル時間配分を再現したものではない。
+25: 
+26: 固定順F,E,E,F,E,F,F,E、計8process、3cache条件、16block、4arm、32graph/chunk。
+27: 全1,536timed chunks、49,152timed graph callsを保持。独立反復はF4/E4processであり、
+28: 49,152個の独立requestではない。全8processがguard下で成功。再試行なし。
+29: 元のCPU libraryはbuildしていない。Proのharness/launcher/analyzerはsource変更なしで使用。
+30: 親の追加はbuild/orchestration/事前基準の機械的照合/運用receiptだけ。
+31: 
+32: 結果（合計所要時間の変化、負は短縮）
+33: ----------------------------------
+34: 条件                同一E内 S対O       F対EのS
+35: 全命中 C6            -4.399454%         -7.901310%
+36: 混在 Cplan           -3.291620%         -3.941963%
+37: 全未命中 C0          +0.236940%         +2.985553%
+38: 
+39: 中央値の速度比（対照時間/候補時間）:
+40: 条件                同一E内 O/S        F/EのS
+41: C6                   1.045827872        1.058866743
+42: Cplan                1.035697599        1.042473054
+43: C0                   0.999317808        0.999144818
+44: 
+45: E C6のprocess別総時間比は1.061278,1.048052,1.033783,1.040391で4/4が改善。
+46: 事前NEXT_RUN_SPECではC6の中央値/等量総時間とも1.02以上、C0/Cplanの悪化とも1%以内。
+47: 唯一の不合格はF対E/SのC0総時間。中央値が通ることを理由に総時間の条件を無視しない。
+48: SCREEN_DECISION.jsonはこの仕様をそのまま適用した結果。数値合格でも本番採用ではない。
+49: 
+50: 共有処理の効果とlibrary差を分ける
+51: --------------------------------
+52: C0はEのmode0でもFより総時間+2.742116%。E内shared有効化による差は+0.236940%。
+53: 従って+2.985553%を全てshared前処理の費用とする解釈は成立しない。
+54: ただし、これだけで「原因は外乱、E binaryに回帰なし」とも断定できない。
+55: 追加workspace/dispatch、code配置、allocator/NUMA状態、clock/OS schedulingなどは未分離。
+56: 
+57: Fの同actual-mode対照でもC0のlogical Sは総時間+0.877924%。これは観測された揺れで、
+58: Eの結果から差し引く補正係数ではない。
+59: C0のE/S−F差176,247,965nsの約95.4%は後半2組(p5/p4,p6/p7)に集中。
+60: E p4のC0 block8–10、p7のblock12–13/15に、O/S両方を含む連続して遅い期間がある。
+61: 他processにも遅い区間がある。原因を特定できず、削除の根拠にもならない。
+62: 詳細な全block値、開始/終了時刻、等量正規化はMIXED_RAW_REVIEW_TERRA.txtとraw.jsonl。
+63: 
+64: 正しさ・証拠
+65: ------------
+66: 全8processで、同じcaseのmode0 expectedの保存bytesが一致。
+67: 各timed chunk末尾出力はそのcase/groupの正解へmemcmp一致（32回全ての中間出力保存ではない）。
+68: warmupでabs行数、cache membership、実worker数/CPU、providerを検査。
+69: input/plan/library/harness hash、shard stat、実行順、全chunk時刻、モード、個数を照合。
+70: analyzerのpassed=trueは証拠整合性の成功で、性能採用の成功ではない。
+71: 親の判定scriptとTerraによる別計算は主要値が一致。CPU/GPU算術誤差許容は変更なし。
+72: 
+73: GPUやモデル全体の速度は今回測定していない。APIのPIDは前後11151で同じ、health ok。
+74: config/final CPU library/試作CPU library/base/planのhashは前後一致。
+75: モデル起動・download・通常API停止・GPU設定・fan変更は行っていない。
+76: 
+77: guard記録にはAPI活動abort、64GiB RAM reserve、温度/host counter監視がある。
+78: ただし短時間試行に対しsensor timestampは1–2種類、古い値が繰り返される区間がある。
+79: 記録上のcounter不変を連続無throttleや温度peakの証明にはしない。
+80: CLOCK_MONOTONICとUnix時刻を対応する高精度clock pairで保存していないので、sensor事件と
+81: chunk時刻を直接結び付けた因果説明はしていない。通常API活動sampleも無外乱の保証ではない。
+82: 
+83: 次の判断
+84: --------
+85: このmixed試験は完了。自動再試行や通常API切替の待機controllerはない。
+86: IQ2の利益を否定したのではなく、事前に求めた「未命中を含む全比較の基準達成」に届かなかった。
+87: 再測定をするならC0のE off/frozen差を識別する観測を足す理由が必要。あるいはCPU absを
+88: 保留し、独立したGPU側のroute/共通起点ready時間計測へ戻る。CPU枝試験を際限なく増やさない。
+89: CONSULT_PRO_JA.txtにこの判断と次の選択を相談する材料を置いた。元コード/rawは全て保持。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-17-route-observation/CONSULT_PRO_JA.txt
+SHA256 9fd898c935ab248bedd7fe1ebb421b0e44887c44bd599aee68a01828ea732a2f
+1: 次のレビュー依頼 — fresh容量とroute37の具体的な試作
+2: =================================================
+3: 
+4: 今回の返却を読み、CPU abs保留を維持してGPU分担の観測準備へ移りました。
+5: 本人の新しい方針変更はありません。外部提案とユーザーの承認を分けています。
+6: 通常APIやGPU37–39を変えず、capacity/identityを読み、隔離sourceを実装しました。
+7: 
+8: 実機新情報:
+9:   NVML total32768/used29920/free2575/reserved274 MiB、GPU150W/ECC Enabled。
+10:   total-usedとの差に注意。最小native bankを置く前の容量screenにも足りないため、hot追加なし。
+11:   実cudaMemGetInfo admissionは実行せず、GPU queryのみ。現在のprofile/config/libraryは不変。
+12: 
+13: source:
+14:   route37/route37.h,route37.cpp: 固定record/ledger、registration、publication、検証、読出しAPI。
+15:   route37/cpu.patch: frozen finalのith0 host-ID境界へhookを追加。
+16:   route37/caller.patch,route37-bridge.*: process_ubatchの実行ごとのtag/generation/終了接続案。
+17:   route37/probe.cpp: 37-node実ggml小fixtureと否定ケース。変更CPU libraryはlink済み。
+18:   caller側はsyntax-onlyまで。full libllama link/診断driver/実モデルcaptureは未実施。
+19:   defaultは無効。global opt-in環境変数やserverへの自動有効化は作っていない。
+20: 
+21: 重要な検討点（コードを直接読んでください）:
+22: 1. 単一context/caller/eval/CPU producerという初期scopeで、release/acquireとCPU同期戻りに
+23:    よるlifetimeが成立しているか。caller終了前のGPU tailと、CPU producer終了を分けた契約は
+24:    適切か。schedulerのextra backendやmodel graph reuseで欠測/誤ったgenerationが起きる
+25:    具体経路があれば指摘してください。
+26: 2. 登録は元modelの37 gateを実ubatch前に照合し、copied aliasや変更geometryを拒否します。
+27:    実final graphでこのidentity方式が届かない箇所があるか。失敗時はcoverage未達として扱い、
+28:    mappingを推測で補完する変更はしていません。
+29: 3. 呼出側labelはまだ診断driverの契約です。通常serverをいじらず、固定input/token列の
+30:    専用driverからrequest/phase/complete_callを与える次段階が妥当か。warmup完了後にsessionを
+31:    開き、4token smoke→64token、callerが元々必要とするlogits同期後に完了ledgerを閉じる案です。
+32:    追加syncを隠してlatency計測としないこと、unknown/prefill T1の扱いを確認したいです。
+33: 4. 初期buffer/ledger境界・failure/retry・overflowの扱いに不足はあるか。現在のnegative testsは
+34:    一部direct-hook fixtureで、full-model/TSan検査ではありません。必要な小さい次検証を絞ってください。
+35: 5. NVML free2575MiBという状態で37–39を維持する間はpositive hotを増やせません。
+36:    この段階はrouteのみで閉じ、ready計測のmemory計画は別にする案でよいか。guard引下げや
+37:    zero-hit custom dispatcherを中立collectorとして使う案は採っていません。
+38: 
+39: source・実行ログ・元返却物は全て添付directoryにあります。RESULTSはナビゲーションです。
+40: 単体graph出力13,320比較と部分ASAN/UBSANは成功しましたが、性能改善・モデル品質・実route分布を
+41: 証明する数字ではありません。推測で過剰に進めず、sourceの具体的な危険/改善を指摘してください。
+42: 
+43: 共有した通常engineの基準は7d8b077/31b1292/ff616809の同branch内archive。今回の通常APIは同じ。
+44: 新しいsourceは隔離試作であり、直ちに本番差替えできる完成installerとして扱わないでください。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-17-route-capture/ACTUAL_RESULTS_JA.txt
+SHA256 49aeefaf24b4cdb480976b2aecacb1837e88d66b2218e2e5626e0e3323e975a9
+1: route37 実モデル診断の結果（2026-11-17）
+2: =====================================
+3: 
+4: 結論
+5: ----
+6: 実モデルを使う隔離driverでCPU側37層のrouteを採取できた。
+7: ユーザー実行の4callと、その後のassistant実行の68callはいずれも正常終了。
+8: 後者は最初の4callがcoverage検査を通った後だけ64call追加したもの。
+9: これで実モデル側の接続を確認した。高速化・品質・本番採用の試験はしていない。
+10: 
+11: 実行者と操作
+12: ------------
+13: 1. ユーザーが通常APIを停止してdefault4callを実行。
+14:    run: 20261117T000246Z-d4e0df3a
+15: 2. 人間から「Proが提案した実操作はこちらで実施してほしい」と明示された。
+16:    最新メッセージでユーザー実行済みの可能性が分かったため、先に状態確認。
+17:    4call終了、API停止、診断processなし、monitor正常を確認し重複起動を避けた。
+18: 3. assistantがrun_capture.py --continue64を実行。
+19:    run: 20261117T001035Z-68c12e67
+20:    こちらも終了code0。追加のbuild・collector変更・配置変更はなし。
+21: 4. assistantが通常start.pyで元のAPIを起動。
+22:    最終的な稼働状態はRESTORED_RUNTIME.jsonを参照。
+23: 
+24: 今、ユーザーに追加のコマンド実行を依頼しているわけではない。
+25: 今後ユーザー操作が必要な際は「これを実行してください」と目的・担当を明記する。
+26: Proはチャット上のレビュー・設計・コード提案を担当し、実機操作はassistantが担当する。
+27: 
+28: 実測結果
+29: --------
+30:                        ユーザー4call       assistant68call
+31: 現在入力位置           64..67             64..131
+32: call / attempt         4 / 4              68 / 68
+33: route record           148                2,516
+34: expert選択IDの延べ数    888                15,096
+35: 各callの対象層         0..36 各一回       0..36 各一回
+36: 各recordのID           6個、相互に一意、0..383
+37: drop / flags           0 / 0              0 / 0
+38: graph generation       1のみ              1のみ
+39: child returncode       0                  0
+40: 監視下process全体時間  133.80秒           144.76秒
+41: 
+42: 最後の時間はload、warmup、prefill、診断、JSON保存、終了を含む。
+43: tok/s算出や4call対68callの速度比較には使わない。
+44: 各callのdecode return=0、logits全要素finite、同期完了、finalize成功を保存した。
+45: 出力の正解照合や生成した文章の比較は行っていない。
+46: 
+47: 2つのrunは同じprefixと最初の4入力を使用し、その148recordsが全field/順序とも一致。
+48: 先頭4attempt/callも一致。これはこの固定入力・モデル・環境の2runの範囲に限る。
+49: 後者の最初の4callと先行runを独立した追加サンプルとして合算しない。
+50: 
+51: 配置・実行物
+52: ------------
+53: 40層のgate/up/down expert weight bufferについて0..36はhost、37..39は非hostを実確認。
+54: 実schedulerのCPU/CUDA graph_compute providerも取得。
+55: 16 function providerのpath/device/inode/sizeと現在のbacking SHA256をpin済みlink情報に照合。
+56: 各runの16function＋2backendの検査はACTUAL_PROVIDER_VERIFICATION.jsonに保存。
+57: vision projectorもGPU側にload/warmup。通常設定の128k/f16 KV、CPU12/24、GPU150W/ECC、
+58: NUMA interleaveと同じ配置条件。診断driver固有のgraph/workspace状態はAPIと同一とは限らない。
+59: モデルファイルは既存download manifestのhashと全shardサイズを確認。全モデル重みを再hashしてはいない。
+60: 
+61: guardの保存済み標本（瞬間最大値を保証するものではない）
+62: -----------------------------------------------------
+63: 4call:  GPU30C、HBM29C、CPU34C、fan40%、VRAM30,372MiB、利用可能RAM最小67.80GiB。
+64: 68call: GPU29C、HBM29C、CPU35C、fan40%、VRAM30,392MiB、利用可能RAM最小67.67GiB。
+65: 各healthに残る最後30標本の最大/最小。GPU query timeoutはいずれも0。
+66: 保護停止はなし。通常の温度・電力・fan制限、RAM reserve64GiBを維持した。
+67: 正のGPU hot bankの追加allocationや空き容量の再判定はしていない。
+68: 
+69: routeの記述統計と限界
+70: --------------------
+71: 68callで1層あたり選択されたexpertの種類数は31..101、層間中央値60。
+72: 隣り合う入力の同じ層で共通したexpert数0..6の件数:
+73:   [361, 568, 660, 553, 267, 63, 7]（37層×67隣接対=2,479）
+74: この値はGPU cache hitではない。実際のbank/転送/ready/CPU-GPU overlapは測っていない。
+75: 繰り返しの短い英文をteacher forcingした小標本であり、会話・コード等への一般化はできない。
+76: per_layerの全frequency・隣接重複分布はACTUAL_CAPTURE_VERIFICATION.jsonに保存。
+77: 
+78: 注意して読むfield
+79: ----------------
+80: SMOKE4.jsonのtop-level passed=falseは、実装が全session close後にだけtrueへ変更するため。
+81: 4callのcoverage成功後かつclose前の途中snapshotであり、4call検査の失敗を表していない。
+82: 元のrawを変更せず保存した。RUN.jsonの最終passed、全台帳、終了codeを合わせて読む。
+83: stderrに非UTF8 byteがあるため、読み取りにはerrors=replaceを使用。原本byte/hashはそのまま。
+84: 
+85: 検証と共有
+86: ----------
+87: 親のverify_capture.pyによる全field検査とTerraによる独立raw監査が一致。
+88: ACTUAL_CAPTURE_AUDIT_TERRA.txtに独立監査の根拠と範囲を記録。
+89: 準備段階のcode/source/link/test原本は前回commit ff02ddb62fad0c46d98d1ba1d245c8a5597b52f5。
+90: 今回共有はその実機結果を追加するもので、前回の「未起動」は当時の状態として保存する。
+91: CPU absは保留、positive hot未実装/未測定、通常APIの最適化構成は変更していない。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-17-route-calibration/RESULTS_JA.txt
+SHA256 7b4e03f919744e48e2d74f689b02f76dfa4f5d85c4155cc6ba3cef9a15d1188e
+1: route37 caller整備・実モデル数値比較・6入力screen（2026-11-17）
+2: =========================================================
+3: 
+4: 結果と判断
+5: ----------
+6: Proの指摘に対応し、隔離した診断callerの全履歴JSON処理をtoken loopから除いた。
+7: 元のCPU/libllamaと診断側3状態の比較を実施し、4call分の全logitsがbyte一致した。
+8: 64callの時間比較では観測有効化の差は区間変動に比べ小さく、大きな負荷は確認されなかった。
+9: ゼロoverheadや統計的な同等性の証明ではない。collector内の追加最適化を今優先する根拠は弱い。
+10: 日本語/英語/混在ログ/コードの6caseで計14,208件のrouteを採取できた。
+11: 通常APIのengine/source/configは変更していない。復帰確認はRESTORED_RUNTIME.json。
+12: 
+13: 変更したもの
+14: ------------
+15: - driver.cppを新作業directoryで作成。既存のCPU/CUDA/libllamaは再buildも置換もしていない。
+16: - token loopは事前確保したStep配列とhost monotonic clockのみ。JSON/trace export/ファイル
+17:   保存はblock終了後。成功時全履歴走査は最終blockあたり一度。旧O(T^2)処理を持ち込まない。
+18: - この新callerは4callの数値検査を独立blockとし、合格してから64callのtimingへ進む。
+19:   計時中の4call checkpoint I/Oはない。異常時は通常drain/finalizeと可能なtrace保存を行う。
+20:   強制killでは最後の完了block以降のtrace/時刻を失い得る。長期収集の永続化機能ではない。
+21: - server-context.cppと同じoutput_limits規則を使用し、実cparamsを取得・保存。
+22:   n_ctx131072 / n_batch1024 / n_ubatch1024 / seq1 / output cap1 / per_seq1 / threads12,24。
+23: - Fではroute関数をresolveしない。D0はsessionを開かない。D1はobserving0の台帳のみ。
+24:   D2はobserving1。モードごとに正しいledger検査を行う。
+25: - 初期化前のfunction provider、初期化後の実scheduler CPU/CUDA providerをarmのpinと照合。
+26:   source/binary/library hashを検査し、旧pinを無効化していない。
+27: - 共通coordinatorの成功/失敗時sync・finish順序を維持。数値modeは全finite＋全F32保存、
+28:   timing/screen modeは通常logits取得による同期とpointer非nullのみ。検査scopeを明記。
+29: - F-before referenceのarm・cparams・全case token列・placement・provider・logitsを照合。
+30:   run wrapperは主要referenceのhashも検査。親のanalyze.pyと独立監査はhealthを含む全manifestを照合。
+31:   manifestはローカル事故検出用で、悪意ある同時改変への認証を主張しない。
+32: 
+33: 受領レビューとの対応
+34: --------------------
+35: incoming ZIP SHA256 e0f5c399d9b9c439941df7df7701cbe39ec729058e5e11d9af8a713927dde3af。
+36: 25manifest entries一致。Proの68call反復周期22/20種、累積89,318snapshot visits等はTerraも再確認。
+37: 同梱linear_export.patchは参考とし、今回のmode/時刻/数値比較に必要な共通callerを親が実装。
+38: BUILD/checkpoints/レビュー記録を保持。初回のbuildは成功したが、実機実行前レビューにより
+39: provider fail-closed照合とF-before reference指定を追加して再buildした。
+40: 実測に使ったのはtop-level BUILD.jsonの最終binaryだけ。初回buildはモデル実行していない。
+41: 
+42: 実行設計と件数
+43: --------------
+44: 事前DESIGN.json: F-before → D → F-after。モデルを同時常駐させず、各processを正常終了後に次へ。
+45: F前後は各correct4＋timing64×2。Dはcorrect4×3、timing64×6、calibration64×6。
+46: Dの時間比較順はD0,D1,D2,D2,D1,D0。結果が良い順に並べ替えたり、後から採用閾値を作ったりしない。
+47: 全21blocks / 1,044 T1 calls。内訳: 数値比較20call、時間比較640call、6case記録384call。
+48: D1の台帳のみを含め正常性を検査。観測有効の全recordは19,092、うち6case分14,208。
+49: 各blockはKV clear→同じ64token prefix→通常同期→新しいcollector session。
+50: first T1を除外せず保存し、firstと残りの統計も別に示す。load/warmup/prefillは別区間。
+51: 
+52: 数値比較
+53: --------
+54: 固定wiring_fixture、位置64..67、1call129,280 F32。
+55: F-before / D0 / D1 / D2 / F-after の各517,120値、2,068,480bytesが完全一致。
+56: 共通SHA256: 95430744558e7414b336f6548a6c03e064e12e1adc03cb8256fc45dcfc3187b0。
+57: 全5ファイルのfiniteも別に確認。これは同じ固定4入力の比較であり、全入力の品質証明ではない。
+58: 6caseではfrozenとの差分比較をしていない。timing/screenの全logits有限性を確認したと読み替えない。
+59: 
+60: 時間比較（1call当たり、decode_begin→output_ready、通常同期を含むhost境界）
+61: ------------------------------------------------------------------------
+62:                      block平均ms                              全block平均ms
+63: F-before             143.334 / 148.079
+64: F-after              144.544 / 144.343                          F合算145.075
+65: D0 診断sessionなし   144.709 / 143.230                         143.970
+66: D1 台帳のみ          141.683 / 144.625                         143.154
+67: D2 route記録         144.919 / 143.666                         144.293
+68: 
+69: 平均比の記述値: D0/F -0.762%、D1/D0 -0.567%、D2/D1 +0.795%。
+70: 元実装Fの4block平均の最大/最小差は3.311%。D1がD0より速く見えるなど、順序/実行変動も含む。
+71: これらを単一機能の純粋なspeedup/slowdownと解釈しない。FとDは別process、各Dmodeは2blocksのみ。
+72: engine以外の計時caller区間はF約1.6us、D2約2.9〜3.4us/call。engine内のhook/台帳負荷は
+73: この外側時間には含まれず、Dmode比較の対象。Pythonはtoken loopに参加しない。
+74: 全per-call時刻、初回、mean/median/p95を保存。親analyze.pyのp95は線形補間、Terraメモは
+75: nearest-rankで定義を明示している。小標本のp99、信頼区間、ゼロoverheadは主張しない。
+76: 
+77: 6caseの記述結果
+78: ---------------
+79: 各case raw textをadd_special=true/parse_special=trueでtokenize。chat templateは適用していない。
+80: 全文をtokenizeしたID/hashを保存した後、最初の64prefix＋次の64T1を使った。
+81: 同じ64tokensがJA/ENで同じ意味量に対応するという仮定は置かない。
+82: 
+83: case                         全文tokens   engine平均ms   層ごとのunique expert数中央値
+84: screen_cache_ja               372          135.074        76
+85: screen_cache_en               264          132.618        93
+86: screen_experiment_ja          336          136.533        81
+87: screen_experiment_en          260          139.272        99
+88: screen_mixed_log              332          138.534        95
+89: screen_code_python            302          128.818        80
+90: 
+91: 各case1blockのみ、実行順固定、全64callを保存。言語だけの因果効果ではなくtoken内容/位置/順序を含む。
+92: 反復wiringの同統計は60だったため、この例では反復だけの記録よりexpertの種類が広がった。
+93: この6caseはcalibration専用でbank train/validation/holdoutには使わない。
+94: 12family/20caseはまだ仕様案のまま。bank選択・holdout評価やGPU saved-time予測はしていない。
+95: 
+96: 容量と設定の確認
+97: --------------
+98: 通常APIは開始前にlive PID206163、slot idle、output cap1を確認。旧診断だけがcap1024だった。
+99: 通常APIとcap1の新callerもCUDA compute bufferは4669.26MiB、CUDA_Host約538.73MiBと表示。
+100: cap整合によってこの大きなworkspaceが解放されたという結果ではない。
+101: 開始前NVML: total32768 / used29942 / free2553MiB、150W、ECC有効。
+102: F-before/Dのwarmup後CUDA backend memory query: free2,225,340,416bytes（2122.25MiB）、
+103: total34,072,559,616bytes。CUDA側APIとNVML reserved accountingを混同しない。
+104: GPU37..39とCPU0..36のexpert配置を維持。新しいbank allocation/admissionは行っていない。
+105: 3072/2560MiBの既存bank guardを緩めていない。容量調査を次の優先候補とする理由はここにある。
+106: 
+107: 監視・復帰
+108: ----------
+109: 3runともhealth exited/return0、query timeout0、STOP_REQUESTEDなし。
+110: 各runに残る最後30標本の範囲でGPU最大34C、HBM34C、CPU39C、fan40%、利用可能RAM最小67.66GiB。
+111: 全期間の瞬間最大/最小を保証する値ではない。既存150W/ECC/fan<=70/温度/64GiB reserveを維持。
+112: 通常APIは元のstart.pyで起動し、準備完了・元のconfig/CPU/libllama/CUDA/base hashを検査する。
+113: 最終確認はRESTORED_RUNTIME.jsonに保存。ユーザーに追加操作を依頼するコマンドはない。
+114: 
+115: 次の判断
+116: --------
+117: 観測用コードの負荷をさらに削る作業はここで止め、得たrouteを並列化の判断へ使う。
+118: まず元のGPU3層を保ったubatch512/256等の少数比較で、workspace/freeとprefill/T1への影響を
+119: 同じ条件で評価する設計をProへ相談する。bank容量が成立する見込みなしに大きなcacheを実装しない。
+120: CPU absは引き続き保留。通常APIの高速化を今回新たに達成したという報告ではない。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/RESULTS_JA.txt
+SHA256 61374068e03ff179e62c73334f3e652fd22a61541cf64f96a1bd65929e078be4
+1: GPU容量の測定段階の訂正・実bank容量試験・train_first5（2026-11-17）
+2: ================================================================
+3: 
+4: 結論
+5: ----
+6: 前回の「GPUの空きが足りない」という断定は訂正する。vision/text準備後のfreeを、vision前に
+7: 適用する旧bank guardへ当てはめていた。今回その位置をソースで確認し、同じ段階を実測した。
+8: 既存ubatch1024のままで、32expert/native458.4375MiBの容量fixtureが旧Gpre/Gpostを通過した。
+9: その領域を保持したまま通常モデルのshort64/long1024を実行でき、全保存logitsも基準とbyte一致。
+10: 容量を作るためにubatch512/256へ変更することは、この段階では必須でなくなった。
+11: 
+12: その後、通常APIのtemplate/tokenizerで20caseをfreezeし、最初のtraining5caseだけを採取。
+13: 35expert/23層/native453.427734375MiBのoffline配置案を作った。これは未確保・未統合である。
+14: 実容量を試した32expert fixtureと、trainingから選んだ35expert案は別物として扱う。
+15: 通常APIは元config/CPU/libllama/CUDA/baseへ復帰済み。RESTORED_RUNTIME.jsonが最終receipt。
+16: 
+17: 今回の順序
+18: ----------
+19: 1. Pro返却34filesのSHA/sizeを確認、旧sourceと照合。重要codeは親、長いrawはTerraも確認。
+20: 2. 新callerのprefixを64固定から可変へ。batch容量1024、PREFILL observing0で実ubatchを採取。
+21:    生のlong textはtokenize APIだけで2445IDs、元wiringは1409IDsと確認し、先に固定した。
+22: 3. fresh U1024を1run。M0..M3、prefix64/1024と次4T1の全F32を保存。
+23: 4. 旧hot-backendのcreate/finishだけを隔離callerへlink。実モデルのschedulerには組み込まず、
+24:    容量fixtureを保持して旧guards/private graph warmup/通常モデル出力を検査した。
+25: 5. APIを元構成に復帰し、/apply-template と /tokenize のみで20caseの境界とIDsを固定。
+26: 6. APIを再度一時停止し、bankなしの元配置でtrain_first5だけをfull prompt+64T1採取。
+27:    元APIへ再復帰。残りtrain/validation/holdoutの推論は行っていない。
+28: 
+29: 容量/pilotのCPU602a6578…・libllama83bfeefe…は前回の診断用pinを再利用し、再buildしていない。
+30: CUDA45f6b7d8…・base2e13b370…も不変。通常APIのCPU33a9e346…・libllama1d1e7d72…とは区別する。
+31: 変更したのは隔離callerと容量fixtureの初期化ログ/zero-input確認。通常APIの設定・実行ファイルは
+32: 置換しておらず、終了時に通常用の4libraryを実maps/backing hashで検査した。
+33: 150W/ECC、fan<=70%、既存温度guardとRAM reserve64GiBも維持した。
+34: 
+35: 1. 測定段階と容量（CUDA backend memory API、MiB）
+36: ------------------------------------------------
+37: 測定段階                                     bankなし       32expert fixture保持
+38: M0 context reserve後・vision前                3638.25        3638.25
+39: Gpost private graph準備後・vision前           未実施         3136.25
+40: M1 vision model/dummy shape予約後             2612.25        2110.25
+41: M2 text64 warmup/sync後                       2122.25        1654.25
+42: M3 long1024＋4T1、結果保存後                   2102.25        1630.25
+43: 
+44: CUDA APIとNVML CLIは別timestamps/別欄で保存。NVML freeは整数MiBで上記より0.75MiB大きい
+45: 表示だった。CUDA total32494.125MiBとNVML total32768MiBを同一のaccountingとして計算しない。
+46: queryは順次実施、間隔約32～57ms。厳密同時の観測や瞬間peakではない。
+47: M1のmtmd warmupはsource上dummy形状でreserveする処理で、実画像のGPU演算peakを踏む試験ではない。
+48: 
+49: 旧guardsはhot-ffn/hot-backend.cpp内で、main context reserveの後、visionの前に適用される。
+50: 今回の容量fixtureでもこの順番・strict比較を維持した。M2へ同じ余白を再要求する追加guardは
+51: 導入していない。M0単体は対応点で、実admissionを証明するのは以下のGpre/Gpostの記録。
+52: 
+53: 2. 実bank容量fixture
+54: -------------------
+55: 固定規則: layer0,4,23,24それぞれexpert0..7。4種類IQ2_S/IQ3_XXS/IQ3_S/MXFP4を含む。
+56: routeを見て選んだ配置ではなく、容量/初期化を確認するため先に固定したもの。
+57: native gate/up/down triplet総量480,706,560 B = 458.4375MiB、計32experts。
+58: bank bufferの実要求量480,707,328 B = 458.438232421875MiB。
+59: 
+60: 実Gpre:
+61:   free3,814,981,632 B > payload480,706,560 B + margin3,221,225,472 B。
+62:   条件との差113,049,600 B = 107.8125MiB。strict条件を通過。
+63: 実Gpost:
+64:   free3,288,596,480 B > margin2,684,354,560 B。
+65:   条件との差604,241,920 B = 576.25MiB。strict条件を通過。
+66: 
+67: 選択4層×到達H1..6の24構成で、各3回、計72回private GPU graphを計算。
+68: 各構成の最後の出力をreadbackし、全要素が有限かつzero inputに対してzeroであることを確認。
+69: 24回の出力確認であり、72回すべての中間出力を比較したという主張ではない。
+70: 旧実装どおり未選択のeligible層にもprivate CPU graph/warmupが作られる。
+71: 初期化による総free差502MiBのうち、bank buffer以外は約43.562MiB。pool/driver/activation等の
+72: 個別帰属までは測っていない。後のphaseでは増分も変わるので、この値を普遍定数にしない。
+73: 
+74: このbankを主モデルの演算に使っていない根拠:
+75: - 使用libllama/CPUの全symbol表にxeon_hotがなく、元link記録にもhot-backend objectがない。
+76: - driverはcreate/finishだけを呼ぶ。返されたbackendをmain schedulerへ追加していない。
+77: - mainのactual providerはCUDA0/CPUの2つをpin照合。report.bank_used_by_model=false。
+78: 従ってこれは正の容量/初期化試験であり、hybrid推論の高速化・品質・本番採用試験ではない。
+79: 
+80: 3. 通常モデル出力の照合
+81: -----------------------
+82: 各run: raw short64 / long1024を別々にKV clearしてprefill、その後4T1。
+83: 各caseでprefix最後のlogitsと4T1後のlogits、5×129280 F32を保存。
+84: bankなし/保持中の両caseが全byte一致し、比較対象1,292,800値は有限。
+85: short64のT1部分は、前回F-beforeの4call保存物とも一致。
+86: 実ubatchは[64]、[1024]。設定から推測した列ではなくPREFILL ledgerで確認。
+87: 
+88: 記録したprefill全体時間（decode_begin→output_ready）:
+89:   short64: bankなし5146.672ms / 保持中5319.101ms
+90:   long1024: bankなし16730.958ms / 保持中16658.874ms
+91: 各1run/各4T1だけの容量診断で、時間の揺れもある。bankを推論に使っていないためspeedupとして
+92: 採点しない。short T1の変動も原本に残しており、都合のよい区間だけ選んでいない。
+93: 128k設定を維持したreserveであって、128k実入力や実画像推論を通した保証ではない。
+94: 
+95: 4. 次段階入力のfreeze
+96: --------------------
+97: 元20case/12familyを保持し、train10 / validation5 / holdout5を変えていない。
+98: 通常APIの /apply-template と /tokenize を使用し、生成endpointを呼ばずに固定した。
+99: CLI設定は--jinja、chat_template_kwargs={"thinking_mode":"chat"}。
+100: 実rendered prefix末尾は<｜Assistant｜></think>。prefix+reference全体をtokenizeし、
+101: prefix IDsが厳密prefixであることを20caseすべてで確認した。片ごとのIDs連結を仮定していない。
+102: 各prefix187～317tokens、reference195～337tokens。全caseで必要な65 continuation IDsがある。
+103: exact rendered prefix、IDs、hash、先頭64のdecode表示、次token対応をPILOT_TOKENS.jsonへ保存。
+104: template source identity/capsも保持。本文を反復/padding/truncateしていない。
+105: 
+106: 5. train_first5の実route
+107: ----------------------
+108: 指定順の5caseをbankなし、元ubatch1024/GPU37..39で実行。
+109: case                                 full prefix    T1位置
+110: text_cache_budget_ja                  272            272..335
+111: text_cache_budget_en                  211            211..274
+112: mixed_build_log_ja_en_log              270            270..333
+113: code_stable_grouping_python           240            240..303
+114: code_stable_grouping_cpp              240            240..303
+115: 
+116: 5×64calls=320、37層×320=11,840records、6ID×11,840=71,040選択slots。
+117: 各case一session、各call37層一度ずつ・6unique IDs・flags/drop0、同期完了を確認。
+118: 全64callでfinite検査、保存F32はprefix＋first4 T1の5rowsだけ。remaining60のF32は保存していない。
+119: この収集用callerの時間は診断scopeであり、無観測の本番throughputとして採用しない。
+120: 共通wiring4call対照も通過したが、候補選択のfrequencyからは除外している。
+121: 
+122: ENとPython/C++ではposition256でgeneration1→2を自然に観測した。
+123: ENはcall45、Python/C++はcall16。そこでのledger/record対応も正常。
+124: 他2caseは今回の範囲ではgeneration1だけ。再buildの具体的原因は新たに確定していない。
+125: 異常経路・全generation挙動の網羅試験に拡大してはいない。
+126: 
+127: 6. 最初の配置候補（まだ実確保していない）
+128: ---------------------------------------
+129: routeを見る前に予算458.4375MiBをPILOT_DESIGNへ固定した。
+130: 規則はtraining frequency/native triplet bytes、同点はlayer/expert順。整数比Fractionで再計算可能。
+131: 観測7,779個の(layer,expert)から35experts/23層、native475,453,440 B = 453.427734375MiBを選んだ。
+132: 同じtraining5caseに適合させた候補で、最適なsaved-timeを求めたものではない。
+133: TRAIN5_CANDIDATE.plan SHA256:
+134:   4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596
+135: 
+136: training内のH0..H6（同時選択6個のうち候補に入る個数）:
+137:   [8235, 3086, 467, 52, 0, 0, 0]
+138: 平均H=0.3527027、候補slot数4176/71040=5.878378%。
+139: H0は全CPU37層・全token組の69.5524%。各case/layerでresetした連続miss長も保存。
+140: 候補を置かない14層のH0もこの割合に含む。候補を置く23層だけならH0は3755/7360。
+141: 各層の候補数は最大3。そのためこの案の到達可能Hはlayerごとに0..候補数で、H6を要求しない。
+142: 
+143: validation/holdoutのroute、残りtrain5は使っていない。generalization scoreではない。
+144: CPU残slot数は時間ではない。CPU/GPU ready・H0 dispatch・scatter・queue競合は今回未測定。
+145: 同予算でも配置/graph/poolの形が容量fixtureと違うため、35expert案のadmissionは未確認。
+146: saved_time、GPU_ready、quality_acceptanceはunknownのまま保存した。
+147: 
+148: 7. 監査と現在状態
+149: ----------------
+150: 親のscriptとTerraが別にraw/数値/hash/候補を再計算し一致。
+151: 各runのhealth exited/return0、GPU query timeout0、STOP_REQUESTEDなし。
+152: 保存された最後30監視標本の範囲でGPU最大34C/HBM34C/CPU36C/fan40%、利用可能RAM最小67.67GiB。
+153: 全期間の瞬間最大/最小を保証するものではない。
+154: APIは最終PID241828で準備完了、元configと主要4library hashが一致、監視active/alertなし。
+155: ユーザーに今追加で実行してもらうcommandはない。
+156: 
+157: 次はfirst5から得た小候補について、全missの追加費用と代表H1..3のCPU全6/逐次/並行コストを
+158: 同じ実入力で測る段階。今回の容量訂正と実guard通過を踏まえ、512/256や大きいallocator tracingを
+159: 先に必須化しない。現時点で通常APIへ新しいbankや分担処理は組み込んでいない。
+
+FILE archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/RESULTS_JA.txt
+SHA256 39666aa31be2816f3a0b1c12816f6475cabd76c15436dd21a4b7d31897ca48a9
+1: 35エキスパートの小bankで、実モデルの生成計算の速度が約4.8%向上する結果が得られた。
+2: 速度の比では +4.795%、1トークン時間では -4.575%。通常APIは元の構成へ復帰し、この候補は未採用。
+3: 
+4: 比較は一つの日本語training軌道、prefix272＋64 reference入力のteacher-forced T1。サンプリング、HTTP/SSE、Open WebUIを含まない。一般入力や回答品質の向上を意味しない。
+5: 
+6: 全モデル・通常output-readyまでの測定
+7:   条件                 平均ms/T1        T1/s       F bracket比
+8:   F-before              129.2868        7.73475
+9:   F-after               128.2909        7.79478
+10:   F前後の合計           128.78882       7.76465    1.00000
+11:   C private CPU-all6    130.78775       7.64598    0.98472
+12:   S GPU分担・直列       124.53110       8.03012    1.03419
+13:   P GPU分担・並列       122.89632       8.13694    1.04795
+14: 
+15: Fは同じ統合実験用libllamaでhotを無効化した対照。CPU/CUDA/baseは全arm同じで、route recorderは閉じたまま。通常APIのfrozen本番binaryを直接置換した対照ではない。Fの旧prefix+first4出力一致も検査した。
+16: F-before/F-afterは各192 timed calls、C/S/Pは各384。合計1536 timed callsと、別の品質診断320 T1 calls。CSPは6通りの順序を用い、mode位置と各pairの前後を均衡。29blocksの全時刻列を保存した。独立promptが1536件あるという意味ではない。
+17: 
+18: 主な解釈
+19: ・GPUに置いたexpertへ計算を移す効果が大きい。SだけでもF比+3.42%。
+20: ・PのSに対する上乗せは約1.33%。GPU使用率の最大化を目標とせず、最終wall timeで判断した。
+21: ・CはFより平均約2.0ms/T1長く、経路を置き換える費用も残る。これはH0だけの費用ではない。
+22: ・一つの配置・日本語軌道・3processの記述比較。言語、長文、別モデルや実trafficへの一般化はしない。
+23: 
+24: 数値の切り分け
+25: 各quality armでprefix最終＋64T1、65×129280 F32をすべて保存した。
+26: ・F-before = F-after = C: 全byte一致。
+27: ・S = P: 全byte一致。並列化の追加による出力変化はこの軌道では検出されない。
+28: ・S/P対F: prefix行は一致、T1の64行はbyteが異なる。NMSE=0.00446801695、最大絶対差2.34470272。
+29: ・全65地点でtop1 IDは一致。ただしreference文を強制入力した軌道であり、自然生成した会話が一致する証明ではない。
+30: ・固定reference tokenの平均NLL差は +0.00768692482。一般的な回答品質の点数でも、採用可否の閾値でもない。
+31: 
+32: GPU使用数の集計も、元trainingの予測と全く同じとは限らない。
+33:   元JA・非空23層のH: [364,867,213,28,0,0,0]、選択slots1377
+34:   統合S/PのH:        [362,870,211,29,0,0,0]、実行slots1379
+35: S/P各blockの集計は同じ。個別の元6IDs/hidden値は今回の統合では採取していないため、どこで変わったかは未判定。CのHは実行GPU数なので全て0であり、全missと解釈してはいけない。
+36: 
+37: 先行した実activation8セルのoperator比較
+38:   cell / layer / H     paired O/P中央値
+39:   0 / 7  / 0           1.00248
+40:   1 / 7  / 1           1.08811
+41:   2 / 7  / 2           1.30579
+42:   3 / 7  / 3           1.67608
+43:   4 / 35 / 3           1.55029
+44:   5 / 13 / 1           1.10776
+45:   6 / 28 / 1           1.11247
+46:   7 / 20 / 2           1.28404
+47: 境界はhost x/IDs readyからcanonical host未加重6slot ready。転送、partition、CPU、join、scatterを含む。Oは独立FFN graphであり、main schedulerではない。12 balanced blocks×4arms×8cells=384 timed samples。H0の小差やMXのS/P逆転も残した。
+48: 全8セルでO=C=capture、S=P、cold slots P=Oのbyte一致。GPUへ移したslotについてはCPU/CUDA算術差を別に評価した。
+49: FP64累積dequant参照をcell3/6だけ追加した。cell3の出力NMSEはCPU3.50220e-4、P2.25108e-4。cell6はどちらも約1.18359e-4。現GGUFを展開した参照であり、量子化前モデルの正解や一般品質ではない。
+50: 
+51: 配置・容量
+52: 元35expert/23層planを維持した。native475453440B=453.427734375MiB。
+53: 旧3072/2560MiBのstrict guardをvision前に維持。operator stageで35案の全native byteをGPUから読み戻して照合した。統合stageは別bank個体を作るため、その個体の全byte照合を再実施したとは主張しない。
+54: 統合CSP: Gpost3126.25MiB、vision dummy reserve後2100.25、text64 warmup後1642.25、終了時1618.25。最後の値は瞬間peakではない。画像forward・128kの実入力は未試験。
+55: CPU専用graphは非空23層だけ。空CPU14層、GPU37..39、prefillは元graph。各blockで23×64 callsを実測し、生成とprefillの切替時のcustom node再構築を確認。State/bankのinitializeはcontextにつき一度。これは自然な256位置跨ぎの全条件を検証した意味ではない。
+56: 
+57: 観測方法で見つかった落とし穴
+58: 初回captureはweightedのCUDA copyを未対応で停止。第二回はweighted GPU nodeでgraphを分割し、旧最初3callsと32/111 route recordsが異なり停止した。失敗rawは両方公開。
+59: 最終captureはGPU graphを区切らず、CPU gate完了後に明示GPU同期し、先に計算済みの6weight/24Bを読む。元9calls/333recordsと全fields一致、既存prefix+first4出力も一致した。call5/8のcallback-free中間値のbyte一致までは証明していない。性能armはcallback=null。
+60: 
+61: 残る課題
+62: logical routeとprivate masked IDsのorigin分離は未実装。今回の統合はroute collector closed専用で、本番採用版ではない。未使用入力での回答/性能、実会話・長context、より大きなbankでの利益と品質を測る前に、この実装と証拠をレビューする。条件付き8層planへの切替やubatch変更は行っていない。
+63: 
+64: 通常APIはPID261483で復帰、health ok。元configとCPU/libllama/CUDA/baseの4つのbacking hashを照合済み。監視2serviceもactive、復帰receipt時のalert/errorなし。GPU150W/ECC/fan<=70、RAM reserve64GiBを維持。新しいモデル・ライブラリを通常APIへ適用していない。ユーザーに必要なコマンドはない。
+65: 
+66: 一次データ
+67: INTEGRATED_ANALYSIS.json / REPLAY_ANALYSIS.json / CAPTURE_ANALYSIS.json
+68: 各stage/runs/*/RUN.json、quality-*.f32、cell*.f32/.i32、guard-health.json、RESULTS_SHA256.json
+69: ENGINE_BUILD.json / BUILD.json / 各source・patch / 独立Terra監査
+
+FILE archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/ROOT_TRIAGE_JA.txt
+SHA256 3f110bde91dacebb0f2a67f8d90f910a2fe8c810edfaf34e97c096568dcb1d3d
+1: 今回の人間からの入力はPro返却ZIPの提示。これまでの実装・実機操作・必要なAPI停止と復帰・GitHub共有の委任を引き継ぐ。添付内の「Astraで実行」は外部提案であり、それ自体を新規権限とは扱っていない。通常API設定は固定し、別の実験用実行ファイルとライブラリのみで検証した。
+2: 
+3: Pro提案の主軸を採用した。original35の固定plan、空CPU14層のbypass、同じ実activation8件でO/C/S/Pを比較し、有望なら限定統合へ進める。512/256 ubatch、CPU abs再試験、残り15caseの全route採取、条件付き8層planは先行しない。正常な通常API復帰を作業の終了条件とする。
+4: 
+5: capture提案はそのままでは実機に適合しなかった。最初はweighted nodeのsrc0がCUDA copyとなるため一致せず、安全側に停止した。第二案はGPU weighted nodeをcallbackで区切った。旧JA先頭3calls/111recordsに対しordered IDsが32件変化して停止。これをCPU/CUDA算術差や不都合な標本として除外していない。
+6: 
+7: 最終captureでは、GPU側のscaled weights producerをask時にpointerだけ記録する。元graphはweightsをCPU FFNより前にexpandしている。CPU gate完了後に元GPU backendを明示同期し、6個/24Bのeffective weightsを読む。weighted nodeのaskでは同一producerを使うことだけを確認し、GPU graphを区切らない。CPU gate/downのcallbackだけを残す。全333routeと既存5row出力の一致を実測した。GPUのreadbackを許可したことは元提案からの明示的な変更であり、性能測定ではcallbackを完全に外す。
+8: 
+9: replayでは元の重みtensorとcompact registryを使う。対象の6expertを追加でcompact化しない。Oは独立CPU FFN graphなので、通常scheduler全体と同一の費用とは呼ばない。C/S/Pの実装は同じState/graph/入力/slot配置で、S/Pはjoin位置だけが異なる。12blocksの順序はOCPS/CSOP/SPCO/POSC×3、位置とpair前後を均衡。GPU-readyの絶対時刻はunknown、join waitを代入しない。
+10: 
+11: replayの好結果を受け、同じ35planの限定main integrationへ進めた。context create/finishとgraphの4hunksだけを移植。元router、weight、加算順を維持し、T1かつ対象の非空CPU層のみ専用backendとする。prefill、CPU空14層、GPU37..39は元経路。trial C/S/Pを同期完了後に切り替え、State/bankを作り直さない。CのIDsコピーは元strideを使う。
+12: 
+13: 今回の統合測定ではroute collectorは閉じたまま。logical routeとprivate masked IDsのorigin分離はまだ実装していない。したがって統合版のroute37採取を許可する実装や、本番採用版ではない。Hの統計は実行GPU数で、Cは常にH0。custom node build数をgraph generation数とも呼ばない。
+14: 
+15: 実モデルの品質診断と速度は別のblockで行う。品質診断はJA prefix272+64 reference入力で65×129280の全F32を保存。Fの旧5row一致とS/P全65row一致を先に確認する。timingは通常のllama_decode開始からlogits readyまでで、callback/observer、finite走査、コピー、hash、exportを含めない。F-before/F-afterは各3blocks、C/S/Pは6通りの順序各64calls。1系列のteacher-forced T1/sであり、サンプリング・API・Open WebUIを含む速度ではない。
+16: 
+17: テスト対象は一つの日本語training軌道。既存35plan選択に使用した資料なので、未使用入力に対する汎化や一般回答品質は判定できない。今回の結果から自動で通常APIへ採用しない。元の通常APIを復帰し、raw/sourceと追加の検証課題を共有する。

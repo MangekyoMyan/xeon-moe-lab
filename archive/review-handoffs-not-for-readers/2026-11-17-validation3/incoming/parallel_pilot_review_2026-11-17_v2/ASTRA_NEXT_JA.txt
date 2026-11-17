@@ -1,0 +1,164 @@
+実機側アストラへの引き継ぎ：parallel-pilotの次の一手
+2026年11月17日 / 対象 d4d50b651ff7754ee2189228762468fc02971bfa
+引き継ぎ改訂2：採点の過剰制約とcaller移行注意を修正。測定結果・original35・評価3例は同じ。
+
+要点
+
+今回の限定結論を支持する。独立に保存raw・全65行logits・計時・source/providerを監査し、
+F bracket 7.764649→P8.136940 T1/s、F前=F後=C、S=Pを再現した。
+原35案のまま未使用validation 3例と実回答へ進むことを第一推奨とする。
+8層案、ubatch変更、GPU37〜39の再配分はまだ同時に加えない。
+実機操作・build・通常APIの停止/復帰は従来どおりそちらが行う。ユーザーへコマンドを求めない。
+
+このファイルは外部レビューの提案であり、ユーザーが実機方針を新しく変更した証拠ではない。
+モデル/通常構成の条件、運用中の復帰手順・既存guardは引き続き尊重する。
+こちらではエンジン、提供runner、API、GPUを実行せず、公開ソースと保存資料だけを扱った。
+
+1. まず受け取ってほしい評価
+
+・Pは実際にGPU提出→CPU残仕事→GPU join。Sは提出直後join。今回本体の並列化まで進んだ。
+・Fは統合実験libllamaでhot無効。通常frozen production binaryの新計測ではない。
+・C−F約1.999msは追加経路の合成費用で、copyだけ・H0だけの費用ではない。
+・F=C、S=Pを全65rowで切り分けた価値は大きい。ただし自然生成の品質・一致は未証明。
+・reference targetはF top1と50/65しか一致せず、row0から違う。65top1一致をgreedy会話一致としない。
+・H1377→1379はnet +2であり、2件だけrouteが変化した意味ではない。層別Hは23層中11層で異なる。
+・全8セルでO=C/capture、S=P/cold P=O。MX cell6はPがSより平均39.684µs遅い例も残す。
+・既存reserve T1はF/CSPともsplits76、input objects5/tensors20。nodesは4866→4797。
+  「コード増→split増が原因」という説明を前提にしない。
+
+captureについて、前回こちらの提案はCUDA copyとweighted tail fusionを十分扱えていなかった。
+失敗を止めて保存し、GPUをcutしない最終方式へ修正した判断を支持する。性能armへcallbackを戻さない。
+
+2. 次の実験を3例に限定
+
+正本: validation/FROZEN_VALIDATION3_PLAN.json
+生成元tokens: gpu-workspace/PILOT_TOKENS.json
+SHA256: 44a9f673a7928b30f29a11fd741c96fa5b2faf526b89a82bc448aa13ff32596f
+
+  case_id                         prefix tokens   用途
+  text_plan_constraints_ja                236       日本語・制約付き予定作成
+  text_plan_constraints_en                187       同じ課題の英語版
+  code_bounded_queue_python              244       Python実装・境界条件
+
+3例は元corpusのvalidation split。保存された使用記録・選定入力に入っていないことを照合した。
+「公開された履歴の中で未使用」という意味であり、未知の実機操作まで見たと主張しない。
+固定35 planとそのSHAを変更しない。validation結果を見て同3例へ再選定しない。
+未使用trainingを必要以上に開き直さず、holdout5例は温存する。
+
+3. callerの小さい変更
+
+現driverは7cases固定、ci=2、prefix272、quality-{mode}.f32固定名を持つ。
+analyzerも272とcases[2]を前提にする箇所がある。単に入力名を替えるだけでは不十分。
+driver123行の旧cases[0] token identity、157〜158行のF_prefix_first4_equal_oldも旧入力専用。
+旧JA/wiringの検査として分離し、新validationを旧case0や旧JA出力bytesと比べて停止させない。
+既存の新case ID/hashとS/P数値検査は維持する。旧JAの新しい試験を追加する指示ではない。
+case_idを明示的に選び、保存済みprefix IDs/continuation IDsを再tokenizeせず使う。
+prefix長とnext_targetsを当該caseから求め、出力dir/filenameへcase_idとarmを含め上書きを防ぐ。
+全armで同じprefix/full IDs/hash、normal output-ready境界、KV clear、sampling外の時計を保つ。
+
+1caseごとの品質行はprefix末尾＋64T1=65。targetはreference先頭65個で、入力はその先頭64個。
+元planには完全referenceも同梱してある。off-by-oneでtargetを1個ずらさない。
+新JA/Pythonは64T1内でposition256を跨ぐ。State初期化一回、graph再構築とcountsを保存し、
+固定272以外へ広げたことで元の保護条件が偶然外れないかを確認する。
+
+4. 計時：まずF/Pの小さい比較だけ
+
+実施順は、次節5のF/S/P 65row数値gate → 本節のF/P計時 → 節6の自由回答とする。
+各例F/PをABBAの順序等で前後均衡させ、各mode2timing blocks×64T1を最小案とする。
+3例合計768 timing calls。FとPは同じ新しい試験build/CPU/CUDA/base/compactを固定する。
+bankありなしは別context/processを正しく作り、他modeのstateをFへ持ち込まない。
+qualityのfile書出し、debug、route collector、callbackはtiming区間に混ぜない。
+各timing process内で、入力・回数を明記した短い未計時T1準備をF/P共通の方針で行う。
+別processのqualityやprivate graph初期化だけをmain graph/初回logの準備の代用にしない。
+準備後はnormal synchronize、KV clear、対象prefixの再入力を行い、counterのbeforeは準備後に取る。
+その後の64 timed T1は先頭も含め全件保存する。測定後に早いcallを捨てたり、長いwarmup gridを増やしたりしない。
+
+速度は総T1/総ms、各block平均、各callの時刻列を残す。時間差と速度比を併記する。
+反復2blocksは精密な汎化推定ではなく、次判断の小さいscreen。
+Fの前後差に埋もれる、符号が不安定、case固有の遅延が出る場合、その例だけ追加反復する。
+差が小さいから全条件のgridへ一気に拡大しない。恣意的な最良runだけを採らない。
+
+5. 数値：各例F/S/Pの65rowを一回ずつ
+
+全logitsを保存しfinite、shape、ID/hash、S=Pを確認。F対PはNMSE/maxabs/top1/NLL等を再計算。
+F対P bit一致は要求しない。S=Pが破れたら並列追加だけの差として停止し、build/mode/同じIDsを調べる。
+Cは全例の性能gridへ追加しない。F/Pの異常や新geometryの疑いが出た時だけCを使う。
+本番品質判定の固定閾値としてNMSE/NLLを新しく勝手に置かない。
+
+6. 実回答：F/P各3例、計6回答
+
+同じ凍結prefix_idsのみを入力し、greedy、temperature=0、seed=42、ignore_eos=falseで自由生成。
+prefix_idsはtemplate/BOS/assistant境界込みなので、再テンプレート・再tokenizeしない。
+teacher forcingのreferenceを次入力へ与えない。ID列、全文、stop reason、token数を保存する。
+モデルの終端判定で停止し、上限は全生成IDで1024個（非表示のreasoning/controlも含む）とする。
+上限で切れた初回6本を保持し、truncated/incompleteを明記する。未完をそのまま誤答と断定しない。
+後で増枠が必要なら、同じ新上限のF/P pairを別名の追加診断として記録し、初回を置き換えない。
+回答長が異なる時、完成時間だけで速さの因果比較をしない。
+
+予定課題の採点:
+ S20分Aya → I30分Aya+Ben → E40分Ben+Chen → F15分全員 が105分のcritical path。
+ R25分AyaはIの後、Fの前にEと重ねられる。最短終了は10:45。
+ 例: S09:00-09:20, I09:20-09:50, E09:50-10:30, R09:50-10:15, F10:30-10:45。
+ 別の同率最適scheduleを認め、Rの開始時刻や参照文の字面を強制しない。
+ 所要時間・依存関係・人員衝突・最適性の説明を採点する。
+
+Python課題の採点:
+ capacity1..1024、signed64入力（boolを含めない）、FIFO、空と合法値0を区別、full push失敗で状態不変。
+ cap2でpush4,9成功→push12失敗→pop4→push-3成功→pop9,-3、さらに反復wrap。
+ cap1/1024、0/負数/重複、空、外のcapacity、整数境界を確認する。
+ 先頭index＋countのringで毎回要素をずらさない。例外の細部はpromptの契約に合わせ、
+ 指定されていない例外型・文章の言い回しで不当に失格にしない。
+成功pushの戻り値Trueは問題文の必須条件ではない。追加された内容・size・FIFOで成功を判定する。
+満杯時Falseは必須。循環添字の具体式や物理配列の循環方向も固定せず、同じ仕様を満たす実装を認める。
+ 生成コードを評価する場合は、モデル/API本体とは切り離した一時的な検査環境で扱う。
+
+6回答で一般品質を保証したとはしない。目的は未知caseでの利益と、実回答の明らかな退行の有無。
+
+7. 約2msの診断は任意、次の評価を止めない
+
+integration/optional_dormant_bank_original_graph.patchは、同じbank/State/private poolsを保持しつつ、
+元graphを使うBのソース提案。source SHA guard、適用確認済み、未build・未実測。
+patchだけでは現driverへBが追加されない。DORMANT_BANK_CONTROL_JA.txtのcaller変更を先に読む。
+F/B/Cでbank保持側とcustom実行側へ大きく二分する。F=B=C byte gate、B custom calls/builds0を要求。
+F/B/Cは新しい同一buildで比べ、古いF/Cと新Bだけを直結しない。
+
+代わりに既存GGML_SCHED_DEBUG=2で実T1の配置台帳をF/C一回ずつ採る案もある。
+両方を必須の前提にしない。コピー削除・unsafeな入力借用・同期削除は提案していない。
+
+8. route originは最小の別変更
+
+integration/ROUTE_ORIGIN_MINIMAL_DESIGN_JA.txt参照。
+元6global IDsをcustom分割前に一度だけlogical recordする。
+private masked idsはexact owner/gate/object/data/shape/stride登録に一致した内部callだけ除く。
+−1の無条件無視は禁止。ownerは実llama_context*を明示的に登録しouter_cpuで代用しない。
+各T1は37records、C/FとS/Pのordered IDs比較、collector on/offの数値一致を確認する。
+性能はclosedのまま。現在のhist+2だけでは最初のroute差は分からない。
+この改修は新3例のclosed-only評価の必須前提にしない。
+
+9. その後の分岐
+
+3例でPの利益が残り、実回答で明らかな退行がなければ、時間価値に基づく配置拡大へ進む。
+CPU非compactの重いexpertは候補。ただしfreq×単独時間だけでなく、残CPU時間と同時6選択を見て選ぶ。
+8層案は現JA hitが1377→1087に減る。最初5例合計90.9%という値だけで次の勝者としない。
+
+ubatch1024→512と、GPU層37〜39のbankへの再配分は別の仮説。
+前者は同配置で空きメモリ/prefill/TTFT/T1を測り、後からbank拡大を追加する。
+後者は元3層CPU化の損失、CPU compact再配置、追加bankの利益を同時計上する。
+Gpre/Gpost/vision/warmup/endの測定段階と時刻をそろえ、終点freeをpeak余裕と呼ばない。
+初期guardを今回の結果だけで緩める提案ではない。
+
+10. ユーザーへの次報告で必要なもの
+
+冒頭に「今回何を変えたか」「同じ条件の対照と候補」「実回答の確認」「通常API採用の有無」を書く。
+9.8付近の旧実績を否定しないが、今の8.14との直接の劣化比較にしない。
+旧hot14は元GPU3層をCPUへ戻した約14GiB bank、今回は元3層を保持した453MiB bank。
+これはGPU総使用量1/32という意味ではない。
+
+Open WebUIの2token表示周期は今回未測定。平均値で否定しない。
+必要なら単一stream requestの内部ready/send/receive/UI時刻を別の短い診断にし、
+token ID・UTF8片・SSEイベントを同じ単位と決めつけない。
+
+返却してほしい最小証拠:
+ source差分とbuild/provider pin、選択3case/plan SHA、全時刻列、全65row F/S/P、
+ 自由回答6本の全文とIDとstop reason、rubric判定、例外/失敗raw、通常構成へ戻したreceipt。
+ 一般公開用の最終まとめとは別に、失敗・未実施をそのまま残す。

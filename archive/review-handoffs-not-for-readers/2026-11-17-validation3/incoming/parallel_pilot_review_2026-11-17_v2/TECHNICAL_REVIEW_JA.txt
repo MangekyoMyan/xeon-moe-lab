@@ -1,0 +1,255 @@
+parallel-pilot d4d50b6：独立レビューと次の判断
+2026年11月17日
+対象commit: d4d50b651ff7754ee2189228762468fc02971bfa
+
+0. 判断
+
+今回の公開資料から、「original35、既知JAの固定軌道、同一統合実験エンジンの中で
+F bracket比Pが約4.79%速い」という限定結論を無効にする欠陥は見つからなかった。
+単なる並列化の準備ではなく、モデル本体のT1にCPU/GPU並列処理を入れた試験である。
+
+次はoriginal35を固定したまま、未使用validation 3例で速度と実回答を確認する。
+8層集中案、ubatch変更、元GPU3層の再配分を同時に始めない。これは並列化から離れる
+方針ではなく、現在の並列候補が配置選定用1例以外でも役立つかを最短で確かめる方針。
+同梱ASTRA_NEXT_JA.txtとvalidation/FROZEN_VALIDATION3_PLAN.jsonを次の具体案とする。
+
+このレビューは公開ソースと保存rawの読み取り・独自再計算である。実機のbuild、API停止、
+モデル実行、新しいGPU測定、設定変更は行っていない。添付patchは未適用・未build・未実測。
+通常API復帰も共有されたreceipt時点の確認であり、現在の実機へ接続して確認したものではない。
+
+1. 証拠の確からしさ
+
+evidence/audit_parallel_pilot.pyは提供analyzerを実行・importせず、独自にrawを読んだ。
+338 payloadのhash/size、337 RAW_MAPPING、7実行のmanifestを照合。8,228検査で不整合0。
+前回返却ZIP（130571 bytes、SHA256 4c5cfaff5437b9e31e68be95ecca9b221e8dfcd9d7b287972804d40d4c38bf7f）
+の30 membersと今回incomingの同一性も確認した。
+
+品質5 files×65 rows×129280 F32＝42,016,000要素を読み、全有限を確認した。
+時間は24 timing blocks・1536 T1の整数nsから再計算した。別の5 quality blocksを含めると
+29 blocksであって、29 blocksすべてを速度の反復数と数えない。
+各source/provider/build/run receiptの整合も確認した。ただし全実ELFは公開されておらず、
+保存された実機ロード情報の照合を、こちらで実ELFを再ロードした検証とは表現しない。
+
+独立した親の再集計はparent/TIMING_AND_DISTRIBUTION_RECOMPUTED.json。
+生データ監査、統合ソース監査、過去経緯の監査は別担当でも実施し、相互に一致した。
+検査数は品質保証の点数ではない。未知入力・長context・実APIの未測定範囲は残る。
+
+2. 性能の再計算と境界
+
+  条件            timed calls   平均ms/T1         T1/s
+  F-before            192       129.286731839    7.734745753
+  F-after             192       128.290909151    7.794784577
+  F前後合算           384       128.788820495    7.764649107
+  C                   384       130.787751380    7.645975938
+  S                   384       124.531103734    8.030122355
+  P                   384       122.896319695    8.136940166
+
+  C−F = +1.998930885 ms
+  C−S =  6.256647646 ms
+  S−P =  1.634784039 ms
+  F−P =  5.892500799 ms
+  P/F速度比 = 1.0479469264
+  P/S速度比 = 1.0133021399
+
+時計はbatch設定後、llama_decode直前からllama_get_logits_ith取得後まで。
+公開llama_get_logits_ithはctx.synchronize()を呼ぶため、正常なoutput-readyを含む。
+内部メソッドだけを読んで「GPU完了前に時計を止めている」とする疑いは当たらない。
+prefill、KV clear、quality保存/finite scan、block JSONはT1の時計外。
+sampling、HTTP、SSE、Open WebUIは測定対象外で、リクエスト全体のTTFT/完了時間ではない。
+
+Fは同じ統合用libllamaでhotを無効化した対照。CPU/CUDA/baseは同一だが、通常APIのfrozen
+production binaryを新しく測ったものではない。旧prefix＋first4の出力一致は橋渡しに有用だが、
+全実用性能の同等性までは示さない。採用前には実際に採用するcandidate/releaseと対照で確認する。
+
+CSP順序はCSP, PSC, SPC, CPS, PCS, SCP。各位置は2回、pairの前後は3:3で均衡する。
+6回の対応blockのS−Pは0.1365, 2.9022, 2.1262, 1.8035, 2.5566, 0.2837msで全部正。
+方向は支持されるが幅があり、1.635msを普遍定数とみなさない。
+PのF-before比は+5.200%、F-after比は+4.390%。この範囲はドリフトを見る記述値で、信頼区間ではない。
+3 process・1 trajectoryを1536独立promptとして統計検定するのは不適切。
+
+3. 統合の実装：今回の範囲で支持できること
+
+hot-backend.cppのPは、pinned入力からGPUへ提出し、private CPUの残りを計算した後GPUをjoinする。
+Sは同じ分担・GPU算術で先にjoinする。結果はhot_slotsで元6slotの位置へ戻される。
+H<6ならCPU結果全6slotをコピーし、GPU対象slotを上書きする。H=6なら全slotをGPU結果で埋める。
+元のgate/up/down tensor pointerをCPU側で保持し、既存compact registryを再利用している。
+Cの元IDコピーはcheckpointの連続仮定からids->nb[0]に従う形へ修正されている。
+
+mode切替はcallerのnormal synchronize、closed collector確認、その後execution mutexと
+private GPU synchronizeを満たしている。set_mode関数そのものにcollector closedのruntime guardが
+あるわけではないため、このcaller契約を一般API安全性へ広げない。
+State/bank/private graphはcontextに属し、初期化は一度。共有pinned領域の再利用はjoinとmutexで守る。
+現pilotはsingle context/single caller、pipeline無効の明示的な限定である。
+
+CPU14 empty-plan層は専用graphなし。37〜39 GPU層とprefillも元graph。
+非空23層だけ各blockで64calls、計23×64を実測している。prefill/T1切替時にcustom nodeは再構築される。
+これは自然生成のあらゆる位置・長さ、複数request、画像forwardの正しさを示す検査ではない。
+新3例のJA prefix236/Python244は64T1内でposition256を跨ぐので、追加の大きい試験表を作らずに
+異なるprefix geometryを確認できる。EN prefix187は別の長さとなる。
+
+4. 数値差：解けた問いと未解決の問い
+
+F-before = F-after = C：各33,612,800 bytesが一致。
+S = P：同じ全サイズが一致。
+P対Fはrow0が一致、row1..64が不一致。全65地点のtop1は一致。
+NMSE = 0.00446801695057605、max absolute difference = 2.34470272064209。
+固定reference mean NLL差 = +0.0076869248201276 nats。
+
+この分離で、今回の軌道では「CPUの新経路だけ」「並行実行を足すだけ」の数値変化は検出されず、
+GPU分担を導入した側の差が残ることが分かった。旧hot14はCPU→GPUとGPU3層→CPU、compact変更が
+同時であり、今回の方が原因を絞れる。旧251/256 top1一致と今回65/65を品質改善率として並べない。
+
+親は追加で安定化softmaxを再計算した。
+  row別NLL差は−0.4511862385〜+0.6454673365 nats。
+  KL(F||P)平均0.00376829748、最大0.05640521031 nats。
+  total variation平均0.01687656075、最大0.15845892357。
+これらは固定軌道上の分布差で、回答の誤答率や許容閾値ではない。平均だけで全地点が小差としない。
+
+固定targetがF top1と一致するのは50/65。row0からtarget1131対top1 68840で違う。
+従って、この試験から自由greedy生成の会話一致を導けないことは、一般論だけでなく保存IDで分かる。
+全品質logitsの一致を、保存していない1536 timing出力すべてのbyte一致へ広げない。
+
+8セルoperatorではO=C=capture、S=P、cold P=Oを確認した。
+dequant/F64参照とのcell3 NMSEはCPU3.50220e-4、P2.25108e-4。cell6は両方約1.18359e-4。
+参照は現在の量子化済みGGUFを展開し高精度累積した演算で、元の非量子化モデルではない。
+CPUを絶対正解としてCUDAを粗くし、CPU一致だけを品質目標にする必要はない。
+現在のF/P全差がIQ入力丸めだけに由来すると単独因果証明したわけでもない。
+
+5. capture提案の訂正
+
+前回こちらから渡した案は、実際のweighted入力がCUDA copyになる構造と、GPU末尾の融合を
+十分扱えていなかった。最初はmatcher失敗で停止、第二回はGPU weighted nodeでgraphを区切り、
+最初3callの111records中32recordsのordered IDsが変わった。以前の提案の不足として明記する。
+
+実使用CUDA sourceにはweighted MUL→slot VIEW/ADDを融合する処理があり、MUL直後でviewを切ると
+後続nodeがfusion matcherに見えなくなる。数値経路が変わり得る具体的な根拠である。
+32件の変化の全原因をこの融合だけへ帰属する実験は行っていない。
+
+最終captureはscaled producer pointerをaskで覚えfalse、CPU gate完了後に元GPUをdrain、
+既に計算済みの6 weights/24Bを読む。weighted nodeも検査だけでfalse。
+元9call/333route全fieldsと既存5logit rowsに一致し、性能armはcallback=null。
+call5/8のcallbackなし中間値まで一致を証明したわけではない、という元報告の限定を維持する。
+
+6. C−F約2ms：最小の切り分け
+
+operator H0が微小でもmain C−Fが2msなのは、測定境界が違うため矛盾ではない。
+Oは独立FFN graph、Fはmain schedulerを通るモデル全体。Cはmatched Hを無視して全6expertをCPUへ
+実行するため、CのH=0を「plan全miss」と解釈してはいけない。
+
+保存reserve T1のgraph nodesはF4866→CSP4797、splitsは双方76、input objects5/tensors20で同じ。
+−69nodesは23層の4operation→1customと整合する。これはreserve graphであり全実decodeの台帳ではない。
+それでも「コード増加→node/split増加が原因」という説明は支持されない。
+
+任意の対照Bを同梱した。bank、State、private CPU/GPU、pool、pinned領域、warmupはCと同じく保持するが、
+main graphは元の処理へ返す。constructorで一度だけ読むflagなので途中のgraph reuse条件を曖昧にしない。
+F→Bは追加保持・backend存在・初期化/配置も含み、純粋なVRAM消費効果ではない。
+B→Cは保持条件を揃えたcustom経路とそれに伴うscheduler/コピー/private CPU/tailなどの差。
+この二分で、次にCPU経路を追うか保持/配置を追うか、候補を絞れる。差がばらつきに埋もれる場合もある。
+
+patch単体では現driverはBを実行できない。B-held armとhas_bank/uses_custom分離、bank/provider guard、
+custom builds/calls=0、F=B=C byte gateが必要。set_mode('B')はしない。
+patchはsource SHA guard付き、git apply --check成功、未適用・未build・未実測。
+
+別案は既存GGML_SCHED_DEBUG=2でF/Cの実T1を一回ずつ記録し、非weight activationのcopy/placementを見て、
+同期候補をsourceと照合すること。このdebugは同期の実発生時刻や所要時間までは直接出さない。
+このdebug回を速度に混ぜない。Bとdebugを両方必須にしない。
+入力を直接借用するzero-copyや同期削除へ先に進めない。allocatorによる領域再利用と完了待ちの契約がある。
+2msが小さい変動に埋もれるなら、細分化を続けず、未使用例と配置の改善へ戻る。
+
+7. route37 logical/internal origin：設計は必要、現pilotの利益を取り消す理由ではない
+
+trainingのH=[364,867,213,28,0,0,0]は1377 slots。
+統合S/PのH=[362,870,211,29,0,0,0]は1379 slots。
+層別比較では23層中11層が違う。net +2は「2件だけroutingが変わった」という意味ではない。
+S/P各7blocksの層別histは同じだが、個別ID・slot順序・最初に変わったtokenは現在のclosed-only記録では不明。
+
+最小設計は、customがCPU/GPUへ分割する前に元6global IDsを一度だけ論理記録すること。
+private CPU側のmasked idsは、owner/gate/ids object/data/type/shape/strideを明示登録したものだけ
+内部処理として識別し、二重記録から除く。値が−1なら無条件無視する実装は採らない。
+ownerは既存collectorと同じllama_context*を診断sessionで明示登録する。
+registerはcollector open後・eval前、openし直すたび再登録、閉じた性能経路は即return。
+内部callを除く際も、そのattemptで先にlogical記録があることを確認する。
+
+通常14層の元hook＋custom23層のlogical hookで各T1は37records。C/H0/partial/H6を保ち、
+flags/overflowなし、元ID6unique、C対F/S対Pのordered IDs、観測on/off出力一致を検査する。
+64×37=2368 recordsは現4096 fixed capacity以内。多context用新frameworkまで一緒に作らない。
+固定35での次3例の性能・実回答を、この診断実装の完了待ちにする必要はない。
+
+8. 今8層集中案を試すか
+
+優先は未使用validationと実回答。理由は、元35が実モデルで勝ち、operator H0費用も小さく、
+23層へ分散する固定費が利益を食いつぶしているとは現在の証拠から言えないため。
+8層案は選定training最初5例全体では約90.90%のhit slotsを保つが、現在JAは1377→1087、約78.94%。
+91%という集計を今回JAへ当てはめない。削る15層の費用と失うGPU利益の両方を見なければならない。
+
+未使用例で35案の利益が安定し、実回答に明らかな退行がなければ、大きいbankを検討する価値がある。
+特定例だけC費用が支配する等の証拠が出たときに、8層案をその説明を確かめる1候補として比べればよい。
+両案を3例の結果へ何度も合わせ込んだら、その3例は調整用へ変わる。holdoutは別に残す。
+
+9. 大きい配置とCPUで重いexpert
+
+最初に比べるのはfreqだけでなく、実activation上のCPU-only時間から、候補をGPUへ移した際の
+実際の残CPU時間をどれだけ減らせるか。量子化型、CPU compact hit/miss、メモリアクセス、6expertの
+同時選択を含む。1expert単独の時間を6個足してモデル全体の短縮予測にするのは危険。
+現在35は元compactありの領域なので、非compactでCPU費用の重いexpertへ移すという人間の案は検討価値がある。
+頻度だけの選定も「最遅expertだけ」の選定も、GPU容量・固定費・残CPU・同時Hを無視すれば外れる。
+
+単一層でのPの所要時間は概念上、
+  分割/準備 + max(提出後のCPU残仕事, GPU側の残仕事) + 合流/元slotへの復帰
+に近い。ただし現在GPU-ready時刻は未測定で、join waitをGPU全時間として代入しない。
+GPUが既に終わっていればjoin waitは小さくても、GPUの仕事量自体はゼロではない。
+8セル中cell6 MXはS−P平均−0.039684msでPが遅い。並列の利得を全H/全型に固定しない。
+
+ubatch案：まず配置と元GPU3層を固定して1024→512という一変更で、同じメモリ段階、prefill/TTFT、
+T1を測る。解放容量を見てからbankを別変更として拡大する。重みstaging全体がubatchと比例して半分に
+なるとは仮定しない。大きいbankを追加した後のgraph/pool/vision増加も再計測する。
+
+元GPU3層再配分案：bankだけが大きくなった利益として計上せず、3層CPU化の追加時間、CPU compactの
+配置変更、prefill、自然生成品質を同じ条件で測る。旧hot14はこの選択をしていたため、旧案を再比較する際も
+配置と演算担当の両方向の変更を台帳へ残す。現在と旧案のpeak/freeだけを混ぜない。
+
+今回native weight453.427734MiBに対しGpre→Gpostのfree減少は512MiB。
+Gpost3126.25→vision dummy後2100.25→text64後1642.25→終点1618.25MiB。
+終点freeはpeak余裕の保証ではない。画像forward、128k実入力、同時requestはこの試験の守備範囲外。
+operatorの全native readbackを、別個体である統合bankの全byte readbackまで行ったと拡張しない。
+
+10. 9.8と今後の到達点
+
+旧hot14にはfresh-library-ja 9.752146509、fresh-queue-ja 10.285307964があり、8例合計は8.427404303。
+ユーザーの「9.8」の厳密な元記録は未同定。旧値はnative非stream /completionのserver decode timingで、
+128生成に対し127decode stepsを分子にしている。128で勝手に再計算して新しい9.8を作らない。
+今回8.13694はprefix272＋固定64入力の内部output-ready時計。直接の後退・改善比較ではない。
+
+旧bankは約14GiB/1035expert、今回は約453MiB/35expertだが、今は元GPU3層の約15.79GiBを保持する。
+「GPUを1/32しか使っていない」は誤り。過去と今でVRAMの配分方法が違う。
+
+仮に今回と同じ仕事・時計で9.8T1/sを目標にすると102.040816msが必要。
+現在Pから20.855503ms、約16.97%の時間短縮を要する。C−F2msをすべて除けると仮定しても8.271477T1/s。
+この仮算術から、経路の小改良だけへ長く滞在するより、未使用例で足場を確認し、配置の時間価値と
+GPU容量の再配分を検討する方が大きい目標へつながると判断する。達成可能性の保証ではない。
+
+11. 配信の2token周期と言語差
+
+今回も旧hot14の近い9.752記録もSSE/WebUIの到着間隔を測っていない。内部平均から原因を断定しない。
+単一stream requestで、decode output-ready、server send、client receive、UI renderの時刻を区別し、
+token ID/UTF8 byte/SSE eventの対応を保存する。異なる機械の絶対時計を同期なしで引き算しない。
+まず同じ時計の間隔分布とイベント対応を確認し、必要な時だけUIまで広げる。
+平均、中央値、p95/max、隣接間隔、自己相関等を記述し、数点の偶奇差を2周期の証明にしない。
+
+新JA/EN同課題は言語差への有用な最小スクリーンだが、内容群1つで因果一般化しない。
+64tokenの意味量は言語で違う。言語内F/P相対値、prefill、自由回答完成時間、解答の正しさを分ける。
+
+12. 詳細な出典
+
+以下の同梱ファイルがexact path・行番号・hashを持つ。
+evidence/EVIDENCE_REVIEW_JA.txt と INDEPENDENT_EVIDENCE_AUDIT.json
+integration/INTEGRATION_SOURCE_REVIEW_JA.txt と SOURCE_AUDIT.json / SOURCE_EXCERPTS.json
+history/HISTORY_AND_SPEED_COMPARABILITY_JA.txt と SOURCE_EXCERPTS.txt / SOURCE_SHA256.json
+parent/TIMING_AND_DISTRIBUTION_RECOMPUTED.json と independent_times_and_quality.py
+validation/FROZEN_VALIDATION3_PLAN.json と VALIDATION_PLAN_VERIFICATION.json
+
+全GitHub相対pathの起点はcommit d4d50b651ff7754ee2189228762468fc02971bfa。
+今回の入口:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/d4d50b651ff7754ee2189228762468fc02971bfa/archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/RESULTS_JA.txt
+昔の結果:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/d4d50b651ff7754ee2189228762468fc02971bfa/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/EVENING_RESULTS_JA.txt

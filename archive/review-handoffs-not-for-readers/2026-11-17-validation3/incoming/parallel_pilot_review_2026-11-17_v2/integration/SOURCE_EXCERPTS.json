@@ -1,0 +1,2850 @@
+[
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp",
+    "sha256": "270b7f6f4398f5d1978026bebc18e129614956d028414a98daf76f91374a881c",
+    "first": 44,
+    "last": 63,
+    "lines": [
+      {
+        "n": 44,
+        "text": "    Graph(ggml_backend_t b,const std::array<ggml_tensor*,3>&w,int slots,float clamp):backend(b){try{"
+      },
+      {
+        "n": 45,
+        "text": "        ctx=ggml_init({512*1024,nullptr,true});require(ctx,\"private graph metadata\");"
+      },
+      {
+        "n": 46,
+        "text": "        x=ggml_new_tensor_3d(ctx,GGML_TYPE_F32,D,1,1);ids=ggml_new_tensor_2d(ctx,GGML_TYPE_I32,slots,1);"
+      },
+      {
+        "n": 47,
+        "text": "        auto up=ggml_mul_mat_id(ctx,w[1],x,ids);auto gate=ggml_mul_mat_id(ctx,w[0],x,ids);"
+      },
+      {
+        "n": 48,
+        "text": "        auto act=ggml_swiglu_clamp(ctx,gate,up,clamp);y=ggml_mul_mat_id(ctx,w[2],act,ids);"
+      },
+      {
+        "n": 49,
+        "text": "        graph=ggml_new_graph_custom(ctx,32,false);ggml_build_forward_expand(graph,y);"
+      },
+      {
+        "n": 50,
+        "text": "        for(int i=0;i<ggml_graph_n_nodes(graph);++i)require(ggml_backend_supports_op(backend,ggml_graph_node(graph,i)),\"private unsupported op\");"
+      },
+      {
+        "n": 51,
+        "text": "        buffer=ggml_backend_alloc_ctx_tensors(ctx,backend);require(buffer,\"private activation allocation\");ggml_backend_buffer_clear(buffer,0);"
+      },
+      {
+        "n": 52,
+        "text": "    }catch(...){if(buffer)ggml_backend_buffer_free(buffer);if(ctx)ggml_free(ctx);throw;}}"
+      },
+      {
+        "n": 53,
+        "text": "    ~Graph(){if(buffer)ggml_backend_buffer_free(buffer);if(ctx)ggml_free(ctx);}"
+      },
+      {
+        "n": 54,
+        "text": "};"
+      },
+      {
+        "n": 55,
+        "text": "struct Layer{"
+      },
+      {
+        "n": 56,
+        "text": "    State * owner=nullptr;int index=0;float clamp=0;bool eligible=false;"
+      },
+      {
+        "n": 57,
+        "text": "    std::array<ggml_tensor*,3> original{},gpu_weights{};"
+      },
+      {
+        "n": 58,
+        "text": "    std::vector<uint32_t> selected;std::array<int,E>local{};"
+      },
+      {
+        "n": 59,
+        "text": "    ggml_context * weight_ctx=nullptr;ggml_backend_buffer_t weight_buffer=nullptr;"
+      },
+      {
+        "n": 60,
+        "text": "    std::unique_ptr<Graph>cpu;std::array<std::unique_ptr<Graph>,TOP+1>gpu;"
+      },
+      {
+        "n": 61,
+        "text": "    uint64_t calls=0;std::array<uint64_t,TOP+1>hist{};"
+      },
+      {
+        "n": 62,
+        "text": "    Layer(){local.fill(-1);}"
+      },
+      {
+        "n": 63,
+        "text": "    ~Layer(){for(auto & g:gpu)g.reset();cpu.reset();if(weight_buffer)ggml_backend_buffer_free(weight_buffer);if(weight_ctx)ggml_free(weight_ctx);}"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp",
+    "sha256": "270b7f6f4398f5d1978026bebc18e129614956d028414a98daf76f91374a881c",
+    "first": 74,
+    "last": 95,
+    "lines": [
+      {
+        "n": 74,
+        "text": "struct State{"
+      },
+      {
+        "n": 75,
+        "text": "    const llama_model * model=nullptr;ggml_backend_t outer_cpu=nullptr,outer_gpu=nullptr,self=nullptr;"
+      },
+      {
+        "n": 76,
+        "text": "    ggml_backend_t private_cpu=nullptr,private_gpu=nullptr;ggml_threadpool_t pool=nullptr;"
+      },
+      {
+        "n": 77,
+        "text": "    std::array<std::unique_ptr<Layer>,LAYERS> layers;"
+      },
+      {
+        "n": 78,
+        "text": "    float * pinned_input=nullptr,*pinned_output=nullptr;int32_t * pinned_ids=nullptr;"
+      },
+      {
+        "n": 79,
+        "text": "    std::mutex execution_mutex;char trial_mode='P';uint64_t trial_builds=0;bool ready=false;size_t payload=0,allocation=0,planned_count=0;"
+      },
+      {
+        "n": 80,
+        "text": "    explicit State(const llama_model * m):model(m){}"
+      },
+      {
+        "n": 81,
+        "text": "    ~State(){"
+      },
+      {
+        "n": 82,
+        "text": "        if(private_gpu)ggml_backend_synchronize(private_gpu);"
+      },
+      {
+        "n": 83,
+        "text": "        for(auto & layer:layers)if(layer){"
+      },
+      {
+        "n": 84,
+        "text": "            if(layer->calls)LLAMA_LOG_INFO(\"xeon-hot-stats layer=%d calls=%llu H=[%llu,%llu,%llu,%llu,%llu,%llu,%llu]\\n\",layer->index,(unsigned long long)layer->calls,"
+      },
+      {
+        "n": 85,
+        "text": "                (unsigned long long)layer->hist[0],(unsigned long long)layer->hist[1],(unsigned long long)layer->hist[2],(unsigned long long)layer->hist[3],(unsigned long long)layer->hist[4],(unsigned long long)layer->hist[5],(unsigned long long)layer->hist[6]);"
+      },
+      {
+        "n": 86,
+        "text": "            layer.reset();"
+      },
+      {
+        "n": 87,
+        "text": "        }"
+      },
+      {
+        "n": 88,
+        "text": "        if(pinned_ids)cudaFreeHost(pinned_ids);"
+      },
+      {
+        "n": 89,
+        "text": "        if(pinned_output)cudaFreeHost(pinned_output);"
+      },
+      {
+        "n": 90,
+        "text": "        if(pinned_input)cudaFreeHost(pinned_input);"
+      },
+      {
+        "n": 91,
+        "text": "        if(private_cpu)ggml_backend_cpu_set_threadpool(private_cpu,nullptr);"
+      },
+      {
+        "n": 92,
+        "text": "        if(pool)ggml_threadpool_free(pool);"
+      },
+      {
+        "n": 93,
+        "text": "        if(private_gpu)ggml_backend_free(private_gpu);"
+      },
+      {
+        "n": 94,
+        "text": "        if(private_cpu)ggml_backend_free(private_cpu);"
+      },
+      {
+        "n": 95,
+        "text": "        std::lock_guard<std::mutex>lock(registry_mutex);auto it=registry.find(outer_cpu);if(it!=registry.end()&&it->second==this)registry.erase(it);"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp",
+    "sha256": "270b7f6f4398f5d1978026bebc18e129614956d028414a98daf76f91374a881c",
+    "first": 122,
+    "last": 164,
+    "lines": [
+      {
+        "n": 122,
+        "text": "    void initialize(){"
+      },
+      {
+        "n": 123,
+        "text": "        require(!ready,\"duplicate initialization\");"
+      },
+      {
+        "n": 124,
+        "text": "        private_cpu=ggml_backend_cpu_init();require(private_cpu,\"private CPU backend\");"
+      },
+      {
+        "n": 125,
+        "text": "        auto p=ggml_threadpool_params_default(12);p.poll=0;p.strict_cpu=true;for(int i=0;i<12;++i)p.cpumask[i]=true;"
+      },
+      {
+        "n": 126,
+        "text": "        pool=ggml_threadpool_new(&p);require(pool,\"private CPU pool\");ggml_backend_cpu_set_n_threads(private_cpu,12);ggml_backend_cpu_set_threadpool(private_cpu,pool);"
+      },
+      {
+        "n": 127,
+        "text": "        if(payload){"
+      },
+      {
+        "n": 128,
+        "text": "            cuda_check(cudaSetDevice(0));cudaDeviceProp prop{};cuda_check(cudaGetDeviceProperties(&prop,0));require(prop.major==7&&prop.minor==0,\"Volta device required\");"
+      },
+      {
+        "n": 129,
+        "text": "            size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));"
+      },
+      {
+        "n": 130,
+        "text": "            LLAMA_LOG_INFO(\"capacity-bank-Gpre free=%zu total=%zu payload=%zu margin=%zu\\n\",free,total,payload,size_t(3072)*1024*1024);"
+      },
+      {
+        "n": 131,
+        "text": "            // Include room for new execution allocations and subsequent vision/pool growth."
+      },
+      {
+        "n": 132,
+        "text": "            require(free>payload+size_t(3072)*1024*1024,\"insufficient GPU headroom for plan and later vision/pool growth\");"
+      },
+      {
+        "n": 133,
+        "text": "            private_gpu=ggml_backend_cuda_init(0);require(private_gpu,\"private CUDA backend\");"
+      },
+      {
+        "n": 134,
+        "text": "            cuda_check(cudaHostAlloc(&pinned_input,D*sizeof(float),cudaHostAllocPortable));"
+      },
+      {
+        "n": 135,
+        "text": "            cuda_check(cudaHostAlloc(&pinned_output,D*TOP*sizeof(float),cudaHostAllocPortable));"
+      },
+      {
+        "n": 136,
+        "text": "            cuda_check(cudaHostAlloc(&pinned_ids,TOP*sizeof(int32_t),cudaHostAllocPortable));"
+      },
+      {
+        "n": 137,
+        "text": "        }"
+      },
+      {
+        "n": 138,
+        "text": "        for(auto & ptr:layers){if(!ptr)continue;auto & l=*ptr;if(!l.eligible||l.selected.empty())continue;"
+      },
+      {
+        "n": 139,
+        "text": "            l.cpu=std::make_unique<Graph>(private_cpu,l.original,TOP,l.clamp);"
+      },
+      {
+        "n": 140,
+        "text": "            std::array<float,D> zero{};std::array<int32_t,TOP> disabled;disabled.fill(-1);"
+      },
+      {
+        "n": 141,
+        "text": "            ggml_backend_tensor_set(l.cpu->x,zero.data(),0,sizeof(zero));ggml_backend_tensor_set(l.cpu->ids,disabled.data(),0,sizeof(disabled));"
+      },
+      {
+        "n": 142,
+        "text": "            require(ggml_backend_graph_compute(private_cpu,l.cpu->graph)==GGML_STATUS_SUCCESS,\"private CPU warmup\");"
+      },
+      {
+        "n": 143,
+        "text": "            l.weight_ctx=ggml_init({512*1024,nullptr,true});require(l.weight_ctx,\"bank metadata\");"
+      },
+      {
+        "n": 144,
+        "text": "            for(int j=0;j<3;++j){auto w=l.original[j];l.gpu_weights[j]=ggml_new_tensor_3d(l.weight_ctx,w->type,w->ne[0],w->ne[1],l.selected.size());}"
+      },
+      {
+        "n": 145,
+        "text": "            l.weight_buffer=ggml_backend_alloc_ctx_tensors(l.weight_ctx,private_gpu);require(l.weight_buffer,\"bank allocation\");"
+      },
+      {
+        "n": 146,
+        "text": "            allocation+=ggml_backend_buffer_get_size(l.weight_buffer);ggml_backend_buffer_set_usage(l.weight_buffer,GGML_BACKEND_BUFFER_USAGE_WEIGHTS);ggml_backend_buffer_clear(l.weight_buffer,0);"
+      },
+      {
+        "n": 147,
+        "text": "            for(int j=0;j<3;++j){auto w=l.original[j];size_t n=ggml_row_size(w->type,w->ne[0])*w->ne[1];"
+      },
+      {
+        "n": 148,
+        "text": "                for(size_t local=0;local<l.selected.size();++local)ggml_backend_tensor_set(l.gpu_weights[j],static_cast<const char*>(w->data)+size_t(l.selected[local])*w->nb[2],local*n,n);"
+      },
+      {
+        "n": 149,
+        "text": "            }"
+      },
+      {
+        "n": 150,
+        "text": "            // Reserve and exercise each reachable H, including kernel/pool/graph setup."
+      },
+      {
+        "n": 151,
+        "text": "            for(int h=1;h<=std::min(TOP,int(l.selected.size()));++h){"
+      },
+      {
+        "n": 152,
+        "text": "                l.gpu[h]=std::make_unique<Graph>(private_gpu,l.gpu_weights,h,l.clamp);"
+      },
+      {
+        "n": 153,
+        "text": "                std::array<int32_t,TOP> local_ids{};for(int j=0;j<h;++j)local_ids[j]=j;"
+      },
+      {
+        "n": 154,
+        "text": "                ggml_backend_tensor_set(l.gpu[h]->x,zero.data(),0,sizeof(zero));ggml_backend_tensor_set(l.gpu[h]->ids,local_ids.data(),0,h*sizeof(int32_t));"
+      },
+      {
+        "n": 155,
+        "text": "                for(int repeat=0;repeat<3;++repeat)require(ggml_backend_graph_compute(private_gpu,l.gpu[h]->graph)==GGML_STATUS_SUCCESS,\"private GPU warmup\");"
+      },
+      {
+        "n": 156,
+        "text": "                std::vector<float> checked(size_t(D)*h);ggml_backend_tensor_get(l.gpu[h]->y,checked.data(),0,checked.size()*sizeof(float));"
+      },
+      {
+        "n": 157,
+        "text": "                for(float value:checked)require(std::isfinite(value)&&value==0.0f,\"zero-input private graph output\");"
+      },
+      {
+        "n": 158,
+        "text": "                LLAMA_LOG_INFO(\"capacity-bank-warm layer=%d H=%d repeats=3 zero_output=1\\n\",l.index,h);"
+      },
+      {
+        "n": 159,
+        "text": "            }"
+      },
+      {
+        "n": 160,
+        "text": "        }"
+      },
+      {
+        "n": 161,
+        "text": "        if(private_gpu){ggml_backend_synchronize(private_gpu);size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));LLAMA_LOG_INFO(\"capacity-bank-Gpost free=%zu total=%zu margin=%zu\\n\",free,total,size_t(2560)*1024*1024);require(free>size_t(2560)*1024*1024,\"post-allocation reserve for vision/pool growth\");}"
+      },
+      {
+        "n": 162,
+        "text": "        size_t free,total;cuda_check(cudaMemGetInfo(&free,&total));"
+      },
+      {
+        "n": 163,
+        "text": "        ready=true;"
+      },
+      {
+        "n": 164,
+        "text": "        LLAMA_LOG_INFO(\"xeon-hot-ready experts=%zu native_payload=%zu GPU_bank_allocation=%zu GPU_free_before_vision=%zu CPUthreads=12 original-weights-retained=1\\n\",planned_count,payload,allocation,free);"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp",
+    "sha256": "270b7f6f4398f5d1978026bebc18e129614956d028414a98daf76f91374a881c",
+    "first": 166,
+    "last": 207,
+    "lines": [
+      {
+        "n": 166,
+        "text": "    void compute(Layer & l,ggml_tensor * dst,char mode='P',SampleStamp * stamp=nullptr){"
+      },
+      {
+        "n": 167,
+        "text": "        require(mode=='C'||mode=='S'||mode=='P',\"replay mode\");"
+      },
+      {
+        "n": 168,
+        "text": "        require(ready&&l.eligible&&l.cpu,\"uninitialized layer\");"
+      },
+      {
+        "n": 169,
+        "text": "        const auto x=dst->src[0],ids=dst->src[1];"
+      },
+      {
+        "n": 170,
+        "text": "        require(x&&ids&&x->type==GGML_TYPE_F32&&ids->type==GGML_TYPE_I32&&x->ne[0]==D&&x->ne[1]==1&&x->ne[2]==1&&x->ne[3]==1&&ggml_is_contiguous(x)&&ids->ne[0]==TOP&&ids->ne[1]==1&&ids->ne[2]==1&&ids->ne[3]==1&&dst->type==GGML_TYPE_F32&&dst->ne[0]==D&&dst->ne[1]==TOP&&dst->ne[2]==1&&dst->ne[3]==1&&ggml_is_contiguous(dst),\"runtime tensor geometry\");"
+      },
+      {
+        "n": 171,
+        "text": "        auto host=[](const ggml_tensor * t){auto b=t->buffer?t->buffer:(t->view_src?t->view_src->buffer:nullptr);return b&&ggml_backend_buffer_is_host(b);};"
+      },
+      {
+        "n": 172,
+        "text": "        require(host(x)&&host(ids)&&host(dst),\"dedicated backend requires host input/output buffers\");"
+      },
+      {
+        "n": 173,
+        "text": "        require(x->data&&ids->data&&dst->data,\"runtime tensor data\");"
+      },
+      {
+        "n": 174,
+        "text": "        std::array<int32_t,TOP>cpu_ids{};std::array<int,TOP>hot_slots{};std::array<bool,E>seen{};int hot=0;"
+      },
+      {
+        "n": 175,
+        "text": "        for(int slot=0;slot<TOP;++slot){int32_t e;std::memcpy(&e,static_cast<const char*>(ids->data)+slot*ids->nb[0],sizeof(e));"
+      },
+      {
+        "n": 176,
+        "text": "            require(e>=0&&e<E&&!seen[e],\"invalid routing ID\");seen[e]=true;"
+      },
+      {
+        "n": 177,
+        "text": "            if(l.local[e]>=0){hot_slots[hot]=slot;pinned_ids[hot]=l.local[e];++hot;cpu_ids[slot]=-1;}else cpu_ids[slot]=e;"
+      },
+      {
+        "n": 178,
+        "text": "        }"
+      },
+      {
+        "n": 179,
+        "text": "        if(stamp){stamp->matched=hot;stamp->partition_end=hot_ns();}"
+      },
+      {
+        "n": 180,
+        "text": "        if(mode=='C'){hot=0;for(int slot=0;slot<TOP;++slot)std::memcpy(&cpu_ids[slot],static_cast<const char*>(ids->data)+slot*ids->nb[0],sizeof(int32_t));}"
+      },
+      {
+        "n": 181,
+        "text": "        if(stamp)stamp->executed=hot;"
+      },
+      {
+        "n": 182,
+        "text": "        if(hot<TOP){ggml_backend_tensor_set(l.cpu->x,x->data,0,D*sizeof(float));ggml_backend_tensor_set(l.cpu->ids,cpu_ids.data(),0,TOP*sizeof(int32_t));}"
+      },
+      {
+        "n": 183,
+        "text": "        if(stamp)stamp->cpu_set_end=hot_ns();"
+      },
+      {
+        "n": 184,
+        "text": "        if(hot){auto & g=*l.gpu[hot];std::memcpy(pinned_input,x->data,D*sizeof(float));"
+      },
+      {
+        "n": 185,
+        "text": "            ggml_backend_tensor_set_async(private_gpu,g.x,pinned_input,0,D*sizeof(float));ggml_backend_tensor_set_async(private_gpu,g.ids,pinned_ids,0,hot*sizeof(int32_t));"
+      },
+      {
+        "n": 186,
+        "text": "            require(ggml_backend_graph_compute_async(private_gpu,g.graph)==GGML_STATUS_SUCCESS,\"GPU graph failed\");"
+      },
+      {
+        "n": 187,
+        "text": "            ggml_backend_tensor_get_async(private_gpu,g.y,pinned_output,0,size_t(hot)*D*sizeof(float));"
+      },
+      {
+        "n": 188,
+        "text": "        }"
+      },
+      {
+        "n": 189,
+        "text": "        if(stamp){stamp->submit_end=hot_ns();stamp->gpu_ops=hot?4:0;}"
+      },
+      {
+        "n": 190,
+        "text": "        auto join=[&](){if(stamp)stamp->join_begin=hot_ns();ggml_backend_synchronize(private_gpu);if(stamp){stamp->join_end=hot_ns();++stamp->gpu_ops;}};"
+      },
+      {
+        "n": 191,
+        "text": "        if(hot&&mode=='S')join();"
+      },
+      {
+        "n": 192,
+        "text": "        if(hot<TOP){if(stamp)stamp->cpu_begin=hot_ns();require(ggml_backend_graph_compute(private_cpu,l.cpu->graph)==GGML_STATUS_SUCCESS,\"CPU graph failed\");ggml_backend_tensor_get(l.cpu->y,dst->data,0,size_t(D)*TOP*sizeof(float));if(stamp)stamp->cpu_end=hot_ns();}"
+      },
+      {
+        "n": 193,
+        "text": "        if(hot&&mode=='P')join();"
+      },
+      {
+        "n": 194,
+        "text": "        if(hot)for(int j=0;j<hot;++j)std::memcpy(static_cast<float*>(dst->data)+hot_slots[j]*D,pinned_output+j*D,D*sizeof(float));"
+      },
+      {
+        "n": 195,
+        "text": "        if(!stamp&&l.calls==0)LLAMA_LOG_INFO(\"xeon-hot-first layer=%d H=%d resident=%zu\\n\",l.index,hot,l.selected.size());"
+      },
+      {
+        "n": 196,
+        "text": "        ++l.calls;++l.hist[hot];"
+      },
+      {
+        "n": 197,
+        "text": "    }"
+      },
+      {
+        "n": 198,
+        "text": "};"
+      },
+      {
+        "n": 199,
+        "text": "State * lookup(ggml_backend_t outer){std::lock_guard<std::mutex>lock(registry_mutex);auto it=registry.find(outer);return it==registry.end()?nullptr:it->second;}"
+      },
+      {
+        "n": 200,
+        "text": "const char * backend_name(ggml_backend_t){return \"XEON_HOT_FFN\";}"
+      },
+      {
+        "n": 201,
+        "text": "void backend_free(ggml_backend_t b){delete static_cast<State*>(b->context);delete b;}"
+      },
+      {
+        "n": 202,
+        "text": "ggml_status backend_compute(ggml_backend_t b,ggml_cgraph * graph){"
+      },
+      {
+        "n": 203,
+        "text": "    auto & s=*static_cast<State*>(b->context);std::lock_guard<std::mutex>lock(s.execution_mutex);"
+      },
+      {
+        "n": 204,
+        "text": "    try{for(int i=0;i<ggml_graph_n_nodes(graph);++i){auto node=ggml_graph_node(graph,i);if(ggml_op_is_empty(node->op))continue;"
+      },
+      {
+        "n": 205,
+        "text": "        require(marked(node),\"unexpected node in dedicated backend\");ggml_custom_op_params p{};std::memcpy(&p,node->op_params,sizeof(p));auto layer=static_cast<Layer*>(p.userdata);"
+      },
+      {
+        "n": 206,
+        "text": "        require(layer&&layer->owner==&s,\"wrong context owner\");s.compute(*layer,node,s.trial_mode);"
+      },
+      {
+        "n": 207,
+        "text": "    }return GGML_STATUS_SUCCESS;}catch(const std::exception & e){if(s.private_gpu)ggml_backend_synchronize(s.private_gpu);LLAMA_LOG_ERROR(\"%s\\n\",e.what());return GGML_STATUS_FAILED;}"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp",
+    "sha256": "270b7f6f4398f5d1978026bebc18e129614956d028414a98daf76f91374a881c",
+    "first": 230,
+    "last": 263,
+    "lines": [
+      {
+        "n": 230,
+        "text": "ggml_backend_t xeon_hot_backend_create(const llama_model & model,ggml_backend_t outer_cpu,ggml_backend_t outer_gpu,int threads,int batch_threads){"
+      },
+      {
+        "n": 231,
+        "text": "    const char * enabled=std::getenv(\"GGML_XEON_HOT_FFN\");if(!enabled||!std::strcmp(enabled,\"0\"))return nullptr;"
+      },
+      {
+        "n": 232,
+        "text": "    require(!std::strcmp(enabled,\"1\"),\"GGML_XEON_HOT_FFN must be0or1\");"
+      },
+      {
+        "n": 233,
+        "text": "    require(model.arch==LLM_ARCH_DEEPSEEK41&&model.hparams.n_embd==D&&model.hparams.n_layer_all==LAYERS&&model.layers.size()==LAYERS&&model.hparams.n_expert==E,\"supported model required\");"
+      },
+      {
+        "n": 234,
+        "text": "    require(threads==12&&batch_threads==24&&model.devices.size()==1&&outer_gpu,\"12/24 and singleGPU required\");"
+      },
+      {
+        "n": 235,
+        "text": "    if(model.no_alloc()){LLAMA_LOG_INFO(\"xeon-hot: disabled for no_alloc estimates; hot bank is separately budgeted\\n\");return nullptr;}"
+      },
+      {
+        "n": 236,
+        "text": "    const char * plan=std::getenv(\"GGML_XEON_HOT_PLAN\");require(plan&&*plan,\"explicit plan required\");"
+      },
+      {
+        "n": 237,
+        "text": "    {std::lock_guard<std::mutex>lock(registry_mutex);require(registry.empty(),\"pilot supports one context only\");}"
+      },
+      {
+        "n": 238,
+        "text": "    auto state=std::make_unique<State>(&model);state->outer_cpu=outer_cpu;state->outer_gpu=outer_gpu;state->read_plan(plan);"
+      },
+      {
+        "n": 239,
+        "text": "    return attach(std::move(state));"
+      },
+      {
+        "n": 240,
+        "text": "}"
+      },
+      {
+        "n": 241,
+        "text": "void xeon_hot_backend_finish(ggml_backend_t outer_cpu){if(auto s=lookup(outer_cpu))s->initialize();}"
+      },
+      {
+        "n": 242,
+        "text": "ggml_tensor * xeon_hot_build(ggml_backend_t outer_cpu,ggml_backend_sched_t sched,ggml_context * ctx,ggml_tensor * input,ggml_tensor * ids,ggml_tensor * gate,ggml_tensor * up,ggml_tensor * down,float clamp,int layer){"
+      },
+      {
+        "n": 243,
+        "text": "    auto s=lookup(outer_cpu);if(!s)return nullptr;"
+      },
+      {
+        "n": 244,
+        "text": "    require(layer>=0&&layer<LAYERS,\"graph layer index\");if(!s->layers[layer])return nullptr;auto & l=*s->layers[layer];"
+      },
+      {
+        "n": 245,
+        "text": "    if(!l.eligible||l.selected.empty())return nullptr;"
+      },
+      {
+        "n": 246,
+        "text": "    require(l.original==std::array<ggml_tensor*,3>{gate,up,down}&&clamp==l.clamp,\"graph weight/clamp mismatch\");"
+      },
+      {
+        "n": 247,
+        "text": "    if(input->type!=GGML_TYPE_F32||input->ne[0]!=D||input->ne[1]!=1||input->ne[2]!=1||input->ne[3]!=1||ids->type!=GGML_TYPE_I32||ids->ne[0]!=TOP||ids->ne[1]!=1)return nullptr;"
+      },
+      {
+        "n": 248,
+        "text": "    ++s->trial_builds;ggml_tensor * args[]={input,ids};auto node=ggml_custom_4d(ctx,GGML_TYPE_F32,D,TOP,1,1,args,2,marker,1,&l);"
+      },
+      {
+        "n": 249,
+        "text": "    ggml_set_name(node,(\"xeon_hot_ffn_\"+std::to_string(layer)).c_str());ggml_backend_sched_set_tensor_backend(sched,node,s->self);return node;"
+      },
+      {
+        "n": 250,
+        "text": "}"
+      },
+      {
+        "n": 251,
+        "text": "void xeon_hot_place_tail(ggml_backend_t outer_cpu,ggml_backend_sched_t sched,ggml_tensor * tail){if(auto s=lookup(outer_cpu))ggml_backend_sched_set_tensor_backend(sched,tail,s->outer_gpu);}"
+      },
+      {
+        "n": 252,
+        "text": ""
+      },
+      {
+        "n": 253,
+        "text": "// Isolated single-context trial controls. Caller must be synchronized and recorder closed."
+      },
+      {
+        "n": 254,
+        "text": "int xeon_hot_trial_set_mode(ggml_backend_t cpu,char mode){auto s=lookup(cpu);if(!s)return 0;"
+      },
+      {
+        "n": 255,
+        "text": "    require(mode=='C'||mode=='S'||mode=='P',\"trial mode\");std::lock_guard<std::mutex>lock(s->execution_mutex);"
+      },
+      {
+        "n": 256,
+        "text": "    if(s->private_gpu){ggml_backend_synchronize(s->private_gpu);}"
+      },
+      {
+        "n": 257,
+        "text": "    s->trial_mode=mode;return 1;"
+      },
+      {
+        "n": 258,
+        "text": "}"
+      },
+      {
+        "n": 259,
+        "text": "int xeon_hot_trial_snapshot(ggml_backend_t cpu,xeon_hot_trial_stats *out){auto s=lookup(cpu);if(!s||!out)return 0;"
+      },
+      {
+        "n": 260,
+        "text": "    std::lock_guard<std::mutex>lock(s->execution_mutex);*out={};out->builds=s->trial_builds;out->mode=s->trial_mode;out->ready=s->ready;out->payload=s->payload;out->allocation=s->allocation;"
+      },
+      {
+        "n": 261,
+        "text": "    for(int i=0;i<LAYERS;++i)if(s->layers[i]){out->calls[i]=s->layers[i]->calls;for(int h=0;h<=TOP;++h)out->hist[i][h]=s->layers[i]->hist[h];}"
+      },
+      {
+        "n": 262,
+        "text": "    return 1;"
+      },
+      {
+        "n": 263,
+        "text": "}"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/driver.cpp",
+    "sha256": "da5af20a347f36300e8339c4b436e18e4c769a709842e5beb4e6cc4ecca365c7",
+    "first": 81,
+    "last": 89,
+    "lines": [
+      {
+        "n": 81,
+        "text": "        need(arm==\"F-before\"||arm==\"F-after\"||arm==\"CSP\",\"explicit integrated arm\");bool mixed=arm==\"CSP\";report[\"arm\"]=arm;"
+      },
+      {
+        "n": 82,
+        "text": "        common_params params;need(common_params_parse(args.size(),args.data(),params,LLAMA_EXAMPLE_SERVER),\"parse arguments\");"
+      },
+      {
+        "n": 83,
+        "text": "        need(!params.cb_eval,\"no callback in replay\");params.cb_eval=nullptr;params.cb_eval_user_data=nullptr;params.warmup=false;params.sampling.backend_sampling=false;auto limits=output_limits(params);params.n_outputs_max=limits.total;params.n_outputs_max_per_seq=limits.per_seq;"
+      },
+      {
+        "n": 84,
+        "text": "        need(params.n_ctx==131072&&params.n_batch==1024&&(params.n_ubatch==1024||params.n_ubatch==512||params.n_ubatch==256)&&params.n_parallel==1&&params.cpuparams.n_threads==12&&params.cpuparams_batch.n_threads==24&&params.no_extra_bufts&&!params.no_op_offload&&params.moe_cache_size==0&&limits.total==1&&limits.per_seq==1,\"fixed profile\");"
+      },
+      {
+        "n": 85,
+        "text": "        report[\"requested_ubatch\"]=params.n_ubatch;report[\"scope\"]=\"Bounded main-model T1 trial: callback null, route recorder closed. Fixed JA prefix/reference. No sampled answer-quality claim.\";save_json(out/\"RUN.json\",report);"
+      },
+      {
+        "n": 86,
+        "text": "        llama_backend_init();resources.init=common_init_from_params(params);need(resources.init&&resources.init->context()&&resources.init->model(),\"model initialization\");"
+      },
+      {
+        "n": 87,
+        "text": "        ctx=resources.init->context();auto *model=resources.init->model();const auto &cp=ctx->get_cparams();"
+      },
+      {
+        "n": 88,
+        "text": "        report[\"cparams\"]={{\"n_ctx\",cp.n_ctx},{\"n_batch\",cp.n_batch},{\"n_ubatch\",cp.n_ubatch},{\"n_seq_max\",cp.n_seq_max},{\"n_outputs_max\",cp.n_outputs_max},{\"n_outputs_max_per_seq\",cp.n_outputs_max_per_seq},{\"threads\",12},{\"threads_batch\",24},{\"n_rs_seq\",cp.n_rs_seq}};"
+      },
+      {
+        "n": 89,
+        "text": "        need(cp.n_ubatch==uint32_t(params.n_ubatch)&&cp.n_outputs_max==1&&cp.n_rs_seq==0,\"actual cparams\");"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/driver.cpp",
+    "sha256": "da5af20a347f36300e8339c4b436e18e4c769a709842e5beb4e6cc4ecca365c7",
+    "first": 128,
+    "last": 159,
+    "lines": [
+      {
+        "n": 128,
+        "text": "        need(snapshot(*api)[\"stats\"][\"enabled\"]==false,\"recorder must stay closed; logical/internal origin is not integrated\");"
+      },
+      {
+        "n": 129,
+        "text": "        auto stats=[&](){xeon_hot_trial_stats x{};json j;if(mixed){need(xeon_hot_trial_snapshot(outer_cpu,&x)==1&&x.ready,\"trial state\");j={{\"mode\",std::string(1,x.mode)},{\"builds\",x.builds},{\"native_bytes\",x.payload},{\"bank_allocation_bytes\",x.allocation},{\"calls\",json::array()},{\"H\",json::array()}};for(int l=0;l<40;++l){j[\"calls\"].push_back(x.calls[l]);j[\"H\"].push_back(std::vector<uint64_t>(x.hist[l],x.hist[l]+7));}}return j;};"
+      },
+      {
+        "n": 130,
+        "text": "        report[\"blocks\"]=json::array();"
+      },
+      {
+        "n": 131,
+        "text": "        auto block=[&](char mode,bool quality,int repetition){"
+      },
+      {
+        "n": 132,
+        "text": "            llama_synchronize(ctx);need(snapshot(*api)[\"stats\"][\"enabled\"]==false,\"recorder closed\");"
+      },
+      {
+        "n": 133,
+        "text": "            if(mixed)need(xeon_hot_trial_set_mode(outer_cpu,mode)==1,\"trial mode switch\");"
+      },
+      {
+        "n": 134,
+        "text": "            auto before=stats();llama_memory_clear(llama_get_memory(ctx),true);llama_synchronize(ctx);"
+      },
+      {
+        "n": 135,
+        "text": "            const int ci=2,prefix=input[\"cases\"][2][\"prefix_tokens\"];need(prefix==272,\"fixed JA prompt\");set_batch(tokens[ci],0,prefix);"
+      },
+      {
+        "n": 136,
+        "text": "            auto pre_begin=ns();need(llama_decode(ctx,batch)==0,\"prefill\");auto ptr=llama_get_logits_ith(ctx,-1);auto pre_end=ns();need(finite(ptr),\"prefill finite\");"
+      },
+      {
+        "n": 137,
+        "text": "            std::vector<float>values;if(quality){values.resize(size_t(65)*nv);std::memcpy(values.data(),ptr,size_t(nv)*4);}"
+      },
+      {
+        "n": 138,
+        "text": "            std::array<int64_t,64>start{},end{};std::array<int,64>codes{};"
+      },
+      {
+        "n": 139,
+        "text": "            for(int i=0;i<64;++i){set_batch(tokens[ci],prefix+i,1);start[i]=ns();codes[i]=llama_decode(ctx,batch);ptr=llama_get_logits_ith(ctx,-1);end[i]=ns();need(codes[i]==0&&ptr,\"T1 result\");"
+      },
+      {
+        "n": 140,
+        "text": "                if(quality){need(finite(ptr),\"T1 finite\");std::memcpy(values.data()+size_t(i+1)*nv,ptr,size_t(nv)*4);}}"
+      },
+      {
+        "n": 141,
+        "text": "            llama_synchronize(ctx);auto after=stats();"
+      },
+      {
+        "n": 142,
+        "text": "            json item={{\"mode\",std::string(1,mode)},{\"quality\",quality},{\"repetition\",repetition},{\"prefix_tokens\",prefix},{\"input_tokens\",std::vector<llama_token>(tokens[ci].begin()+prefix,tokens[ci].begin()+prefix+64)},"
+      },
+      {
+        "n": 143,
+        "text": "                {\"next_targets\",std::vector<llama_token>(tokens[ci].begin()+prefix,tokens[ci].begin()+prefix+65)},"
+      },
+      {
+        "n": 144,
+        "text": "                {\"start_ns\",start},{\"output_ready_ns\",end},{\"status\",codes},{\"prefill_begin_ns\",pre_begin},{\"prefill_ready_ns\",pre_end},{\"before\",before},{\"after\",after}};"
+      },
+      {
+        "n": 145,
+        "text": "            if(mixed){uint64_t calls=0;for(int l=0;l<40;++l){uint64_t delta=after[\"calls\"][l].get<uint64_t>()-before[\"calls\"][l].get<uint64_t>();need(delta==0||delta==64,\"T1 only bank calls; prefill fallback\");calls+=delta;}need(calls==23*64,\"all23 nonempty layers for64T1; empty andGPU preserved\");}"
+      },
+      {
+        "n": 146,
+        "text": "            if(quality){std::string name=std::string(\"quality-\")+mode+\".f32\";std::ofstream f(out/name,std::ios::binary);need(bool(f),\"quality output open\");f.write(reinterpret_cast<const char*>(values.data()),values.size()*4);f.close();need(!f.fail(),\"quality output write\");item[\"file\"]=name;item[\"shape\"]={65,nv};item[\"all_finite\"]=true;}"
+      },
+      {
+        "n": 147,
+        "text": "            report[\"blocks\"].push_back(item);save_json(out/\"RUN.json\",report);std::cout<<\"integrated \"<<mode<<\" quality=\"<<quality<<\" repetition=\"<<repetition<<\" complete\\n\"<<std::flush;"
+      },
+      {
+        "n": 148,
+        "text": "        };"
+      },
+      {
+        "n": 149,
+        "text": "        auto file_bytes=[&](const std::filesystem::path&p){std::ifstream f(p,std::ios::binary);need(bool(f),\"quality gate open\");return std::vector<char>((std::istreambuf_iterator<char>(f)),std::istreambuf_iterator<char>());};"
+      },
+      {
+        "n": 150,
+        "text": "        if(mixed){"
+      },
+      {
+        "n": 151,
+        "text": "            for(char m:std::string(\"CSP\"))block(m,true,0);"
+      },
+      {
+        "n": 152,
+        "text": "            auto sv=file_bytes(out/\"quality-S.f32\"),pv=file_bytes(out/\"quality-P.f32\");report[\"quality_S_P_byte_equal\"]=sv==pv;"
+      },
+      {
+        "n": 153,
+        "text": "            save_json(out/\"RUN.json\",report);need(sv==pv,\"integrated S/P output differs; investigate before timing\");"
+      },
+      {
+        "n": 154,
+        "text": "            const std::array<std::string,6> orders={\"CSP\",\"PSC\",\"SPC\",\"CPS\",\"PCS\",\"SCP\"};"
+      },
+      {
+        "n": 155,
+        "text": "            for(int b=0;b<6;++b)for(char m:orders[b])block(m,false,b);"
+      },
+      {
+        "n": 156,
+        "text": "        } else{"
+      },
+      {
+        "n": 157,
+        "text": "            block('F',true,0);auto v=file_bytes(out/\"quality-F.f32\");auto oldv=file_bytes(\"/home/codex/projects/llm-lab/gpu-workspace-20261117/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/text_cache_budget_ja.f32\");"
+      },
+      {
+        "n": 158,
+        "text": "            need(v.size()>=oldv.size(),\"old bridge shape\");report[\"F_prefix_first4_equal_old\"]=std::equal(oldv.begin(),oldv.end(),v.begin());save_json(out/\"RUN.json\",report);need(report[\"F_prefix_first4_equal_old\"]==true,\"new engine disabled path baseline mismatch\");"
+      },
+      {
+        "n": 159,
+        "text": "            for(int b=0;b<3;++b)block('F',false,b);"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/llama-graph.cpp",
+    "sha256": "bae11132e3d77ef9c19eb14cc12d90b5d2581bdfc4ee532056834f9e76a20013",
+    "first": 2300,
+    "last": 2332,
+    "lines": [
+      {
+        "n": 2300,
+        "text": "    //call early so that topk-moe can be used"
+      },
+      {
+        "n": 2301,
+        "text": "    ggml_build_forward_expand(gf, weights);"
+      },
+      {
+        "n": 2302,
+        "text": ""
+      },
+      {
+        "n": 2303,
+        "text": "    // the experts of host-resident layers may be read from the MoE cache"
+      },
+      {
+        "n": 2304,
+        "text": "    ggml_tensor * slots = build_moe_cache_slots(selected_experts, up_exps, gate_exps, down_exps, gate_up_exps, il);"
+      },
+      {
+        "n": 2305,
+        "text": ""
+      },
+      {
+        "n": 2306,
+        "text": "    cur = ggml_reshape_3d(ctx0, cur, n_embd, 1, n_tokens);"
+      },
+      {
+        "n": 2307,
+        "text": ""
+      },
+      {
+        "n": 2308,
+        "text": "    if (weight_before_ffn) {"
+      },
+      {
+        "n": 2309,
+        "text": "        // repeat cur to [n_embd, n_expert_used, n_tokens]"
+      },
+      {
+        "n": 2310,
+        "text": "        ggml_tensor * repeated = ggml_repeat_4d(ctx0, cur, n_embd, n_expert_used, n_tokens, 1);"
+      },
+      {
+        "n": 2311,
+        "text": "        cur = ggml_mul(ctx0, repeated, weights);"
+      },
+      {
+        "n": 2312,
+        "text": "        cb(cur, \"ffn_moe_weighted\", il);"
+      },
+      {
+        "n": 2313,
+        "text": "    }"
+      },
+      {
+        "n": 2314,
+        "text": ""
+      },
+      {
+        "n": 2315,
+        "text": "    ggml_tensor * up = nullptr;"
+      },
+      {
+        "n": 2316,
+        "text": "    ggml_tensor * experts = nullptr;"
+      },
+      {
+        "n": 2317,
+        "text": "    const auto has_custom_precision = [&](const ggml_tensor * weight) {"
+      },
+      {
+        "n": 2318,
+        "text": "        return prec_policy && (prec_policy->prec_acc.count(weight) || prec_policy->prec_src1.count(weight));"
+      },
+      {
+        "n": 2319,
+        "text": "    };"
+      },
+      {
+        "n": 2320,
+        "text": "    if (arch == LLM_ARCH_DEEPSEEK41 && il >= 0 && uint32_t(il) < hparams.n_layer_all && n_tokens == 1 && n_embd == 5120 && n_expert == 384 && n_expert_used == 6 &&"
+      },
+      {
+        "n": 2321,
+        "text": "        !weight_before_ffn && type_op == LLM_FFN_SILU && gate_exps && up_exps && down_exps && !gate_up_exps &&"
+      },
+      {
+        "n": 2322,
+        "text": "        !up_exps_b && !gate_exps_b && !down_exps_b && !gate_up_exps_b &&"
+      },
+      {
+        "n": 2323,
+        "text": "        !up_exps_s && !gate_exps_s && !down_exps_s && !post_exp_norm && !slots && !moe_cache &&"
+      },
+      {
+        "n": 2324,
+        "text": "        (!loras || loras->empty()) && !hdmd &&"
+      },
+      {
+        "n": 2325,
+        "text": "        !has_custom_precision(gate_exps) && !has_custom_precision(up_exps) && !has_custom_precision(down_exps)) {"
+      },
+      {
+        "n": 2326,
+        "text": "        experts = xeon_hot_build(backend_cpu, sched, ctx0, cur, selected_experts,"
+      },
+      {
+        "n": 2327,
+        "text": "                gate_exps, up_exps, down_exps, hparams.swiglu_clamp_exp[il], il);"
+      },
+      {
+        "n": 2328,
+        "text": "    }"
+      },
+      {
+        "n": 2329,
+        "text": "    const bool xeon_hot_used = experts != nullptr;"
+      },
+      {
+        "n": 2330,
+        "text": "    if (!xeon_hot_used) {"
+      },
+      {
+        "n": 2331,
+        "text": ""
+      },
+      {
+        "n": 2332,
+        "text": "    if (gate_up_exps) {"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/llama-graph.cpp",
+    "sha256": "bae11132e3d77ef9c19eb14cc12d90b5d2581bdfc4ee532056834f9e76a20013",
+    "first": 2504,
+    "last": 2520,
+    "lines": [
+      {
+        "n": 2504,
+        "text": "    }"
+      },
+      {
+        "n": 2505,
+        "text": ""
+      },
+      {
+        "n": 2506,
+        "text": "    if (!weight_before_ffn) {"
+      },
+      {
+        "n": 2507,
+        "text": "        experts = ggml_mul(ctx0, experts, weights);"
+      },
+      {
+        "n": 2508,
+        "text": "        if (xeon_hot_used) {"
+      },
+      {
+        "n": 2509,
+        "text": "            xeon_hot_place_tail(backend_cpu, sched, experts);"
+      },
+      {
+        "n": 2510,
+        "text": "        }"
+      },
+      {
+        "n": 2511,
+        "text": "        cb(experts, \"ffn_moe_weighted\", il);"
+      },
+      {
+        "n": 2512,
+        "text": "    }"
+      },
+      {
+        "n": 2513,
+        "text": ""
+      },
+      {
+        "n": 2514,
+        "text": "    ggml_build_forward_expand(gf, experts);"
+      },
+      {
+        "n": 2515,
+        "text": ""
+      },
+      {
+        "n": 2516,
+        "text": "    ggml_tensor * cur_experts[LLAMA_MAX_EXPERTS] = { nullptr };"
+      },
+      {
+        "n": 2517,
+        "text": ""
+      },
+      {
+        "n": 2518,
+        "text": "    assert(n_expert_used > 0);"
+      },
+      {
+        "n": 2519,
+        "text": ""
+      },
+      {
+        "n": 2520,
+        "text": "    // order the views before the adds"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/route37/llama-context.cpp",
+    "sha256": "7b8829337f935c713959ca176848fd8946c7da185bee3bbacb2243577b76ea4a",
+    "first": 4317,
+    "last": 4330,
+    "lines": [
+      {
+        "n": 4317,
+        "text": "float * llama_get_logits_ith(llama_context * ctx, int32_t i) {"
+      },
+      {
+        "n": 4318,
+        "text": "    ctx->synchronize();"
+      },
+      {
+        "n": 4319,
+        "text": ""
+      },
+      {
+        "n": 4320,
+        "text": "    float * res = nullptr;"
+      },
+      {
+        "n": 4321,
+        "text": ""
+      },
+      {
+        "n": 4322,
+        "text": "    res = ctx->get_sampled_logits_ith(i);"
+      },
+      {
+        "n": 4323,
+        "text": ""
+      },
+      {
+        "n": 4324,
+        "text": "    if (!res) {"
+      },
+      {
+        "n": 4325,
+        "text": "        res = ctx->get_logits_ith(i);"
+      },
+      {
+        "n": 4326,
+        "text": "    }"
+      },
+      {
+        "n": 4327,
+        "text": ""
+      },
+      {
+        "n": 4328,
+        "text": "    return res;"
+      },
+      {
+        "n": 4329,
+        "text": "}"
+      },
+      {
+        "n": 4330,
+        "text": ""
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/capture/bounded_moe_capture_proposal.h",
+    "sha256": "14c3a3d94130009d7b2e97ace8774af085b997e133baeacdf1aff928174367af",
+    "first": 109,
+    "last": 190,
+    "lines": [
+      {
+        "n": 109,
+        "text": "        return root->buffer && ggml_backend_buffer_is_host(root->buffer);"
+      },
+      {
+        "n": 110,
+        "text": "    }"
+      },
+      {
+        "n": 111,
+        "text": "    static bool shape(const ggml_tensor * t, ggml_type type,"
+      },
+      {
+        "n": 112,
+        "text": "                      int64_t a, int64_t b, int64_t c, int64_t d) {"
+      },
+      {
+        "n": 113,
+        "text": "        return t && t->type == type && t->ne[0] == a && t->ne[1] == b &&"
+      },
+      {
+        "n": 114,
+        "text": "            t->ne[2] == c && t->ne[3] == d && ggml_is_contiguous(t);"
+      },
+      {
+        "n": 115,
+        "text": "    }"
+      },
+      {
+        "n": 116,
+        "text": "    static int match(const Cell & c, const ggml_tensor * t) {"
+      },
+      {
+        "n": 117,
+        "text": "        if (t->op == GGML_OP_MUL_MAT_ID && t->src[0] == c.gate_weight) return 1;"
+      },
+      {
+        "n": 118,
+        "text": "        if (t->op == GGML_OP_MUL_MAT_ID && t->src[0] == c.down_weight) return 2;"
+      },
+      {
+        "n": 119,
+        "text": "        if (t->op == GGML_OP_MUL && c.down_node && t->src[0] &&"
+      },
+      {
+        "n": 120,
+        "text": "            (t->src[0] == c.down_node ||"
+      },
+      {
+        "n": 121,
+        "text": "             (t->src[0]->op == GGML_OP_NONE && std::strcmp(t->src[0]->name,c.down_copy_name)==0 &&"
+      },
+      {
+        "n": 122,
+        "text": "              shape(t->src[0],GGML_TYPE_F32,n_embd,n_used,1,1))) &&"
+      },
+      {
+        "n": 123,
+        "text": "            std::strcmp(t->name, c.weighted_name) == 0) return 4;"
+      },
+      {
+        "n": 124,
+        "text": "        return 0;"
+      },
+      {
+        "n": 125,
+        "text": "    }"
+      },
+      {
+        "n": 126,
+        "text": "    static bool callback(ggml_tensor * t, bool ask, void * opaque) {"
+      },
+      {
+        "n": 127,
+        "text": "        auto & s = *static_cast<Capture *>(opaque);"
+      },
+      {
+        "n": 128,
+        "text": "        if (!s.armed) return ask ? false : true;"
+      },
+      {
+        "n": 129,
+        "text": "        bool wanted = false;"
+      },
+      {
+        "n": 130,
+        "text": "        for (size_t i = 0; i < s.count; ++i) {"
+      },
+      {
+        "n": 131,
+        "text": "            auto & c = s.cells[i];"
+      },
+      {
+        "n": 132,
+        "text": "            if (c.key != s.current_key) continue;"
+      },
+      {
+        "n": 133,
+        "text": "            // Remember the actual scaled weights producer without requesting any"
+      },
+      {
+        "n": 134,
+        "text": "            // CUDA graph cut. This must be visited before the CPU gate executes."
+      },
+      {
+        "n": 135,
+        "text": "            if(ask && std::strcmp(t->name,c.weights_name)==0){"
+      },
+      {
+        "n": 136,
+        "text": "                if(c.weights_producer || c.seen || t->op!=GGML_OP_SCALE ||"
+      },
+      {
+        "n": 137,
+        "text": "                   !shape(t,GGML_TYPE_F32,1,n_used,1,1))c.flags|=invalid_setup;"
+      },
+      {
+        "n": 138,
+        "text": "                else c.weights_producer=t;"
+      },
+      {
+        "n": 139,
+        "text": "                continue;"
+      },
+      {
+        "n": 140,
+        "text": "            }"
+      },
+      {
+        "n": 141,
+        "text": "            const int what = match(c, t);"
+      },
+      {
+        "n": 142,
+        "text": "            if (!what) continue;"
+      },
+      {
+        "n": 143,
+        "text": "            // Validate the consumer uses exactly the already-copied producer."
+      },
+      {
+        "n": 144,
+        "text": "            // Return false: preserve the original CUDA weighted/merge graph."
+      },
+      {
+        "n": 145,
+        "text": "            if(what==4){"
+      },
+      {
+        "n": 146,
+        "text": "                if(!ask || c.seen!=3 || !c.weights_ready_after_gate || t->src[1]!=c.weights_producer){c.flags|=invalid_setup;continue;}"
+      },
+      {
+        "n": 147,
+        "text": "                c.down_via_cuda_copy=t->src[0]!=c.down_node;c.seen|=4;continue;"
+      },
+      {
+        "n": 148,
+        "text": "            }"
+      },
+      {
+        "n": 149,
+        "text": "            wanted = true;"
+      },
+      {
+        "n": 150,
+        "text": "            if (ask) continue;"
+      },
+      {
+        "n": 151,
+        "text": "            if (c.seen & what) { c.flags |= duplicate; continue; }"
+      },
+      {
+        "n": 152,
+        "text": "            if (what == 1) {"
+      },
+      {
+        "n": 153,
+        "text": "                const auto * x = t->src[1]; const auto * ids = t->src[2];"
+      },
+      {
+        "n": 154,
+        "text": "                if (!shape(t, GGML_TYPE_F32, n_ff, n_used, 1, 1) ||"
+      },
+      {
+        "n": 155,
+        "text": "                    !shape(x, GGML_TYPE_F32, n_embd, 1, 1, 1) ||"
+      },
+      {
+        "n": 156,
+        "text": "                    !shape(ids, GGML_TYPE_I32, n_used, 1, 1, 1)) {"
+      },
+      {
+        "n": 157,
+        "text": "                    c.flags |= bad_shape; continue;"
+      },
+      {
+        "n": 158,
+        "text": "                }"
+      },
+      {
+        "n": 159,
+        "text": "                if (!host(x) || !host(ids)) { c.flags |= not_host; continue; }"
+      },
+      {
+        "n": 160,
+        "text": "                std::memcpy(c.x.data(), x->data, sizeof(c.x));"
+      },
+      {
+        "n": 161,
+        "text": "                std::memcpy(c.ids.data(), ids->data, sizeof(c.ids));"
+      },
+      {
+        "n": 162,
+        "text": "                for (size_t d = 0; d < 4; ++d) {"
+      },
+      {
+        "n": 163,
+        "text": "                    c.x_ne[d] = x->ne[d]; c.x_nb[d] = int64_t(x->nb[d]);"
+      },
+      {
+        "n": 164,
+        "text": "                    c.ids_ne[d] = ids->ne[d]; c.ids_nb[d] = int64_t(ids->nb[d]);"
+      },
+      {
+        "n": 165,
+        "text": "                }"
+      },
+      {
+        "n": 166,
+        "text": "                if (c.ids != c.expected_ids) c.flags |= bad_ids;"
+      },
+      {
+        "n": 167,
+        "text": "                // In this fixed model scaled weights are expanded before CPU FFN."
+      },
+      {
+        "n": 168,
+        "text": "                // Its producer was encountered in a prior GPU split (or an earlier"
+      },
+      {
+        "n": 169,
+        "text": "                // CPU node). The CPU gate has now completed. Explicitly drain the"
+      },
+      {
+        "n": 170,
+        "text": "                // original GPU backend before the diagnostic 24-byte read, avoiding"
+      },
+      {
+        "n": 171,
+        "text": "                // assumptions about cudaStreamPerThread vs the scheduler stream."
+      },
+      {
+        "n": 172,
+        "text": "                const auto *w=c.weights_producer;"
+      },
+      {
+        "n": 173,
+        "text": "                if(!w || !w->data || !s.gpu_backend){c.flags|=invalid_setup;continue;}"
+      },
+      {
+        "n": 174,
+        "text": "                if(host(w))std::memcpy(c.routing_weight.data(),w->data,sizeof(c.routing_weight));"
+      },
+      {
+        "n": 175,
+        "text": "                else{ggml_backend_synchronize(s.gpu_backend);c.routing_weight_readback=true;"
+      },
+      {
+        "n": 176,
+        "text": "                    ggml_backend_tensor_get(w,c.routing_weight.data(),0,sizeof(c.routing_weight));}"
+      },
+      {
+        "n": 177,
+        "text": "                c.weights_ready_after_gate=true;"
+      },
+      {
+        "n": 178,
+        "text": "            } else if (what == 2) {"
+      },
+      {
+        "n": 179,
+        "text": "                if (!shape(t, GGML_TYPE_F32, n_embd, n_used, 1, 1)) {"
+      },
+      {
+        "n": 180,
+        "text": "                    c.flags |= bad_shape; continue;"
+      },
+      {
+        "n": 181,
+        "text": "                }"
+      },
+      {
+        "n": 182,
+        "text": "                if (!host(t)) { c.flags |= not_host; continue; }"
+      },
+      {
+        "n": 183,
+        "text": "                std::memcpy(c.down.data(), t->data, sizeof(c.down));"
+      },
+      {
+        "n": 184,
+        "text": "                c.down_node = t;"
+      },
+      {
+        "n": 185,
+        "text": "            }"
+      },
+      {
+        "n": 186,
+        "text": "            c.seen |= uint8_t(what);"
+      },
+      {
+        "n": 187,
+        "text": "        }"
+      },
+      {
+        "n": 188,
+        "text": "        // Never use false observation return as a global cancellation mechanism."
+      },
+      {
+        "n": 189,
+        "text": "        // Save failure flags, then fail the caller AFTER normal completion."
+      },
+      {
+        "n": 190,
+        "text": "        return ask ? wanted : true;"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/route37.cpp",
+    "sha256": "8f8aca9be203043ea5cb5f82bfc90cdcfcd37e8ed027faaccaf6e7f5b4ec8865",
+    "first": 7,
+    "last": 34,
+    "lines": [
+      {
+        "n": 7,
+        "text": "namespace {"
+      },
+      {
+        "n": 8,
+        "text": "constexpr size_t L=37, R=4096, A=512, C=128;"
+      },
+      {
+        "n": 9,
+        "text": "constexpr uint64_t ALL=(UINT64_C(1)<<L)-1;"
+      },
+      {
+        "n": 10,
+        "text": "struct Binding { const ggml_tensor * tensor; const void * data; ggml_type type; int64_t ne[4]; size_t nb[4]; };"
+      },
+      {
+        "n": 11,
+        "text": "struct Data {"
+      },
+      {
+        "n": 12,
+        "text": "    const void * owner; uint32_t context,rlimit,alimit,climit,flags;"
+      },
+      {
+        "n": 13,
+        "text": "    bool observing,call_open,eval_open;"
+      },
+      {
+        "n": 14,
+        "text": "    uint64_t nr,na,nc,dropped,ndecode,generation;"
+      },
+      {
+        "n": 15,
+        "text": "    Binding binding[L];"
+      },
+      {
+        "n": 16,
+        "text": "    xeon_route37_record records[R]; xeon_route37_attempt attempts[A]; xeon_route37_call calls[C];"
+      },
+      {
+        "n": 17,
+        "text": "};"
+      },
+      {
+        "n": 18,
+        "text": "static_assert(std::is_trivially_copyable<Data>::value,\"prefault/reset POD only\");"
+      },
+      {
+        "n": 19,
+        "text": "Data d{};"
+      },
+      {
+        "n": 20,
+        "text": "std::atomic<bool> enabled{false}, active{false};"
+      },
+      {
+        "n": 21,
+        "text": "static_assert(std::atomic<bool>::is_always_lock_free,\"hook flag must not use a lock\");"
+      },
+      {
+        "n": 22,
+        "text": "bool owns(const void *p){return enabled.load(std::memory_order_acquire)&&p&&p==d.owner;}"
+      },
+      {
+        "n": 23,
+        "text": "bool host(const ggml_tensor *t){auto b=t->buffer?t->buffer:(t->view_src?t->view_src->buffer:nullptr);return b&&ggml_backend_buffer_is_host(b);}"
+      },
+      {
+        "n": 24,
+        "text": "bool supported(ggml_type t){return t==GGML_TYPE_IQ2_S||t==GGML_TYPE_IQ3_S||t==GGML_TYPE_IQ3_XXS||t==GGML_TYPE_MXFP4;}"
+      },
+      {
+        "n": 25,
+        "text": "void mark(uint32_t bits){d.flags|=bits;}"
+      },
+      {
+        "n": 26,
+        "text": "bool readable(){return !active.load(std::memory_order_acquire)&&!d.eval_open&&!d.call_open;}"
+      },
+      {
+        "n": 27,
+        "text": "}"
+      },
+      {
+        "n": 28,
+        "text": "int xeon_route37_open_v1(const void *owner,uint32_t context,int observing,uint32_t nr,uint32_t na,uint32_t nc){"
+      },
+      {
+        "n": 29,
+        "text": "    if(!owner||!context||enabled.load()||active.load()||!nr||nr>R||!na||na>A||!nc||nc>C)return 0;"
+      },
+      {
+        "n": 30,
+        "text": "    // Fixed buffers are fully touched before any measured/observed graph."
+      },
+      {
+        "n": 31,
+        "text": "    std::memset(&d,0,sizeof(d));d.owner=owner;d.context=context;d.observing=observing!=0;"
+      },
+      {
+        "n": 32,
+        "text": "    d.rlimit=nr;d.alimit=na;d.climit=nc;enabled.store(true,std::memory_order_release);return 1;"
+      },
+      {
+        "n": 33,
+        "text": "}"
+      },
+      {
+        "n": 34,
+        "text": "int xeon_route37_matches_v1(const void *owner){return owns(owner);}"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/route37.cpp",
+    "sha256": "8f8aca9be203043ea5cb5f82bfc90cdcfcd37e8ed027faaccaf6e7f5b4ec8865",
+    "first": 65,
+    "last": 99,
+    "lines": [
+      {
+        "n": 65,
+        "text": "}"
+      },
+      {
+        "n": 66,
+        "text": "void xeon_route37_record_v1(const ggml_tensor *w,const ggml_tensor *ids){"
+      },
+      {
+        "n": 67,
+        "text": "    if(!active.load(std::memory_order_acquire))return;"
+      },
+      {
+        "n": 68,
+        "text": "    auto &a=d.attempts[d.na-1];size_t layer=L;"
+      },
+      {
+        "n": 69,
+        "text": "    for(size_t i=0;i<L;++i)if(d.binding[i].tensor==w){layer=i;break;}"
+      },
+      {
+        "n": 70,
+        "text": "    if(layer==L){"
+      },
+      {
+        "n": 71,
+        "text": "        // Non-gate up/down weights are deliberately ignored. A copied gate"
+      },
+      {
+        "n": 72,
+        "text": "        // tensor sharing its backing data is explicitly invalid, not guessed."
+      },
+      {
+        "n": 73,
+        "text": "        if(w)for(size_t i=0;i<L;++i)if(d.binding[i].data==w->data){a.flags|=XR_MAPPING;mark(XR_MAPPING);break;}"
+      },
+      {
+        "n": 74,
+        "text": "        return;"
+      },
+      {
+        "n": 75,
+        "text": "    }"
+      },
+      {
+        "n": 76,
+        "text": "    const auto &b=d.binding[layer];uint32_t flags=0;"
+      },
+      {
+        "n": 77,
+        "text": "    if(w->data!=b.data||w->type!=b.type||std::memcmp(w->ne,b.ne,sizeof(b.ne))||std::memcmp(w->nb,b.nb,sizeof(b.nb)))flags|=XR_MAPPING;"
+      },
+      {
+        "n": 78,
+        "text": "    const bool good=ids&&ids->data&&ids->type==GGML_TYPE_I32&&ids->ne[0]==6&&ids->ne[1]==1&&ids->ne[2]==1&&ids->ne[3]==1&&ids->nb[0]>=4;"
+      },
+      {
+        "n": 79,
+        "text": "    if(!good)flags|=XR_GEOMETRY;"
+      },
+      {
+        "n": 80,
+        "text": "    const uint64_t bit=UINT64_C(1)<<layer;if(a.layers&bit)flags|=XR_DUPLICATE;a.layers|=bit;"
+      },
+      {
+        "n": 81,
+        "text": "    if(d.nr==d.rlimit){a.flags|=flags|XR_OVERFLOW;mark(flags|XR_OVERFLOW);++d.dropped;return;}"
+      },
+      {
+        "n": 82,
+        "text": "    auto &r=d.records[d.nr];r={};r.ordinal=d.nr++;r.attempt=a.id;r.request=a.label.request;r.sequence=a.label.sequence;"
+      },
+      {
+        "n": 83,
+        "text": "    r.decode_call=a.label.decode_call;r.ubatch=a.ubatch;r.logical_token=a.label.logical_token;r.position=a.position;"
+      },
+      {
+        "n": 84,
+        "text": "    r.graph_generation=a.generation;r.context=a.context;r.layer=uint16_t(layer);r.phase=a.label.phase;r.projection=1;r.n_tokens=a.n_tokens;"
+      },
+      {
+        "n": 85,
+        "text": "    for(int j=0;j<6;++j){r.ids[j]=-1;if(good)std::memcpy(&r.ids[j],static_cast<const char*>(ids->data)+size_t(j)*ids->nb[0],4);"
+      },
+      {
+        "n": 86,
+        "text": "        if(r.ids[j]<0||r.ids[j]>=384)flags|=XR_IDS;"
+      },
+      {
+        "n": 87,
+        "text": "        for(int k=0;k<j;++k)if(r.ids[k]==r.ids[j])flags|=XR_IDS;"
+      },
+      {
+        "n": 88,
+        "text": "    }"
+      },
+      {
+        "n": 89,
+        "text": "    r.flags=flags;a.flags|=flags;mark(flags);"
+      },
+      {
+        "n": 90,
+        "text": "}"
+      },
+      {
+        "n": 91,
+        "text": "int xeon_route37_end_eval_v1(const void *owner,int32_t status){"
+      },
+      {
+        "n": 92,
+        "text": "    if(!owns(owner)||!d.eval_open)return 0;"
+      },
+      {
+        "n": 93,
+        "text": "    // Preconditions: CPU graph calls and all worker hooks have returned."
+      },
+      {
+        "n": 94,
+        "text": "    active.store(false,std::memory_order_release);"
+      },
+      {
+        "n": 95,
+        "text": "    auto &a=d.attempts[d.na-1];a.records=d.nr-a.first_record;a.graph_status=status;a.graph_returned=1;"
+      },
+      {
+        "n": 96,
+        "text": "    if(status!=GGML_STATUS_SUCCESS)a.flags|=XR_GRAPH_FAILED;"
+      },
+      {
+        "n": 97,
+        "text": "    if(d.observing&&a.scope_t1&&(a.records!=L||a.layers!=ALL))a.flags|=XR_COVERAGE;"
+      },
+      {
+        "n": 98,
+        "text": "    mark(a.flags);d.eval_open=false;return !a.flags;"
+      },
+      {
+        "n": 99,
+        "text": "}"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/ggml-cpu.c",
+    "sha256": "ce6a78a1a34c0fe9623a116320b9fad8d1ae0cb83102ba9a4cb8fbd58a473988",
+    "first": 1826,
+    "last": 1851,
+    "lines": [
+      {
+        "n": 1826,
+        "text": "    if (ith == 0) {"
+      },
+      {
+        "n": 1827,
+        "text": "        // initialize matrix_row_counts"
+      },
+      {
+        "n": 1828,
+        "text": "        memset(matrix_row_counts, 0, n_as*sizeof(int64_t));"
+      },
+      {
+        "n": 1829,
+        "text": ""
+      },
+      {
+        "n": 1830,
+        "text": "        // group rows by src0 matrix"
+      },
+      {
+        "n": 1831,
+        "text": "        for (int64_t iid1 = 0; iid1 < ids->ne[1]; ++iid1) {"
+      },
+      {
+        "n": 1832,
+        "text": "            for (int id = 0; id < n_ids; ++id) {"
+      },
+      {
+        "n": 1833,
+        "text": "                const int32_t i02 = *(const int32_t *) ((const char *) ids->data + iid1*ids->nb[1] + id*ids->nb[0]);"
+      },
+      {
+        "n": 1834,
+        "text": ""
+      },
+      {
+        "n": 1835,
+        "text": "                assert(i02 == -1 || (i02 >= 0 && i02 < n_as));"
+      },
+      {
+        "n": 1836,
+        "text": ""
+      },
+      {
+        "n": 1837,
+        "text": "                if (i02 == -1) {"
+      },
+      {
+        "n": 1838,
+        "text": "                    memset((char *) dst->data + id*nb1 + iid1*nb2, 0, ne0*sizeof(float));"
+      },
+      {
+        "n": 1839,
+        "text": "                    continue;"
+      },
+      {
+        "n": 1840,
+        "text": "                }"
+      },
+      {
+        "n": 1841,
+        "text": ""
+      },
+      {
+        "n": 1842,
+        "text": "                MMID_MATRIX_ROW(i02, matrix_row_counts[i02]) = (struct mmid_row_mapping) {id, iid1};"
+      },
+      {
+        "n": 1843,
+        "text": "                matrix_row_counts[i02] += 1;"
+      },
+      {
+        "n": 1844,
+        "text": "            }"
+      },
+      {
+        "n": 1845,
+        "text": "        }"
+      },
+      {
+        "n": 1846,
+        "text": "    }"
+      },
+      {
+        "n": 1847,
+        "text": ""
+      },
+      {
+        "n": 1848,
+        "text": "    // Diagnostic only: registered gates, one worker, before the existing barrier."
+      },
+      {
+        "n": 1849,
+        "text": "    if (ith == 0) xeon_route37_record_v1(src0, ids);"
+      },
+      {
+        "n": 1850,
+        "text": ""
+      },
+      {
+        "n": 1851,
+        "text": "    // reset current_chunk"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp",
+    "sha256": "002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd",
+    "first": 1417,
+    "last": 1455,
+    "lines": [
+      {
+        "n": 1417,
+        "text": "static void ggml_backend_sched_print_assignments(ggml_backend_sched_t sched, struct ggml_cgraph * graph) {"
+      },
+      {
+        "n": 1418,
+        "text": "    int cur_split = 0;"
+      },
+      {
+        "n": 1419,
+        "text": "    for (int i = 0; i < graph->n_nodes; i++) {"
+      },
+      {
+        "n": 1420,
+        "text": "        if (cur_split < sched->n_splits && i == sched->splits[cur_split].i_start) {"
+      },
+      {
+        "n": 1421,
+        "text": "            ggml_backend_t split_backend = sched->backends[sched->splits[cur_split].backend_id];"
+      },
+      {
+        "n": 1422,
+        "text": "            GGML_LOG_DEBUG(\"\\n## SPLIT #%d: %s # %d inputs\", cur_split, ggml_backend_name(split_backend),"
+      },
+      {
+        "n": 1423,
+        "text": "                sched->splits[cur_split].n_inputs);"
+      },
+      {
+        "n": 1424,
+        "text": "            for (int j = 0; j < sched->splits[cur_split].n_inputs; j++) {"
+      },
+      {
+        "n": 1425,
+        "text": "                if (j == 0) {"
+      },
+      {
+        "n": 1426,
+        "text": "                    GGML_LOG_DEBUG(\": \");"
+      },
+      {
+        "n": 1427,
+        "text": "                }"
+      },
+      {
+        "n": 1428,
+        "text": "                GGML_LOG_DEBUG(\"[%s (%5.5s)] \", sched->splits[cur_split].inputs[j]->name,"
+      },
+      {
+        "n": 1429,
+        "text": "                    fmt_size(ggml_nbytes(sched->splits[cur_split].inputs[j])));"
+      },
+      {
+        "n": 1430,
+        "text": "            }"
+      },
+      {
+        "n": 1431,
+        "text": "            GGML_LOG_DEBUG(\"\\n\");"
+      },
+      {
+        "n": 1432,
+        "text": "            cur_split++;"
+      },
+      {
+        "n": 1433,
+        "text": "        }"
+      },
+      {
+        "n": 1434,
+        "text": "        struct ggml_tensor * node = graph->nodes[i];"
+      },
+      {
+        "n": 1435,
+        "text": "        if (ggml_is_view_op(node->op)) {"
+      },
+      {
+        "n": 1436,
+        "text": "            continue;"
+      },
+      {
+        "n": 1437,
+        "text": "        }"
+      },
+      {
+        "n": 1438,
+        "text": "        if (sched->debug > 1) {"
+      },
+      {
+        "n": 1439,
+        "text": "            ggml_backend_t tensor_backend = ggml_backend_sched_get_tensor_backend(sched, node);"
+      },
+      {
+        "n": 1440,
+        "text": "            GGML_LOG_DEBUG(\"node #%3d (%10.10s): %20.20s (%5.5s) [%5.5s %8.8s] use=%d,c=%d:\", i, ggml_op_desc(node), node->name,"
+      },
+      {
+        "n": 1441,
+        "text": "                fmt_size(ggml_nbytes(node)), tensor_backend ? ggml_backend_name(tensor_backend) : \"NULL\", GET_CAUSE(node),"
+      },
+      {
+        "n": 1442,
+        "text": "                graph->use_counts[ggml_hash_find(&graph->visited_hash_set, node)], node->flags & GGML_TENSOR_FLAG_COMPUTE ? 1 : 0);"
+      },
+      {
+        "n": 1443,
+        "text": "            for (int j = 0; j < GGML_MAX_SRC; j++) {"
+      },
+      {
+        "n": 1444,
+        "text": "                struct ggml_tensor * src = node->src[j];"
+      },
+      {
+        "n": 1445,
+        "text": "                if (src == NULL) {"
+      },
+      {
+        "n": 1446,
+        "text": "                    continue;"
+      },
+      {
+        "n": 1447,
+        "text": "                }"
+      },
+      {
+        "n": 1448,
+        "text": "                ggml_backend_t src_backend = ggml_backend_sched_get_tensor_backend(sched, src);"
+      },
+      {
+        "n": 1449,
+        "text": "                GGML_LOG_DEBUG(\" %20.20s (%5.5s) [%5.5s %8.8s]\", src->name,"
+      },
+      {
+        "n": 1450,
+        "text": "                    fmt_size(ggml_nbytes(src)), src_backend ? ggml_backend_name(src_backend) : \"NULL\", GET_CAUSE(src));"
+      },
+      {
+        "n": 1451,
+        "text": "            }"
+      },
+      {
+        "n": 1452,
+        "text": "            GGML_LOG_DEBUG(\"\\n\");"
+      },
+      {
+        "n": 1453,
+        "text": "        }"
+      },
+      {
+        "n": 1454,
+        "text": "    }"
+      },
+      {
+        "n": 1455,
+        "text": "}"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp",
+    "sha256": "002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd",
+    "first": 2095,
+    "last": 2134,
+    "lines": [
+      {
+        "n": 2095,
+        "text": "static void ggml_backend_sched_copy_input(ggml_backend_sched_t sched, struct ggml_backend_sched_split * split, struct ggml_tensor * input) {"
+      },
+      {
+        "n": 2096,
+        "text": "    const int split_backend_id = split->backend_id;"
+      },
+      {
+        "n": 2097,
+        "text": "    ggml_backend_t split_backend = sched->backends[split_backend_id];"
+      },
+      {
+        "n": 2098,
+        "text": "    ggml_backend_t input_backend = ggml_backend_sched_get_tensor_backend(sched, input);"
+      },
+      {
+        "n": 2099,
+        "text": "    struct ggml_tensor * input_cpy = tensor_copy(input, split_backend_id, sched->cur_copy);"
+      },
+      {
+        "n": 2100,
+        "text": ""
+      },
+      {
+        "n": 2101,
+        "text": "    if (input->flags & GGML_TENSOR_FLAG_INPUT) {"
+      },
+      {
+        "n": 2102,
+        "text": "        // inputs from the user must be copied immediately to prevent the user overwriting the data before the copy is done"
+      },
+      {
+        "n": 2103,
+        "text": "        if (sched->events[split_backend_id][sched->cur_copy] != NULL) {"
+      },
+      {
+        "n": 2104,
+        "text": "            ggml_backend_event_synchronize(sched->events[split_backend_id][sched->cur_copy]);"
+      },
+      {
+        "n": 2105,
+        "text": "        } else {"
+      },
+      {
+        "n": 2106,
+        "text": "            ggml_backend_synchronize(split_backend);"
+      },
+      {
+        "n": 2107,
+        "text": "        }"
+      },
+      {
+        "n": 2108,
+        "text": "        ggml_backend_tensor_copy(input, input_cpy);"
+      },
+      {
+        "n": 2109,
+        "text": "        return;"
+      },
+      {
+        "n": 2110,
+        "text": "    }"
+      },
+      {
+        "n": 2111,
+        "text": ""
+      },
+      {
+        "n": 2112,
+        "text": "    // wait for the split backend to finish using the input before overwriting it"
+      },
+      {
+        "n": 2113,
+        "text": "    if (sched->events[split_backend_id][sched->cur_copy] != NULL) {"
+      },
+      {
+        "n": 2114,
+        "text": "        ggml_backend_event_wait(split_backend, sched->events[split_backend_id][sched->cur_copy]);"
+      },
+      {
+        "n": 2115,
+        "text": "    } else {"
+      },
+      {
+        "n": 2116,
+        "text": "        ggml_backend_synchronize(split_backend);"
+      },
+      {
+        "n": 2117,
+        "text": "    }"
+      },
+      {
+        "n": 2118,
+        "text": ""
+      },
+      {
+        "n": 2119,
+        "text": "    if (sched->callback_copy != NULL && ggml_backend_sched_is_host_weight(input) &&"
+      },
+      {
+        "n": 2120,
+        "text": "        sched->callback_copy(split_backend, input, input_cpy, &split->graph, sched->callback_copy_user_data)) {"
+      },
+      {
+        "n": 2121,
+        "text": "        return;"
+      },
+      {
+        "n": 2122,
+        "text": "    }"
+      },
+      {
+        "n": 2123,
+        "text": ""
+      },
+      {
+        "n": 2124,
+        "text": "    // try async copy, but if not possible, we can still use a sync copy without synchronizing the dst backend, since we handle the synchronization here with multiple copies and events"
+      },
+      {
+        "n": 2125,
+        "text": "    // TODO: add public function to facilitate this, since applications do not have direct access to the backend interface"
+      },
+      {
+        "n": 2126,
+        "text": "    if (!split_backend->iface.cpy_tensor_async || !split_backend->iface.cpy_tensor_async(input_backend, split_backend, input, input_cpy)) {"
+      },
+      {
+        "n": 2127,
+        "text": "        ggml_backend_synchronize(input_backend);"
+      },
+      {
+        "n": 2128,
+        "text": "        if (sched->events[split_backend_id][sched->cur_copy] != NULL) {"
+      },
+      {
+        "n": 2129,
+        "text": "            ggml_backend_event_synchronize(sched->events[split_backend_id][sched->cur_copy]);"
+      },
+      {
+        "n": 2130,
+        "text": "        } else {"
+      },
+      {
+        "n": 2131,
+        "text": "            ggml_backend_synchronize(split_backend);"
+      },
+      {
+        "n": 2132,
+        "text": "        }"
+      },
+      {
+        "n": 2133,
+        "text": "        ggml_backend_tensor_copy(input, input_cpy);"
+      },
+      {
+        "n": 2134,
+        "text": "    }"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp",
+    "sha256": "002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd",
+    "first": 2140,
+    "last": 2215,
+    "lines": [
+      {
+        "n": 2140,
+        "text": ""
+      },
+      {
+        "n": 2141,
+        "text": "    int prev_backend_id = -1;"
+      },
+      {
+        "n": 2142,
+        "text": ""
+      },
+      {
+        "n": 2143,
+        "text": "    for (int split_id = 0; split_id < sched->n_splits; split_id++) {"
+      },
+      {
+        "n": 2144,
+        "text": "        struct ggml_backend_sched_split * split = &splits[split_id];"
+      },
+      {
+        "n": 2145,
+        "text": "        int split_backend_id = split->backend_id;"
+      },
+      {
+        "n": 2146,
+        "text": "        ggml_backend_t split_backend = sched->backends[split_backend_id];"
+      },
+      {
+        "n": 2147,
+        "text": ""
+      },
+      {
+        "n": 2148,
+        "text": "        // ensure the previous split's async work has completed before we start"
+      },
+      {
+        "n": 2149,
+        "text": "        // this split, the allocator may have reused buffer regions across splits"
+      },
+      {
+        "n": 2150,
+        "text": "        if (split->n_inputs == 0 && prev_backend_id >= 0 && prev_backend_id != split_backend_id) {"
+      },
+      {
+        "n": 2151,
+        "text": "            if (sched->events[prev_backend_id][sched->cur_copy] != NULL) {"
+      },
+      {
+        "n": 2152,
+        "text": "                ggml_backend_event_synchronize(sched->events[prev_backend_id][sched->cur_copy]);"
+      },
+      {
+        "n": 2153,
+        "text": "            } else {"
+      },
+      {
+        "n": 2154,
+        "text": "                ggml_backend_synchronize(sched->backends[prev_backend_id]);"
+      },
+      {
+        "n": 2155,
+        "text": "            }"
+      },
+      {
+        "n": 2156,
+        "text": "        }"
+      },
+      {
+        "n": 2157,
+        "text": ""
+      },
+      {
+        "n": 2158,
+        "text": "        // copy the input tensors to the split backend"
+      },
+      {
+        "n": 2159,
+        "text": "        // the weights in host memory are copied last, so that the copy callback can read the other inputs of the split"
+      },
+      {
+        "n": 2160,
+        "text": "        for (int input_id = 0; input_id < split->n_inputs; input_id++) {"
+      },
+      {
+        "n": 2161,
+        "text": "            if (!ggml_backend_sched_is_host_weight(split->inputs[input_id])) {"
+      },
+      {
+        "n": 2162,
+        "text": "                ggml_backend_sched_copy_input(sched, split, split->inputs[input_id]);"
+      },
+      {
+        "n": 2163,
+        "text": "            }"
+      },
+      {
+        "n": 2164,
+        "text": "        }"
+      },
+      {
+        "n": 2165,
+        "text": "        for (int input_id = 0; input_id < split->n_inputs; input_id++) {"
+      },
+      {
+        "n": 2166,
+        "text": "            if (ggml_backend_sched_is_host_weight(split->inputs[input_id])) {"
+      },
+      {
+        "n": 2167,
+        "text": "                ggml_backend_sched_copy_input(sched, split, split->inputs[input_id]);"
+      },
+      {
+        "n": 2168,
+        "text": "            }"
+      },
+      {
+        "n": 2169,
+        "text": "        }"
+      },
+      {
+        "n": 2170,
+        "text": ""
+      },
+      {
+        "n": 2171,
+        "text": "        if (!sched->callback_eval) {"
+      },
+      {
+        "n": 2172,
+        "text": "            enum ggml_status ec = ggml_backend_graph_compute_async(split_backend, &split->graph);"
+      },
+      {
+        "n": 2173,
+        "text": "            if (ec != GGML_STATUS_SUCCESS) {"
+      },
+      {
+        "n": 2174,
+        "text": "                return ec;"
+      },
+      {
+        "n": 2175,
+        "text": "            }"
+      },
+      {
+        "n": 2176,
+        "text": "        } else {"
+      },
+      {
+        "n": 2177,
+        "text": "            // similar to ggml_backend_compare_graph_backend"
+      },
+      {
+        "n": 2178,
+        "text": "            for (int j0 = 0; j0 < split->graph.n_nodes; j0++) {"
+      },
+      {
+        "n": 2179,
+        "text": "                struct ggml_tensor * t = split->graph.nodes[j0];"
+      },
+      {
+        "n": 2180,
+        "text": ""
+      },
+      {
+        "n": 2181,
+        "text": "                // check if the user needs data from this node"
+      },
+      {
+        "n": 2182,
+        "text": "                bool need = sched->callback_eval(t, true, sched->callback_eval_user_data);"
+      },
+      {
+        "n": 2183,
+        "text": ""
+      },
+      {
+        "n": 2184,
+        "text": "                int j1 = j0;"
+      },
+      {
+        "n": 2185,
+        "text": ""
+      },
+      {
+        "n": 2186,
+        "text": "                // determine the range [j0, j1] of nodes that can be computed together"
+      },
+      {
+        "n": 2187,
+        "text": "                while (!need && j1 < split->graph.n_nodes - 1) {"
+      },
+      {
+        "n": 2188,
+        "text": "                    t = split->graph.nodes[++j1];"
+      },
+      {
+        "n": 2189,
+        "text": "                    need = sched->callback_eval(t, true, sched->callback_eval_user_data);"
+      },
+      {
+        "n": 2190,
+        "text": "                }"
+      },
+      {
+        "n": 2191,
+        "text": ""
+      },
+      {
+        "n": 2192,
+        "text": "                struct ggml_cgraph gv = ggml_graph_view(&split->graph, j0, j1 + 1);"
+      },
+      {
+        "n": 2193,
+        "text": ""
+      },
+      {
+        "n": 2194,
+        "text": "                enum ggml_status ec = ggml_backend_graph_compute_async(split_backend, &gv);"
+      },
+      {
+        "n": 2195,
+        "text": "                if (ec != GGML_STATUS_SUCCESS) {"
+      },
+      {
+        "n": 2196,
+        "text": "                    return ec;"
+      },
+      {
+        "n": 2197,
+        "text": "                }"
+      },
+      {
+        "n": 2198,
+        "text": ""
+      },
+      {
+        "n": 2199,
+        "text": "                // TODO: pass backend to the callback, then the user can decide if they want to synchronize"
+      },
+      {
+        "n": 2200,
+        "text": "                ggml_backend_synchronize(split_backend);"
+      },
+      {
+        "n": 2201,
+        "text": ""
+      },
+      {
+        "n": 2202,
+        "text": "                if (need && !sched->callback_eval(t, false, sched->callback_eval_user_data)) {"
+      },
+      {
+        "n": 2203,
+        "text": "                    break;"
+      },
+      {
+        "n": 2204,
+        "text": "                }"
+      },
+      {
+        "n": 2205,
+        "text": ""
+      },
+      {
+        "n": 2206,
+        "text": "                j0 = j1;"
+      },
+      {
+        "n": 2207,
+        "text": "            }"
+      },
+      {
+        "n": 2208,
+        "text": "        }"
+      },
+      {
+        "n": 2209,
+        "text": ""
+      },
+      {
+        "n": 2210,
+        "text": "        // record the event of this split"
+      },
+      {
+        "n": 2211,
+        "text": "        if (sched->events[split_backend_id][sched->cur_copy] != NULL) {"
+      },
+      {
+        "n": 2212,
+        "text": "            ggml_backend_event_record(sched->events[split_backend_id][sched->cur_copy], split_backend);"
+      },
+      {
+        "n": 2213,
+        "text": "        }"
+      },
+      {
+        "n": 2214,
+        "text": ""
+      },
+      {
+        "n": 2215,
+        "text": "        prev_backend_id = split_backend_id;"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp",
+    "sha256": "002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd",
+    "first": 2230,
+    "last": 2238,
+    "lines": [
+      {
+        "n": 2230,
+        "text": "    GGML_ASSERT(ggml_backend_dev_type(ggml_backend_get_device(backends[n_backends - 1])) == GGML_BACKEND_DEVICE_TYPE_CPU);"
+      },
+      {
+        "n": 2231,
+        "text": ""
+      },
+      {
+        "n": 2232,
+        "text": "    struct ggml_backend_sched * sched = (ggml_backend_sched *) calloc(1, sizeof(struct ggml_backend_sched));"
+      },
+      {
+        "n": 2233,
+        "text": ""
+      },
+      {
+        "n": 2234,
+        "text": "    const char * GGML_SCHED_DEBUG = getenv(\"GGML_SCHED_DEBUG\");"
+      },
+      {
+        "n": 2235,
+        "text": "    sched->debug = GGML_SCHED_DEBUG ? atoi(GGML_SCHED_DEBUG) : 0;"
+      },
+      {
+        "n": 2236,
+        "text": ""
+      },
+      {
+        "n": 2237,
+        "text": "    sched->debug_realloc = 0;"
+      },
+      {
+        "n": 2238,
+        "text": "#ifdef GGML_SCHED_NO_REALLOC"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu",
+    "sha256": "2cdc72370dcb884fcbac85cf2757ef1259265c5181558b1e1eb933157a72d3d0",
+    "first": 3494,
+    "last": 3513,
+    "lines": [
+      {
+        "n": 3494,
+        "text": "// The long form spans 2*k + 1 nodes. ggml_can_fuse_subgraph() accepts at most"
+      },
+      {
+        "n": 3495,
+        "text": "// 31 nodes, so k <= 15; larger values use the per-operation path."
+      },
+      {
+        "n": 3496,
+        "text": "static constexpr int MOE_WEIGHTED_REDUCTION_MAX_EXPERTS = 15;"
+      },
+      {
+        "n": 3497,
+        "text": ""
+      },
+      {
+        "n": 3498,
+        "text": "struct ggml_cuda_moe_weighted_reduction_match {"
+      },
+      {
+        "n": 3499,
+        "text": "    const ggml_tensor * experts      = nullptr;"
+      },
+      {
+        "n": 3500,
+        "text": "    const ggml_tensor * expert_scale = nullptr;"
+      },
+      {
+        "n": 3501,
+        "text": "    const ggml_tensor * weights      = nullptr;"
+      },
+      {
+        "n": 3502,
+        "text": "    ggml_tensor *       dst          = nullptr;"
+      },
+      {
+        "n": 3503,
+        "text": "    int                 node_count   = 0;"
+      },
+      {
+        "n": 3504,
+        "text": "};"
+      },
+      {
+        "n": 3505,
+        "text": ""
+      },
+      {
+        "n": 3506,
+        "text": "static bool ggml_cuda_match_moe_weighted_reduction("
+      },
+      {
+        "n": 3507,
+        "text": "        const ggml_cgraph * cgraph,"
+      },
+      {
+        "n": 3508,
+        "text": "        int node_idx,"
+      },
+      {
+        "n": 3509,
+        "text": "        ggml_cuda_moe_weighted_reduction_match & match) {"
+      },
+      {
+        "n": 3510,
+        "text": "    const ggml_tensor * first = cgraph->nodes[node_idx];"
+      },
+      {
+        "n": 3511,
+        "text": "    if (first->op != GGML_OP_MUL || first->type != GGML_TYPE_F32 || !ggml_is_contiguous(first)) {"
+      },
+      {
+        "n": 3512,
+        "text": "        return false;"
+      },
+      {
+        "n": 3513,
+        "text": "    }"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu",
+    "sha256": "2cdc72370dcb884fcbac85cf2757ef1259265c5181558b1e1eb933157a72d3d0",
+    "first": 3566,
+    "last": 3581,
+    "lines": [
+      {
+        "n": 3566,
+        "text": "    }"
+      },
+      {
+        "n": 3567,
+        "text": ""
+      },
+      {
+        "n": 3568,
+        "text": "    const int     n_expert_used = (int) weighted->ne[1];"
+      },
+      {
+        "n": 3569,
+        "text": "    const int64_t n_tokens      = weighted->ne[2] * weighted->ne[3];"
+      },
+      {
+        "n": 3570,
+        "text": "    if (n_expert_used < 2 || n_expert_used > MOE_WEIGHTED_REDUCTION_MAX_EXPERTS) {"
+      },
+      {
+        "n": 3571,
+        "text": "        return false;"
+      },
+      {
+        "n": 3572,
+        "text": "    }"
+      },
+      {
+        "n": 3573,
+        "text": ""
+      },
+      {
+        "n": 3574,
+        "text": "    const int node_count = 2 * n_expert_used + mul_count - 1;"
+      },
+      {
+        "n": 3575,
+        "text": "    if (node_idx + node_count > cgraph->n_nodes) {"
+      },
+      {
+        "n": 3576,
+        "text": "        return false;"
+      },
+      {
+        "n": 3577,
+        "text": "    }"
+      },
+      {
+        "n": 3578,
+        "text": ""
+      },
+      {
+        "n": 3579,
+        "text": "    std::vector<ggml_op> ops(node_count, GGML_OP_VIEW);"
+      },
+      {
+        "n": 3580,
+        "text": "    ops[0] = GGML_OP_MUL;"
+      },
+      {
+        "n": 3581,
+        "text": "    if (mul_count == 2) {"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu",
+    "sha256": "2cdc72370dcb884fcbac85cf2757ef1259265c5181558b1e1eb933157a72d3d0",
+    "first": 3617,
+    "last": 3636,
+    "lines": [
+      {
+        "n": 3617,
+        "text": "    if ((int) views.size() != n_expert_used || n_adds != n_expert_used - 1 || previous == nullptr) {"
+      },
+      {
+        "n": 3618,
+        "text": "        return false;"
+      },
+      {
+        "n": 3619,
+        "text": "    }"
+      },
+      {
+        "n": 3620,
+        "text": "    if (!ggml_is_contiguous(previous) || previous->ne[0] != weighted->ne[0] ||"
+      },
+      {
+        "n": 3621,
+        "text": "            previous->ne[1] != n_tokens || previous->ne[2] != 1 || previous->ne[3] != 1) {"
+      },
+      {
+        "n": 3622,
+        "text": "        return false;"
+      },
+      {
+        "n": 3623,
+        "text": "    }"
+      },
+      {
+        "n": 3624,
+        "text": ""
+      },
+      {
+        "n": 3625,
+        "text": "    const int output_idx = node_idx + node_count - 1;"
+      },
+      {
+        "n": 3626,
+        "text": "    if (!ggml_can_fuse_subgraph(cgraph, node_idx, node_count, ops.data(), &output_idx, 1)) {"
+      },
+      {
+        "n": 3627,
+        "text": "        return false;"
+      },
+      {
+        "n": 3628,
+        "text": "    }"
+      },
+      {
+        "n": 3629,
+        "text": ""
+      },
+      {
+        "n": 3630,
+        "text": "    match.experts      = experts;"
+      },
+      {
+        "n": 3631,
+        "text": "    match.expert_scale = expert_scale;"
+      },
+      {
+        "n": 3632,
+        "text": "    match.weights      = weights;"
+      },
+      {
+        "n": 3633,
+        "text": "    match.dst          = cgraph->nodes[output_idx];"
+      },
+      {
+        "n": 3634,
+        "text": "    match.node_count   = node_count;"
+      },
+      {
+        "n": 3635,
+        "text": "    return true;"
+      },
+      {
+        "n": 3636,
+        "text": "}"
+      }
+    ]
+  },
+  {
+    "source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu",
+    "sha256": "2cdc72370dcb884fcbac85cf2757ef1259265c5181558b1e1eb933157a72d3d0",
+    "first": 3959,
+    "last": 3969,
+    "lines": [
+      {
+        "n": 3959,
+        "text": "    if (node->op == GGML_OP_MUL) {"
+      },
+      {
+        "n": 3960,
+        "text": "        ggml_cuda_moe_weighted_reduction_match match;"
+      },
+      {
+        "n": 3961,
+        "text": "        if (ggml_cuda_match_moe_weighted_reduction(cgraph, i, match)) {"
+      },
+      {
+        "n": 3962,
+        "text": "            const int output_idx = i + match.node_count - 1;"
+      },
+      {
+        "n": 3963,
+        "text": "            if (ggml_cuda_check_fusion_memory_ranges(cgraph, i, match.node_count, &output_idx, 1)) {"
+      },
+      {
+        "n": 3964,
+        "text": "                ggml_cuda_op_moe_weighted_reduction("
+      },
+      {
+        "n": 3965,
+        "text": "                    *cuda_ctx, match.experts, match.expert_scale, match.weights, match.dst);"
+      },
+      {
+        "n": 3966,
+        "text": "                return match.node_count - 1;"
+      },
+      {
+        "n": 3967,
+        "text": "            }"
+      },
+      {
+        "n": 3968,
+        "text": "        }"
+      },
+      {
+        "n": 3969,
+        "text": "    }"
+      }
+    ]
+  }
+]

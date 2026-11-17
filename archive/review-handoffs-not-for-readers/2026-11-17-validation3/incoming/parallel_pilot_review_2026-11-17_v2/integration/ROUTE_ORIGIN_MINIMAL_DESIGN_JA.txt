@@ -1,0 +1,125 @@
+route37 の logical route と内部作業用 ID を分離する最小設計
+対象 commit: d4d50b651ff7754ee2189228762468fc02971bfa
+状態: source review と設計のみ。実装/ビルド/実機検証は行っていない。
+
+目的
+
+各 T1・各 layer が実際に選んだ「元モデルの 384 expert 中の 6 ID」を保存する。
+CPU/GPU 分担のため private CPU ids へ書く −1 は、モデルの routing decision ではない。
+現 pilot の collector は closed のままなので、今回の S/P 実経路の ordered ID 全件は
+取得していない。H histogram は GPU に出した件数の集計であり、代用にはならない。
+
+現 source の制約
+
+archive/review-handoffs-not-for-readers/2026-11-17-route-integration/route37/route37.cpp
+66–89 の xeon_route37_record_v1 は、原 gate tensor に対応する layer を検索し、
+6 個の ID を stride に従って読み、0..383、unique、同 layer の重複なしを要求する。
+同ファイル 90–99 の end_eval は T1 で 37 layer 全件を要求する。
+
+hot-backend.cpp 173–180 は resident expert の slot を CPU 内部配列で −1 にする。
+hot-backend.cpp 192 は H<6 のときだけ private CPU graph を実行する。
+元 gate tensor pointer は再利用するため、現 collector をそのまま開くと
+private CPU gate は原 layer と一致するが −1 が XR_IDS になる。H=6 なら CPU gate 自体が
+走らないので coverage も失う。値が −1 なら無条件に無視する修正は誤った記録を隠す。
+
+提案する変更は三箇所に限定
+
+A. route37.cpp / route37.h: 内部入力の厳密な登録と logical 記録 entry を追加する
+
+1. 固定長 37 entry の InternalBinding 配列を collector の Data に追加する。
+   それぞれ owner、layer、原 gate tensor、private CPU ids tensor、ids->data、
+   type、ne[4]、nb[4] を保存する。heap/map/文字列検索は hook 内へ追加しない。
+
+2. collector open 済み、call/eval 未開始の区間だけ登録可能とする。
+   register_internal_ids_v2(owner, layer, original_gate, private_ids) のような
+   新しい明示的 API にする。layer 範囲、host I32[6,1,1,1]、data、nb[0]、
+   pointer/data の他 layer との重複を検査し、二重登録を拒否する。
+   open が Data を初期化し、close 後は active=false なので参照しない。
+   次の open では再登録を要求する。再評価時に上書きされる既存 gate binding と
+   別配列にする。登録時と begin_eval の両方で原 gate binding を照合する。
+
+3. xeon_route37_record_logical_v2(owner, original_gate, original_ids) を追加する。
+   v1 の記録本体と共通の検査関数を使い、元の 6 unique ID、metadata、duplicate、
+   overflow、attempt/call/context/generation/position の検査をすべて維持する。
+   owner が一致しなければ拒否し、active でないときは既存と同様に即 return する。
+   既存 v1 が「CPU worker からだけ呼ばれる」という前提/コメントを、そのまま
+   host dispatcher 用 entry に流用せず、新 entry の契約として明記する。
+
+4. v1 の原 gate 特定後に、登録された private ids の exact object/data/shape/stride
+   との一致だけを判定する。一致した内部 call は二度目の route として保存しない。
+   同 attempt で logical layer が先に記録済みであることも検査すれば順序ミスを検出できる。
+   ほかの tensor、見知らぬ −1、pointer が違う tensor は従来の検査を通す。
+
+B. hot-backend.cpp: 内部分割より前の元 ID を一度だけ記録する
+
+compute の source input/ID/host/unique ID 検査が成功した位置で、resident/nonresident
+へ分ける前の original ids tensor を record_logical_v2 に渡す。
+初回の 6 ID validation と partition を小さく二段に分けるか、全 6 ID をまず
+ローカル固定配列に読み出して検査してから logical 記録と partition を行う。
+未検査の ID を collector に流すためだけに処理順を弱めない。
+
+登録自体は initialize で永久に行うのではなく、collector open のたびに caller が
+State の非空 layer から private CPU ids を取り出して登録する。
+必要なら hot 側に「同期済み・collector open 直後専用」の小さい登録関数を一つ設ける。
+State 自体は context 所有で private Graph は context 生存中固定なので lifetime が明確。
+
+現 State は llama_context* を持たず、outer_cpu と model しか持たないことに注意する。
+owner を outer_cpu に読み替えてはいけない。caller は既存 collector と同じ ctx pointer を
+xeon_hot_route37_register_v2(outer_cpu, owner) に渡し、State に今回の診断 session 専用
+observer_owner を保存する。この関数で全 internal ids 登録をまとめて完了させる。
+logical entry へはこの owner を渡す。normal 完了後 collector close と同じ cleanup
+手順で State の observer_owner を nullptr に戻し、次の session は再登録する。
+active/matches の検査で閉じた recorder への書込みを止め、owner は context より
+長生きしないという限定契約を保つ。通常性能経路で新たな global owner 検索は不要。
+
+C. driver / bridge: bounded diagnostic セッションの開閉だけを追加する
+
+normal synchronize → collector open → 23 layer の内部 ids 登録 → label → decode →
+normal output-ready → complete_call → close / export を守る。
+既存 14 empty-plan CPU layer は v1 の通常 hook、23 nonempty layer は custom の
+logical v2 が 1 回ずつ記録する。C/H0/partial H/H6 すべて合計 37 layer にする。
+private CPU worker は内部登録により除外され、GPU bank tensor は model original
+gate と見なさない。既存 GPU layer37–39 は従来どおり route37 の対象外。
+
+性能経路の collector closed 条件は維持する。callback を使った graph cut は不要。
+新規 export が CPU provider 側に入るため ABI / provider hash を更新し、libllama の
+呼出先と driver の期待 provider を同じ build に固定する。
+
+並行実行の契約
+
+今回の単一 context / 単一 decode caller / pipeline 無効という範囲では、custom の
+logical producer が記録してから private CPU worker が呼ばれ、返ってから次 layer へ
+進む。この直列性を前提として明記する。現 collector は一般的な多 producer の
+lock-free recorder ではないので、multi-sequence/multi-context 対応は同時に追加しない。
+set_mode は normal synchronize、collector が閉じていること、execution mutex、
+private GPU synchronize を満たす区間でのみ行う。現 set_mode 関数単独には
+collector closed の runtime 検査がなく、driver が検査している点も維持/明記する。
+
+最小の受入れ条件
+
+1. まず同じ固定入力の短い診断で、各 T1 が 37 records、各 record が 6 unique IDs、
+   flags=0、overflow=0、call/generation/position の整合があること。
+2. C の元 ID と F の元 ID を順序込みで比較する。S/P は互いの全 ordered ID を比較する。
+   生の record を保存してから plan と join して matched H を計算する。
+   C の executed H=0 と、C の matched H は別欄にする。
+3. collector を開閉した同一 mode の出力が、現 callback-null/closed の出力と一致する。
+   CPU worker に新たな計算や同期を入れていないという設計意図だけで一致を仮定しない。
+4. 性能結果は閉じた collector で採る。64 T1×37=2368 records、64 calls は
+   現 fixed capacity 4096 records / 128 calls 内に収まる。prefix などの attempts は
+   上限に加算するが、新しい巨大な recorder framework を作る必要はない。
+
+H histogram を読む際の注意
+
+旧 JA training の H=[364,867,213,28,0,0,0] は 1377 hit slots。
+今回 S/P の H=[362,870,211,29,0,0,0] は 1379 hit slots。
+これは net +2 slots であって「routing が 2 件だけ変わった」という意味ではない。
+多くの call/ID/slot 順序の変化が相殺しても同じ histogram になる。
+また C の H=[1472,0,0,0,0,0,0] は mode が全 CPU にした実行数の記録であり、
+resident plan に一つも当たらなかったという観測ではない。
+
+優先順位
+
+今回の fixed35 の short validation/実回答を先に進められるなら、本変更をその
+必須前提にしない。実 routing drift を知る必要が生じたとき、以上の bounded な
+登録と論理入口だけを実装する。histogram を根拠に hotset を再選定する際は、
+training/validation を分け、validation を何度も tuning に使わない。

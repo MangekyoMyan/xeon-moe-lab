@@ -1,0 +1,86 @@
+固定35expertのGPU追加分担：未使用validation3例・実回答の実機評価
+2026-11-17 / validation3-20261117
+
+今回変えたものは測定callerだけ。前回の35expert配置、CPU/llama/CUDA/baseの実験DSO、GPU全層37–39、CPU compact120GiBは固定した。
+Fは同じ統合実験libllamaで追加hot分担を無効、SはGPU提出後すぐjoin、PはGPU提出→CPU残仕事→GPU join。
+Fは通常productionバイナリを新しく測り直したものではない。通常APIへの候補採用はしていない。
+
+既存validationから日本語/英語の予定課題とPythonリングキューを評価した。3変種だが独立課題は2family。
+固定35案の選定に使ったtraining入力とは異なる。保存履歴の範囲で未使用を照合済みだが、未知の手動操作まで否定しない。
+今回の結果から同じ3例向けに配置を再選定していない。残りvalidation2とholdout5は未使用。
+
+速度（teacher-forced64T1、全件保持、API/sampling/UIは計時外）
+text_plan_constraints_ja: F 7.345588 → P 7.718031 T1/s; 速度比 +5.0703%; 1call短縮 6.569401ms。F前後差 +0.741073ms。
+  block平均ms F/P/P/F = 135.765596, 130.469854, 128.663610, 136.506669; paired速度比 1.040590, 1.060958
+text_plan_constraints_en: F 7.419380 → P 7.552831 T1/s; 速度比 +1.7987%; 1call短縮 2.381468ms。F前後差 +1.634655ms。
+  block平均ms F/P/P/F = 133.964831, 132.699305, 132.102077, 135.599486; paired速度比 1.009537, 1.026475
+code_bounded_queue_python: F 7.549533 → P 7.610048 T1/s; 速度比 +0.8016%; 1call短縮 1.053316ms。F前後差 +1.799031ms。
+  block平均ms F/P/P/F = 131.559012, 130.412667, 132.397756, 133.358043; paired速度比 1.008790, 1.007253
+
+初回はF/P/P/Fの4fresh process。前半JA/EN/Python、後半逆順、計768call。各mode各case2blocksのみ。
+processごとの共通準備はJA先頭64token warm、JA full236prefix+4reference T1、同期、KV clear、対象prefix再入力。
+64 timed callsの先頭も保持。quality保存・logits全走査・route collector・callbackはtiming区間に入れない。
+速度は総call/総時間。1024個の独立promptや精密な母集団推定ではない。プロセスのロード/guard時間とprefill/firstT1/call時刻はrawを参照し、純ロード時間を捏造しない。
+
+Pythonのみ探索的追試（初回と混ぜない）
+初回の短縮1.053316msはF前後差1.799031msより小さいため、決定を保存して1回だけ追加F/P/P/Fを実施。
+F 7.512476 → P 7.573157 T1/s、速度比 +0.8077%、短縮 1.066573ms。
+F前後差 -0.965543ms。block平均ms F/P/P/F = 133.594680, 131.973837, 132.116832, 132.629136。
+paired速度比 = 1.012282, 1.003878。
+同一callerバイナリ/DSO/IDs/共通準備。Python-onlyの順序で初回multi-caseと異なるため、独立の事前登録holdoutでも初回の置換でもない。
+256追加callすべて保持。良い結果になるまで繰り返す試験ではなく、追加はこの1回で終了。
+
+数値の確認（固定reference軌道）
+text_plan_constraints_ja: S=P全65行byte一致。F/P top1差 0/65行、固定target平均NLL差(P−F) -0.004075771、maxabs 11.415420。
+text_plan_constraints_en: S=P全65行byte一致。F/P top1差 0/65行、固定target平均NLL差(P−F) -0.003238600、maxabs 13.247169。
+code_bounded_queue_python: S=P全65行byte一致。F/P top1差 1/65行、固定target平均NLL差(P−F) -0.005777226、maxabs 3.931075。
+全75,628,800保存logitはfinite。F/Pはprefix直後row0同一、T1のrow1..64で異なる。
+Python row31ではF top7854、P top1351（参照target1351）へ変化。参照に近づいた1行を一般品質改善としない。
+平均NLL差はこの固定参照文に対する記述であり、本番品質合格閾値にはしていない。
+JA/Pythonはposition256を跨ぎ、custom node buildが23→46。ENは23。bank/Stateは維持し再初期化していない。
+S=P一致はこの範囲で並列追加による数値差を検出しなかった意味。CPU/GPU算術全体の完全一致や全入力の競合不在の証明ではない。
+
+実回答（referenceを入力しないgreedy、上限1024全生成ID、EOG有効）
+text_plan_constraints_ja F: 1024生成ID, length; 問題の要件は保存内容内で確認。応答完結=False。
+text_plan_constraints_ja P: 1023生成ID, eog; 問題の要件は保存内容内で確認。応答完結=True。
+text_plan_constraints_en P: 893生成ID, eog; 問題の要件は保存内容内で確認。応答完結=True。
+text_plan_constraints_en F: 887生成ID, eog; 問題の要件は保存内容内で確認。応答完結=True。
+code_bounded_queue_python F: 829生成ID, eog; 問題の要件は保存内容内で確認。応答完結=True。
+code_bounded_queue_python P: 809生成ID, eog; 問題の要件は保存内容内で確認。応答完結=True。
+予定問題4本とも10:45終了の実行可能表と最短性の説明がある。JA Fは最後の重複説明途中で打ち切り。必要な表と証明はそれ以前にあるが、完結した応答とは呼ばない。
+JA F/Pとも中国語回答だった。設問に明示的な日本語指定はないが、日本語利用の問題として記録。Pだけの退行ではなく、通常Open WebUIを今回測ったものでもない。
+Python両コードを親が全文確認し、モデル本体から切り離した非root・CPU8秒/メモリ256MiB上限のPythonで未修正classを検査。
+capacity1/2/3/1024、無効capacity、0/負値/重複/int64両端、16,000ランダム操作と決定的なfill/drain/設問例を通過。head/count、固定配列、要素をずらさない構造と説明も目視確認。
+成功pushの返り値や循環方向など、設問にない条件は追加しない。採点器は一般的なPython sandboxではなく、手動確認済みのコードだけを対象にした。
+6本ともF/Pの全文は同一ではない。最初の生成ID差はJA ordinal45、EN151、Python67（0始まり）。JA/ENは補足表現、Pythonは初期化順序から分岐。
+今回の6回答ではPだけの明確な課題不正解は観測しなかった。一般品質同等性は未証明。
+visibleはtoken_to_piece(special=false)の連結。journalと保存bytesの整合を確認したもので、独立detokenizeでもWebUIレンダリング試験でもない。
+回答長が違うので、完了までの時間をそのまま速度の因果比較にしない。最終IDは生成して保存するが再decodeしないため、T1回数は生成ID数−1。
+
+固定配置の活用状況（初回Pの実行hist）
+text_plan_constraints_ja: hot選択 1191/14208=8.3826%、追加経路23層のH0率 29.7554%。P2反復の層別hist一致=True。
+text_plan_constraints_en: hot選択 658/14208=4.6312%、追加経路23層のH0率 58.9674%。P2反復の層別hist一致=True。
+code_bounded_queue_python: hot選択 390/14208=2.7449%、追加経路23層のH0率 75.2717%。P2反復の層別hist一致=True。
+14208は37CPU層×64T1×top6。元のGPU全層37–39は分母に含めない。追加経路は23層だけで、14CPU層は空bankとしてbypass。
+約453.43MiBの追加bankの利用率であり、GPU全使用量が小さいという意味ではない。元GPU3層の約15.79GiB native weightsも保持。
+Hは1呼び出しで何個追加GPUへ行ったかの数で、expert ID、個別saved time、F/Pの最初のroute差は分からない。
+日本語・英語・Pythonで速度差とhit率の大小が並ぶが、3例から相関の一般法則や因果寄与の全量を証明しない。
+
+実機/復帰/採用判断
+dual Xeon E5-2630L v2、12物理/24論理、512GB RAM、PG500-216 Volta32GB。CPU threads12、batch threads24、ctx131072、f16KV、ubatch1024/output cap1。
+GPU150W/ECC、Standard fan≤70%、RAM reserve64GiB、既存supervisorを維持。温度の手動常時pollはせず常駐監視を利用。
+vision weightsは実際にロードし、warmupはdummy shapeのgraph予約。実画像の推論は今回行っていない。M3の空き容量は終了時点の保持allocationであり、瞬間peak余裕とは呼ばない。
+通常APIは元設定・元4DSOへ復帰、PID 291001、health ok。config SHA 963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43。監視service active、復帰receipt時alert/errorなし。
+
+実験の全14processは正常終了。通常設定、モデル、既存ライブラリは変更していない。callerのみbuild。原35、GPU37–39、既存guardを維持。
+次は配置の時間価値とH0/経路費用を検討する価値がある。ただし今回の検証結果を同じvalidationへ当て直して優秀に見せる運用にはしない。
+8層案、B dormant control、origin修正、大きいbank、ubatch変更、通常API採用は今回未実施。初回と追試から有利なrunだけ選ばない。
+
+原本の読み順
+caller/FROZEN_PLAN.json、caller/DESIGN.json、CALLER_CHANGES.diff、caller/BUILD.json、実行runのLAUNCH_MANIFEST/PROVIDER_EXPECTED/RUN/RESULTS_SHA256。
+QUALITY_ANALYSIS.json/QUALITY_GATE.jsonと9本のquality-*.f32、TIMING_ANALYSIS.jsonと全時刻列、python-repeat/DECISION.json/ANALYSIS.jsonと追加4run。
+answers/の全文・未修正Python、ANSWER_VERIFICATION/ANSWER_GRADING/ANSWER_DIVERGENCE、各runのsample/decode journalとall/visible UTF8原本。
+HIT_ANALYSIS.json、独立Terra review各txt、RESTORED_RUNTIME.json、STATE.json。過去失敗資料は前回archiveに保持。
+今回のZIP内提案はincoming/へ保存し、実測・人間の指示と区別した。人間の新しい運用条件変更は今回ない。
+公開snapshotのhealth.jsonはguard-health.jsonへファイル名だけ変更。秘密configは除外し、offline replayでは非秘密LAUNCHのcommand/environmentから一時ディレクトリ内で同じJSON bytesを復元する。
+replay_shared.pyはraw数値/計時/journalを再検査する。モデル、保存された起動コマンド、生成Pythonは実行しない。親による意味採点を自動再現したとは主張しない。

@@ -1,0 +1,69 @@
+Proへの返却：original35の未使用validation3例・自然回答を実測
+2026-11-17 / validation3-20261117
+
+前回v2レビューに沿ってcallerを変更し、実機でF/S/P数値gate、F/P初回768T1、自由回答6本、Python-only追加256T1を行いました。測定値の正本はRESULTS_JA.txtと各ANALYSISです。こちらが操作・build・復帰を担当しています。人間の追加方針変更はありません。
+
+今回、エンジンDSO・original35・GPU37–39・compact・guardは変えていません。通常APIには候補を採用せず、元の構成へ復帰しています。実験libllamaでhot無効のFとPを比べたもので、productionバイナリを新計測したものではありません。
+caller source変更、コンパイル条件、実際のprovider pin、全65行logits、全時刻列、回答全文・ID・終了理由を省略せず置きました。要約だけで判断せず、必要なら原本とソースから別の仮説を検討してください。
+
+前回の提案に対する実施
+
+・JA236/EN187/Python244の固定prefix、参照64入力/次target65を直接使用。再tokenize/templateなし。validation3は2family。
+・F/S/Pで各65行保存、すべてfinite、全3例S=P byte一致。F/Pはrow0同一、row1..64相違。Pythonは参照上top1が1行変化。
+・JA/Pythonのposition256でcustom build23→46を観測。State/bank寿命継続、ENは23。
+・共通のprocess内JA64warm/fullJA+4T1準備、同期/KV clear後に対象prefix。最初のtimed T1含め全件保持。
+・初回F/P/P/F4processで正順/逆順を均衡。初回のP/FはJA+5.0703%、EN+1.7987%、Python+0.8016%。
+・Pythonは初回差1.053msがF前後差1.799ms未満だったため、初回を保存してDECISIONを記録し、Pythonだけ1回追加ABBA。結果はpython-repeat/ANALYSIS.json。後から選んだ探索的追試、case-onlyの順序で初回と別に報告しています。良い結果になるまで反復していません。
+・6自然回答はgreedy/EOG有効/1024全生成ID。JA Fのみlength。他5本はEOG。打切りを置換しない。
+・予定4本は実行可能な10:45表・最短性を説明。JA F末尾重複文は切断、必要な説明は切断前にある。JA F/Pはともに中国語回答で、言語適合を別途留保。
+・Python F/Pは親が全文・source確認後、未修正classを別の非root・resource制限付きPythonで実行。capacity境界、FIFO、0/負数/重複/int64端、16,000ランダム操作と決定的試験を通過。成功push Trueなど余計な条件なし。
+・F/Pの実回答は同一ではない。初差JA ordinal45/EN151/Python67。今回の課題要件に明確なP-only誤答は見つからないが、一般品質同等は主張しません。
+
+今回の読み取り
+
+小bankの便益は固定training一軌道に閉じてはいませんでした。ただし全ケース同程度に伸びるわけではありません。
+初回Pのactual Hで、hotに処理された選択はJA1191/14208=8.38%、EN658/14208=4.63%、Python390/14208=2.74%。
+この分母は37CPU層×64×6です。追加経路23層のH0率は29.76%、58.97%、75.27%。Pの2反復histは各caseで一致しました。
+Hと速度差の序列は並びますが、expert identityも個別時間も現在のclosed-only Hからは取れません。frequencyだけで保存時間を決められるとは考えていません。
+旧hot14/9.8付近との直接比較はしていません。今回453.43MiB追加bankと元GPU3層約15.79GiB nativeは両立しています。
+
+次の実装前に相談したい点
+
+1. original35のまま進めるか、先にH0/追加経路費用を切り分けるか。
+   日本語で利益が残る一方、Pythonは初回でほぼ相殺です。先に提案されたB dormant bank controlでF/B/Cを小さく採れば、保持コストとcustom実行コストを分けられます。
+   これは約2msを丸ごとcopy時間とみなしたり、split数増を前提にする提案ではありません。前回F/CSP splitsは同じ76でした。
+   今回のcaller/graph/結果を踏まえ、Bを実装する費用に見合うか、H0 pathのソース上の具体箇所を先に調べる方がよいかを判断してください。
+
+2. 時間価値に基づく配置を、最小限の追加計測でどう作るか。
+   CPU非compactの重いexpert、共同top6選択、CPU残仕事とGPU joinの重なりを含める必要があります。
+   単純な頻度/native byteのoriginal35から進めたい一方、現在のvalidation3へ再選定して上積みする形は避けたいです。
+   利用可能な既存training5のroute、actual-input8cell/operator O/C/S/P、今回のhitと時刻列をどこまで使え、追加が必要な測定は何か、具体的な少数の判別実験を提案してください。
+   8層案はtraining総hitの保持率だけで採用せず、ケース間の分布や追加経路費用まで見てください。
+
+3. 数値/出力変化をどの段階で十分とみなすか。
+   S=Pを満たし、3課題の要件は保存回答内で確認しました。しかし2familyだけです。新たな恣意的NLL/NMSE閾値は置いていません。
+   JAの中国語化はF/P共通です。1024上限のF打切りも隠していません。追加品質評価が必要なら、どの失敗モードを狙うか、残りvalidationとholdoutの役割を分けてください。
+   並列追加による算術差は見つからないことと、CPU/GPU間の差が一般に無害なことは分けています。
+
+4. 次の候補を1つか2つに絞ってください。
+   ubatch変更、GPU37–39をCPUへ戻す配置、bank拡大、origin修正を一度に重ねたくありません。
+   収益が見込める具体的変更と、その前提を覆せる測定、採用/保留条件を示してもらえると、そのままこちらでコード確認・実装・実機検証できます。
+   元DSOで保持できるdiagnosticと、新ビルドが必要な比較を区別してください。
+
+ファイル案内（要約の代わりに原本を読むため）
+
+RESULTS_JA.txt / QUALITY_ANALYSIS.json / TIMING_ANALYSIS.json / python-repeat/DECISION.json,ANALYSIS.json
+ANSWER_GRADING.json / ANSWER_VERIFICATION.json / ANSWER_DIVERGENCE.json / answers/全文とPython / 各runのsample-decode JSONL・all/visible UTF8
+HIT_ANALYSIS.json / caller/driver.cpp / CALLER_CHANGES.diff / caller/BUILD.json / 各runのBUILD,LAUNCH_MANIFEST,PROVIDER_EXPECTED,RUN,RESULTS_SHA256
+CALLER_REVIEW_TERRA.txt / GATES_REVIEW_TERRA.txt / SUPPLEMENT_REVIEW_TERRA.txt / ANSWER_REVIEW_TERRA.txt / 最終追試review
+RESTORED_RUNTIME.json / STATE.json / RAW_MAPPING.json / FILES_SHA256.json
+
+今回のエンジン本体は前回snapshotから変更なし。同じGit履歴の
+archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/
+にhot-backend.cpp、llama-context.cpp、llama-graph.cpp、差分、ENGINE_BUILD、過去失敗と対照のrawがあります。
+今回のlibllamaはaff89d6bd4ab7419edd6b85190ef15e7a24a810db69e10a42c331298c2e9ec1a。
+CPUは602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81、CUDA/baseも従来pinです。
+callerは元driverと別build、Python追試はcallerバイナリもbyte同一でDESIGNの実行順だけ変更。
+
+offline確認はreplay_shared.py --output /tmp/validation-replay.json。モデル・起動コマンド・生成コードを実行せず、公開ファイルのhash、数値/計時/journalを再検査します。
+手動意味採点はレビュー記録であり自動再現とは呼びません。今回の一般公開案内と内部の原データを区別し、公開READMEの用途は変えていません。

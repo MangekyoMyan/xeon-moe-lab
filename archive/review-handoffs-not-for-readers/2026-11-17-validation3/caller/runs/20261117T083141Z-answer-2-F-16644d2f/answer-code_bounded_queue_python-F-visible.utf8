@@ -1,0 +1,61 @@
+```python
+class RingQueue:
+    """Fixed-capacity FIFO queue of signed 64-bit integers."""
+
+    def __init__(self, capacity: int) -> None:
+        if not (1 <= capacity <= 1024):
+            raise ValueError("capacity must be between 1 and 1024")
+        self._buf = [0] * capacity
+        self._capacity = capacity
+        self._head = 0   # index of the oldest element
+        self._count = 0  # number of stored elements
+
+    def size(self) -> int:
+        return self._count
+
+    def try_push(self, value: int) -> bool:
+        if self._count == self._capacity:
+            return False
+        tail = (self._head + self._count) % self._capacity
+        self._buf[tail] = value
+        self._count += 1
+        return True
+
+    def try_pop(self):
+        if self._count == 0:
+            return None
+        value = self._buf[self._head]
+        self._head = (self._head + 1) % self._capacity
+        self._count -= 1
+        return value
+```
+
+**How wraparound works**
+
+The buffer is a fixed list of `capacity` slots. Two integers describe the live region:
+
+- `_head` — index of the oldest element (the next one to pop).
+- `_count` — how many elements are currently stored.
+
+The newest element lives at `(_head + _count - 1) % capacity`, and the next free slot is at `(_head + _count) % capacity`. Because both indices are taken modulo `capacity`, they wrap from the last slot back to slot 0 automatically. For example, with capacity 2:
+
+1. `try_push(4)` → tail = `(0+0)%2 = 0`, buffer `[4, _]`, count 1.
+2. `try_push(9)` → tail = `(0+1)%2 = 1`, buffer `[4, 9]`, count 2 (full).
+3. `try_push(12)` → count == capacity → returns `False`, state unchanged.
+4. `try_pop()` → returns `buf[0] = 4`, head becomes `(0+1)%2 = 1`, count 1.
+5. `try_push(-3)` → tail = `(1+1)%2 = 0`, buffer `[−3, 9]`, count 2. Note the new element wrapped to slot 0 while the oldest (9) sits at slot 1.
+6. `try_pop()` → returns `buf[1] = 9`, head becomes `(1+1)%2 = 0`, count 1.
+7. `try_pop()` → returns `buf[0] = −3`, head becomes `(0+1)%2 = 1`, count 0.
+
+FIFO order is preserved because `_head` always points at the oldest element and advances by one (mod capacity) on each pop, while pushes append at the tail computed from `_head + _count`.
+
+**Why a failed operation leaves state intact**
+
+- `try_push` on a full queue returns `False` *before* touching `_buf`, `_head`, or `_count`, so nothing changes.
+- `try_pop` on an empty queue returns `None` *before* touching `_buf`, `_head`, or `_count`, so nothing changes.
+
+Only the successful branches mutate state, and each does so with a single assignment plus an increment/decrement, so the queue is never left in a partially updated condition.
+
+**Empty result**
+
+`try_pop` returns `None` when empty — an explicit "no value" sentinel distinct from any stored integer (including `0`), so callers can distinguish "popped 0" from "queue was empty".

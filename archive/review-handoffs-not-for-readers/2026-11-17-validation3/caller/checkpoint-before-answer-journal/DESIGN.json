@@ -1,0 +1,171 @@
+{
+  "scope": "Fixed original35, newvalidation3; unchanged engine DSOs. No bank refit, new route origin, ubatch sweep or automatic adoption.",
+  "freeze_sha256": "615add2b3da6befbc8c96f45fe5d09c5d14b049fd9fcf76f0a5ee8e890b07ba5",
+  "stages": [
+    {
+      "name": "quality-F",
+      "stage": "quality",
+      "mode": "F",
+      "cases": [
+        "text_plan_constraints_ja",
+        "text_plan_constraints_en",
+        "code_bounded_queue_python"
+      ],
+      "process_index": 0
+    },
+    {
+      "name": "quality-SP",
+      "stage": "quality",
+      "mode": "SP",
+      "cases": [
+        "text_plan_constraints_ja",
+        "text_plan_constraints_en",
+        "code_bounded_queue_python"
+      ],
+      "process_index": 1
+    },
+    {
+      "name": "timing-0-F",
+      "stage": "timing",
+      "mode": "F",
+      "cases": [
+        "text_plan_constraints_ja",
+        "text_plan_constraints_en",
+        "code_bounded_queue_python"
+      ],
+      "process_index": 0
+    },
+    {
+      "name": "timing-1-P",
+      "stage": "timing",
+      "mode": "P",
+      "cases": [
+        "text_plan_constraints_ja",
+        "text_plan_constraints_en",
+        "code_bounded_queue_python"
+      ],
+      "process_index": 1
+    },
+    {
+      "name": "timing-2-P",
+      "stage": "timing",
+      "mode": "P",
+      "cases": [
+        "code_bounded_queue_python",
+        "text_plan_constraints_en",
+        "text_plan_constraints_ja"
+      ],
+      "process_index": 2
+    },
+    {
+      "name": "timing-3-F",
+      "stage": "timing",
+      "mode": "F",
+      "cases": [
+        "code_bounded_queue_python",
+        "text_plan_constraints_en",
+        "text_plan_constraints_ja"
+      ],
+      "process_index": 3
+    },
+    {
+      "name": "answer-0-F",
+      "stage": "answer",
+      "mode": "F",
+      "cases": [
+        "text_plan_constraints_ja"
+      ],
+      "process_index": 0
+    },
+    {
+      "name": "answer-1-P",
+      "stage": "answer",
+      "mode": "P",
+      "cases": [
+        "text_plan_constraints_ja",
+        "text_plan_constraints_en"
+      ],
+      "process_index": 1
+    },
+    {
+      "name": "answer-2-F",
+      "stage": "answer",
+      "mode": "F",
+      "cases": [
+        "text_plan_constraints_en",
+        "code_bounded_queue_python"
+      ],
+      "process_index": 2
+    },
+    {
+      "name": "answer-3-P",
+      "stage": "answer",
+      "mode": "P",
+      "cases": [
+        "code_bounded_queue_python"
+      ],
+      "process_index": 3
+    }
+  ],
+  "preparation": {
+    "common_text_warmup": "first64 prefix IDs from text_plan_constraints_ja, everyprocess",
+    "untimed_T1": "full236 JA prefix then first4 fixed reference inputs, everyprocess; P for bank process, F for no bank",
+    "after": "normal synchronize, clearKV; eachtarget uses exactprefix; counters after preparation/prefill",
+    "timed_first_call": "keep all64; no posthoc dropping"
+  },
+  "quality": "3cases F/S/P each65 fullrows; S=P byte gate before any timing/answers",
+  "free_answer": {
+    "modes": [
+      "F",
+      "P"
+    ],
+    "responses_per_mode_per_case": 1,
+    "total_responses": 6,
+    "input": "Use execution_input.prefix_ids only. These saved IDs already include the frozen template, BOS and assistant boundary; do not template or tokenize them a second time. NEVER append the reference continuation when generating a free answer.",
+    "sampler": {
+      "policy": "greedy",
+      "temperature": 0,
+      "seed": 42,
+      "ignore_eos": false,
+      "max_generated_tokens": 1024
+    },
+    "response_order": [
+      {
+        "case_id": "text_plan_constraints_ja",
+        "modes": [
+          "F",
+          "P"
+        ]
+      },
+      {
+        "case_id": "text_plan_constraints_en",
+        "modes": [
+          "P",
+          "F"
+        ]
+      },
+      {
+        "case_id": "code_bounded_queue_python",
+        "modes": [
+          "F",
+          "P"
+        ]
+      }
+    ],
+    "measurement_scope": "Task-answer check, not a balanced free-generation throughput benchmark; record native timing as descriptive only.",
+    "capture": [
+      "full output token IDs",
+      "full decoded UTF8 output",
+      "actual sampler/config",
+      "stop reason",
+      "generated count",
+      "truncated flag",
+      "elapsed and native timing with definitions"
+    ],
+    "cap_policy": "If the1024-token cap is reached before a normal terminal condition, mark truncated=true and preserve the partial answer. Mark criteria requiring missing output incomplete, never imply a complete pass or silently rerun with a higher cap. Report truncation beside score.",
+    "cap_counting": "The cap counts every generated token ID, including non-displayed reasoning/control IDs. Stop on the model's actual end-of-generation condition with ignore_eos=false and record the terminator. If a later higher-cap diagnostic is useful, give it a separate name, apply the same new cap to the F/P pair, and never replace the original six responses or imply that it was the initial test.",
+    "grading": "Use the frozen rubrics below; retain each criterion pass/fail/incomplete and concrete evidence. Exact reference wording is not required. Do not tune35 from these responses; holdout remains unused."
+  },
+  "grading_interpretation": "Use original task constraints. Successful push return unspecified. Ring direction not fixed. Schedule people inherited from prompt; repeating their names is not required.",
+  "restore_normal_API": true
+}

@@ -1,0 +1,92 @@
+parallel-pilot 引き継ぎ・改訂2の追補
+2026年11月17日
+レビュー対象は引き続き d4d50b651ff7754ee2189228762468fc02971bfa。
+
+結論
+
+今回の約4.8%改善の評価、original35を固定した未使用3例へ進む方針は維持する。
+ユーザー向け13ページ報告書と、以前の実測の再集計結果は同じ。
+この追補は、次の試験の採点基準とcaller移行時の抜けを直すもの。
+新しいモデル推論・実機build・API操作・GPU測定は行っていない。
+
+実機側はこの改訂2のASTRA_NEXT_JA.txt、validation/FROZEN_VALIDATION3_PLAN.json、
+VALIDATION3_HANDOFF_JA.txtを正本として使う。初回ZIPの同名3資料より優先する。
+初回のZIPを既に渡している場合は、この改訂2へ差し替える。
+
+1. 成功pushの戻り値をTrueへ固定しない
+
+元Python課題は、満杯時のpushはFalseを返すと指定するが、成功時の戻り値は指定しない。
+初回rubricのpush4=True等と、動作例の成功Trueは過剰制約だった。
+成功は要素の追加、size増加、その後のFIFOで判定し、戻り値Trueを必須にしない。
+満杯時のFalseと状態不変は引き続き必要。
+
+JSONの成功push期待値を {"push_succeeds": true} という意味上のマーカーへ変えた。
+これはメソッドの戻り値にdictを直接比較する指示ではない。semantic_marker_rulesを参照。
+
+2. ringの具体的な添字式・循環方向を固定しない
+
+元課題はoldest index＋countのring bufferを要求し、配列の物理的な循環方向を指定しない。
+tail=(head+count)%capacityという一例だけを正解にしない。
+例えば逆方向へ循環しても、同じFIFO・固定容量・失敗時の状態不変を満たせる。
+要素を毎popずらす実装を避ける要求は維持する。
+
+この2点は単なる表現の好みではない。レビュー側で自作した「逆方向ring、成功pushはNone」の
+反例を、独立したdeque oracleで確認した。capacity1/2/3、4種類の操作の長さ8の全196608列、
+計1572864操作と、capacity1024・signed64両端等の境界を確認し、課題の外から加えた制約が
+仕様を満たす別実装を排除し得ることを確かめた。
+preflight/check_grading_counterexample.pyとGRADING_COUNTEREXAMPLE_VERIFIED.jsonを同梱。
+これはモデルが生成した回答の試験ではなく、供給されたreferenceコードも実行していない。
+
+3. 旧JA専用guardを新validationへ適用しない
+
+既存driverには固定7case/ci=2/prefix272に加え、次の旧入力専用検査もある。
+  driver.cpp123行: old cases[0] full_tokens と現在cases[0]の一致。
+  driver.cpp157〜158行: F_prefix_first4_equal_old、旧JA出力とのbyte比較。
+新3例をここへそのまま入れると、正常な新入力を誤って停止させる。
+旧wiring/JAの検査は対応する旧controlへ分離し、新caseのID/hashやS/P数値検査を維持する。
+以前の正しい検査を一律削除する話でも、新しい旧JA試験を増やす要求でもない。
+analyzerだけでなくdriver側も変更対象だとJSONへ明記した。
+
+4. 自由回答の条件を一本化
+
+凍結済みprefix_idsはtemplate/BOS/assistant境界を含むので、そのID列だけを入力する。
+再テンプレート・再tokenize・referenceの追加入力をしない。
+greedy、temperature=0、seed=42、ignore_eos=false、最大1024生成IDへ文書とJSONを統一した。
+モデルの実際の終端判定で停止し、上限は非表示のreasoning/control IDを含め全生成IDで数える。
+途中で上限に当たった初回6回答はtruncated/incompleteとして保存する。
+増枠pairが後で必要なら別名の追加診断にし、初回回答や成績を置き換えない。
+
+5. 新しいtiming processごとの準備を明記
+
+旧driverは同じprocessのquality blockが先に走り、main graph初回準備や
+hot-backend.cpp195行の初回logもその区間で消費している。
+新計画の4つのtiming processでは、別processで終えたqualityやprivate graph初期化を
+その準備の代用にしない。F/P共通の方針で短い未計時T1の入力・回数を明記する。
+準備後にnormal synchronize、KV clear、対象prefixの再入力を行う。
+counterのbefore snapshotも準備後に取り、23×64の判定へ準備回を混ぜない。
+その後の64 timed T1は先頭も含め全件保存し、測定後の都合で除外しない。
+長いwarmup sweepや新たな比較gridを追加する要求ではない。
+
+保存入力・実験範囲
+
+元3caseのprompt、reference、全token IDs、metadata、35planは初回と同一。
+新しいvalidation結果を見て選定し直した修正ではない。holdoutも未使用のまま。
+F/S/P品質確認を先行し、F/Pの768 timed T1、自由回答6本という枠は維持する。
+未計時準備は実機側で明示し、品質call数とtimed call数へ混ぜない。
+
+改訂2のFROZEN_VALIDATION3_PLAN.json SHA256:
+615add2b3da6befbc8c96f45fe5d09c5d14b049fd9fcf76f0a5ee8e890b07ba5
+初回plan SHA256:
+967c653002983016c3e50872a308ff3fae367e5fb84edd7aaee6df6195408dbc
+GPU original35 plan SHA256は同じ:
+4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596
+
+出典
+
+元課題の正確な文章はvalidation/FROZEN_VALIDATION3_PLAN.jsonの
+cases[].original_corpus_variant_exact.prompt_utf8へそのまま保存している。
+実装上の注意の出典:
+archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/driver.cpp:123,127,151–159
+archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp:122–164,195
+GitHub固定版:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/d4d50b651ff7754ee2189228762468fc02971bfa/archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/driver.cpp

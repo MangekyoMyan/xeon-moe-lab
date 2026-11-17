@@ -1,0 +1,104 @@
+任意の追加対照 B: bank を保持し、元の graph を計算する
+対象 commit: d4d50b651ff7754ee2189228762468fc02971bfa
+作成日: 2026-11-17
+
+位置付け
+
+これは C−F ≈ 1.999 ms/T1 の原因を大きく二つに分ける、任意の診断案です。
+主たる次の一手は original35 を固定したまま、未使用の validation 2〜3 case と
+実回答を確認することです。本案をその前の必須条件にはしません。
+約 2 ms をすべて取り戻しても、今回の P 約 122.896 ms と
+9.8 token/s 相当の約 102.041 ms の約 20.855 ms 差の一部です。
+この比較自体も元の 9.8 と同じ測定条件を保証しません。
+
+名称と比較の意味
+
+F: 同じ integrated libllama で hot backend を作らず、元の graph を実行する。
+B: hot backend、State、native bank、private CPU/GPU graph と pool、pinned buffer を
+   同じ手順で作り、warmup する。ただし main-model graph は元の経路を実行する。
+C: B と同じ保持状態に加え、23 layer の custom operation を使用し、実演算は CPU のみ。
+S: custom operation を使用し、選ばれた resident expert を GPU へ出すが、GPU 完了後 CPU。
+P: S と同じ expert/算術で、GPU を提出してから CPU を実行し、最後に GPU を join する。
+
+F→B は bank の「存在だけ」に近い大きな切り分けですが、純粋な VRAM 消費の
+因果効果ではありません。未使用の追加 backend と State、private pool、初期化、
+warmup、allocator の配置、backend 一覧に追加されることも含みます。
+B→C は保持状態をそろえたうえで、custom operation への置換とそれに伴う
+入力/出力のコピー、private CPU 実行、scheduler placement、tail 指定などの差です。
+二つの差を各 1 回だけの測定で確定値として扱うこともしません。
+
+同梱 patch の範囲
+
+ファイル: optional_dormant_bank_original_graph.patch
+変更先: archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp
+基準 source SHA256:
+270b7f6f4398f5d1978026bebc18e129614956d028414a98daf76f91374a881c
+
+GGML_XEON_HOT_TRIAL_KEEP_ORIGINAL_GRAPH を State の constructor で一度だけ読む。
+未設定/0 は従来の動作、1 なら xeon_hot_build が nullptr を返す。
+create、read_plan、finish/initialize、Gpre/Gpost、private warmup は維持する。
+graph 側の xeon_hot_used が false になるので、custom node と追加 tail 指定は入らない。
+入力データを借りる zero-copy、同期削除、GPU/CPU の算術変更はしていない。
+context の途中で flag を切り替えて graph reuse を曖昧にする仕様ではない。
+
+これは repo 外で生成したソース提案です。git apply --check は成功しました。
+repo への適用、build、engine/model/GPU の実行、数値確認、速度測定は行っていません。
+make_dormant_bank_control_proposal.py は source SHA と一意の差分 anchor を検査して
+提案を再生成します。供給された build/run script を実行するものではありません。
+生成済み patch の SHA と適用チェック結果は DORMANT_BANK_PATCH_MANIFEST.json に保存。
+
+caller に必要な変更 — patch だけでは B を実行できない
+
+現 driver.cpp は F-before/F-after/CSP だけを認め、mixed で
+「bank が存在する」と「custom node が実行される」を一つにしています。
+したがって次の小変更が別途必要です。
+
+1. 明示的な B-held arm を追加し、has_bank と uses_custom を分ける。
+   has_bank = B-held または CSP、uses_custom = CSP とする。
+   B は GGML_XEON_HOT_FFN=1、同じ capacity.plan、上の追加 flag=1。
+   F は hot 無効。C/S/P は hot 有効、追加 flag 未設定/0。
+
+2. B の provider pin には XEON_HOT_FFN が存在し、State.ready が true であることを
+   求める。payload=475453440、35 expert、同じ native bank と warmup を確認する。
+   メモリ報告の bank_allocated は has_bank、bank_used_by_model は uses_custom にする。
+
+3. B は xeon_hot_trial_set_mode に 'B' を渡さない。
+   この API は C/S/P だけを許す。State の default P は未使用のままでよい。
+   B の custom build count と per-layer call count は 0 を期待する。
+   現在の CSP 用「23×64 calls」検査をそのまま B に流用してはいけない。
+
+4. 同じ固定入力、KV clear、prefix、64 T1、normal output-ready 境界を使う。
+   F/B/C の出力 byte gate を置き、差が出たらその B は費用対照として使用しない。
+   実運用環境の比較では provider hash、CPU compact、affinity、GPU memory phase、
+   CUDA graph の初回準備、同時実行 workload をそろえる。
+   F と C も、比較時の新しい同一 build で採り直す。旧結果と新 B を直結しない。
+
+5. 既存の closed recorder / callback=null の条件を保つ。
+   計測中に log 行や tensor dump を増やさない。結果に有意な差がなければ、
+   ここで追加の細分化を止める。全 case × 全 mode × 全 bank size の grid は不要。
+
+結果の解釈と、次に進む条件
+
+- B が F に近く、C が B より遅い: まず custom 経路の CPU 実行/コピー/待機を調べる。
+- B が C に近く、両方 F より遅い: 保持した backend/pool/初期化/配置の差が候補。
+  「VRAM bank だけが原因」とは断定しない。
+- B と C の両側に差がある: 両要因がある可能性。最も大きい方だけ追加診断する。
+- F/B/C が drift に埋もれる: 長い分解作業を続けず、validation と plan 改善に戻る。
+
+代替案: 既存 scheduler debug による一回だけの配置台帳
+
+実使用 base source gpu-stream-20261103/ggml-backend.cpp は
+GGML_SCHED_DEBUG=2 をすでに持っています（1417–1455、1823、2234–2235）。
+F と C の各 1 回の実 T1 について、split 順、backend、activation の入力 copy、
+tensor bytes、host/pinned buffer の配置を保存できます。reserve graph と実 decode は
+明確に区別します。大量 log を出すこの回を速度値へ混ぜません。
+
+既存ログの reserve graph は F と CSP とも T1 split=76、input objects=5、
+input tensors=20 です。node は 4866→4797 に減っています（−69=23×3）。
+したがって「コードが増えたので split 数が増えた」という説明は支持されません。
+同じ split 数でも backend の種類、copy、sync の位置は変わり得ます。
+
+この既存 debug 一回か B 対照のどちらかを、次に知りたいことに合わせて選びます。
+両方を必須の連続作業にはしません。base scheduler の input copy に付いている
+同期は allocator の領域再利用と入力所有権を守るものです。台帳だけを根拠に
+同期削除や入力ポインタの直接借用へ進める提案ではありません。

@@ -1,0 +1,243 @@
+parallel pilot の統合ソース監査
+対象 commit: d4d50b651ff7754ee2189228762468fc02971bfa
+作成日: 2026-11-17
+
+実施範囲
+
+固定 commit の source、build receipt、既存ログを読み、独自の offline script で
+source hash、差分、reserve graph の行を抽出した。供給 build/run script、ELF、
+engine、モデル、GPU、API は実行していない。repo は編集していない。
+別添 B-control は repo 外の未検証提案であり、git apply --check のみ行った。
+この報告は現 source の設計監査であり、新しい速度測定や回答品質試験ではない。
+
+結論
+
+1. この版は CPU/GPU を本当に並列に進める実装になっている。
+   private GPU graph と D2H copy を提出し、CPU 残り expert を実行し、最後に GPU を join。
+   S と P の主な実行差は join 位置で、同じ分割/graph/算術を使う。
+
+2. 読んだ範囲では、今回の限定単一 context・callback null・collector closed の
+   pilot の結論を直ちに無効にする新しい欠陥は見つからなかった。
+   source に十分な shape、plan、owner、placement、headroom guard があり、
+   saved numerical gate と整合する。ただし production-ready や一般品質を意味しない。
+
+3. C−F 約 1.999 ms/T1 は実際に気にすべき統合費用だが、その全額を
+   memcpy、コード量、split 数、bank の VRAM 消費のどれかへ帰属できない。
+   既存 reserve log は T1 splits が全 arm で 76、nodes はむしろ 4866→4797。
+   まず未使用 validation と実回答へ進み、必要なら B 対照か既存 debug の一回台帳を選ぶ。
+
+4. 前回の capture 提案は実 graph の GPU copy と weighted reduction を捉え切れて
+   いなかった。実機側が安全停止し、GPU weighted callback cut を除去した修正は適切。
+   最終 24 B readback は観測用の明示的追加同期であり、性能経路には入っていない。
+
+参照記法
+
+N = archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot
+I = N/integrated
+R = archive/review-handoffs-not-for-readers/2026-11-17-route-integration
+H = archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab
+B = H/gpu-stream-20261103/ggml-backend.cpp
+G = H/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu
+
+以下の行番号は上記固定 commit の source に対応する。
+抜粋と SHA は SOURCE_EXCERPTS.json、build receipt との照合は SOURCE_AUDIT.json。
+
+1. 実際に統合した変更と使用 build
+
+context の差分は include、CPU より前の専用 host backend 登録、最初の
+sched_reserve 後の finish だけ（I/route37/llama-context.cpp 454–464、574）。
+graph は guard 付き FFN 置換と GPU weighted tail 指定を加えた
+（I/llama-graph.cpp 2317–2331、2507–2513）。
+
+guard は DS41、T1、D=5120、384 expert、top6、SwiGLU、非 merged gate/up、
+bias/extra scale/post norm/LoRA/Hadamard/custom precision/MoE cache なしを要求する。
+適用外の prefill、CPU の空 plan 14 layer、GPU37..39 は元経路へ戻る。
+hot backend は元 expert weight を保持し、bank には同じ native quantized bytes を
+selected ID 順にコピーする。全 layer を GPU へ移しているわけではない。
+
+ENGINE_BUILD.json は context/graph/hot を -O3 -march=ivybridge -mtune=ivybridge
+-std=c++17 -fno-fast-math -ffp-contract=off で追加 build したことを記録する。
+driver は -O2 -mno-avx2 -mno-fma を含む。残りの既存 objects は再使用され、
+この追加 flag が CPU/CUDA の全 object に適用されたとは扱わない。
+
+現 receipt の main hashes:
+libllama  aff89d6bd4ab7419edd6b85190ef15e7a24a810db69e10a42c331298c2e9ec1a
+CPU       602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81
+CUDA      45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0
+base      2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558
+driver    b24fdbab5b6aa07db73db426d69ff3e6074695c21d621eaa3615aa0004eab155
+
+独立に再計算した build receipt 内の source 16 件はすべて一致した。
+I/driver.cpp 81 と 90–103 は loader symbol provider と scheduler の実 backend
+provider 一覧、40 layer の実 placement を検査する。これにより build 名だけを
+根拠に、別にロードされた base を同一視する過去の問題を避けている。
+こちらの監査では実機 /proc/maps を新規に読んだわけではない。
+
+2. 時間の境界は GPU 未完了を取り逃がしていないか
+
+I/driver.cpp 139–141 は start→llama_decode→llama_get_logits_ith→end。
+公開 API の llama_get_logits_ith は I/route37/llama-context.cpp 4317–4328 で
+ctx.synchronize() を先に呼ぶ。したがって計測は normal logits-ready を含む。
+内部 get_logits_ith 本体だけを見て「同期がない」と判断するのは誤り。
+
+timing block では callback=null、route collector disabled を検査している
+（driver 83、128、132）。全 vocab finite scan、出力の memcpy、file/hash/export は
+quality block または計測の外側。GPU memory/NVML 問合せも各 T1 の外側。
+初回 per-layer log は C/S/P quality block で先に消費されるので timing に混ざらない。
+custom の細かい SampleStamp は operator replay 用で、統合時は nullptr。
+
+この時間は固定 token 入力 64 T1 の model execution であり、sampling、server、
+SSE、Open WebUI 表示まで含む速度ではない。ユーザーが見た「二つずつ出る」は
+この試験では解決していない。source と固定 T1 の平均から UI の原因は決められない。
+
+3. 本当に並列か、算術や slot は変わらないか
+
+I/hot-backend.cpp 173–194:
+  元 ordered ID を stride ごとに読んで unique/range を検査する。
+  GPU resident は bank local ID と元 slot index を固定配列へ保存する。
+  private CPU ID は resident slot のみ −1、それ以外は元 global ID。
+  x/ids を private CPU graph の所有 buffer へコピーする。
+  GPU 用 pinned input/ids → async H2D → GPU graph → async D2H を提出する。
+  S はここで join、P は CPU 計算と全 6 slot 出力の取得後に join。
+  GPU 完了後、hot slot だけ pinned output から元の slot に戻す。
+
+H0 は GPU を提出しない。H6 は CPU を実行しない。partial H は CPU の −1 slot を
+ゼロにした結果へ GPU の hot slot を置き換える。CPU kernel の −1 skip は
+R/route37/ggml-cpu.c 1826–1844 に存在する。GPU result を足し込むのではないため、
+scatter による意図しない二重加算はない。weighted slot の最終 merge は元 graph に残る。
+
+これは GPU 提出→CPU 実行→GPU 待ちという並列の scheduling を確認したもので、
+GPU が完了した絶対時刻や重なった区間の全量 trace を得たものではない。
+join wait を GPU 全実行時間へ読み替えず、source と S/P 比較が支える範囲で評価する。
+
+元 gate/up/down tensor pointer を private CPU graph にそのまま渡すので、既存の
+compact registry との結び付きを保つ。対象の 6 expert を追加 compact 化してはいない。
+専用 host backend は ordinary CPU OpenMP team の中から別 team を作ることを避ける。
+これらは O/C/S/P の算術整合と並列比較のために意味のある設計である。
+
+ただし CPU と GPU の IQ 入力量子化や整数 dot の違い自体は残る。
+S=P byte equal は「並列化で結果を変えていない」証拠であり、F=S の証拠ではない。
+
+4. 所有権、同期、mode 切替、graph reuse
+
+private graph は Layer が所有し、native bank と graph buffers は T1 ごとに作り直さない
+（hot-backend 44–63、122–164）。State が pinned input/output/ids を所有する。
+backend_compute 全体を execution_mutex で保護し、private GPU を join してから
+return する。エラー時にも GPU を drain して failed status を返す（202–207）。
+destructor は GPU を同期後、graph/weight buffer、pinned buffer、pool/backend の順で
+解放する（81–95）。成功時に in-flight GPU が pinned output を後から書く経路はない。
+
+driver の mode switch 前は normal synchronize と recorder closed 検査を置く。
+set_mode 自体も execution mutex と private GPU synchronize を取る（253–257）。
+C/S/P は State/bank を再作成せず、同じ custom graph が runtime の mode を読む。
+形状は変わらず、graph reuse でも mode が古い node 内定数に焼き付く設計ではない。
+trial_builds は custom node を作った回数であり、graph generation ではない。
+
+限定事項: set_mode 関数の中には collector closed の検査はない。これは driver が
+守っている契約である。registry lookup から得た State と並行して別 thread が
+context を破棄する一般 API にもなっていない。単一 context・単一 caller の
+pilot で妥当なことと、本番向け汎用 API であることは分ける。
+runtime IDs の nb[0] は GGML 内部 metadata を前提としており、外部から偽造した
+tensor を受け付けるインターフェースとしての防御を主張しない。
+
+5. C の stride 修正と既存検証の意味
+
+checkpoint-engine-before-C-stride との差は、C の元 ID 再読込を
+contiguous memcpy から slot*ids->nb[0] にした一行。
+通常 partition は最初から stride を使っていた。最終 source と最終 receipt は
+修正後で、再リンク libllama は上記 aff89d6b... に一致している。
+この修正を過去 replay の未使用 noncontiguous shape にまで遡って保証はしない。
+operator capture 側は shape() が ggml_is_contiguous を要求している。
+
+保存済み F-before=F-after=C と S=P の一致は、元の全モデル経路との wiring、
+私有 buffer、slot 復元、mode 切替を組み合わせた実際の確認であり価値がある。
+一方 65 rows の top1 一致は自由生成の文章や長文での品質保証ではない。
+別担当の raw 再集計を主たる数値根拠とし、本 source review で再計測したと称しない。
+
+6. C−F の費用について今分かること
+
+F の約 128.789 ms/T1 に対し、C は約 130.788 ms/T1。
+F も integrated libllama を使っているため、新ファイルが存在することや未実行の
+分岐が増えたこと全体が、この差をそのまま説明するわけではない。
+C で実際に加わるものは、23 個の custom 実行、private CPU graph の呼出し、
+activation input/output copy、異なる backend placement と同期、bank/pool の保持など。
+replay の O は独立 CPU FFN graph なので、main scheduler を含む F ではない。
+operator の H0 費用が小さいことだけで統合 C−F も小さいと推定できない。
+
+3 本の server.stderr.log の 5383 行を独立に抽出した結果:
+F-before: T1 nodes=4866, splits=76, input objects=5, input tensors=20
+CSP:      T1 nodes=4797, splits=76, input objects=5, input tensors=20
+F-after:  T1 nodes=4866, splits=76, input objects=5, input tensors=20
+
+node −69 は 23 layer で gate/up/activation/down の 4 node を custom 1 node へ
+置換した差と一致する。これらは reserve graph の値であって、全 T1 の actual trace
+ではない。ただし「分割数が増えたため」という単純な説明は、このログでは支持されない。
+split 数が同じでも backend、copy、event/sync の境界が同じとは限らない。
+
+専用 backend は async copy/event の interface を追加していない。base の copy
+fallback は入力 backend と宛先の同期を伴う場合がある（B 2095–2134）。
+split 間は allocator の buffer 再利用のための同期もある（B 2148–2155）。
+これらは候補であって、どれが何 ms を占めるかは未測定。
+入力 pointer を直接貸す変更や同期削除は lifetime/event 依存を壊し得るので提案しない。
+
+次の最小診断は DORMANT_BANK_CONTROL_JA.txt の B 対照か、既存 GGML_SCHED_DEBUG=2
+による F/C 各一回の配置台帳。全量 profiling framework を追加しない。
+主な次の進路は fixed35 の未使用入力/実回答で、約 2 ms の分解に停滞させない。
+
+7. capture 失敗二件と、前回提案への訂正
+
+最初の失敗 run 20261117T051531Z-U1024-4725007c は、weighted node の src0 が
+CPU down tensor そのものではなく CUDA copy になり、matcher が成立しなかった。
+次の 20261117T051936Z-U1024-9d4e6e9e は GPU weighted node の callback cut により
+旧 JA 先頭 3 calls/111 records の ordered ID が 32 件変化した。
+これを普通の CPU/CUDA 差と片付けたり、失敗標本を無視したりしてはいけない。
+
+前回こちらの提案は weighted consumer まで観測点にしても元の演算を保つ、という
+前提が弱かった。実際の source には具体的な理由がある。
+B 2180–2200 は ask=true を返した node までの graph view を提出し、同期する。
+G 3494–3634 は weighted MUL と 6 slot の VIEW/ADD をまとめる matcher を持ち、
+G 3959–3967 で融合実行する。MUL 直後で graph view を切れば、必要な後続 node が
+その view に存在せず、融合の成立条件を失う。この算術経路差は有力な候補である。
+ただし実機で fusion on/off を単独に記録していないので、32 件すべての原因だと
+証明したものではない。GPU gate/up 融合だけに話を寄せるのも不正確。
+
+最終 capture（N/capture/bounded_moe_capture_proposal.h 131–177）は:
+  scaled weights producer の ask で pointer を覚え、false のまま GPU cut を要求しない。
+  元 graph が weights を CPU FFN より先に expand する（graph 2300–2301）。
+  CPU gate 完了後、original GPU backend を明示 drain して、確定した 6 F32=24 B を読む。
+  weighted consumer の ask は同じ producer を使うことを照合するだけで false。
+  CPU gate/down の観測 callback は残す。
+
+明示 GPU drain は scheduler stream と cudaStreamPerThread の暗黙順序を仮定しない
+ために意味がある。buffer は graph の weighted tail でも使う生存中の producer。
+最終 run 20261117T052657Z-U1024-3483cb75 は全333 route と既存5 row一致を確認した。
+8 cell 合計の weights readback は192 B。この一致は対象 calls の観測整合であって、
+すべての未採取 activation に影響がないと証明したものではない。
+性能測定では callback が null なので、この診断同期自体の費用は含まれない。
+
+8. route origin と軽微な保守上の注意
+
+現在は route37 を開けない。private CPU gate は原 weight pointer を使い、ID は
+hot slot を −1 にするため、現 record_v1 の入力契約に合わない。
+ROUTE_ORIGIN_MINIMAL_DESIGN_JA.txt では logical entry と private ids の exact 登録に
+絞った案を示した。全量記録を得る前に H histogram を「ほぼ同じ経路」の証明にしない。
+1377→1379 は hit slot の合計差 +2 であり、変わった route が二つだけという意味ではない。
+
+軽微な点は優先度を分ける。
+capture header 3–7 の「not run」と重複語句は最終成果物に対して古いコメント。
+begin_call は routing_weight_readback/down_via_cuda_copy を reset していないため、
+一般的に cell を再利用するなら metadata 初期化へ加える。この固定 capture で
+成功したセルの数値を無効とする根拠ではない。
+driver 163–164 の capacity_bank 解放 check は重複するが、最初に nullptr にしており
+double free にはならない。現 integrated 経路でこの旧 member は使われていない。
+これらの整理を速度改善の主役にしない。
+
+成果物
+
+SOURCE_AUDIT.json: source16件の receipt 照合、3 reserve行、provider hash、diff manifest。
+SOURCE_EXCERPTS.json: 出典 file/line/SHA を添えた主要 source 抜粋。
+context_integration.diff / graph_integration.diff: 統合の狭い変更範囲。
+replay_to_integration.diff / c_stride_fix.diff: mode と最終 stride 修正の差分。
+capture_build2_to_final.diff: 初期前提から最終 capture への変更。
+DORMANT_BANK_CONTROL_JA.txt と optional patch: 任意の大きな費用分離。
+ROUTE_ORIGIN_MINIMAL_DESIGN_JA.txt: 必要になった時だけ実装する bounded recorder の設計。

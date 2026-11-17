@@ -1,0 +1,162 @@
+固定35expert案・未使用validation3例の次段階評価案
+================================================
+改訂2：採点の過剰指定2点、旧JA専用guardの分離、process内準備、自由生成契約を明確化。
+
+成果物
+------
+FROZEN_VALIDATION3_PLAN.jsonは、入力、全reference、保存token IDs、元metadata、
+固定35plan、評価順序、自由回答rubricを含む自己完結した宣言的な実験案です。
+エンジンrunnerではありません。現行driverへ渡すだけで実行できるとは主張していません。
+
+make_frozen_validation_plan.pyは標準ライブラリだけで再生成する自作スクリプトです。
+元の提供scriptをimport/execせず、保存JSONを読み、hashと配列を検証して出力します。
+モデル、tokenizer、API、GPU、提供referenceコードの実行はしていません。
+
+対象commit
+----------
+d4d50b651ff7754ee2189228762468fc02971bfa
+
+PILOT_TOKENS.json:
+44a9f673a7928b30f29a11fd741c96fa5b2faf526b89a82bc448aa13ff32596f
+元PILOT_CASES_JA_EN_CODE.json:
+fa1f41571af7c6d8272bb639877ea0cc32b4c09747939d5579a22d2998c11f5a
+既存35expert plan:
+4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596
+
+選択した3例
+-----------
+case_id                         family                  prefix  reference全長  T1位置
+text_plan_constraints_ja         text_plan_constraints     236     259          236..299
+text_plan_constraints_en         text_plan_constraints     187     228          187..250
+code_bounded_queue_python        code_bounded_queue        244     290          244..307
+
+全てvalidation split。日本語と英語は同じ課題familyなので、独立課題は2familyです。
+各caseは固定64入力と、固定参照文の次token65個を含みます。row0はprefill直後の次token、
+row1..64はreferenceの各入力後の次tokenに対応します。先頭64tokenへpromptを切らず、
+prefix272へpaddingもしません。sourceの文章・token列をそのまま保ちます。
+
+自由回答ではprefix_idsだけを入力します。referenceの文章まで入力して続きを書かせると、
+問題を自力で解いた評価にならないので、固定reference試験と明確に分けます。
+
+未使用であることの根拠と範囲
+----------------------------
+・元corpusでfamily splitはrouteを見る前にvalidationへ固定済み。
+・PILOT_TOKENSの20件freezeはtemplate/tokenizeのみで、model_inference_requested、
+  route_collected、bank_fittedは全てfalse。
+・gpu-workspaceのPILOT_DESIGNはtrain_first5 onlyで、validation5/holdout5をwithheldと記録。
+・parallel-pilotの統合DESIGNはtrainingのtext_cache_budget_jaだけ。
+・この二つの公開stageの保存RUN.json計10件を読み、失敗captureを含むcase一覧に今回3例が
+  一つもないことを確認。各RUNのpath/hash/実際のcase IDsをJSONへ保存しています。
+
+公開snapshotにない実機上の実行や、このcommit以降の実行がないことまでは証明できません。
+実行側で既にこの3例を使った場合は未使用と呼ばず、その履歴を記録してください。
+これはholdoutではなく、既存validationから3例だけを先に調べる計画です。
+結果を見て35expertを再選定しません。残りvalidation2とholdout5を自動で追加しません。
+
+最小限の実験構成
+----------------
+1. 数値診断を先に行う。
+   各caseについてF/S/P各1block、prefix最終+64T1の65×129280 F32を保存。
+   主な比較はS=Pの全byte一致。F/PのNMSE、最大差、top1、固定target logprobも記述。
+   計576T1。Cの全gridは不要です。S/P不一致なら記録を残して理由を調べます。
+
+2. 時間はF/Pを主対象にする。
+   process順F→P→P→Fで、前半はJA/EN/Python、後半はPython/EN/JAの順。
+   各case各mode2block、各64T1、計768 timed T1。F/Pで入力、CPU/CUDA/base、
+   compact、threads、NUMA、batch1024、GPU全層37–39を揃え、35planを固定します。
+   2process/modeの小さい記述比較であり、768個の独立promptがあるとは数えません。
+   ロード、prefill、最初T1、各call、block、process順を残し、外れ値を削りません。
+   新しいtiming processごとに、F/P共通の短い未計時T1準備の入力・回数を記録します。
+   別processのqualityやprivate graph warmupはmain graphと初回logの準備を代替しません。
+   準備後に同期・KV clear・prefix再入力を行い、counter beforeも準備後に取得します。
+   64 timed T1の先頭を事後に削除せず、準備回をtimed callsへ混ぜません。
+   S/Cの時間grid、8層別配置、bank拡大、ubatch sweepはこの段階には含めません。
+
+3. 同じpromptでF/P各1回、自由回答を生成する。
+   計6回答。greedy、seed42、EOS有効、最大1024生成tokens。
+   保存prefix_idsはtemplate/BOS/assistant境界を含み、再テンプレートしません。
+   上限は非表示のreasoning/controlを含む全生成IDで数えます。
+   打切り時はtruncated=trueと理由を記録し、未完部分を正答扱いしません。
+   上限に当たったから黙って延長・再試行もしません。全文・IDs・終了理由を保存。
+   後日増枠pairを行うなら別名の追加診断として記録し、初回6回答を置き換えません。
+   自由回答の時間は補助記録で、均衡したfree-generation throughput試験とは呼びません。
+
+これは採用を自動決定する計画ではありません。各caseの速度、S/P同値、F/Pの回答とrubricを
+並べて、改善・回帰・未完・判断保留を区別します。言語全般の差や一般品質を証明する規模ではありません。
+
+採点上の重要点
+--------------
+日本語/英語の予定課題:
+  最速終了10:45。S→I→E→F=20+30+40+15=105分が下限。
+  全作業の時刻、担当、先行関係、非重複、分割なしを確認します。
+  EとRは並行可能。Rは09:50開始の一例だけを正解にせず、09:50..10:05に開始して
+  10:30までに25分を終える別の実行可能な最適予定も認めます。
+
+PythonのRingQueue:
+  capacity1と1024を受理し、0・負値・1025以上を拒否。
+  FIFO、sizeの不変条件、head/countと循環添字、満杯pushのFalseと状態不変、
+  空popと保存値0の区別、負値/重複/符号付き64bit両端、capacity1、反復wrapを確認します。
+  入力の型・64bit範囲は問題側の前提なので、不要なtype検査を採点条件に増やしません。
+  標準的なOptional[int]なら空はNone。明示的な別optional表現なら0と区別できることを確認。
+  模範解答と文字列が違うだけで不合格にしません。要求されたring構造の代わりに
+  pop(0)で要素をずらす実装は仕様不一致です。将来の動作例はJSONへ記載しましたが、今回未実行です。
+  成功pushの戻り値をTrueへ固定しません。問題文が指定する戻り値は満杯時のFalseです。
+  push_succeedsマーカーはsizeとFIFO内容の変化で判定し、戻り値へdictを直接比較しません。
+  oldest index+countのringであれば、具体的な添字式・物理配列の循環方向を限定しません。
+
+現行driverで必要な変更
+---------------------
+N = archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot
+
+・N/integrated/driver.cpp 121–123:
+  全7caseを前提にする箇所を、明示的なcase_id選択と選択件数・重複・tokenhash検証へ。
+  旧wiring対照を残す場合は評価対象3例と分け、過去のpin検査を消さないこと。
+  123行のold cases[0] full_tokens一致と157〜158行のF_prefix_first4_equal_oldも旧入力専用です。
+  新validationの入力・出力へ旧case0/旧JA bytesとの比較を流用しないでください。
+  旧検査を対応する旧controlへ分離する話で、新しい旧JA試験を追加する要求ではありません。
+
+・同135:
+  ci=2、cases[2]、prefix==272を、選択caseのprefix_countと正確なtoken列へ。
+  今回JA/PythonのT1位置は256をまたぎます。境界で常にgraph再構築するという仮定はせず、
+  既存のState/bank寿命、同期後mode切替、graph再構築の照合を保って確認してください。
+
+・同142–146:
+  blockにcase_id/family/split/prefix hashを記録。
+  quality-S.f32などmodeだけの名前は複数caseで上書きされます。
+  case_id/mode/stage/repetitionをファイル名とreceiptの識別子へ入れてください。
+
+・N/analyze_integrated.py 42/48/61/83–84:
+  prefix272、tok[272:336]、cases[2]、旧JA先頭5row固定hashを新caseへ使わないこと。
+  case_idから各prefix/64入力/65targetsを引き、同じcaseのF/S/Pを比較してください。
+  旧JA pinは旧JAの独立した対照で維持し、新しいvalidation出力との比較に転用しません。
+
+・N/integrated/run_integrated.py 63/65:
+  現行のarmだけを指定するlauncherは本JSONと互換ではありません。
+  新しいcallerをbuildして、plan/selected IDs/runner/build hashをlaunch receiptへ固定します。
+  CPU/libllama等の既存pinを黙って更新したり、今回案を実行済みと表現したりしないでください。
+
+source keyの実確認
+-----------------
+PILOT_TOKENS.jsonのrootはcases配列で、実際のkeyはprefix_ids、prefix_count、
+full_reference_continuation_ids、continuation_first65_ids、used_T1_ids、
+next_targets_prefix_and64T1、rendered_prefix等です。
+raw prompt/referenceはこのtoken manifestにはありません。元corpusのfamilies[].variants[]の
+prompt_utf8/reference_utf8から抽出し、両資料のprompt/reference SHAでjoinしました。
+common_semantic_contractはfamily側です。
+
+元corpusに残るtokenization_performed=falseやnull IDsはtoken freeze前のmetadataです。
+それを勝手にtrueへ書換えず、original_corpus_variant_exactとして保存し、後のtoken manifestを
+frozen_token_manifest_case_exactへ別にそのまま保存しました。
+
+検証
+----
+23sourceのSHA、元文字列のUTF8長/codepoint/hash、LEi32 tokenhash、全prefix/continuation、
+64入力と65targetsの対応、joined文字列hash、10RUNのcase不在、35planの40行/23非空層/35expertを照合。
+生成JSONの読み戻し、自作scriptのPython AST構文、元Python referenceのAST構文を確認済み。
+referenceコードは構文解析だけで、実行・import・動作試験はしていません。
+完全なreceiptはVALIDATION_PLAN_VERIFICATION.jsonです。
+
+再生成（このコマンドは自作offline抽出scriptだけを実行）:
+python make_frozen_validation_plan.py /path/to/pinned-repository /path/to/output
+
+上記は将来の計画資料です。実機の実行、通常APIへの適用、holdout開封は今回行っていません。
