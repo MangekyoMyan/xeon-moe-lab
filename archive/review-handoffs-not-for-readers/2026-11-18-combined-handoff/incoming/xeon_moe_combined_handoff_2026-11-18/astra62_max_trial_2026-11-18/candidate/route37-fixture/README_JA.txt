@@ -1,0 +1,5 @@
+追加資料を使った適用性検証。詳細は親ディレクトリのREPORT_JA.mdとREPRODUCE_JA.mdに記載。
+08-mixed-dispatch.patchはexcerpts/の演算関数とplannerのC抜粋に対する差分。
+prepare.pyは固定CPUソースに関数を移植し、06の修正済みカーネルとQ8_Kからの部分範囲prepareを組み込む。
+fixture.cppの代替はcache pointer選択・diagnostic record・無効化したMXプリパック用。実機版一式ではない。
+check_paths.shとcount_paths.cppは関数interpositionで呼出しの有無を検証する。計時には使用しない。

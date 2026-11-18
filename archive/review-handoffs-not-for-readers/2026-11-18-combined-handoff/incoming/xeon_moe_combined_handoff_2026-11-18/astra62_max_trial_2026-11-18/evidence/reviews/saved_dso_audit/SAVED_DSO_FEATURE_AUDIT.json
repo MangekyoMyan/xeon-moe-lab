@@ -1,0 +1,90 @@
+{
+  "captured_utc": "2026-11-18T02:54:07.396832+00:00",
+  "verdict": "All eight saved CPU DSOs match expected visible feature combinations; no evidence found of later iqsafe/combosafe misbuild propagating to these saved phases.",
+  "features": [
+    {
+      "phase": 1,
+      "variant": "baseline",
+      "folded_present_and_runtime_referenced": false,
+      "q8_wrapper": "ref",
+      "route_mapping": "E*slots*tokens",
+      "small_selected_route": false,
+      "matches_expected": true
+    },
+    {
+      "phase": 1,
+      "variant": "iq",
+      "folded_present_and_runtime_referenced": true,
+      "q8_wrapper": "ref",
+      "route_mapping": "E*slots*tokens",
+      "small_selected_route": false,
+      "matches_expected": true
+    },
+    {
+      "phase": 1,
+      "variant": "route",
+      "folded_present_and_runtime_referenced": false,
+      "q8_wrapper": "ref",
+      "route_mapping": "slots*tokens",
+      "small_selected_route": false,
+      "matches_expected": true
+    },
+    {
+      "phase": 2,
+      "variant": "baseline",
+      "folded_present_and_runtime_referenced": false,
+      "q8_wrapper": "ref",
+      "route_mapping": "E*slots*tokens",
+      "small_selected_route": false,
+      "matches_expected": true
+    },
+    {
+      "phase": 2,
+      "variant": "iq",
+      "folded_present_and_runtime_referenced": true,
+      "q8_wrapper": "ref",
+      "route_mapping": "E*slots*tokens",
+      "small_selected_route": false,
+      "matches_expected": true
+    },
+    {
+      "phase": 2,
+      "variant": "route2",
+      "folded_present_and_runtime_referenced": false,
+      "q8_wrapper": "ref",
+      "route_mapping": "slots*tokens",
+      "small_selected_route": true,
+      "matches_expected": true
+    },
+    {
+      "phase": 2,
+      "variant": "q8",
+      "folded_present_and_runtime_referenced": false,
+      "q8_wrapper": "AVX1",
+      "route_mapping": "E*slots*tokens",
+      "small_selected_route": false,
+      "matches_expected": true
+    },
+    {
+      "phase": 2,
+      "variant": "combined",
+      "folded_present_and_runtime_referenced": true,
+      "q8_wrapper": "AVX1",
+      "route_mapping": "slots*tokens",
+      "small_selected_route": true,
+      "matches_expected": true
+    }
+  ],
+  "new_build_or_benchmark": false,
+  "all_translation_units_and_flags_authenticated": false,
+  "every_past_timed_process_loaded_libraries_authenticated": false,
+  "basis": [
+    "Function-level disassembly and explicit runtime/planner branch inspection",
+    "Parent existing workspace/guard records with matching saved CPU DSO hashes",
+    "Q8 wrapper audit by child reviewer",
+    "Candidate plan CSVs as supplementary consistency only"
+  ],
+  "recommended_use": "Keep previous measurements as preliminary history; final clean-build measurements should be the primary result.",
+  "report": "SAVED_DSO_FEATURE_AUDIT_JA.txt",
+  "report_sha256": "69bbc17f71bcf17aa5a0927e583abec986153e756289593c23702ff47eb1fa26"
+}

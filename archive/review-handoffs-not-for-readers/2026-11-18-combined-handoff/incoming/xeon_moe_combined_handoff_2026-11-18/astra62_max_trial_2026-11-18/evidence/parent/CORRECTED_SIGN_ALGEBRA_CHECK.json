@@ -1,0 +1,24 @@
+{
+  "scope": "Integer algebra of corrected packed code only; not floating point, dispatch, memory safety or speed.",
+  "correction": "Force the negative LUT sign for an activation equal to signed byte -128, reproducing legacy psignb wrap.",
+  "results": [
+    {
+      "type": "IQ3_XXS",
+      "all_signed_int8_single_products": 4096,
+      "packed_pair_samples": 16384
+    },
+    {
+      "type": "IQ2_S",
+      "all_signed_int8_single_products": 4096,
+      "packed_pair_samples": 16384
+    },
+    {
+      "type": "IQ3_S",
+      "all_signed_int8_single_products": 4096,
+      "packed_pair_samples": 16384
+    }
+  ],
+  "single_products_checked": 12288,
+  "packed_pair_samples_checked": 49152,
+  "all_equal_to_legacy_integer_semantics": true
+}

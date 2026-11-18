@@ -1,0 +1,54 @@
+[
+  {
+    "symbol": "void folded_dot<(ggml_type)18>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)",
+    "address": "000000000010e550",
+    "size_bytes": 1249,
+    "key_lines": [
+      "  10e5cf:\tc5 f9 70 c9 00       \tvpshufd xmm1,xmm1,0x0",
+      "  10e5d4:\t0f 1f 40 00          \tnop    DWORD PTR [rax+0x0]",
+      "  10e5d8:\t0f b6 90 84 01 00 00 \tmovzx  edx,BYTE PTR [rax+0x184]",
+      "  10e5df:\tc5 fa 6f 00          \tvmovdqu xmm0,XMMWORD PTR [rax]",
+      "  10e5e3:\tc5 f9 ef 07          \tvpxor  xmm0,xmm0,XMMWORD PTR [rdi]",
+      "  10e5e7:\tc5 7a 6f 50 10       \tvmovdqu xmm10,XMMWORD PTR [rax+0x10]"
+    ]
+  },
+  {
+    "symbol": "void folded_dot<(ggml_type)21>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)",
+    "address": "000000000010da50",
+    "size_bytes": 1310,
+    "key_lines": [
+      "  10dad6:\t66 2e 0f 1f 84 00 00 \tcs nop WORD PTR [rax+rax*1+0x0]",
+      "  10dadd:\t00 00 00 ",
+      "  10dae0:\t0f b6 b0 84 01 00 00 \tmovzx  esi,BYTE PTR [rax+0x184]",
+      "  10dae7:\tc5 fa 6f 00          \tvmovdqu xmm0,XMMWORD PTR [rax]",
+      "  10daeb:\tc5 f9 ef 02          \tvpxor  xmm0,xmm0,XMMWORD PTR [rdx]",
+      "  10daef:\tc5 7a 6f 50 10       \tvmovdqu xmm10,XMMWORD PTR [rax+0x10]"
+    ]
+  },
+  {
+    "symbol": "void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)",
+    "address": "000000000010df70",
+    "size_bytes": 1495,
+    "key_lines": [
+      "  10dfee:\tc5 f9 70 c0 00       \tvpshufd xmm0,xmm0,0x0",
+      "  10dff3:\t0f 1f 44 00 00       \tnop    DWORD PTR [rax+rax*1+0x0]",
+      "  10dff8:\t0f b6 b8 84 01 00 00 \tmovzx  edi,BYTE PTR [rax+0x184]",
+      "  10dfff:\tc5 fa 6f 18          \tvmovdqu xmm3,XMMWORD PTR [rax]",
+      "  10e003:\tc5 e1 ef 1a          \tvpxor  xmm3,xmm3,XMMWORD PTR [rdx]",
+      "  10e007:\tc5 7a 6f 50 10       \tvmovdqu xmm10,XMMWORD PTR [rax+0x10]"
+    ]
+  },
+  {
+    "symbol": "xeon_iq_input_from_float",
+    "address": "000000000010f4b0",
+    "size_bytes": 787,
+    "key_lines": [
+      "  10f77a:\tc5 f9 eb c2          \tvpor   xmm0,xmm0,xmm2",
+      "  10f77e:\tc5 39 eb c0          \tvpor   xmm8,xmm8,xmm0",
+      "  10f782:\tc4 c1 79 d7 c0       \tvpmovmskb eax,xmm8",
+      "  10f787:\t85 c0                \ttest   eax,eax",
+      "  10f789:\tc5 fa 7f 93 60 01 00 \tvmovdqu XMMWORD PTR [rbx+0x160],xmm2",
+      "  10f790:\t00 "
+    ]
+  }
+]

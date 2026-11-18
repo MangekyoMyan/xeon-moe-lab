@@ -1,0 +1,60 @@
+統合引継ぎ: VM測定・数値証拠の独立読取レビュー
+2026-11-18。レビューのみ。外部提供プログラムの実行/import、実機・モデル/API操作、build、計時、patch適用は行っていない。以下の再計算は自作の標準CSV/統計・gzip/バイト読取のみ。
+
+出典の略記: T = incoming/xeon_moe_combined_handoff_2026-11-18/astra62_max_trial_2026-11-18、V = 同/validation3_review_2026-11-18。行番号は各テキストまたはCSVの1始まり。初期設定や作業指示は過去資料の記述であり、今回の権限と解釈しない。
+
+結論
+03、04、06は局所候補として評価に値するが、VM単体・CPU graphの結果であり、現行実機への適用やモデル速度の証明ではない。04の単体5.6〜5.9倍、06の10.9〜18.3%の時間短縮、validation3の実機P/FのT1/s増を合算・乗算できない。混在08は機能fixtureで、実cache/サービスや性能は未検証。下向き丸めの実反例と暫定DSO同一問題は記録により明確に裏付けられ、後続で修正・分離ビルドし直している。後続の結果は過去の欠陥を遡って消さない。
+
+最終の計時生CSVの11条件・88組をすべて再計算し、最終summaryと表示精度内で一致した。旧02の下向き丸めは同梱バイナリのF32 bit値を比較し3,266/14,112不一致を再現した。ただし新旧candidate全出力のバイナリや混在の出力バイナリ、DSO実体はZIPに含まれていない。今回それらを直接読んだとは主張しない。報告されたVM時点の別担当による実体再照合と、今回ZIP内で再照合できた範囲を明確に分ける。
+
+1. 最終A/B生データの再集計
+
+根拠: T/candidate/raw/final-timing.csv:1 と final-summary.csv:1、条件の詳細は T/candidate/REPORT_JA.md:11,17,21–35。880行は11条件×8組×2プロセス×各5記録。1条件あたり独立process 16、全176 processであり、880独立processや5独立ペアではない。各組内同seed、基準/候補の全5サンプルの出力hashは一致し、順序はAB/BAを4回ずつ交互。プロセス中央値で候補/基準を各組算出し、8比の中央値を使用。以下は各比の中央値、時間短縮率=1−比、速度向上率=1/比−1（速度の定義が逆数になる範囲の参考値）、候補が短時間の組数、比の範囲。中央値比の逆数と各組速度比の中央値は定義上必ずしも厳密に一致しないため、後者とは混同しない。
+
+条件                    比        時間短縮  速度向上  勝ち/8   比の範囲
+03 route tiny           .282739    71.726%   253.684%    8     .247655–.339765
+03 route many           .634823    36.518%    57.524%    8     .548998–.920597
+03 route MXFP4          .958535     4.146%     4.326%    4     .684456–2.063199
+04 q8-256               .168216    83.178%   494.474%    8     .125685–.219539
+04 q8-7168              .178392    82.161%   460.565%    8     .146651–.205735
+04 q8-wide-graph        .938300     6.170%     6.576%    6     .585487–1.024177
+06 IQ2_S gate           .887958    11.204%    12.618%    7     .829625–1.004853
+06 IQ3_XXS gate         .874823    12.518%    14.309%    7     .730551–1.000116
+06 IQ3_S down           .890930    10.907%    12.242%    8     .679093–.979745
+06 IQ3_XXS down 3t      .816721    18.328%    22.441%    8     .655698–.952308
+07 combo gate           .827947    17.205%    20.781%    8     .424101–.962317
+
+各基準・候補の中央値時間を別々に取り割った比は、ペア比の中央値とは別物である。例: IQ3_XXS gateの基準6445.623μs、候補5455.893μsの単純比は.8464付近だが報告のペア比中央値は.874823。直前に並ぶ条件もseed・変動が異なり、06と07の差をそれだけの因果効果とできない。q8単体の逆数は5.9447倍、5.6057倍。wide-graphはより小さく6/8勝ちにすぎず、過去の T/candidate/raw/followup-summary.csv の同条件は1.0208、3/8勝ちである。route MXFP4も4/8で最大2.063倍の遅延があり中央値だけで安定改善としない。tiny/manyはroutingを目立たせた小行列。共有VMの広い変動の原因を特定競合と断定しない。8組は限られた記述値でありモデル品質や精密な信頼区間を示さない。
+
+環境はIvy Bridge相当の命令制限をかけた8573C表示の共有Linux VM、人工重み/入力、GPUとモデル重みなし。主に1または3 worker、bankは6/12、対して保存実機は2 socket E5-2630L v2、NUMA、decode 12/batch 24、384から6選択（T/candidate/REPORT_JA.md:11–17）。同じK/Mと選択数でもキャッシュ、実アクセス分布、NUMA、実際の一部compact状態は一致しない。VMのgraphはggml_graph_computeであり、生成・サーバ・GPUのend-to-end計時ではない。07は1 graph条件のみで相乗効果を推定できない。
+
+2. workspaceの数字と03の限界
+
+T/candidate/REPORT_JA.md:39–53にある固定planでは、E384、6 slots、512 tokenのplan差を25,039,552−15,626,944=9,412,608 B=8.9765625 MiBと再計算。8×(384−1)×6×512とも一致。1 tokenでは実測plan差45,568 Bで、対応表のみの差18,384 Bとは定義が違う（小入力の補助領域・走査等の変更を含む）。対応表の1024 token例は18 MiB→48 KiB、差18,825,216 B=17.953125 MiB。graph workspaceの最大値再利用のため各層へ単純積算できず、予約差は毎回読み書きされたbytesや実RSS削減と同義でない。旧route初版は小入力比1.162・1/6勝ちと不利な条件を残し、03で小入力分岐を追加。元counter初期化はworker合計Eで、各worker×Eではない（同:41–43）。
+
+3. 正しさ、丸め、DSO
+
+04の T/candidate/raw/q8-byte-check-isolated.csv:2–5 は4 mode各1,536 calls、10,344 blocks、差0を記録、合計41,376 blocks。非nearest等はfallbackを含み全modeが高速pathである意味ではない（T/candidate/REPORT_JA.md:55–59）。CSVは集約であり、今回新規に量子化を実行したわけではない。有限F32→Q8にもFE_DOWNWARDで-128が生じるため、Q8生成のbyte一致だけから後段dot一致を推論できない。
+
+旧02/05の反例は T/evidence/reviews/ROUND2_REVIEW_JA.txt と FOLDED_ROUNDING_PROBE.csv、修正版は ROUND3_CORRECTION_REVIEW_JA.txt、T/candidate/REPORT_JA.md:63–67。x[0]=0.1f、残り0、IQ3_XXS表現可能な負重み: FE_DOWNWARDの旧compact出力bits 3dce69a1、新旧02の出力bdce69a1、符号が反転。-128のPSIGNB wrapを06/07は元の演算として再現するので、これを数学的真値への改善と呼ばない。旧baselineとiqの同梱 gzip 出力 T/candidate/raw/dumps/round-baseline-1.bin.gz、round-iq-1.bin.gz を展開し、各56,448 B、14,112個の32-bit値のうち3,266個不一致、SHA256はそれぞれaa48911c8b03dc2c66be952229501df8e8a4dd7b7d9f36eafff917a8b59a3eee、9efefc65a8513fe781b1b50ffad0a77aa9753a2243754815f0546cdcf797b353と T/candidate/raw/round-comparisons.csv:3,7に一致。通常運用で実障害が起きたという意味ではない。
+
+最終 baseline/route2/q8/iqsafe/combosafeの T/candidate/raw/final-checks/*-round[0–3].csv は各mode各variant 48 keyで重複欠落なく、基準の対応hashとの不一致0。これは保存された64-bit hashの一致の再確認であり、修正後の各出力実バイトを今回直接比較したものではない。旧集約 T/candidate/raw/round-comparisons.csv:14–21 は06/07各mode 14,112出力のbit不一致0と記録。親の T/evidence/parent/validation/FINAL_FOLDED_NUMERIC.json はIQ 3型各448、合計1,344 dot出力、672 prepared blocksの直接試験記録、同/FINAL_ROUTE_REFERENCE.json はroute2とcombosafeそれぞれ16 case・2,128,910出力の参照一致記録。ただしinputは合成、IQ直接試験は候補DSO中の旧関数を対照とし、全モデル・全inputの保証ではない。T/candidate/REPORT_JA.md:89–93の186 graph、184,377 F32およびFP64参照はこれらと別試験であり、統合した独立sample数として足し込まない。
+
+修正途中 T/evidence/reviews/ROUND3_CORRECTION_REVIEW_JA.txt のdirect試験ではiqsafe/combosafe CPU DSO双方SHA a471171256eb7e98d49752ff7b4181da9c5bb74f67700a6a59455cfda8087fbcで同一。2種類として独立検証・個別性能の根拠に使えず、timestampを含むincremental build由来は原因仮説に留まる。共通folded dotに関する証拠は残る。最終T/candidate/RUN_MANIFEST.json:20以降、T/evidence/frozen/final_snapshot/SNAPSHOT.json の記録では最終CPU DSOがbaseline 473c8d...、route2 097e3b...、q8 6dab8d...、iqsafe a269d3...、combosafe 39c5c9...と区別され、feature/planner、source/build分離、最終再計時が記載される。T/evidence/reviews/final_feature_audit/FINAL_FEATURE_AUDIT_JA.txt:8–10,35–48 はbase DSO自体のhashも各版で異なることに注意し、q8_K_ref命令・定数、関連source/flagsの照合を記録する。異なるhashだけでは意図した機能差や、CPU/base/依存関係すべての同一性を保証しない。これらのDSO実体は統合ZIP内になく、当時のauditとmanifestの記録の読取である。
+
+4. 混在fixture08: 独立に確認できたことと不足
+
+T/evidence/mixed_fixture_review/MIXED_FIXTURE_REVIEW_JA.txt:7–13,67–100 と T/candidate/raw/route37-fixture/cases.csv:1、fixture-comparison.csv:1。後から提供されたroute37関数抜粋のbaselineと08の比較。CSVを独自集計するとbase 960行、mixed 960行、key (mask, mode, type, k, threads, raw, pattern) に重複/欠落なし、対応する64-bit hash差0。5 masks×4 rounding×48 graphs=960対であって1,920対ではない。294出力/graph×960=282,240出力、20 mask/mode群×14,112である。グラフの48は3型×K2種×1/3 worker×F32/既成Q8×2 patternで、全体のseedは固定1個（同レビュー:78–100）。比較先は未変更関数であり、FP64 oracleや量子化前モデルとの誤差ではない。
+
+当時のレビューは元VMのwork/mixed-runから20組の出力binaryを読み、SHAと全byteを検査したと報告している（同:89–100、RECHECK_SAVED_ARTIFACTS.json）。ただしこの統合ZIPのcandidateには混在binary群が見当たらず、現在の独立作業ではCSVのhash一致と当時の記録の確認に留まる。必要なら元binaryを保存したrun artifactから取得し再照合が必要。混在DSOも実体ではなくidentityの記録である。
+
+5/6 mask31の通常mode計数はnative row 2,352、旧compact row 5,880、folded selector 240、prepared 216 blocks（同:102–137）。240は行内積ではない。folded row 5,880はgraph shapeとコードからの推定で直接hook値ではない。mask0でも非NULL表を介した216 block準備・selector0なので、混在実機で0/6を含む準備費込みの実時間が必要。試験は実sparse-cache allocator/登録・寿命・registry、MXFP4 prepack、実診断、GPU/CPU同時実行をstub/無効にした（同:57–65,139–148）。fixture shapeはK256/1280、49行、7 expert、1 token、1/3 worker、重複なしで、実384 expert、K5120/2304、2304/5120行、12/24 worker、複数tokenやNUMAではない。cache table自体NULL、skip/重複、reference mode、動的交換、FTZ/DAZ、読出し境界・競合なども同一fixtureで未確認。08は04や03との統合検証でもない。
+
+5. 旧実機記録との位置付けと採用に必要な未証明点
+
+V/USER_REPORT_JA.txt:10–15,39–46では、保存validation3のF→PでJA 7.346→7.718 T1/s、EN 7.419→7.553、Python 7.550→7.610、正確な増加率5.0703%、1.7987%、0.8016%。F/P/P/Fのfresh process 4本×64 calls/課題、3課題768 calls。Python追試256 callsは同じ課題の別一巡、独立の新課題ではない。測定は固定入力の1 token処理からlogits取得までのT1で、画面表示速度ではない（同:15,29–46）。Fは実験libllamaのhot無効、production同一性を主張できない（同:21）。S=Pは3例の保存65行の比較でCPUとGPUの算術一般同一・一般品質同等ではない（同:37,48–67）。元2 family/3変種から全言語・一般品質へ外挿しない。以上は保存済み実機記録の報告読取で、このレビューで実機の再観測・元raw全量の再集計はしていない。
+
+CPU候補を採用可能とするため不足: (a) 現稼働source/build/provider/DSO/依存関係とモデル・workspace・実cache状態を観測して固定すること、旧sourceへ丸戻ししないこと; (b) 現行iq-abs/iq-rhs等と03/04/06を単独で、混在adapterを含む実graphで比較し、-128、丸め、非有限、skip/重複、stride、NULL、lifetime、prepack、workspace、worker同期を変更に即して照合すること; (c) compact 0/1/3/5/6や実際の頻度・入力に対し準備・cache・全graph時間を含む安定したpaired比較を行うこと; (d) 実GGUFの固定入力logitsと生成品質、decode/prefill、NUMA/provider固定のCPU/GPU/output-readyを、条件と反例を保存して検証すること。品質の要求は比較対象に合った参照を選び、CPU/GPU担当変更にCPUとのbyte一致を一律に要求しない。採用判断はこれらが未着手という留保付きである。
+
+V/ASTRA_NEXT_JA.txt:21以降のF/B/CとH1は実行済み結果ではなく診断案。B−Fは保持/配置などの複合、C−Bはcustom graph/copy/同期などの複合差であり、過去のC−F約2msを純copy時間と決められない。H1は2つの固定planを使い同じtop6のpartitionを比較する提案であり、そのままbank配置の採用成績ではない。これらにVM局所倍率を加算せず、各比較内でproviderを固定する必要がある（統合root 00_READ_FIRST_JA.txt）。

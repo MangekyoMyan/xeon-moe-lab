@@ -1,0 +1,34 @@
+--- a/archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp
++++ b/archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp
+@@ -71,13 +71,21 @@
+ }
+ bool cpu_weight(const ggml_tensor * w){return w&&w->buffer&&ggml_backend_buffer_is_host(w->buffer)&&ggml_is_contiguous(w);}
+ bool supported(ggml_type t){return t==GGML_TYPE_IQ2_S||t==GGML_TYPE_IQ3_XXS||t==GGML_TYPE_IQ3_S||t==GGML_TYPE_MXFP4;}
++bool original_graph_trial_flag(){
++    const char * value=std::getenv("GGML_XEON_HOT_TRIAL_KEEP_ORIGINAL_GRAPH");
++    require(!value||!std::strcmp(value,"0")||!std::strcmp(value,"1"),"original graph trial flag must be 0 or 1");
++    return value&&!std::strcmp(value,"1");
++}
+ struct State{
+     const llama_model * model=nullptr;ggml_backend_t outer_cpu=nullptr,outer_gpu=nullptr,self=nullptr;
+     ggml_backend_t private_cpu=nullptr,private_gpu=nullptr;ggml_threadpool_t pool=nullptr;
+     std::array<std::unique_ptr<Layer>,LAYERS> layers;
+     float * pinned_input=nullptr,*pinned_output=nullptr;int32_t * pinned_ids=nullptr;
+     std::mutex execution_mutex;char trial_mode='P';uint64_t trial_builds=0;bool ready=false;size_t payload=0,allocation=0,planned_count=0;
+-    explicit State(const llama_model * m):model(m){}
++    // Fixed for the context lifetime. B holds the full bank and pools,
++    // but builds the original graph; it is not a runtime mode switch.
++    const bool trial_keep_original_graph;
++    explicit State(const llama_model * m):model(m),trial_keep_original_graph(original_graph_trial_flag()){}
+     ~State(){
+         if(private_gpu)ggml_backend_synchronize(private_gpu);
+         for(auto & layer:layers)if(layer){
+@@ -240,7 +248,7 @@
+ }
+ void xeon_hot_backend_finish(ggml_backend_t outer_cpu){if(auto s=lookup(outer_cpu))s->initialize();}
+ ggml_tensor * xeon_hot_build(ggml_backend_t outer_cpu,ggml_backend_sched_t sched,ggml_context * ctx,ggml_tensor * input,ggml_tensor * ids,ggml_tensor * gate,ggml_tensor * up,ggml_tensor * down,float clamp,int layer){
+-    auto s=lookup(outer_cpu);if(!s)return nullptr;
++    auto s=lookup(outer_cpu);if(!s||s->trial_keep_original_graph)return nullptr;
+     require(layer>=0&&layer<LAYERS,"graph layer index");if(!s->layers[layer])return nullptr;auto & l=*s->layers[layer];
+     if(!l.eligible||l.selected.empty())return nullptr;
+     require(l.original==std::array<ggml_tensor*,3>{gate,up,down}&&clamp==l.clamp,"graph weight/clamp mismatch");

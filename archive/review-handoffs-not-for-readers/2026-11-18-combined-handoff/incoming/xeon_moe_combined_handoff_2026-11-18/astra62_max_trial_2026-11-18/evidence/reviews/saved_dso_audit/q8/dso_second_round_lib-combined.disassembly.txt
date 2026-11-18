@@ -1,0 +1,202 @@
+
+/workspace/scratch/1f624f9ac929/parent_evaluation/dso_second_round/lib-combined/libggml-cpu.so.0.28.0:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000106b20 <quantize_row_q8_K>:
+  106b20:	55                   	push   rbp
+  106b21:	48 89 e5             	mov    rbp,rsp
+  106b24:	41 57                	push   r15
+  106b26:	41 56                	push   r14
+  106b28:	41 55                	push   r13
+  106b2a:	49 89 fd             	mov    r13,rdi
+  106b2d:	41 54                	push   r12
+  106b2f:	53                   	push   rbx
+  106b30:	48 83 e4 e0          	and    rsp,0xffffffffffffffe0
+  106b34:	48 83 ec 20          	sub    rsp,0x20
+  106b38:	c5 f8 ae 5c 24 1c    	vstmxcsr DWORD PTR [rsp+0x1c]
+  106b3e:	f6 44 24 1d 60       	test   BYTE PTR [rsp+0x1d],0x60
+  106b43:	0f 85 d9 02 00 00    	jne    106e22 <quantize_row_q8_K+0x302>
+  106b49:	48 85 d2             	test   rdx,rdx
+  106b4c:	4c 8d a2 ff 00 00 00 	lea    r12,[rdx+0xff]
+  106b53:	4c 0f 49 e2          	cmovns r12,rdx
+  106b57:	49 c1 fc 08          	sar    r12,0x8
+  106b5b:	48 81 fa ff 00 00 00 	cmp    rdx,0xff
+  106b62:	0f 8e 8d 02 00 00    	jle    106df5 <quantize_row_q8_K+0x2d5>
+  106b68:	c5 fa 10 2d 28 e2 00 	vmovss xmm5,DWORD PTR [rip+0xe228]        # 114d98 <__func__.1+0x6b8>
+  106b6f:	00 
+  106b70:	4c 8d 76 04          	lea    r14,[rsi+0x4]
+  106b74:	45 31 ff             	xor    r15d,r15d
+  106b77:	c5 fa 10 25 81 dc 00 	vmovss xmm4,DWORD PTR [rip+0xdc81]        # 114800 <__func__.1+0x120>
+  106b7e:	00 
+  106b7f:	48 8d 9f 00 04 00 00 	lea    rbx,[rdi+0x400]
+  106b86:	66 2e 0f 1f 84 00 00 	cs nop WORD PTR [rax+rax*1+0x0]
+  106b8d:	00 00 00 
+  106b90:	c5 e0 57 db          	vxorps xmm3,xmm3,xmm3
+  106b94:	4c 89 e8             	mov    rax,r13
+  106b97:	c5 fc 28 d3          	vmovaps ymm2,ymm3
+  106b9b:	c5 fc 28 cb          	vmovaps ymm1,ymm3
+  106b9f:	66 66 2e 0f 1f 84 00 	data16 cs nop WORD PTR [rax+rax*1+0x0]
+  106ba6:	00 00 00 00 
+  106baa:	66 66 2e 0f 1f 84 00 	data16 cs nop WORD PTR [rax+rax*1+0x0]
+  106bb1:	00 00 00 00 
+  106bb5:	66 66 2e 0f 1f 84 00 	data16 cs nop WORD PTR [rax+rax*1+0x0]
+  106bbc:	00 00 00 00 
+  106bc0:	c5 f8 10 00          	vmovups xmm0,XMMWORD PTR [rax]
+  106bc4:	c4 e3 7d 18 40 10 01 	vinsertf128 ymm0,ymm0,XMMWORD PTR [rax+0x10],0x1
+  106bcb:	c5 fc 5f c9          	vmaxps ymm1,ymm0,ymm1
+  106bcf:	48 83 c0 20          	add    rax,0x20
+  106bd3:	c5 fc 5d d2          	vminps ymm2,ymm0,ymm2
+  106bd7:	c5 fc c2 c0 03       	vcmpunordps ymm0,ymm0,ymm0
+  106bdc:	c5 e4 56 d8          	vorps  ymm3,ymm3,ymm0
+  106be0:	48 39 c3             	cmp    rbx,rax
+  106be3:	75 db                	jne    106bc0 <quantize_row_q8_K+0xa0>
+  106be5:	c4 e3 7d 19 ce 01    	vextractf128 xmm6,ymm1,0x1
+  106beb:	c5 f0 5f c6          	vmaxps xmm0,xmm1,xmm6
+  106bef:	c5 fc 50 c3          	vmovmskps eax,ymm3
+  106bf3:	49 8d 76 fc          	lea    rsi,[r14-0x4]
+  106bf7:	c5 f8 12 c8          	vmovhlps xmm1,xmm0,xmm0
+  106bfb:	c5 f8 5f c1          	vmaxps xmm0,xmm0,xmm1
+  106bff:	c5 fa 16 c8          	vmovshdup xmm1,xmm0
+  106c03:	c5 fa 5f c1          	vmaxss xmm0,xmm0,xmm1
+  106c07:	85 c0                	test   eax,eax
+  106c09:	0f 85 a1 01 00 00    	jne    106db0 <quantize_row_q8_K+0x290>
+  106c0f:	c5 f8 54 cc          	vandps xmm1,xmm0,xmm4
+  106c13:	c5 f8 2e e9          	vucomiss xmm5,xmm1
+  106c17:	0f 82 93 01 00 00    	jb     106db0 <quantize_row_q8_K+0x290>
+  106c1d:	c4 e2 7d 18 0d 8a db 	vbroadcastss ymm1,DWORD PTR [rip+0xdb8a]        # 1147b0 <__func__.1+0xd0>
+  106c24:	00 00 
+  106c26:	c5 ec 57 d1          	vxorps ymm2,ymm2,ymm1
+  106c2a:	c5 f8 28 ca          	vmovaps xmm1,xmm2
+  106c2e:	c4 e3 7d 19 d2 01    	vextractf128 xmm2,ymm2,0x1
+  106c34:	c5 f0 5f ca          	vmaxps xmm1,xmm1,xmm2
+  106c38:	c5 f0 12 d1          	vmovhlps xmm2,xmm1,xmm1
+  106c3c:	c5 f0 5f ca          	vmaxps xmm1,xmm1,xmm2
+  106c40:	c5 fa 16 d1          	vmovshdup xmm2,xmm1
+  106c44:	c5 f2 5f ca          	vmaxss xmm1,xmm1,xmm2
+  106c48:	c5 f0 54 d4          	vandps xmm2,xmm1,xmm4
+  106c4c:	c5 f8 2e ea          	vucomiss xmm5,xmm2
+  106c50:	0f 82 5a 01 00 00    	jb     106db0 <quantize_row_q8_K+0x290>
+  106c56:	c5 e8 57 d2          	vxorps xmm2,xmm2,xmm2
+  106c5a:	c5 f8 2e c2          	vucomiss xmm0,xmm2
+  106c5e:	ba 00 00 00 00       	mov    edx,0x0
+  106c63:	0f 9b c0             	setnp  al
+  106c66:	0f 45 c2             	cmovne eax,edx
+  106c69:	84 c0                	test   al,al
+  106c6b:	74 12                	je     106c7f <quantize_row_q8_K+0x15f>
+  106c6d:	c5 f8 2e ca          	vucomiss xmm1,xmm2
+  106c71:	0f 9b c0             	setnp  al
+  106c74:	0f 45 c2             	cmovne eax,edx
+  106c77:	84 c0                	test   al,al
+  106c79:	0f 85 8e 01 00 00    	jne    106e0d <quantize_row_q8_K+0x2ed>
+  106c7f:	c5 f8 2f c1          	vcomiss xmm0,xmm1
+  106c83:	77 5c                	ja     106ce1 <quantize_row_q8_K+0x1c1>
+  106c85:	c5 f8 2e c1          	vucomiss xmm0,xmm1
+  106c89:	c5 f0 57 1d 1f db 00 	vxorps xmm3,xmm1,XMMWORD PTR [rip+0xdb1f]        # 1147b0 <__func__.1+0xd0>
+  106c90:	00 
+  106c91:	0f 8a 6d 01 00 00    	jp     106e04 <quantize_row_q8_K+0x2e4>
+  106c97:	4c 89 e8             	mov    rax,r13
+  106c9a:	74 31                	je     106ccd <quantize_row_q8_K+0x1ad>
+  106c9c:	e9 63 01 00 00       	jmp    106e04 <quantize_row_q8_K+0x2e4>
+  106ca1:	66 66 2e 0f 1f 84 00 	data16 cs nop WORD PTR [rax+rax*1+0x0]
+  106ca8:	00 00 00 00 
+  106cac:	66 66 2e 0f 1f 84 00 	data16 cs nop WORD PTR [rax+rax*1+0x0]
+  106cb3:	00 00 00 00 
+  106cb7:	66 0f 1f 84 00 00 00 	nop    WORD PTR [rax+rax*1+0x0]
+  106cbe:	00 00 
+  106cc0:	48 83 c0 04          	add    rax,0x4
+  106cc4:	48 39 c3             	cmp    rbx,rax
+  106cc7:	0f 84 37 01 00 00    	je     106e04 <quantize_row_q8_K+0x2e4>
+  106ccd:	c5 fa 10 08          	vmovss xmm1,DWORD PTR [rax]
+  106cd1:	c5 f0 54 d4          	vandps xmm2,xmm1,xmm4
+  106cd5:	c5 f8 2e d0          	vucomiss xmm2,xmm0
+  106cd9:	7a e5                	jp     106cc0 <quantize_row_q8_K+0x1a0>
+  106cdb:	75 e3                	jne    106cc0 <quantize_row_q8_K+0x1a0>
+  106cdd:	c5 f8 28 c1          	vmovaps xmm0,xmm1
+  106ce1:	c5 fa 10 3d 3b e0 00 	vmovss xmm7,DWORD PTR [rip+0xe03b]        # 114d24 <__func__.1+0x644>
+  106ce8:	00 
+  106ce9:	c5 c2 5e c0          	vdivss xmm0,xmm7,xmm0
+  106ced:	c5 f8 54 cc          	vandps xmm1,xmm0,xmm4
+  106cf1:	c5 f8 2e e9          	vucomiss xmm5,xmm1
+  106cf5:	0f 82 b5 00 00 00    	jb     106db0 <quantize_row_q8_K+0x290>
+  106cfb:	b8 80 80 80 80       	mov    eax,0x80808080
+  106d00:	4c 89 ea             	mov    rdx,r13
+  106d03:	31 c9                	xor    ecx,ecx
+  106d05:	c5 f8 c6 d8 00       	vshufps xmm3,xmm0,xmm0,0x0
+  106d0a:	c5 f9 6e f0          	vmovd  xmm6,eax
+  106d0e:	c4 e3 65 18 db 01    	vinsertf128 ymm3,ymm3,xmm3,0x1
+  106d14:	c5 c1 ef ff          	vpxor  xmm7,xmm7,xmm7
+  106d18:	c5 f9 70 f6 00       	vpshufd xmm6,xmm6,0x0
+  106d1d:	0f 1f 00             	nop    DWORD PTR [rax]
+  106d20:	c5 f8 10 0a          	vmovups xmm1,XMMWORD PTR [rdx]
+  106d24:	c4 e3 75 18 4a 10 01 	vinsertf128 ymm1,ymm1,XMMWORD PTR [rdx+0x10],0x1
+  106d2b:	c5 f4 59 cb          	vmulps ymm1,ymm1,ymm3
+  106d2f:	c5 fd 5b c9          	vcvtps2dq ymm1,ymm1
+  106d33:	c5 f8 10 52 20       	vmovups xmm2,XMMWORD PTR [rdx+0x20]
+  106d38:	c4 c3 7d 19 c8 01    	vextractf128 xmm8,ymm1,0x1
+  106d3e:	c4 e3 6d 18 52 30 01 	vinsertf128 ymm2,ymm2,XMMWORD PTR [rdx+0x30],0x1
+  106d45:	c4 c1 71 6b c8       	vpackssdw xmm1,xmm1,xmm8
+  106d4a:	c5 ec 59 d3          	vmulps ymm2,ymm2,ymm3
+  106d4e:	c5 fd 5b d2          	vcvtps2dq ymm2,ymm2
+  106d52:	c4 c3 7d 19 d0 01    	vextractf128 xmm8,ymm2,0x1
+  106d58:	c4 c1 69 6b d0       	vpackssdw xmm2,xmm2,xmm8
+  106d5d:	c5 f1 63 ca          	vpacksswb xmm1,xmm1,xmm2
+  106d61:	c5 fa 7f 4c ce 04    	vmovdqu XMMWORD PTR [rsi+rcx*8+0x4],xmm1
+  106d67:	c5 f1 ef ce          	vpxor  xmm1,xmm1,xmm6
+  106d6b:	c5 f1 f6 cf          	vpsadbw xmm1,xmm1,xmm7
+  106d6f:	c5 f1 6d d1          	vpunpckhqdq xmm2,xmm1,xmm1
+  106d73:	c5 e9 d4 c9          	vpaddq xmm1,xmm2,xmm1
+  106d77:	48 83 c2 40          	add    rdx,0x40
+  106d7b:	c5 f9 7e c8          	vmovd  eax,xmm1
+  106d7f:	66 2d 00 08          	sub    ax,0x800
+  106d83:	66 89 84 0e 04 01 00 	mov    WORD PTR [rsi+rcx*1+0x104],ax
+  106d8a:	00 
+  106d8b:	48 83 c1 02          	add    rcx,0x2
+  106d8f:	48 83 f9 20          	cmp    rcx,0x20
+  106d93:	75 8b                	jne    106d20 <quantize_row_q8_K+0x200>
+  106d95:	c5 fa 10 0d 63 df 00 	vmovss xmm1,DWORD PTR [rip+0xdf63]        # 114d00 <__func__.1+0x620>
+  106d9c:	00 
+  106d9d:	c5 f2 5e c8          	vdivss xmm1,xmm1,xmm0
+  106da1:	c4 c1 7a 11 4e fc    	vmovss DWORD PTR [r14-0x4],xmm1
+  106da7:	eb 27                	jmp    106dd0 <quantize_row_q8_K+0x2b0>
+  106da9:	0f 1f 80 00 00 00 00 	nop    DWORD PTR [rax+0x0]
+  106db0:	ba 00 01 00 00       	mov    edx,0x100
+  106db5:	4c 89 ef             	mov    rdi,r13
+  106db8:	c5 f8 77             	vzeroupper
+  106dbb:	e8 90 dd f0 ff       	call   14b50 <quantize_row_q8_K_ref@plt>
+  106dc0:	c5 fa 10 2d d0 df 00 	vmovss xmm5,DWORD PTR [rip+0xdfd0]        # 114d98 <__func__.1+0x6b8>
+  106dc7:	00 
+  106dc8:	c5 fa 10 25 30 da 00 	vmovss xmm4,DWORD PTR [rip+0xda30]        # 114800 <__func__.1+0x120>
+  106dcf:	00 
+  106dd0:	49 83 c7 01          	add    r15,0x1
+  106dd4:	49 81 c5 00 04 00 00 	add    r13,0x400
+  106ddb:	49 81 c6 24 01 00 00 	add    r14,0x124
+  106de2:	48 81 c3 00 04 00 00 	add    rbx,0x400
+  106de9:	4d 39 e7             	cmp    r15,r12
+  106dec:	0f 8c 9e fd ff ff    	jl     106b90 <quantize_row_q8_K+0x70>
+  106df2:	c5 f8 77             	vzeroupper
+  106df5:	48 8d 65 d8          	lea    rsp,[rbp-0x28]
+  106df9:	5b                   	pop    rbx
+  106dfa:	41 5c                	pop    r12
+  106dfc:	41 5d                	pop    r13
+  106dfe:	41 5e                	pop    r14
+  106e00:	41 5f                	pop    r15
+  106e02:	5d                   	pop    rbp
+  106e03:	c3                   	ret
+  106e04:	c5 f8 28 c3          	vmovaps xmm0,xmm3
+  106e08:	e9 d4 fe ff ff       	jmp    106ce1 <quantize_row_q8_K+0x1c1>
+  106e0d:	b9 20 00 00 00       	mov    ecx,0x20
+  106e12:	31 c0                	xor    eax,eax
+  106e14:	4c 89 f7             	mov    rdi,r14
+  106e17:	c4 c1 7a 11 56 fc    	vmovss DWORD PTR [r14-0x4],xmm2
+  106e1d:	f3 48 ab             	rep stos QWORD PTR es:[rdi],rax
+  106e20:	eb ae                	jmp    106dd0 <quantize_row_q8_K+0x2b0>
+  106e22:	48 8d 65 d8          	lea    rsp,[rbp-0x28]
+  106e26:	5b                   	pop    rbx
+  106e27:	41 5c                	pop    r12
+  106e29:	41 5d                	pop    r13
+  106e2b:	41 5e                	pop    r14
+  106e2d:	41 5f                	pop    r15
+  106e2f:	5d                   	pop    rbp
+  106e30:	e9 1b dd f0 ff       	jmp    14b50 <quantize_row_q8_K_ref@plt>

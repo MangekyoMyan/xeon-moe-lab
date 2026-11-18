@@ -1,0 +1,223 @@
+validation3：実装・費用分解・次の2候補の独立レビュー
+確認日：2026-11-18 JST
+対象 commit：37f6390c9a5bc594658127651e204ab11420cd71
+担当：/root/validation3_hotpath
+
+結論
+
+original35を比較の基準として保持し、次を2本に絞ることを勧める。
+1. 同じ新libllamaでF/B/Cの小対照を行い、追加保持とcustom経路の費用を二分する。
+2. 同じtop6・同じ実入力でcompact/非compactのoffload先を変えるH1試験を行い、trainingだけで時間価値を見積もる。
+1は配置・算術を変えない原因切分け、2は配置改善の根拠を作る試験。8層案や大bankを直ちに採用する提案ではない。
+両方を一つの性能候補へ同時に積まない。1の結果が小さい/不明なら、その細分化を無限に続けず2へ進む。
+
+A. ソースで確定したH0の実態
+
+以下の略記はすべて repository の archive/review-handoffs-not-for-readers/ 以下。
+P = 2026-11-17-parallel-pilot
+V = 2026-11-17-validation3
+R = 2026-11-17-route-observation
+S = 2026-11-16-current/snapshot/llm-lab
+
+P/integrated/hot-backend.cpp:
+  44–52  private Graphのmetadata/activation buffer確保。
+  122–164 private CPU/GPU、threadpool、pinned input/output、weight bankと各H graphを初期化・warmup。
+  138–159 selectedが空の層はprivate graphを作らない。使う層について事前作成。
+  166–197 実行compute。ここには明示的なnew/vector成長/GPU weight再uploadがない。
+  174–178 original6 IDsを走査し、CPUのmasked IDsとGPU local IDsへ分割。
+  180 Cではmatched Hを無視して6 expertをCPUへ戻す。
+  182 H<6ならF32入力5120×4=20,480 bytesと6 IDs=24 bytesをprivate CPUへcopy。
+  184–188 H>0のときだけGPU用入力copy、H2D、graph提出、D2H提出。
+  191/193 H>0のときだけS/Pのjoin。
+  192 H<6ならprivate CPU graph実行、6slot全部122,880 bytesをdstへcopy。
+  194 H>0のときだけGPU結果をcanonical slotへscatter。
+
+したがって「H0なのにGPUへ送って待っているので、それを省く」は既に実装済み。
+H0に残るのはpartition/検査、CPU入力copy、private graph実行、CPU出力copy、外側のschedulerである。
+H0の明示copyは1層143,384 bytes、23層なら3,297,832 bytes/T1。
+これはbytesの計算であり所要時間の測定ではない。外側schedulerの転送を含まない。
+旧C−F約2msをこのbytes数で割ってcopy帯域のように説明することもできない。
+
+hot-backend.cpp:202–207のexecution_mutexは、同じStateのpinned領域等を保護している。
+単一context/単一decodeのこの試験でこれを外すことを第一候補にしない。
+registryのmap+mutex lookup (:199,243) は主としてgraph構築・制御時であり、compute内の各expertごとにmap検索する構造ではない。
+position256でcustom_nodes_builtが23増える事実も、private bank/graphをそのつど作り直した証拠ではない。
+
+CPU backendの内部については、hot-backend.cpp内にheap操作がないことと、全下位関数のheap操作が皆無であることを混同しない。
+S/exploration-20261112/sparse-cache/release-v2-a/sources/ggml-cpu.cpp:170–191 は毎回ggml_graph_planを作り、work_sizeが増えた場合だけwork_dataを再確保する。
+既存private warmupは同じgraph形状なので通常はこの容量を先に確保する設計。新しいinstrumentationなしで全実行のmalloc不在を断定はしない。
+
+B. OpenMPを見落とさない
+
+今回CPU providerのSHAは V/caller/BUILD.json:63–65 の602a6578…。
+R/route37/BUILD.json:216も同じCPU_library_sha256を記録する。
+同BUILDのggml-cpu.cコンパイルに-DGGML_USE_OPENMP (:68) と-fopenmp (:99) がある。
+ggml-cpu.c sourceのhashは同:213。公開sourceとの照合を別添SOURCE_CHECKS.jsonへ保存した。
+
+R/route37/ggml-cpu.c:3652–3675の実行分岐はOpenMP parallelを作り、各workerへpriority/affinityを適用する。
+通常pthread実装のpoll/wait側は#else :3676以降、およびpoll関数群の#ifndef GGML_USE_OPENMP側。
+よってprivate poolにpoll=0が書かれている (:hot-backend125) だけを見て「12本の独立pthread workerを毎層眠らせて起こすのが主因」とは言えない。
+OpenMPのチーム開始/終了、barrier、affinity適用の費用は候補だが、その寄与率は未測定。
+private CPU backendの存在は、別の12本が常に並走することも意味しない。
+保存operator REPLAY.jsonのO_worker_receipt/CSP_worker_receiptでは12個のTIDとCPU0–11が一致している。
+これはそのoperator processでの実測receiptであり、全model process/全時刻のthread集合保証ではない。
+OpenMPを無効化した新CPU DSOやpool共用へ直行しない。今回のF/B/CのCPU providerは同じままにする。
+
+C. B対照は今回、小さく行う価値がある
+
+旧JA trainingのC−F約2msは、新validation PythonのF−P約1.05msより大きい。
+ただし別入力・別processの量なので「Pythonを2ms直せばその分が上乗せ」とはしない。
+この規模の経路費用がどこから来るかを、1回の判別試験で絞る価値はある。
+
+F: 同じ新libllama、hot無効。追加bankなし、mainは元graph。
+B: original35 bank、private CPU/GPU、pool、warmup、pinned領域を保持。mainは元graph。
+C: Bと同じ保持を行い、mainはcustom23層、全6expertをCPUで実行。
+
+Bの既存未適用案はV/incoming/parallel_pilot_review_2026-11-17_v2/integration/optional_dormant_bank_original_graph.patch。
+State構築時にGGML_XEON_HOT_TRIAL_KEEP_ORIGINAL_GRAPHを一度読み、xeon_hot_buildがnullptrを返す案である。
+既存のcompute mode C/S/PへBを追加する案ではない。set_mode('B')は不正。
+元のvalidation callerはmode/guardをF/SP/Pへ固定しているので、patchだけではB/C試験を実行できない。
+has_bankとuses_customを分離し、Bのbackend存在/initialized/payloadを検査するcaller変更が必要。
+
+F/Bは元graphのoperation・shape・依存関係を正規化して比較し、actual placement、split数、activation copy一覧を記録する。
+FとBのbackend個数は同一でなくてよい。BにはXEON_HOT_FFN backend自体が残る。
+アドレスやbackend indexの数値をそのままgraph hashへ入れると無意味な不一致になるため、名前・役割等へ正規化する。
+B−Fはbank/private pool/追加backend存在/初期化/配置の複合差。純粋なVRAM保持費用ではない。
+C−Bはcustom dispatch、private CPU実行、copyとそれに伴うmain graph配置/同期の複合差。
+これもH0だけの差ではない。Cはmatched Hが何個でもexecuted H=0にするためである。
+
+最小の実機実行案:
+  ・現在のvalidation3へ合わせず、既存training JAとtraining Pythonの固定64T1を使う。
+  ・同一新buildのF/B/C qualityで全65logit rows finite、F=B=C byte一致。
+  ・F/B/C全armで同一のprocess内準備、同期、KV clear、prefix再入力を行う。
+  ・B custom builds/calls=0、Cは選択23層×64calls、empty14層とGPU37–39/prefillは元経路を確認。
+  ・性能はF/B/C/C/B/Fのfresh process順を事前固定し、後半case順も逆にする。
+    2case×64T1×6process=768 timed calls。初回T1も保持、output-ready境界は既存方式。
+  ・debug/callback/route観測は性能区間から外す。quality段階とタイミング段階の扱いを実行前に宣言する。
+  ・この一巡から有利なrunだけ抜かない。2反復/case/armは精密な母集団推定ではない。
+
+判断の分岐:
+  B≈F、C>Bが両training例で安定：custom経路へ重点を移す。外側copy/placementかprivate CPU部分かを次の1箇所だけ計る。
+  B>Fが主要部分：bank/pool/backendの保持・配置へ重点を移す。copy削除を先にしない。
+  C−Bが入力依存：all6のcompact mix・型・main splitへの寄与を確認する。
+  各差がprocess driftに埋もれる：その切分けは保留。0msと断言せず2へ進む。
+数msという旧値を新しい品質/速度の合格閾値にしない。
+
+元DSOで先行できる安い診断:
+  旧integrated callerにはC/S/P制御があり、engine自体はCを実装済み。
+  current validation callerへCを足すのはcallerのみのbuildで可能だが、Bはlibllamaの新buildが必要。
+  現baseはGGML_SCHED_DEBUGを持つ。F/Cの短い実T1をdebug=2で1回ずつ記録し、actual split/activation copyを確認できる。
+  S/gpu-stream-20261103/ggml-backend.cpp:2234–2235がenv読取、:1416以降がgraph/split表示。
+  debugはコピーの実時間やGPU完了時刻を測る道具ではない。性能結果へ混ぜない。
+  同source:2124–2133のcopy fallbackはbackend同期、:2148–2155はinput0のbackend切替時同期を行う。
+  対象nodeが実際にこの分岐を通ることをログ/sourceで確認してから追う。allocatorの再利用を保護する同期なので無条件削除不可。
+
+D. 時間価値の根拠：original35のIQ部分はすでにCPUでcompact化されている
+
+公開frequency19200.planをoriginal35へ結合すると、35 triplet内のIQ projection slotsは95個、95/95がcompact対象だった。
+残り10はMXFP4であり、IQ compactの対象外。『非compactの遅いIQが10個』という意味ではない。
+これは公開planのmembershipを独立計算した結果。runtime lookupとplan identityを最終実機側でも照合する。
+既存8cellの実runtime lookupも、original35がGPUへ送ったIQ部分ではcompact=Trueを記録している。
+
+frequency/native byteだけで選ぶとCPU compactとGPU residentが重なりやすい。
+次は『GPUへ送る回数』に加え『その回でCPUのどの仕事が省けるか』を扱う価値がある。
+ただし頻度の低い非compactを無条件に優先するのも誤りだった。独立再集計で次が分かった。
+
+既存activationをそのまま使える機序確認:
+  cell1, layer7, IDs [38,54,313,369,85,331]
+    compact331を1個offloadするH1と、非compact85を1個offloadするH1を同じx/top6で比較可能。
+    全3 IQ projectionのruntime compact maskは [T,T,T,T,F,T]。
+    しかしtraining5の出現は331=102回、85=2回。単純な頻度×節約なら85は51倍の1回節約が必要。
+  cell4, layer35, IDs [78,201,225,100,306,26]
+    compact78対非compact100のH1比較が可能。全3 projectionのmaskは[T,T,T,F,T,T]。
+    出現は78=128回、100=1回。同じ単純式では128倍が必要。
+これらは同H/同入力で非compactを外す効果を判別するfixtureであって、85/100のbank採用推奨ではない。
+
+配置候補に近い少数の追加capture案:
+  layer3/expert147は非compact、training合計78回（混合23、C++55）。
+  layer7/expert270は非compact、training合計77回（混合26、C++51）。
+  両者は既存8層案にも入るが、保存8cellにはこのactivationがない。
+  C++ training一軌道の最初16T1までで次の2cellを同じbaselineから採れる。
+    decode_call1, position241, layer3:
+      [330,257,13,153,147,61]。非compact147対compact13（training109回）などのH1。
+    decode_call15, position255, layer7:
+      [270,335,173,19,357,32]。非compact270対compact19（training137回）のH1。
+  元5 trainingのrouteに出た実global IDsを用い、GPU local IDsと混同しない。
+  同じ入力x/weights/clamp/top6を固定し、O/C/S/Pを比較する。
+  H1の2partitionは同一allocation形状・予算の固定診断planで測る。現active-maskは未実装。別plan/hashとして記録し、original35実測と呼ばない。
+  追加expertを現bankへ足して予算/guardを暗黙に超えない。診断用の同byte置換等で保持条件を揃えられる。
+  fixtureのO=捕捉baseline、O=C、各partition内S=P、cold slot一致を先に確認する。
+  片方のPともう片方のPはGPU担当expertが違うため、CPU/GPU算術差までbyte一致を要求しない。
+  capture callbackの既知の融合問題を再発させない。既存安全なproducer pointer→CPU gate→GPU drain/read方法と観測on/off照合を使う。
+
+2cellは同じ量子化型組合せ（IQ2_S gate/up、IQ3_XXS down）なので、IQ3_SやMXFP4全般の係数に流用しない。
+既存8cellは他の型/混合の実測として使えるが、少数JA入力のためidentity・cache状態の一般化には限界がある。
+CPU非compact情報はprojectionごとに保存する。triplet単位の単純boolではgate/upだけcompact、downはMXFP4等の違いが消える。
+
+E. 時間価値モデルはjoint top6を保持する
+
+概念式（推定式であり現測定の置換ではない）:
+  C0(l,r) = そのlayer/routeの6expertを元CPUで終える時間
+  Cleft(l,r,A) = bank AのGPU担当を外した残CPU仕事の時間
+  Gremain(l,r,A) = GPU提出終了時点からGPU結果が使えるまでの残時間
+  a,d = 分割・投入・copy/scatter・外側経路等の費用
+  Tparallel(l,r,A) ≈ a + max(Cleft, Gremain) + d
+  value(A) = trainingのケースごとの重み付き平均 [C0 - Tparallel] から、追加active層のmain経路費用を引いたもの
+
+実測では同一rのC−Pを優先し、C0やGを分解して推測し過ぎない。
+Gremainは現在未測定。Pのjoin_end−join_beginはCPU完了後の待ちだけなので、GPU全所要時間と等しくない。
+host submit時間にもCUDAのlaunch等が含まれ、kernel実行時間そのものではない。
+既存S/Pの差は実際の重ね合わせの便益を評価できるが、GPU event/traceなしに完全なCPU/GPU timelineへ変換はしない。
+
+加算式 Σfrequency(expert)×単独expert時間 が失敗する理由:
+  ・GPUへ移す6個が同時に選ばれる組合せを失う。
+  ・CPU残数が減ると残時間と並列性、量子化/barrierなどの固定仕事が変わる。
+  ・Hを増やすとGPU側の作業/転送も増え、CPUの裏へ隠れなくなる場合がある。
+  ・H=1、H=2、H=3の速さは一般に線形でない。
+  ・23→8層は頻度だけでなくcustomを通る層数とGPU graph/allocatorの保持量も変える。
+  ・ルート自体がCPU/GPU算術差で変わり得る。baseline training routesでの予測を最後は統合実測で確認する。
+
+最小手順は、training5のordered top6を保持し、型/compact残仕事/Hに応じた少数の実測C−Pで予測し、候補を1個だけ凍結すること。
+予測差が計測不確かさより小さい複数候補を大量gridで競わせない。
+現validation3を新配置へ合わせ直すとその3例は調整用に変わる。残りvalidation2を候補の反証、holdout5を最終構成の確認へ残す。
+同じvalidation3を回帰確認として再実行した場合は『未使用での新確認』とは呼ばない。
+
+F. 8層案の独立再集計
+
+元の選定リストを読み、trainingの全11,840 route records / 71,040 expert slotsから計算した。
+8層案は今回再選定していない。旧案の計数を検証した。
+
+original35: 23層、35expert、475,453,440 bytes =453.427734 MiB。
+旧8層案: 8層、36expert、480,522,240 bytes =458.261719 MiB。
+差は15層減、1expert増、5,068,800 bytes =4.833984 MiB増。厳密には同じbyte数ではなく同じ上限内の案。
+8層=[2,3,6,7,8,20,29,35]。
+
+case                         元hit  8層hit  hit数の比  元activeH0率  8層activeH0率
+text_cache_budget_ja          1377   1087    78.9397%    24.7283%       6.0547%
+text_cache_budget_en           778    656    84.3188%    53.6005%      17.5781%
+mixed_build_log_ja_en_log       893    876    98.0963%    44.4293%      17.7734%
+code_stable_grouping_python    564    517    91.6667%    64.5380%      27.7344%
+code_stable_grouping_cpp       564    660   117.0213%    67.7989%      29.2969%
+合計                         4176   3796    90.9004%
+
+activeH0の分母は元23×64、8層8×64で異なる。全37CPU層を同じ分母にしたH0とは別の量。
+『90.9%のhitを保持』という言い方も、同一hit集合の部分集合が90.9%残るように読めるので避ける。
+実際にはexpertを追加・削除しており、C++は増える。hit数比90.9%と呼ぶ。
+8層案の94個のIQ projection slots中88個がcompact、6個が非compact（147/270の各3projection）。
+これをtime valueを測らず全て同じ重みで数えると、利点/損失のどちらも誤る可能性がある。
+
+G. 実施済み/未実施
+
+実施：上記source/build/log/receiptの読取、自作recompute_hotpath.pyによるtraining5・2案・CPU compact membership・operator時間の再集計。
+自作scriptは公開JSON/planを読むのみで、提供script、ELF、生成Python、モデル、APIを起動しない。
+未実施：B patch適用/ビルド、実機推論、GPU計測、本文のcounterfactual offload、追加activation capture、配置更新、通常API採用。
+JSONのsource_sha256が入力再現用の一覧。SOURCE_CHECKS.jsonはsource/buildの追加照合。
+このレビューは実機operator/統合性能を新しく測った報告ではない。
+
+最終実装照合による補足（親の確認を反映、2026-11-18）
+現APIはC/S/Pのみで、任意active-maskはない。同一bankに両候補があればH2になる。
+既存2cellは同梱plans/H1_COMPACT.plan・H1_NONCOMPACT.planを使い、別fresh processのCOMPACT/NONCOMPACT/NONCOMPACT/COMPACTで比較する案に具体化した。
+layer7は[19,154,331]対[19,85,154]、layer35は[0,1,78]対[0,1,100]。35expert・native bytes・各層の初期化形状が等しく、membershipが異なる。
+engine DSOsを保持できる。runnerのplan/hash pinとcallerのOriginal35という固定表示は明示的に更新する。
+孤立replayはhot-backend.cppをcallerへincludeするため、maskを新実装する場合callerだけのbuildもあり得るが、最初の診断には不要。統合engine公開APIのmask変更ならlibllama側の新実装が必要。
+頻出147/270の新capture用planは今回の2planとは別に作る。

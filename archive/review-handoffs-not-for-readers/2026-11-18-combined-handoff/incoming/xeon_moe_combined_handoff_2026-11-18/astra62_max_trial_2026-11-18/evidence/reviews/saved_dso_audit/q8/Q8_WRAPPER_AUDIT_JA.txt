@@ -1,0 +1,64 @@
+保存済み phase1 / phase2 DSO の Q8_K wrapper 機械語照合
+担当: /root/max_trial_independent_reviewer/saved_dso_q8_audit
+対象日時: 2026-11-18 UTC
+
+結論
+
+依頼された8個の保存済み CPU DSO では、quantize_row_q8_K の実装種別はすべて期待する組合せと一致した。
+phase1 の baseline / iq / route と phase2 の baseline / iq / route2 は、関数本体が5 bytesの単一 jmp で quantize_row_q8_K_ref@plt へ委譲する。
+phase2 の q8 / combined は、789 bytesの AVX1 本体を持つ。MXCSR の rounding bits を確認して非nearestなら ref へ戻り、nearest側ではベクトル最大・最小、浮動小数点から整数への変換、byte packing、bsums 集計を行う機械語が存在する。
+
+この feature に関する限り、後の iqsafe / combosafe と同じ実装取り違えが旧 phase1 / phase2 に及んでいた証拠は見つからなかった。
+ただし、Q8_K wrapper 以外の features、graph からの callback 到達、実行時 symbol binding、保存された計時ログとの全 build 対応を当担当が検証したという意味ではない。これだけで旧計時全体を完全に認証しない。
+
+一覧
+
+phase1 baseline  entry 0x106210  size 5    ref への単一 tail jump
+phase1 iq        entry 0x106550  size 5    ref への単一 tail jump
+phase1 route     entry 0x106250  size 5    ref への単一 tail jump
+
+phase2 baseline  entry 0x106210  size 5    ref への単一 tail jump
+phase2 iq        entry 0x106550  size 5    ref への単一 tail jump
+phase2 route2    entry 0x106690  size 5    ref への単一 tail jump
+phase2 q8        entry 0x106220  size 789  AVX1 body + ref fallback
+phase2 combined  entry 0x106b20  size 789  AVX1 body + ref fallback
+
+ref wrapper の実機械語
+
+上記6関数はすべて以下の1命令のみである。
+  jmp 14b50 <quantize_row_q8_K_ref@plt>
+
+5-byte size や library SHA のみから推定した結果ではなく、各関数の範囲を objdump で読んで行先を確認した。
+
+AVX1 body の判定根拠
+
+phase2 q8 の関数 entry は0x106220。
+  +0x018: vstmxcsr で MXCSR を読む。
+  +0x01e: 上位 byte の0x60 mask (MXCSR rounding bits) を test。
+  +0x023: 非zeroなら +0x302 の経路へ進み、最後に ref@plt へ tail jump。
+  +0x0ab: vmaxps ymm1,ymm0,ymm1。
+  +0x0b3: vminps ymm2,ymm0,ymm2。
+  +0x20b/+0x22a: vmulps による scale 適用。
+  +0x20f/+0x22e: vcvtps2dq による8 lane変換。
+  +0x225/+0x238: vpackssdw (128-bit packing)。
+  +0x23d: vpacksswb。
+  +0x24b: vpsadbw、後続で0x800を引き、16要素和を格納。
+  +0x29b: block 単位の ref fallback call。
+  +0x310: 非nearest用の ref tail jump。
+
+phase2 combined でも同じ構造を確認した。vmaxps/vminps/vmulps/vcvtps2dq は YMM、integer packing/bsums は XMM を使う形で、今回の AVX1 patch に対応する本体である。
+
+保存物
+
+Q8_WRAPPER_FEATURE_AUDIT.json:
+各 DSO の絶対パス、full SHA256、nm symbol 行、関数サイズ、種別、期待との一致、主要 opcode 出現数、ref 行先、読取前後 hash 不変、保存 manifest との一致を記録。
+
+dso_first_round_lib-*.disassembly.txt / dso_second_round_lib-*.disassembly.txt:
+8関数の完全な機械語 listing。親保存の DSO は変更していない。
+
+各 DSO の SHA256 は親の DSO_MANIFEST.json と一致し、当担当の読取前後も変わっていなかった。
+
+制約
+
+実施したのは nm / objdump と file hash の読取のみ。build、bench、モデル実行は行っていない。
+Q8 feature が期待通りに存在するという結論であり、全 source と全 compiler flags の完全な対応付けを行ったものではない。

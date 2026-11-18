@@ -1,0 +1,13 @@
+独立した初期候補 / 固定版 37f6390c9a5bc594658127651e204ab11420cd71
+後述はソースを読んだ段階の仮説。ベンチ、実装、現行実機構成を参照する前に固定する。
+初期資料は SOURCE_SCOPE、SOURCE_MANIFEST、source_repo の採用 overlay と vendor の関連呼び出し、scripts/build_plan.py。VM の /proc/cpuinfo は Xeon Platinum 8573C、9 vCPU、メモリ約9.7 GiB。ビルド計画の対象は Ivy Bridge (AVX1/SSE/F16C、AVX2/FMA 無効) と CUDA sm_70。今回は実機、モデル重み、GPUを観測していない。
+
+1. compact IQ の符号処理を、同じ入力を読む多数の出力行から入力準備へ移せる。採用コードの compact-kernel.inc と iq-small-kernels.inc は各32係数で符号付 LUT を2回引き、各半分の重みを絶対値化し、活性値に符号を2回移して pmaddubsw を行う。重みの符号は packed byte の bit3/bit7 にある。入力のabs 32個と両半分の符号16組を一回作れば、重み1ロードへの1 XORで符号合成でき、signed weight × unsigned |activation| が可能。重みの追加RAMは不要。追加される入力側読み出し、K長とキャッシュ、Ivyのポート構成、準備の償却を測る。通常Q8_Kは -127..127だが既成Q8_Kの-128ではpsignbの折り返しに注意する。低コストに合わせられなければfallback。
+2. MUL_MAT_ID のルート索引をスパース化する。ggml-cpu.c の MMID_MATRIX_ROW は [総expert数][選択枠数×トークン数] を予約し、各枠はそのうち一つのexpertにのみ属する。count/prefix/fill により E×P 件の割当を P 件＋O(E) にできる。これは実測速度に依存せず上限を証明できる。-1、同一expert重複、入力stride、四列カーネル/tiledが見る行順・align、plannerと実行側の一致を確かめる。ごく小バッチは二巡のコストと比較。
+3. 専用の小バッチスケジューリング。現在は1トークンでも全Eの counters を各workerで初期化し、各workerがE全体を走査する。順番が入力通りでも各出力枠独立。decodeだけ (slot, 連続出力行タイル) を全workerで均等分割し、一回の同期後、E走査とexpert別atomicを除去できる可能性。NUMAで優先される静的分配やアクセス局所性を維持し、既存用法の-1と重複を試す。
+4. Q8_Kへの入力量子化をAVX1で既存バイト列を維持して加速。arch/x86/quants.c:505は全てのx86でquantize_row_q8_K_refを呼び、絶対最大値の最初の要素の符号でスケールが決まる。最大同値で逆符号、半整数、zero blockのbsumsを含む再利用、標準roundingをテスト。decodeでは量子化は行数で償却されるため単体倍率とop倍率を区別する。数ブロック・多入力ではworkerごとの細切れ量子化で長さ0の呼出しも起きうる。
+5. compactデコード対象の拡張。1トークンのみという制限は重みレイアウトの必然ではない。実際に選ばれた同一expertの行数や、同一expertについて複数トークン側の入力をまとめるカーネルで利益の境界を決める。prefill固定全体のバッチ閾値よりエキスパート毎の局所頻度に意味がある。データ量の増加、GPUオフロード、既存tiled選択との競合を要検証。
+6. モデルロードで compact 化の単位が各テンソル全体であり、予算・余剰メモリと expert ごとの再利用率に不一致がありうる。部分expertのアドレスと型を安全に引ける表を持ち、入力traceがあるなら限界利益/MiBで配分する。可変ポインタや毎workerのregistry_mutex、同時ロードと解放、二重の重みメモリコミットを評価。実traceを持たず擬似偏りだけで配分品質を断定できない。
+7. GPU側は既存llama-moe-cacheが連続missをまとめ、実ID取得のため同期し、ggml-backend側のMXFP4オフロードはバッチ閾値。観測すべき量は転送するユニークexpertバイトとCPU側入力再利用。実機で warm/cold ごとのcopy時間・GPU待ち・CPU時間の内訳が得られれば閾値やキャッシュ予算の根拠ができる。VMでは転送時間は代用できない。
+
+先に1と2を取り上げる。独立な比較対象と生成データで出力を照合し、統合可能な差分と再現手順を残す。ベンチの結果によっては提案を取り下げる。

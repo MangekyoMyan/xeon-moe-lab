@@ -1,0 +1,77 @@
+最終 isolated build の短い feature / base / flags 照合
+担当: /root/max_trial_independent_reviewer
+日付: 2026-11-18 UTC
+対象: 親の final_snapshot/ (captured 2026-11-18 02:53:19.473005 UTC)
+
+結論
+
+最終5個の CPU DSO の visible feature 組合せは期待通りで、先に見つかった iqsafe / combosafe の同一バイナリ問題はこの snapshot にはない。
+新しい source/flags の食違いを示す具体的な懸念も、今回の確認範囲では見つからなかった。
+base DSO は hash が異なるが、今回重要な quantize_row_q8_K_ref は命令列と参照する定数の値が全5版で一致した。hash差を算術差と解釈する必要はない。
+
+1. CPU feature matrix
+
+variant    corrected folded  Q8_K wrapper       selected route
+baseline   なし              ref tail jump      なし
+iqsafe     あり(3 IQ型)      ref tail jump      なし
+route2     なし              ref tail jump      あり
+q8         なし              AVX1 + ref         なし
+combosafe  あり(3 IQ型)      AVX1 + ref         あり
+
+CPU SHA256:
+baseline  473c8d1605e0d0d1e0949980b0ecd1c1f27c8c6320708c4178f442e061430041
+iqsafe    a269d354cae8f8b12672cc931466d2074c42f78ddc81a7478f43ac92cd7035b4
+route2    097e3bbad924643ef9aac91d040d4c3834cde5138e6f2b730529de4c10ef9923
+q8        6dab8d4f4c2ce9af684c43467ae54e1a02df634836efe79804388c4976c392c9
+combosafe 39c5c91cde77aa3d5f53bfe5638defc87374ec2f2f1b84ea405b4687840e44ae
+
+nm / objdump で関数を抽出して確認した。単に hash が異なることによる分類ではない。
+iqsafe / combosafe は folded_dot 3個に has_min の読取り・補正分岐があり、修正前 folded の存在だけを合格にしていない。
+Q8_K wrapper は baseline/iqsafe/route2 が refへの5-byte jmp、q8/combosafe が789-byteの AVX1 本体。
+ggml_graph_plan と inline runtime の構造も、それぞれ既に識別した元 route / selected route / folded planner の特徴と一致する。
+
+親から最終 route2/combosafe の独立 graph 参照再検証、最終 iqsafe の prepared bytes と dot 出力比較の成功報告があった。本書の担当は、その既に十分な実行検証を繰り返していない。これら数値は親の実行 receipt に帰属させる。
+
+2. base DSO の hash 差を絞って確認
+
+全5 base の quantize_row_q8_K_ref を抽出した。baselineとの listing 差は5箇所の RIP-relative 定数の参照アドレスだけだった。
+そこで各参照先の4-byte内容を ELF の section offset から読み出し、命令列へ埋め込んで比較した。全5版で命令列・参照値が一致した。
+
+確認した定数 bytes (little endian):
+  ff ff ff 7f
+  00 00 fe c2
+  ff ff 7f 00
+  00 00 40 4b
+  00 00 80 3f
+
+これは「RIPのoffsetを消したら同じだった」だけではなく、参照先の定数値も照合した結果である。
+各 base には異なる source directory を含む文字列が埋め込まれていた。source path長による rodata 配置差と整合する。ただし ELF 全 bytes の差をすべて source path に帰属したという意味ではない。
+base の全関数を意味的に比較したものでもない。
+
+3. source と compile options
+
+4つの isolated source の下記ファイルは、いずれも初期 vendor/llama.cpp のファイル hash と一致した。
+  ggml/src/ggml-quants.c
+  ggml/src/ggml-quants.h
+  ggml/src/ggml-common.h
+
+4つの build-isolated-* の ggml-base / ggml-cpu の C/C++ flags と defines は同じ。
+主な設定は -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3、OpenMP有効。
+CPU側の ggml-cpu.c / ggml-cpu.cpp / iq3-cache.cpp の個別 options は -fno-fast-math;-ffp-contract=off で、4 build間で一致した。
+新しい base全objectにこの個別optionsが付いているとは扱わない。
+
+現在の古い work/build/ の flags.make は後の ASAN 用設定へ変わっていた。これを最初の baseline DSO の build flags と取り違えない。親が保存した baseline DSO は最初の hash と同じで、最終5 DSOの symbol には ASAN参照は見つからなかった。
+
+新しい4 buildの source home は各 isolated-* に分離され、flags.make も別 directory にある。既存共有 build directory の incremental状態を最終結果の根拠にはしていない。
+
+4. 保存証跡と境界
+
+BINARY_FEATURE_EXTRACTION.json:
+  final CPU/base hashes、対象symbols、関数bytes、特徴点、listing。
+BASE_CONSTANTS_FLAGS_SOURCES.json:
+  Q8_K_ref参照先の定数、正規化した命令列の一致、source hashes、flags、custom options、埋込みsource path。
+各 *_flags.make / *.asm / base_q8_ref_diff_*.txt:
+  読取時の原文と機械語差。
+
+今回の追加確認は静的読取だけで、build / bench / 推論を追加していない。
+この確認範囲で採用・評価を止める具体的な source/flags 不一致は見つからず、親が別途再集計した最終 isolated build の性能と正しさの結果を主に使う判断を支持する。

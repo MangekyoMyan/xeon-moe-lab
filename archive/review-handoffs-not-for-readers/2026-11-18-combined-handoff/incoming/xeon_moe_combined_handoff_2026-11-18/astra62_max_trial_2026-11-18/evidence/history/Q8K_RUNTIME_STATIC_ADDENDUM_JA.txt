@@ -1,0 +1,80 @@
+Q8_K AVX1 patchの静的追補 — 過去実装とruntime適用先
+確認日: 2026-11-18 JST / 2026-11-18 02:34:33 UTC
+固定commit: 37f6390c9a5bc594658127651e204ab11420cd71
+親評価用。子へ連絡しない。ソースと保存記録の読取のみ。新しいbuild、probe実行、bench、実機操作は行っていない。既存COMPARISON_AFTER_FREEZEと初期台帳は変更していない。
+
+Q8_K wrapperのAVX1化は過去sidecar最適化と別の変更であり、保存された通常APIのbuild/link経路にも同じscalar wrapperが残るという静的根拠がある。実機へ狭い変更として持ち込める見込みはあるが、現在のlive binding・正しさ・全体速度は未検証。
+
+確認した子の成果物
+/workspace/scratch/1f624f9ac929/astra62_max_trial/outputs/04-q8k-avx1.patch
+  SHA256 b1e0691007fb67e3356a6e763e3ba14d7dd0a1c5a1efbf460350f2f153ca121d / 3739 bytes
+/workspace/scratch/1f624f9ac929/astra62_max_trial/outputs/q8_probe.cpp
+  SHA256 c27e419d0b484162a73d5ee9ab45e5290f41a5303a454becda6668554feff9b2 / 5362 bytes
+
+Q1. 変更箇所と過去成果との差
+1) 今回のpatchは ggml-cpu/arch/x86/quants.c の quantize_row_q8_K wrapperを、__AVX__ && !__AVX2__ の場合だけvector処理へ置き換える。Q8_Kの256要素単位、符号付き最大値からのscale=-127/extremum、d=1/scale、量子化後の16要素和bsumsという既存形式を保持する設計である。
+2) 過去のiq-abs、iq-rhs、mx-prepackは、量子化後の入力を使って内積時の処理を再利用する仕組みである。今回の変更はF32→Q8_K変換自体なので、変更する関数と費用が異なる。AVXによる量子化は一般的方法であり、世界初という評価はしない。
+3) 過去に読んだCPU/CUDA算術比較も、変換方式の違いを調べるものだった。今回の目的は既存CPU出力を保った高速化であり、CPU側のQ8_KをCUDA側Q8_1へ変更する案ではない。
+出典: reviewed_04-q8k-avx1.patch 10–82行; primary_source_cache/iq_abs.cpp 24–39行; primary_source_cache/iq_rhs.cpp 13–26行; primary_source_cache/mx_rhs.cpp 17–33行
+
+Q2. 保存された後続ソースにも同じwrapperが残る
+1) accepted overlayと、保存されたmxfp4-hybrid/engine側のx86/quants.cはファイル全体のSHA256が一致する: a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7。両方の505–507行でquantize_row_q8_K_refを呼ぶだけである。
+2) deepseek側x86/quants.cは別の全体hashだが、同じ505–507行のwrapperは同一。hybridとdeepseekのggml-quants.cは全体hash bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73で一致し、ref本体は2784–2820行。
+3) したがって、この具体的なQ8_K vector wrapperは、今回照合した後続の保存ソースにも実装されていない。全履歴に類似案が存在しないとは断言しない。
+出典: accepted_x86_quants.c 504–507行; hybrid_x86_quants.c 504–507行; deepseek_x86_quants.c 504–507行; deepseek_ggml_quants.c 630–634, 2784–2820行
+
+Q3. 通常APIの保存記録から追えるruntime経路
+1) validation3/RESTORED_RUNTIME.jsonは、通常API復帰時のCPUとしてmx-prepack/release-candidate-a/libggml-cpu.so.0.28.0、SHA256 33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3を記録する。baseはgpu-stream-20261103/runtime/libggml-base.so.0.28.0、SHA256 2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558。
+2) mx-prepackのBUILD.jsonにあるcandidate libraryのSHAは上記CPU SHAと一致する。そのlink argvはhybrid/build-cpu-ivybridge/engine/ggml/srcをcwdとして、CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/quants.c.oを再利用している。route37のBUILDも同名arch/x86 objectをリンクする。
+3) CPU type traitのfrom_float=quantize_row_q8_Kからx86 wrapperへ入り、旧wrapperではquantize_row_q8_K_refへ渡す。今回のpatchの通常の導入対象はCPU側のarch/x86/quants.c.oであり、ggml-quants.cのref本体とは別である。
+4) ここで確認したのは保存されたruntime receipt、build/link記録、保存ソースの同一性である。現在動いている実機のmaps、ELF、objectの逆アセンブル、実symbol bindingは読んでいない。base2e13…内部の元object再利用についても、本追補では新たなELF確認をしていない。
+出典: validation3_RESTORED_RUNTIME.json 6–13行; mx_release_BUILD.json 208–246行; primary_source_cache/route_BUILD.json 123–136行; primary_source_cache/route_cpu.c 405–409行
+
+Q4. byte保持へ向けた具体的な配慮
+1) 正負の最大絶対値が同じ場合だけ元の入力を先頭から走査し、refがstrict >比較で保持する最初の符号に合わせる。最大の符号が一意ならvector reductionで決める。
+2) MXCSRがround-to-nearestでない場合は関数全体をrefへ返す。NaN/Infを含むblockとscaleが非有限になるblockもrefを使う。これらは新しい算術結果を独自定義する変更ではなく、既存処理を残す分岐である。
+3) zero blockはdとqsを更新し、bsumsを更新しない。保存refも同じ挙動なので、既存のbsumsを任意の値で埋めた状態でのbyte比較と整合する設計である。
+4) 量子化整数はAVXのcvtps_epi32後にSSE packで16要素へ並べ、bsumsはsigned byteへ128を加えた表現のunsigned sumから16*128を引く。これはsigned 16要素和を作る方法であり、順序・型はrefのbsums形式と対応する。
+5) この読取だけで全入力・全コンパイラ・全浮動小数点環境での同一性を証明したとはしない。具体的な出力不一致を示すコード上の欠陥は、今回の静的照合では特定していない。
+出典: reviewed_04-q8k-avx1.patch 21–23, 32–62, 65–78行; deepseek_ggml_quants.c 2790–2818行
+
+Q5. q8_probeの静的に読める範囲
+1) checkはfrom_float callbackを通し、quantize_row_q8_K_refと比較する。通常乱数、正負zero、逆符号の同最大、半整数付近、広い有限float、最大float、subnormal、NaN/±Infを生成する。0/1/2/3/7/28 blocks、入力のずらした位置、前後のguard blockを含む出力全byteを照合する。
+2) 出力を事前に任意byteで埋め、refとactualへ同じ初期内容を渡すため、zero blockで更新されないbsumsやguardへの書込みも差分として検出できる設計になっている。
+3) 四つの丸めモードを回すが、非nearestの三つはfallback経路の確認であり、vector経路をそれらのモードで検証するわけではない。NaN/Infでも同様にfallbackの確認が中心になる。
+4) benchはF32→Q8_K単体の計時で、hash計算は計時外。実際のMUL_MAT_ID、SwiGLU、expert内積、scheduler、GPU待ち等を含む全体性能ではない。
+5) probeを本補助担当は実行していない。stdoutの成功や実行速度を、このソースを読んだ事実から捏造しない。
+出典: reviewed_q8_probe.cpp 31–56, 58–88, 90–108行
+
+Q6. 現在の構成への適用見込みと未確認事項
+1) 保存されたIvy Bridge対象のbuild条件はAVX有効・AVX2/FMA無効であり、patchのfast-path条件と方向が合う。既存側も同じwrapperを使う保存ソースなので、古い公開baselineだけの提案に留まるとは判断しない。 ただし、このBUILD.jsonに直接示されたcompile flagsは追加overlayのもので、再利用arch/x86/quants.c.oの元compile command全体を示すものではない。対象objectの実flagsは実機での新build時に固定・確認する。
+2) 実機へ取り込む場合は、現在のCPU構成を維持した上で該当arch/x86 objectを差し替える形が考えられる。古い公開baseline全体へ戻す必要はない。ref本体はfallbackとして維持する。これは静的な導入箇所の判断であり、build成功や動作確認済みの主張ではない。
+3) 効果があるのはfrom_floatを呼ぶQ8_K入力変換部分である。既にQ8_K入力が渡る経路はその変換を省く。MXFP4は別のQ8_0入力変換を使う。量子化が全体時間のどれだけを占めるかは今回未測定。
+4) 実機評価で残る確認は、実際のCPU/base providerとfrom_floatのbinding、現在のbuild flags下での全byte比較、統合operator/固定入力での品質と時間である。MXCSRのFTZ/DAZやFP例外flagsまで契約に含む場合、現probeはそれらの組合せを明示的に切り替えていないため追加範囲になる。
+5) VMでの単体倍率から実機のtoken/sや全体の採用可否を決めない。今回の静的追補では速度値を引用せず、順位付けも行わない。
+出典: mx_release_BUILD.json 22–44行; primary_source_cache/route_cpu.c 1749–1750, 1774–1809行; reviewed_q8_probe.cpp 61–62行
+
+原資料
+accepted_x86_quants.c
+  https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/accepted/overlays/ggml/src/ggml-cpu/arch/x86/quants.c
+  SHA256 a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7
+deepseek_x86_quants.c
+  https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-cpu/arch/x86/quants.c
+  SHA256 777d0a4c1caf0e5b2589e8e77eb376a10691155deb5589d981838f9fef286c52
+deepseek_ggml_quants.c
+  https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/deepseek41-bringup-20261101/source/ggml/src/ggml-quants.c
+  SHA256 bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73
+hybrid_x86_quants.c
+  https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/arch/x86/quants.c
+  SHA256 a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7
+hybrid_ggml_quants.c
+  https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-quants.c
+  SHA256 bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73
+mx_release_BUILD.json
+  https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/BUILD.json
+  SHA256 ceec60cd90b064ae1fa5cd7d00f4d3afa32ffd8bb97cedb7095b45730e9eb97f
+validation3_RESTORED_RUNTIME.json
+  https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-17-validation3/RESTORED_RUNTIME.json
+  SHA256 8e97426e920d1b0c91dda99276b3ac2ac43e06ef1cc5403c38d46140bcca9d2a
+
+他の参照ソースは COMPARISON_AFTER_FREEZE_JA.json のsourcesに記録済み。今回の静的読取用cacheは中間物であり、ユーザーへの同梱は不要。

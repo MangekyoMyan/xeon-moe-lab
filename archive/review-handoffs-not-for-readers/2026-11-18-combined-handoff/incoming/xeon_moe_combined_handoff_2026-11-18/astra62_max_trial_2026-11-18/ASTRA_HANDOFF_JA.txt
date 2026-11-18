@@ -1,0 +1,156 @@
+実機側メインエージェント向け
+6.2 Astra / max 独立探索試行の受取資料
+2026-11-18 JST
+
+結論
+
+実機へ持ち込んで比較する価値のある候補は、03（route workspaceと小入力のselected group化）、04（Q8_K入力変換AVX1化）、06（修正済みpacked sign folding）の3系統です。07は3系統の合成版です。
+今回の主結果は、修正後・候補別の新規buildに対応する candidate/raw/final-timing.csv と candidate/RUN_MANIFEST.json です。親が全880行を再集計し、対応する出力hashの一致、保存DSOのfeature、最終の全出力ダンプを確認しています。
+
+実機での速度・品質を測った結果ではありません。現在のCPU/GPU配置を含む通常APIの変更は行っていません。現行のruntime上へ小差分として移植して評価してください。公開11/05採用済み本体を、後続実験を含む現在の全体へ置き換える提案ではありません。
+
+1. 試行の入力と帰属
+
+・要求通り gpt-6.2-astra / reasoning_effort=max / fork_turns=none で呼出し。
+・初期入力はcommit 37f6390c9a5bc594658127651e204ab11420cd71のvendor/llama.cpp、accepted、再構成・buildコード、ライセンス。4,014 files / 105,323,451 bytes。
+・このengine部分は観測したmain 4ff68eba2d8c480692511dc6d219d27a6a102866と同じ。初期資料は公開採用済み本体。後続実験、親の案、測定値は未提供。
+・初期7案をSHA 2d245bd0634d9c21636328fb2e35149ca9fae21b4972b5658f4e3cb9d35042e0で固定。
+・独立実装後、本人の追加質問に対し実形状/threads/compact観測、次いでroute37由来の関数・宣言だけを提供。
+・親がFE_DOWNWARDの-128反例、counter初期化の表現訂正、暫定DSO重複を指摘。以後の修正は親の指摘後の成果と明示。
+・共有filesystemの読取範囲を指示で分けた試行。OSで隔離された盲検ではない。6.0対照や一般的なモデル能力順位付けはない。
+
+出典: protocol/、candidate/INITIAL_IDEAS_JA.txt、evidence/history/COMPARISON_AFTER_FREEZE_JA.txt。
+
+2. 適用対象の対応表
+
+03-route-selected.patch
+  初期の再構成済みbaselineへ直接適用。01の改版であり、01を先に当てない。
+  一般入力はcount/prefix/fillでE×P mappingをPへ圧縮。
+  T=1、選択枠<=16は選択されたgroupだけを扱う。
+
+04-q8k-avx1.patch
+  baselineへ直接適用する独立候補。
+  CPUのarch/x86/quants.cにあるquantize_row_q8_K wrapperをAVX1条件下で置換。
+  ggml-quants.cのref本体は残す。MXFP4用Q8_0の変更ではない。
+
+06-compact-signed-byte.patch
+  baselineへ直接適用する02の修正版。
+  3 IQ型・T=1・F32・全tensor compactという初期baselineの条件に対応。
+  Q8の-128を実データから検出し、旧psignbの折り返しを再現。
+  既成Q8_K入力は既存compact経路を使う。
+
+07-combined-corrected.patch
+  baselineへこれ一つを直接適用。03+04+06の合成。
+  03と06は同じCPUソースの共通箇所を変更するため、単純な全patchの順次適用はしない。
+
+route37-fixture/08-mixed-dispatch.patch
+  コメント除去済みの関数抜粋2ファイルに対する適用例。
+  元Q8_Kとfoldedの両形式を保持し、expertごとのcompact有無で読み分ける。
+  現行runtime全体へそのまま適用できるpatchとしては未検証。
+
+01は初版比較用。02/05には非nearestでの既知の数値差があり、履歴の再現用として保持しています。実機採用候補にはしません。
+
+3. 最終buildの識別
+
+CPU DSO SHA256:
+ baseline  473c8d1605e0d0d1e0949980b0ecd1c1f27c8c6320708c4178f442e061430041
+ route2    097e3bbad924643ef9aac91d040d4c3834cde5138e6f2b730529de4c10ef9923
+ q8        6dab8d4f4c2ce9af684c43467ae54e1a02df634836efe79804388c4976c392c9
+ iqsafe    a269d354cae8f8b12672cc931466d2074c42f78ddc81a7478f43ac92cd7035b4
+ combosafe 39c5c91cde77aa3d5f53bfe5638defc87374ec2f2f1b84ea405b4687840e44ae
+
+これらはこのVMのbuildを識別する値であり、実機で再buildしたELFに同じhashを要求するものではありません。
+
+親の独立機械語確認:
+・iqsafeには修正済みfolded 3型、Q8 wrapperはref、元route。
+・route2はselected route、foldedなし、Q8 wrapperはref。
+・q8はAVX1 Q8 wrapper、foldedなし、元route。
+・combosafeは3機能すべて。
+・異なるbase DSOのQ8_K_refは、命令列の差がRIP-relative定数参照先5箇所だけで、定数の値も一致。base ELF全体の全差分がpathだけとは認証していない。
+・4つのisolated buildの関連ソース、flags、個別no-fast-math/no-FMA設定を照合。旧work/buildは後でASAN設定になっているため、これを保存baselineの元flagsと扱わない。
+
+途中に06と07が同じ暫定DSOへ対応した問題は、子が比較を保留し、source/buildを分けて解消しました。候補のファイル名だけで対応を判断せず、各変更を独立したsource/buildへ再構成してください。正確な実行対応はcandidate/RUN_MANIFEST.jsonとevidence/reviews/final_feature_audit/を参照。
+
+4. 性能の意味
+
+最終11条件、8 A/Bペア、別process、順序AB/BA交替、各process 3 warmup+5 samples。process内中央値を求め、同round/seedの候補÷基準を作り、8ペアの中央値を集計しています。880サンプルを880独立試行とは数えません。
+
+06、実K/M・選択6:
+  IQ2_S gate       0.888、短縮7/8ペア
+  IQ3_XXS gate     0.875、短縮7/8ペア
+  IQ3_S down       0.891、短縮8/8ペア
+  IQ3_XXS down 3t  0.817、短縮8/8ペア（12 expertから6を交替）
+07、IQ3_XXS gate   0.828、短縮8/8ペア
+03、小F32制御演算   0.283、短縮8/8ペア
+03、大route F32    0.635、短縮8/8ペア
+03、MXFP4          0.959、短縮4/8ペア。改善の安定性は弱い。
+04、Q8単体         0.168 / 0.178、両方8/8ペア
+04、M768 graph     0.938、短縮6/8ペア。以前の試行では1.021だった。
+
+総expert数は実サイズ速度試験でも6/12へ縮小しています。全重み・入力は合成。VMはPlatinum 8573Cと表示され、GCC14.2、AVX1ターゲット。実機の双Ivy Bridge、12/24 threads、NUMA、帯域、cacheの再利用程度は再現していません。約6倍の量子化単体をtoken/sに換算せず、07の1条件を全型へ外挿しません。
+
+03の予約容量はより直接的に確認できます。E384、選択6、実K/M、512 tokensのIQ3_XXS gateで25,039,552→15,626,944 bytes、差9,412,608 bytes。差はmapping部分の8×(384−1)×6×512と一致します。RSSや全モデルworkspaceの削減量は別です。旧コードがE×P領域全体を毎回memsetしていたとは解釈しません。
+
+出典: candidate/raw/final-timing.csv、final-summary.csv、plans-*.csv、evidence/parent/validation/CHILD_EVIDENCE_AUDIT_FINAL.json。
+
+5. 数値と適用条件
+
+通常/境界:
+ 最終5版それぞれ153+33=186 graph、184,377 F32値。全出力ダンプは同じsuite内でbyte一致。親も30ファイルの全byteとmanifestを再照合。
+ 非連続ID/入力、broadcast、-1、全skip、重複、row tail、cache有無、use_ref、既成Q8_Kの-128など。重複はこのCPU snapshotのstressであり全backend API保証とはしない。
+
+丸め:
+ 旧02/05はFE_DOWNWARDで14,112出力中3,266個が基準と異なる。
+ 06/07は4モード各48 graph・14,112値で一致。
+ 修正はQ8の実byteを見て、-128の場合だけ符号を補正する方式。rounding別に共有workspace strideを切り替えない。
+ 単体Q8は4×10,344 blockで参照とbyte一致。非nearestはref fallbackなので、3モードでAVX変換を検証したという意味ではない。
+
+親による独立確認:
+ F32/F16で整数参照が確定するrouting試験16条件×5 routing状態、2,128,910値/variant。最終route2/combosafeも一致、workspace guardを確認。
+ 最終06のprepared 672 blocks、既存compact vs folded 1,344 dot出力がbyte一致。
+ 3 LUT、16 nibble、全int8の12,288積、およびpackedの49,152組で修正符号式が旧psignbの整数積と一致。
+ これらはモデル全体の品質評価や全浮動小数点環境の証明ではありません。既存CPUを数学的な唯一の真値とするものでもありません。
+
+6. 混在compact fixtureをどう使うか
+
+追加されたsource_02のroute37は、実expertごとのpointer配列からcompactを引きます。06の全体一括入力置換をそのまま入れると、未compact expertがfolded形式をQ8_Kとして読む危険があります。
+
+08は通常Q8_Kを残し、同じ量子化済みblockからfoldedを別に準備します。workerは自分の範囲を書き、既存barrierの後にcompact expertだけ新形式を使います。nativeとtiledは通常形式、既成Q8_K入力は旧compact経路です。
+
+fixtureの比較は5mask（0/1/3/5/6 compact）×4 rounding×48 graphs=960 A/B組。cases.csvの1,920行は2実装の実行記録であり、1,920独立対照組ではありません。対応する282,240 F32出力は全byte一致。親側の別担当も20組の全.binを読み直しました。
+
+5/6の計数は native row dot 2,352、既成Q8の旧compact row dot 5,880、folded callbackの選択240。最後は内積回数と異なる単位です。ここでいう5/6はCPU compact利用数であり、追加GPU常駐expertのhit数ではありません。
+
+マスク0でもpointer表が存在すると入力準備216 blocksが発生し、folded callbackは0。実経路で0/6が多い場合、無駄な準備を含む全operator時間を測ってください。
+
+限界:
+ sparse cache allocatorとpointer寿命の実機経路、MXFP4 prepack、診断記録、実サービスの統合はfixtureで置換/無効化されています。08で実機性能や本番統合が検証済みとはしません。詳細はcandidate/route37-fixture/とevidence/mixed_fixture_review/。
+
+7. 実機での実行順
+
+A. 現在のCPU/base/llama providerとbuild元を固定して記録。
+   保存receiptにある通常CPUはmx-prepack release-candidate-a、baseはgpu-stream側。現在の実機での一致は今回未観測。LD_LIBRARY_PATH・実load・hash・対象objectのflagsを確認する。
+
+B. 03、04、06の比較を分ける。
+   04は保存された通常CPUのarch/x86 objectにもscalar wrapperが残るので、比較的狭い変更として試せる。
+   06は現在のabs/rhs実装との対照と、5/6等の混在対応が必要。既にある高速化を消して古いbaselineへ戻さない。
+   03は予約量と実時間を別に測る。1tokenのselected groupと大入力のmapping圧縮は効く理由が異なる。
+
+C. 同じ実重み・F32入力・expert集合・計時境界でoperatorを測る。
+   gate/up K5120 M2304、down K2304 M5120。型、compact 0/1/3/5/6、既成Q8かF32か、12/24 threads、普段のNUMA方針を記録。
+   準備時間を外してdotだけの倍率を採用根拠にしない。必要な原形式保持・copy・同期を含める。
+
+D. 効果を確認した差分をモデル実行へ進める。
+   まず既存CPU構成で固定入力のlogits/出力を確認。その後、CPU/GPU並列の同じ配置に入れて、CPU残仕事、GPU待ち、output-ready時間を確認する。
+   CPUが速くなると適切なGPU分担も変わり得る。CPU単体の短縮を並列全体へ直接加算しない。
+   token/sだけでなく遅延の分布も保管する。2トークン表示の件は今回未測定で、生成・送信・受信・描画を対応付ける別調査が必要。
+
+実行コマンド、依存、独立source/buildの作成、履歴版も含めた再現はcandidate/REPRODUCE_JA.mdにまとめられています。candidate/reproduce.shは新規出力先で最終5版を別々にbuildし、通常・境界・丸め・tiled・Q8・最小反例を比較します。子は別のfinal-reproで最初から完走した記録を残しています。VM用DSO/executableは配布しておらず、ソースとpatchから再buildする構成です。
+
+8. 6.2 Astraの担当範囲について
+
+この試行では、初期資料だけからの仮説、実装、rawを伴う比較、反例を受けた修正、混在経路の調査に手応えがありました。同時に、数値境界とbuild成果物の対応は親のレビューで修正が必要になりました。
+
+実機側では、6.2を独立した候補探索・小差分の実装・局所比較の担当に置き、メインがbaseline、実行時provider、計時・数値の対照、採用判断を持つ分担が今回の観測に合います。これは6.0に対する総合順位や一般安全性の評価ではありません。
+
+ユーザー向けの説明はUSER_REPORT_JA.pdf / USER_REPORT_JA.txt、最初の読む順番はREADME_FIRST_JA.txtです。

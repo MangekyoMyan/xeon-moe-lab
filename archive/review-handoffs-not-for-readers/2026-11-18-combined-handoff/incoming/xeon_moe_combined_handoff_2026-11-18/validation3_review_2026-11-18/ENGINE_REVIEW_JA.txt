@@ -1,0 +1,159 @@
+validation3 技術レビュー: 確認した結果と判断の限界
+2026-11-18 JST / commit37f6390c9a5bc594658127651e204ab11420cd71
+
+1. 親による受領と独立確認
+
+GitHubのCONSULT_PRO_JA.txt / RESULTS_JA.txtを取得し、同じcommitのdetached checkoutで確認した。
+新しいエンジン、実機GPU、モデル推論は起動していない。供給されたreplay_shared.py等も実行せず、自作の読取解析を使用した。
+6.2子のevidence.pyは公開manifest300件・計319085976 bytes、RAW_MAPPING299件、14processの165 digest、9 f32、6回答journalを照合。
+親は別実装independent_review.pyで全1024 timed callsを整数nsから再計算し、F/S/Pのf32を読み、NLLとsoftmax分布を計算した。
+親は6回答全文と2本のPythonを読んだ。生成Pythonはここで再実行していない。実機側のテスト実行は保存receiptとして扱う。
+対象checkoutはレビュー終了前のgit statusで変更なしを確認する。原本を変更して数値を合わせる操作はしていない。
+
+2. 速度の再計算
+
+1call=1個の固定参照IDをdecodeするT1。初回各mode/case128call、合計768call。
+式はT1/s = 総call数 / 総decode→output-ready時間。速度増加率 = F総時間/P総時間−1。
+平均した瞬間速度ではない。prompt、sampling、API、UI、ロード時間を含まない。
+
+初回:
+JA     F136.136132695ms → P129.566731977ms / 7.345588421→7.718030584 T1/s / +5.0702836%
+EN     F134.782158680ms → P132.400691039ms / 7.419379611→7.552830670 T1/s / +1.7986822%
+Python F132.458527125ms → P131.405211414ms / 7.549532836→7.610048256 T1/s / +0.8015783%
+時間の減少率はそれぞれ4.82561%、1.76690%、0.79520%。速度増加率とは別の量。
+
+探索的Python-only:
+F133.111907977ms → P132.045334867ms / 7.512475895→7.573156606 T1/s / +0.8077325%。
+初回と順序条件が違い、初回を見て選んだ追試。独立holdoutではなく、初回と合算した代表値を作らない。
+
+初回のF最終−最初はJA+0.741073ms、EN+1.634655ms、Python+1.799031ms。
+Pythonの短縮1.053316msがこのdrift差未満だったという注意は妥当。ただしdrift差そのものを標準誤差や有意性閾値とは呼ばない。
+Python追試でも方向は同じだった。これで多数のPython課題へ一般化したとは言えない。
+各mode/case2 block、3変種2familyという実験単位を維持する。1024個の独立promptの試験ではない。
+
+3. 入力と計時の実装
+
+V/caller/FROZEN_PLAN.jsonのSHAは前回v2計画と一致:
+615add2b3da6befbc8c96f45fe5d09c5d14b049fd9fcf76f0a5ee8e890b07ba5。
+今回のDESIGN.jsonは別ファイルで、SHAはae64ae1e0c522c5ee41ce001e109f5cfc257aed2a4959cd13ef400182c09d2ae。
+再tokenize/templateなし、prefix236/187/244、reference64入力/next target65。
+V/caller/driver.cpp:136–143はprocess内共通準備と同期/KV clear。
+:145–154が対象block、:148でdecode開始→llama_get_logits_ith戻りまで。
+:149のquality copy/finite/fullstatsと:150のblock末尾処理はtimingループの測定区間外。
+qualityに保存するcustom buildはbefore_T1からの増分。JA/Pythonで23→46、EN23。
+position256を跨ぐ外側graphの再構築と、private bank/graph再初期化は同じではない。
+
+今回の全14process（初回10＋追試4）にはquality2、timing4、answer4、repeat4が含まれる。
+全14processが新しい独立入力を試したわけではない。
+通常APIの元設定・元4DSOへの復帰はV/RESTORED_RUNTIME.jsonの保存記録（PID291001）で確認した。このレビューのliveプロセス確認ではない。
+
+4. 数値: 並列と担当変更を分ける
+
+9本×65×129280=75628800 logitがfinite。
+3例ともS=P全65行byte一致。F=Pはrow0だけ、row1–64は異なる。
+F/P top1差はJA0、EN0、Python1行（row31、7854→1351、参照target1351）。
+
+平均target NLL差P−F:
+JA −0.004075771329、EN −0.003238600166、Python −0.005777225532。
+この参照文を採りやすくなったという限定的記述。元の非量子化モデルに近いという評価ではない。
+S/Pが同じなのは今回の分担と入力の範囲。未試験の入力・並列実行・context長での競合不在を数学的に証明したわけではない。
+
+親が追加したsoftmax分布の記述（同じ65行、合格閾値ではない）:
+case      mean KL(F||P)  max KL(F||P)   mean TV       max TV
+JA        0.001860893    0.038172929    0.008877616   0.136358700
+EN        0.001139327    0.017160712    0.007505509   0.064597700
+Python    0.000465534    0.006928071    0.005228592   0.058210951
+TVは2分布の確率差絶対値の合計の半分。誤答率ではない。
+
+最大logit差だけでは差の重要度を決められない実例:
+ENのmaxabs13.247169はrow49、そこでのTVは0.0000209661。
+Pythonのtop1が変わったrow31はmaxabs0.348805、TV0.05821095。
+同rowのtop1−top2 marginはF0.1388569、P0.0924091。接近した候補の順位が入れ替わっている。
+大きなraw差を理由なく無害としたり、小さなraw差を理由に同じ文章が出るとしたりしない。
+この再集計は「次に品質判定へどの数値を載せるべきか」を示すもので、Pの一般品質の合格判定ではない。
+
+5. 自然回答の別評価
+
+case / mode       generated IDs / stop / 完結 / 内容
+JA F              1024 / length / no  / 予定と下限証明は保存範囲にある
+JA P              1023 / eog    / yes / 同上
+EN F               887 / eog    / yes / 同上
+EN P               893 / eog    / yes / 同上
+Python F           829 / eog    / yes / 要求されたqueue実装と説明
+Python P           809 / eog    / yes / 同上
+
+全ID（control等含む）でcapを数え、最後の生成IDは再decodeしない。T1回数=生成ID数−1。
+F/P最初のID差はJA45、EN151、Python67（0始まり）。
+固定参照軌道でのtop1一致と、自由生成の文章一致は違う。途中から入力履歴そのものが変わる。
+
+予定4本はS20→I30→E40→F15の105分下限と10:45実現表を説明する。
+R25はEと並行して09:50–10:15。人員重複なし。
+JA Fの末尾は重複説明途中で切れる。必要な説明が前にあっても完結した回答にはしない。
+JAのF/Pとも中国語。元prefixにsystem messageはなく、日本語回答の明示命令もない。
+日本語ユーザーに対する利用適合の問題として残す。Pだけの言語退行とは読めない。
+この観察はローカルDeepSeek41の出力であり、6.2アストラの日本語能力とは別。
+
+Python F/Pはsize/try_push/try_popのASTが一致。__init__の_bufと_capacityの代入順だけが違う。
+定常不変条件0<=count<=capacity、live slot=(head+i)%capacityから、逐次FIFOと失敗時無変更を確認した。
+入力型/int64は設問の前提。成功pushのTrueや循環方向を追加の必須要件にしていない。
+F.txt:57の「部分更新状態にならない」は並行処理/原子性保証と読めば過大表現。設問は並行queueを要求しておらず、Pだけの不正解ではない。
+実機側の16000ランダム操作等の通過を、こちらで再実行したと書かない。
+
+6. ソースから否定できた費用仮説
+
+P/integrated/hot-backend.cpp:182–194でH0のGPU enqueue/join/scatterは既にskip。
+:44–52、122–164でprivate graph/pool/buffer/weight bankは準備される。
+compute自体に毎tokenの明示heap確保は見当たらない。下位ライブラリの全malloc不在までは未計測。
+H0で残る明示copyは1層入力20480+IDs24+出力122880=143384 bytes。
+23層なら3297832 bytes。これは時間測定ではなく、C−F≈2msをcopy時間に割り当てる根拠にはならない。
+poolのpoll=0をpthread sleep/wakeup原因と決めない。公開CPU source/buildはGGML_USE_OPENMP。
+OpenMP team/barrier/affinityやmain schedulerの同期は候補であり、寄与は未測定。
+execution_mutexやallocator同期を「複雑そう」という理由で外さない。
+
+7. 配置について分かったこと
+
+CPU planの照合でoriginal35のIQ95 projection slotsは全compact。
+頻度の高いexpertはCPUでも高速化されているため、追加GPUの1hitの価値を同じには扱えない。
+一方、遅いがほとんど使われないexpertへ置き換えても損になり得る。
+既存cellの非compact85/100はtraining2/1回。比較対象compact331/78は102/128回。
+機序のテストと配置候補のテストを区別する。
+
+8層案は既存の固定候補を再集計しただけ。今回のvalidationに再選定していない。
+23→8active層、35→36expert、native453.427734→458.261719MiB。
+trainingのJA hit数比78.94%、EN84.32%、mixed98.10%、Python91.67%、C++117.02%。
+合計90.90%は同じhit集合の保持率ではなく総数の比。速度の予測も測定もこれだけではできない。
+候補147/270の非compactを含み、1回の節約が増える可能性とJAのhitを失う可能性が同時にある。
+
+8. 次の判断
+
+実装候補を増やす前に、一巡のF/B/Cと少数H1反実仮想比較へ絞る。
+F/B/Cで追加保持とcustom経路を分け、trainingのordered top6と実測C−Pから時間価値を扱う。
+GPU全37–39をCPUへ戻す、bank拡大、ubatch変更、origin修正を同時に重ねない。
+origin修正は今回のclosed timingに必要な前提ではない。新captureは既存の観測on/off検証済み方式で限定する。
+残りvalidation2とholdout5を保存し、既測定3例は以降回帰確認と区別する。
+詳細はASTRA_NEXT_JA.txtとhotpath/HOTPATH_REVIEW_JA.txt。
+最終確認で、現APIには任意active-maskがないことも確認した。同じbankに両候補を置くだけではH1比較にならない。
+既存2cell用のH1_COMPACT/H1_NONCOMPACT固定planを同梱した。各層の個数・型・native bytesを揃え、別fresh processで交差順比較する提案。
+両planはofflineでH1とhashを検査しただけで、実機未実行。production候補ではない。
+
+9. 表示が2個ずつ進む件
+
+初回12 timing blocksで奇数−偶数ordinalの平均時間差は−2.124〜+1.619msと符号が揃わず、
+このdecode記録から安定した2個単位の配信を示す結果は得ていない。不存在の証明でもない。
+API/sampling/UIは計時外。保存自由回答にはjournal書込等が入るため、production streamの代用にしない。
+今後の診断は生成ID ordinal→server送信→client SSE受信→描画を対応付ける。
+token、SSE event、UTF8断片、画面上の文字は異なる単位。異なる機械の時計差にも注意する。
+
+10. 再現
+
+python evidence62/evidence.py /path/to/pinned/repo/archive/review-handoffs-not-for-readers/2026-11-17-validation3
+python parent/independent_review.py /path/to/validation3 /path/to/new-output
+python hotpath/recompute_hotpath.py --repo /path/to/pinned/repo --out /path/to/new-output/hotpath.json
+
+PythonとNumPyを使用。対象repoのPython moduleはimportせず、raw JSON/f32/text/planを読む。
+独立検証を広げる場合も、供給launch commandを自動的に実行する必要はない。
+EVIDENCE / HOTPATH / parent JSONは同梱。公式モデル情報は別紙ASTRA62_BRIEF_JA.txt。
+
+略記
+V = archive/review-handoffs-not-for-readers/2026-11-17-validation3
+P = archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot

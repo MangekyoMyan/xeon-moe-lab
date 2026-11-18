@@ -1,0 +1,184 @@
+
+/workspace/scratch/1f624f9ac929/parent_evaluation/independent_review/round3_snapshot/lib-combosafe/libggml-cpu.so:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+000000000010f4b0 <xeon_iq_input_from_float>:
+  10f4b0:	41 56                	push   r14
+  10f4b2:	41 55                	push   r13
+  10f4b4:	4c 8d aa ff 00 00 00 	lea    r13,[rdx+0xff]
+  10f4bb:	41 54                	push   r12
+  10f4bd:	55                   	push   rbp
+  10f4be:	53                   	push   rbx
+  10f4bf:	48 81 ec 50 01 00 00 	sub    rsp,0x150
+  10f4c6:	48 85 d2             	test   rdx,rdx
+  10f4c9:	4c 0f 49 ea          	cmovns r13,rdx
+  10f4cd:	49 c1 fd 08          	sar    r13,0x8
+  10f4d1:	48 81 fa ff 00 00 00 	cmp    rdx,0xff
+  10f4d8:	0f 8e d5 02 00 00    	jle    10f7b3 <xeon_iq_input_from_float+0x303>
+  10f4de:	48 89 fd             	mov    rbp,rdi
+  10f4e1:	48 89 f3             	mov    rbx,rsi
+  10f4e4:	45 31 e4             	xor    r12d,r12d
+  10f4e7:	4c 8d 74 24 20       	lea    r14,[rsp+0x20]
+  10f4ec:	0f 1f 40 00          	nop    DWORD PTR [rax+0x0]
+  10f4f0:	48 89 ef             	mov    rdi,rbp
+  10f4f3:	ba 00 01 00 00       	mov    edx,0x100
+  10f4f8:	4c 89 f6             	mov    rsi,r14
+  10f4fb:	e8 40 5d f0 ff       	call   15240 <quantize_row_q8_K@plt>
+  10f500:	c5 fa 10 44 24 20    	vmovss xmm0,DWORD PTR [rsp+0x20]
+  10f506:	c5 fa 6f 4c 24 24    	vmovdqu xmm1,XMMWORD PTR [rsp+0x24]
+  10f50c:	c5 79 6f 0d 3c 58 00 	vmovdqa xmm9,XMMWORD PTR [rip+0x583c]        # 114d50 <__func__.1+0x5f0>
+  10f513:	00 
+  10f514:	c5 fa 11 83 80 01 00 	vmovss DWORD PTR [rbx+0x180],xmm0
+  10f51b:	00 
+  10f51c:	c5 f9 6f 3d 1c 58 00 	vmovdqa xmm7,XMMWORD PTR [rip+0x581c]        # 114d40 <__func__.1+0x5e0>
+  10f523:	00 
+  10f524:	c5 f9 71 d1 04       	vpsrlw xmm0,xmm1,0x4
+  10f529:	c4 e2 79 1c c9       	vpabsb xmm1,xmm1
+  10f52e:	c5 fa 7f 4b 10       	vmovdqu XMMWORD PTR [rbx+0x10],xmm1
+  10f533:	c5 fa 6f 74 24 34    	vmovdqu xmm6,XMMWORD PTR [rsp+0x34]
+  10f539:	c4 c1 79 db c1       	vpand  xmm0,xmm0,xmm9
+  10f53e:	c5 7a 6f 74 24 54    	vmovdqu xmm14,XMMWORD PTR [rsp+0x54]
+  10f544:	c5 c9 db d7          	vpand  xmm2,xmm6,xmm7
+  10f548:	c5 f9 eb c2          	vpor   xmm0,xmm0,xmm2
+  10f54c:	c5 fa 7f 03          	vmovdqu XMMWORD PTR [rbx],xmm0
+  10f550:	c5 fa 6f 44 24 44    	vmovdqu xmm0,XMMWORD PTR [rsp+0x44]
+  10f556:	c5 fa 6f 6c 24 64    	vmovdqu xmm5,XMMWORD PTR [rsp+0x64]
+  10f55c:	c5 89 db df          	vpand  xmm3,xmm14,xmm7
+  10f560:	c4 e2 79 1c f6       	vpabsb xmm6,xmm6
+  10f565:	c4 42 79 1c f6       	vpabsb xmm14,xmm14
+  10f56a:	c5 7a 6f 6c 24 74    	vmovdqu xmm13,XMMWORD PTR [rsp+0x74]
+  10f570:	c5 e9 71 d0 04       	vpsrlw xmm2,xmm0,0x4
+  10f575:	c5 fa 7f 73 20       	vmovdqu XMMWORD PTR [rbx+0x20],xmm6
+  10f57a:	c4 e2 79 1c c0       	vpabsb xmm0,xmm0
+  10f57f:	c5 fa 6f a4 24 84 00 	vmovdqu xmm4,XMMWORD PTR [rsp+0x84]
+  10f586:	00 00 
+  10f588:	c4 c1 69 db d1       	vpand  xmm2,xmm2,xmm9
+  10f58d:	c5 e9 eb d3          	vpor   xmm2,xmm2,xmm3
+  10f591:	c5 fa 7f 53 30       	vmovdqu XMMWORD PTR [rbx+0x30],xmm2
+  10f596:	c5 e9 71 d5 04       	vpsrlw xmm2,xmm5,0x4
+  10f59b:	c5 91 db df          	vpand  xmm3,xmm13,xmm7
+  10f59f:	c5 7a 6f a4 24 94 00 	vmovdqu xmm12,XMMWORD PTR [rsp+0x94]
+  10f5a6:	00 00 
+  10f5a8:	c5 fa 7f 43 40       	vmovdqu XMMWORD PTR [rbx+0x40],xmm0
+  10f5ad:	c4 c1 69 db d1       	vpand  xmm2,xmm2,xmm9
+  10f5b2:	c5 e9 eb d3          	vpor   xmm2,xmm2,xmm3
+  10f5b6:	c5 fa 7f 53 60       	vmovdqu XMMWORD PTR [rbx+0x60],xmm2
+  10f5bb:	c5 e9 71 d4 04       	vpsrlw xmm2,xmm4,0x4
+  10f5c0:	c5 99 db df          	vpand  xmm3,xmm12,xmm7
+  10f5c4:	c4 c1 69 db d1       	vpand  xmm2,xmm2,xmm9
+  10f5c9:	c5 e9 eb d3          	vpor   xmm2,xmm2,xmm3
+  10f5cd:	c5 fa 6f 9c 24 a4 00 	vmovdqu xmm3,XMMWORD PTR [rsp+0xa4]
+  10f5d4:	00 00 
+  10f5d6:	c5 7a 7f 73 50       	vmovdqu XMMWORD PTR [rbx+0x50],xmm14
+  10f5db:	c4 e2 79 1c ed       	vpabsb xmm5,xmm5
+  10f5e0:	c4 42 79 1c ed       	vpabsb xmm13,xmm13
+  10f5e5:	c5 7a 6f 9c 24 b4 00 	vmovdqu xmm11,XMMWORD PTR [rsp+0xb4]
+  10f5ec:	00 00 
+  10f5ee:	c5 fa 7f 6b 70       	vmovdqu XMMWORD PTR [rbx+0x70],xmm5
+  10f5f3:	c4 e2 79 1c e4       	vpabsb xmm4,xmm4
+  10f5f8:	c4 42 79 1c e4       	vpabsb xmm12,xmm12
+  10f5fd:	c4 c1 79 eb c6       	vpor   xmm0,xmm0,xmm14
+  10f602:	c5 fa 7f 93 90 00 00 	vmovdqu XMMWORD PTR [rbx+0x90],xmm2
+  10f609:	00 
+  10f60a:	c5 21 db c7          	vpand  xmm8,xmm11,xmm7
+  10f60e:	c4 c1 79 eb c5       	vpor   xmm0,xmm0,xmm13
+  10f613:	c5 e9 71 d3 04       	vpsrlw xmm2,xmm3,0x4
+  10f618:	c4 c1 69 db d1       	vpand  xmm2,xmm2,xmm9
+  10f61d:	c4 c1 69 eb d0       	vpor   xmm2,xmm2,xmm8
+  10f622:	c4 e2 79 1c db       	vpabsb xmm3,xmm3
+  10f627:	c5 fa 7f 93 c0 00 00 	vmovdqu XMMWORD PTR [rbx+0xc0],xmm2
+  10f62e:	00 
+  10f62f:	c5 f9 7f 1c 24       	vmovdqa XMMWORD PTR [rsp],xmm3
+  10f634:	c5 f9 6f 14 24       	vmovdqa xmm2,XMMWORD PTR [rsp]
+  10f639:	c4 c1 79 eb c4       	vpor   xmm0,xmm0,xmm12
+  10f63e:	c4 42 79 1c db       	vpabsb xmm11,xmm11
+  10f643:	c5 fa 6f 9c 24 c4 00 	vmovdqu xmm3,XMMWORD PTR [rsp+0xc4]
+  10f64a:	00 00 
+  10f64c:	c5 7a 7f ab 80 00 00 	vmovdqu XMMWORD PTR [rbx+0x80],xmm13
+  10f653:	00 
+  10f654:	c4 c1 79 eb c3       	vpor   xmm0,xmm0,xmm11
+  10f659:	c5 fa 7f 93 d0 00 00 	vmovdqu XMMWORD PTR [rbx+0xd0],xmm2
+  10f660:	00 
+  10f661:	c5 fa 7f a3 a0 00 00 	vmovdqu XMMWORD PTR [rbx+0xa0],xmm4
+  10f668:	00 
+  10f669:	c5 e9 71 d3 04       	vpsrlw xmm2,xmm3,0x4
+  10f66e:	c5 7a 7f a3 b0 00 00 	vmovdqu XMMWORD PTR [rbx+0xb0],xmm12
+  10f675:	00 
+  10f676:	c4 c1 69 db d1       	vpand  xmm2,xmm2,xmm9
+  10f67b:	c5 7a 7f 9b e0 00 00 	vmovdqu XMMWORD PTR [rbx+0xe0],xmm11
+  10f682:	00 
+  10f683:	c5 7a 6f 94 24 d4 00 	vmovdqu xmm10,XMMWORD PTR [rsp+0xd4]
+  10f68a:	00 00 
+  10f68c:	c5 29 db c7          	vpand  xmm8,xmm10,xmm7
+  10f690:	c4 c1 69 eb d0       	vpor   xmm2,xmm2,xmm8
+  10f695:	c5 fa 7f 93 f0 00 00 	vmovdqu XMMWORD PTR [rbx+0xf0],xmm2
+  10f69c:	00 
+  10f69d:	c4 e2 79 1c d3       	vpabsb xmm2,xmm3
+  10f6a2:	c5 f9 7f 54 24 10    	vmovdqa XMMWORD PTR [rsp+0x10],xmm2
+  10f6a8:	c5 79 6f 7c 24 10    	vmovdqa xmm15,XMMWORD PTR [rsp+0x10]
+  10f6ae:	c4 42 79 1c d2       	vpabsb xmm10,xmm10
+  10f6b3:	c4 c1 79 eb c2       	vpor   xmm0,xmm0,xmm10
+  10f6b8:	c5 fa 6f 9c 24 e4 00 	vmovdqu xmm3,XMMWORD PTR [rsp+0xe4]
+  10f6bf:	00 00 
+  10f6c1:	c5 7a 7f 93 10 01 00 	vmovdqu XMMWORD PTR [rbx+0x110],xmm10
+  10f6c8:	00 
+  10f6c9:	c5 7a 7f bb 00 01 00 	vmovdqu XMMWORD PTR [rbx+0x100],xmm15
+  10f6d0:	00 
+  10f6d1:	c5 7a 6f bc 24 f4 00 	vmovdqu xmm15,XMMWORD PTR [rsp+0xf4]
+  10f6d8:	00 00 
+  10f6da:	c5 e9 71 d3 04       	vpsrlw xmm2,xmm3,0x4
+  10f6df:	c4 e2 79 1c db       	vpabsb xmm3,xmm3
+  10f6e4:	c5 fa 7f 9b 30 01 00 	vmovdqu XMMWORD PTR [rbx+0x130],xmm3
+  10f6eb:	00 
+  10f6ec:	c5 01 db c7          	vpand  xmm8,xmm15,xmm7
+  10f6f0:	c4 c1 69 db d1       	vpand  xmm2,xmm2,xmm9
+  10f6f5:	c4 c1 69 eb d0       	vpor   xmm2,xmm2,xmm8
+  10f6fa:	c5 7a 6f 84 24 04 01 	vmovdqu xmm8,XMMWORD PTR [rsp+0x104]
+  10f701:	00 00 
+  10f703:	c5 fa 7f 93 20 01 00 	vmovdqu XMMWORD PTR [rbx+0x120],xmm2
+  10f70a:	00 
+  10f70b:	c4 42 79 1c ff       	vpabsb xmm15,xmm15
+  10f710:	c4 c1 79 eb c7       	vpor   xmm0,xmm0,xmm15
+  10f715:	c4 c1 69 71 d0 04    	vpsrlw xmm2,xmm8,0x4
+  10f71b:	c5 7a 7f bb 40 01 00 	vmovdqu XMMWORD PTR [rbx+0x140],xmm15
+  10f722:	00 
+  10f723:	c5 41 db 84 24 14 01 	vpand  xmm8,xmm7,XMMWORD PTR [rsp+0x114]
+  10f72a:	00 00 
+  10f72c:	c4 c1 69 db d1       	vpand  xmm2,xmm2,xmm9
+  10f731:	c4 c1 69 eb d0       	vpor   xmm2,xmm2,xmm8
+  10f736:	c5 fa 7f 93 50 01 00 	vmovdqu XMMWORD PTR [rbx+0x150],xmm2
+  10f73d:	00 
+  10f73e:	c4 62 79 1c 84 24 14 	vpabsb xmm8,XMMWORD PTR [rsp+0x114]
+  10f745:	01 00 00 
+  10f748:	c4 e2 79 1c 94 24 04 	vpabsb xmm2,XMMWORD PTR [rsp+0x104]
+  10f74f:	01 00 00 
+  10f752:	c5 7a 7f 83 70 01 00 	vmovdqu XMMWORD PTR [rbx+0x170],xmm8
+  10f759:	00 
+  10f75a:	c4 41 79 eb c0       	vpor   xmm8,xmm0,xmm8
+  10f75f:	c5 f1 eb c6          	vpor   xmm0,xmm1,xmm6
+  10f763:	c5 f9 eb c5          	vpor   xmm0,xmm0,xmm5
+  10f767:	c5 f9 eb c4          	vpor   xmm0,xmm0,xmm4
+  10f76b:	c5 f9 eb 04 24       	vpor   xmm0,xmm0,XMMWORD PTR [rsp]
+  10f770:	c5 f9 eb 44 24 10    	vpor   xmm0,xmm0,XMMWORD PTR [rsp+0x10]
+  10f776:	c5 f9 eb c3          	vpor   xmm0,xmm0,xmm3
+  10f77a:	c5 f9 eb c2          	vpor   xmm0,xmm0,xmm2
+  10f77e:	c5 39 eb c0          	vpor   xmm8,xmm8,xmm0
+  10f782:	c4 c1 79 d7 c0       	vpmovmskb eax,xmm8
+  10f787:	85 c0                	test   eax,eax
+  10f789:	c5 fa 7f 93 60 01 00 	vmovdqu XMMWORD PTR [rbx+0x160],xmm2
+  10f790:	00 
+  10f791:	0f 95 83 84 01 00 00 	setne  BYTE PTR [rbx+0x184]
+  10f798:	49 83 c4 01          	add    r12,0x1
+  10f79c:	48 81 c5 00 04 00 00 	add    rbp,0x400
+  10f7a3:	48 81 c3 90 01 00 00 	add    rbx,0x190
+  10f7aa:	4d 39 ec             	cmp    r12,r13
+  10f7ad:	0f 8c 3d fd ff ff    	jl     10f4f0 <xeon_iq_input_from_float+0x40>
+  10f7b3:	48 81 c4 50 01 00 00 	add    rsp,0x150
+  10f7ba:	5b                   	pop    rbx
+  10f7bb:	5d                   	pop    rbp
+  10f7bc:	41 5c                	pop    r12
+  10f7be:	41 5d                	pop    r13
+  10f7c0:	41 5e                	pop    r14
+  10f7c2:	c3                   	ret
