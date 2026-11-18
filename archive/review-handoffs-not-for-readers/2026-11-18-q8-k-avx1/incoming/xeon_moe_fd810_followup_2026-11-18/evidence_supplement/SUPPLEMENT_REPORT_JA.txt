@@ -1,0 +1,69 @@
+fd810受領レビューへの、保存出力の証拠補完
+2026-11-18 JST
+担当: /root/fd810_evidence_completion
+
+1. 指摘の受け取り
+
+実機側レビューは、前のZIPに最終候補と混在の全出力binaryがなく、その受領側ではCSVのhashと当時の照合記録までしか確認していない、と明記しています。
+今回こちらは、元VMに残るファイルを読んで、この確認範囲を直接の全byte比較まで広げられる資料を作りました。過去の実機側レビューが確認不足だったという意味ではありません。
+
+原指摘:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/fd810448288929991a74b61208e64821f4ba7654/archive/review-handoffs-not-for-readers/2026-11-18-combined-handoff/ROOT_REVIEW_JA.txt
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/fd810448288929991a74b61208e64821f4ba7654/archive/review-handoffs-not-for-readers/2026-11-18-combined-handoff/EVIDENCE_REVIEW_TERRA.txt
+
+2. 発見した保存物と照合先
+
+A. 最終5variantの30dump
+  元保存先: astra62_max_trial/work/final-evidence/{variant}-{suite}.bin
+  variant: baseline, route2, q8, iqsafe, combosafe。
+  suite: check, edges, round0, round1, round2, round3。
+  全30ファイルが存在し、outputs/RUN_MANIFEST.jsonのsha256_by_dumpと、親のFINAL_ARTIFACT_VERIFICATION.jsonのSHA/サイズに一致しました。
+  対応する30CSVもRUN_MANIFESTのsha256_by_csvと一致しています。
+
+B. 混在20組の40dump
+  元保存先: astra62_max_trial/work/mixed-run/{mask}-{mode}-{base|mixed}.bin
+  5mask×4丸め×2版の全40ファイルが存在しました。
+  outputs/raw/route37-fixture/hashes.txt、親のSOURCE_FILE_IDENTITIES.json、RECHECK_SAVED_ARTIFACTS.jsonの記録と一致しました。
+  元のrun別40CSV、統合cases.csv、fixture-comparison.csvをコピーし、行順と内容の対応を確認しました。
+
+C. 経路計数版の10dump
+  元保存先: astra62_max_trial/work/mixed-run/instrumented-{base|mixed}-{mask}.bin
+  nearestだけの10ファイルが存在し、親の保存identityに一致しました。対応する非計数版の全byteと一致しました。
+  計数CSVは保存記録を添付しています。出力一致だけから経路の実行回数を推定し直したものではありません。
+
+必要とされた30+40ファイルに欠落はありませんでした。補助の10を含む80dumpを各保存ファイルからgzip圧縮しています。非圧縮計7,638,900 bytes、gzip計3,651,100 bytes。mtime=0のgzipとし、元ファイルの更新時刻は来歴としてINDEXへ記録しました。
+
+3. 今回の独立読取検算
+
+verify_saved_outputs.pyは、今回自作した標準Pythonによる読取検算です。既存のprobe、build/reproduce script、エンジン、提供DSOは実行していません。
+
+行ったこと:
+・全80gzipのサイズと圧縮SHA、解凍後サイズとSHAを照合。
+・最終版のdump/CSVを旧RUN_MANIFESTと親の旧照合記録へ対応付け。
+・通常/境界CSVのrows×slots×tokensから各グラフのbyte範囲を計算。
+・丸め/混在では49行×6slots×1tokenを一つの出力範囲として、CSVの行順で区切る。
+・各範囲のFNV-1a 64-bit hashを実byteから計算し、CSVの保存hashへ照合。全4,290範囲で一致。
+・最終版の同じsuite・同じ条件でbaseline対4候補の全byteを比較。6suite×4候補=24比較で一致。
+・混在CSVの重複/欠落、run別CSVと統合CSVの対応を調べ、20組の全byteを比較。一致。
+・計数版10出力と対応するnearest非計数出力を比較。一致。
+
+数え方:
+  最終版は1variantあたり通常153+境界33+丸め4×48=378グラフ、240,825 F32出力。
+  うち通常+境界は従来どおり186グラフ、184,377出力。丸め各modeは48グラフ、14,112出力。
+  混在はCSV1,920行=960対のグラフで、比較した出力は282,240値。1,920独立対ではありません。
+  全4,290 hash照合は最終5版の1,890範囲、混在1,920範囲、計数版480範囲の合計です。同じ入力を複数実装で比べているため、独立した課題数として足し合わせません。
+
+結果: 全検算に合格。実際のJSON出力はVERIFICATION_RESULT.jsonです。
+
+4. 証拠の限界を維持する
+
+既存のVM試行の出力を届け直した作業であり、新しい数値試験、速度試験、GPU試験、実モデル試験ではありません。
+以前配布したbaseline代表6gzipと同一の出力を再び含めています。前のZIPに実体のなかった4候補24dump・混在40dump・計数10dumpを、新たに直接読める形で添付しています。
+保存byteとhashの一致は、過去の実行プロセスの完全な認証ではありません。DSO/build/実行対応は旧RUN_MANIFESTや親の機能監査の記録に依拠する部分が残ります。DSO実体は今回も収録しません。
+混在fixtureが実cacheの確保・pointer寿命・MXFP4 prepack・通常APIまで通ったという意味にはなりません。実機での再buildと適切な対照は引き続き必要です。
+
+5. 出典の再利用可能性
+
+INDEX.jsonは全dumpとCSV/manifestの対応を相対pathで持ちます。原workspaceの絶対pathは来歴の文字列だけで、読取プログラムの実行には不要です。
+support_filesのうち48ファイルは、既に配布したastra62_max_trialパッケージの同名資料とbyte一致を確認しました。元run別CSV40ファイルは、既存SOURCE_FILE_IDENTITIES.jsonのhashと照合しました。
+このフォルダを移動しても、Python 3.9以降でverify_saved_outputs.pyを実行すれば同じ保存出力比較を行えます。

@@ -1,0 +1,1880 @@
+{
+  "scope_ja": "依頼のあった静的構成だけを抽出。2026-11-17保存資料と11-05ハードウェア/起動テンプレートに基づく。現在の実機を新たに観測したものではない。速度、品質、過去の案、実装履歴は含まない。",
+  "hardware": {
+    "Architecture": "x86_64",
+    "CPU(s)": "24",
+    "Model name": "Intel(R) Xeon(R) CPU E5-2630L v2 @ 2.40GHz",
+    "Socket(s)": "2",
+    "Core(s) per socket": "6",
+    "Thread(s) per core": "2",
+    "NUMA node(s)": "2"
+  },
+  "memory_memtotal_kib": 528334420,
+  "recorded_runtime": {
+    "decode_threads": 12,
+    "batch_threads": 24,
+    "replay_worker_cpu_affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "numa_nodes_hardware": 2,
+    "older_template_cpu_binding": "0-23",
+    "older_template_memory_policy": "interleave nodes 0,1",
+    "caution_ja": "起動テンプレートのNUMA方針は確認できるが、この抜粋だけで11-17実測時の全ページ配置までは断定しない。"
+  },
+  "expert_shapes": {
+    "selected_experts_per_token": 6,
+    "total_experts_per_layer": 384,
+    "gate_up": {
+      "K": 5120,
+      "M": 2304
+    },
+    "down": {
+      "K": 2304,
+      "M": 5120
+    }
+  },
+  "native_expert_inventory": [
+    {
+      "layer": 0,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.0.ffn_gate_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.0.ffn_up_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.0.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 1,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.1.ffn_gate_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.1.ffn_up_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.1.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 2,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.2.ffn_gate_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.2.ffn_up_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.2.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 3,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.3.ffn_gate_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.3.ffn_up_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.3.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 4,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.4.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.4.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.4.ffn_down_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 5,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.5.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.5.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.5.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 6,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.6.ffn_gate_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.6.ffn_up_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.6.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 7,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.7.ffn_gate_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.7.ffn_up_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.7.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 8,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.8.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.8.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.8.ffn_down_exps.weight",
+          "type": "iq2_s",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 9,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.9.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.9.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.9.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 10,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.10.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.10.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.10.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 11,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.11.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.11.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.11.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 12,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.12.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.12.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.12.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 13,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.13.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.13.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.13.ffn_down_exps.weight",
+          "type": "iq3_s",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 14,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.14.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.14.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.14.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 15,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.15.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.15.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.15.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 16,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.16.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.16.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.16.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 17,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.17.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.17.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.17.ffn_down_exps.weight",
+          "type": "iq3_s",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 18,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.18.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.18.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.18.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 19,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.19.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.19.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.19.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 20,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.20.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.20.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.20.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 21,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.21.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.21.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.21.ffn_down_exps.weight",
+          "type": "iq3_s",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 22,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.22.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.22.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.22.ffn_down_exps.weight",
+          "type": "iq3_s",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 23,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.23.ffn_gate_exps.weight",
+          "type": "iq3_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.23.ffn_up_exps.weight",
+          "type": "iq3_s",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.23.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 24,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.24.ffn_gate_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.24.ffn_up_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.24.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 25,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.25.ffn_gate_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.25.ffn_up_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.25.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 26,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.26.ffn_gate_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.26.ffn_up_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.26.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 27,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.27.ffn_gate_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.27.ffn_up_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.27.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 28,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.28.ffn_gate_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.28.ffn_up_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.28.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 29,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.29.ffn_gate_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.29.ffn_up_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.29.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 30,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.30.ffn_gate_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.30.ffn_up_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.30.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 31,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.31.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.31.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.31.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 32,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.32.ffn_gate_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.32.ffn_up_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.32.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 33,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.33.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.33.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.33.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 34,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.34.ffn_gate_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.34.ffn_up_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.34.ffn_down_exps.weight",
+          "type": "iq3_s",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 35,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.35.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.35.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.35.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 36,
+      "host": true,
+      "projections": [
+        {
+          "name": "blk.36.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.36.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.36.ffn_down_exps.weight",
+          "type": "iq3_s",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 37,
+      "host": false,
+      "projections": [
+        {
+          "name": "blk.37.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.37.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.37.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 38,
+      "host": false,
+      "projections": [
+        {
+          "name": "blk.38.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.38.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.38.ffn_down_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    },
+    {
+      "layer": 39,
+      "host": false,
+      "projections": [
+        {
+          "name": "blk.39.ffn_gate_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.39.ffn_up_exps.weight",
+          "type": "iq3_xxs",
+          "ne": [
+            5120,
+            2304,
+            384,
+            1
+          ],
+          "contiguous": true
+        },
+        {
+          "name": "blk.39.ffn_down_exps.weight",
+          "type": "mxfp4",
+          "ne": [
+            2304,
+            5120,
+            384,
+            1
+          ],
+          "contiguous": true
+        }
+      ]
+    }
+  ],
+  "compact_observed_subset": [
+    {
+      "layer": 7,
+      "name": "blk.7.ffn_gate_exps.weight",
+      "type": "iq2_s",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        5,
+        6
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 7,
+      "name": "blk.7.ffn_up_exps.weight",
+      "type": "iq2_s",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        5,
+        6
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 7,
+      "name": "blk.7.ffn_down_exps.weight",
+      "type": "iq3_xxs",
+      "ne": [
+        2304,
+        5120,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        5,
+        6
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 35,
+      "name": "blk.35.ffn_gate_exps.weight",
+      "type": "iq3_xxs",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        5
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 35,
+      "name": "blk.35.ffn_up_exps.weight",
+      "type": "iq3_xxs",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        5
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 35,
+      "name": "blk.35.ffn_down_exps.weight",
+      "type": "iq3_xxs",
+      "ne": [
+        2304,
+        5120,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        5
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 13,
+      "name": "blk.13.ffn_gate_exps.weight",
+      "type": "iq3_xxs",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        6
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 13,
+      "name": "blk.13.ffn_up_exps.weight",
+      "type": "iq3_xxs",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        6
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 13,
+      "name": "blk.13.ffn_down_exps.weight",
+      "type": "iq3_s",
+      "ne": [
+        2304,
+        5120,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        6
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 28,
+      "name": "blk.28.ffn_gate_exps.weight",
+      "type": "mxfp4",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        0
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 28,
+      "name": "blk.28.ffn_up_exps.weight",
+      "type": "mxfp4",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        0
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 28,
+      "name": "blk.28.ffn_down_exps.weight",
+      "type": "mxfp4",
+      "ne": [
+        2304,
+        5120,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        0
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 20,
+      "name": "blk.20.ffn_gate_exps.weight",
+      "type": "iq3_xxs",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        6
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 20,
+      "name": "blk.20.ffn_up_exps.weight",
+      "type": "iq3_xxs",
+      "ne": [
+        5120,
+        2304,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        6
+      ],
+      "selected_count": 6
+    },
+    {
+      "layer": 20,
+      "name": "blk.20.ffn_down_exps.weight",
+      "type": "mxfp4",
+      "ne": [
+        2304,
+        5120,
+        384,
+        1
+      ],
+      "observed_compact_selected_counts": [
+        0
+      ],
+      "selected_count": 6
+    }
+  ],
+  "compact_scope_caution_ja": "観測済み選択集合ではIQ2_S/IQ3_XXS/IQ3_Sにcompactがある。同一tensorでも選ばれたexpertによって有無が混在する例がある。MXFP4の観測集合はcompactなし。これは全expertの常駐一覧ではない。",
+  "provenance": [
+    {
+      "local_name": "CHECKPOINT.json",
+      "git_commit": "37f6390c9a5bc594658127651e204ab11420cd71",
+      "git_blob": "b57b12a5e14ef0b660ea942f15878a7f70a536b7",
+      "paths": [
+        "archive/development-history-not-for-readers/lab/baseline-e52630lv2-20261105/CHECKPOINT.json",
+        "archive/review-handoffs-not-for-readers/2026-11-16-current/public-baseline/profiles/e5-2630lv2-512gb/CHECKPOINT.json",
+        "profiles/e5-2630lv2-512gb/CHECKPOINT.json"
+      ],
+      "sha256": "b8b370049712f3012c82fc8b66d217192e5c984e77046e252e0c6c3d037b2f32"
+    },
+    {
+      "local_name": "server-config.template.json",
+      "git_commit": "37f6390c9a5bc594658127651e204ab11420cd71",
+      "git_blob": "2acb24f83e8ecb8c1ea4fe564b2d0bf6a430d1f3",
+      "paths": [
+        "profiles/e5-2630lv2-512gb/server-config.template.json"
+      ],
+      "sha256": "02abd68ab43663ffbdfc2de3ed3243d4423a7ac8b18c38a25368b247aa15d8ba"
+    },
+    {
+      "local_name": "REPLAY_RUN.json",
+      "git_commit": "37f6390c9a5bc594658127651e204ab11420cd71",
+      "git_blob": "a53be2ab0b27afdda2c1d771b213170fdb5675ee",
+      "paths": [
+        "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/replay/runs/20261117T053052Z-U1024-1563d936/RUN.json"
+      ],
+      "sha256": "1d67479dbcf9bb6e27003c178f1d561f5f5f3e12266bfda7336508fec2cd4dfb"
+    },
+    {
+      "local_name": "REPLAY.json",
+      "git_commit": "37f6390c9a5bc594658127651e204ab11420cd71",
+      "git_blob": "f2d3e350b77b3593e47ae7b2b1f6bdcd569ca7d0",
+      "paths": [
+        "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/replay/runs/20261117T053052Z-U1024-1563d936/REPLAY.json"
+      ],
+      "sha256": "25b0a2f33471f469e3472df6fd4b8b14a59e4ed4eed6263582997fcc191287c8"
+    }
+  ]
+}

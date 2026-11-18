@@ -1,0 +1,160 @@
+{
+  "scope": "integer algebra only; independent of candidate code; no benchmark",
+  "sent_to_candidate_before_initial_implementation": false,
+  "source": "Published compact-kernel.inc and iq-small-kernels.inc LUTs",
+  "finding": "Packed activation-sign XOR is equivalent for all input int8 values except the legacy minus128 sign-negation edge. A legacy-equivalent path must handle that edge explicitly.",
+  "results": [
+    {
+      "type": "IQ3_XXS",
+      "all_int8_except_minus128_single_products_checked": 4080,
+      "packed_pair_samples_checked": 12544,
+      "minus128_requires_fallback_for_legacy_equivalence": [
+        {
+          "code": 8,
+          "weight": -4,
+          "old": -512,
+          "folded": 512
+        },
+        {
+          "code": 9,
+          "weight": -12,
+          "old": -1536,
+          "folded": 1536
+        },
+        {
+          "code": 10,
+          "weight": -20,
+          "old": -2560,
+          "folded": 2560
+        },
+        {
+          "code": 11,
+          "weight": -28,
+          "old": -3584,
+          "folded": 3584
+        },
+        {
+          "code": 12,
+          "weight": -36,
+          "old": -4608,
+          "folded": 4608
+        },
+        {
+          "code": 13,
+          "weight": -44,
+          "old": -5632,
+          "folded": 5632
+        },
+        {
+          "code": 14,
+          "weight": -52,
+          "old": -6656,
+          "folded": 6656
+        },
+        {
+          "code": 15,
+          "weight": -62,
+          "old": -7936,
+          "folded": 7936
+        }
+      ],
+      "maximum_pair_product_magnitude_at_127": 15748,
+      "maximum_pair_product_magnitude_at_128": 15872,
+      "signed_int16_saturation_possible_for_two_terms": false
+    },
+    {
+      "type": "IQ2_S",
+      "all_int8_except_minus128_single_products_checked": 4080,
+      "packed_pair_samples_checked": 12544,
+      "minus128_requires_fallback_for_legacy_equivalence": [
+        {
+          "code": 8,
+          "weight": -8,
+          "old": -1024,
+          "folded": 1024
+        },
+        {
+          "code": 9,
+          "weight": -25,
+          "old": -3200,
+          "folded": 3200
+        },
+        {
+          "code": 10,
+          "weight": -43,
+          "old": -5504,
+          "folded": 5504
+        }
+      ],
+      "maximum_pair_product_magnitude_at_127": 10922,
+      "maximum_pair_product_magnitude_at_128": 11008,
+      "signed_int16_saturation_possible_for_two_terms": false
+    },
+    {
+      "type": "IQ3_S",
+      "all_int8_except_minus128_single_products_checked": 4080,
+      "packed_pair_samples_checked": 12544,
+      "minus128_requires_fallback_for_legacy_equivalence": [
+        {
+          "code": 8,
+          "weight": -1,
+          "old": -128,
+          "folded": 128
+        },
+        {
+          "code": 9,
+          "weight": -3,
+          "old": -384,
+          "folded": 384
+        },
+        {
+          "code": 10,
+          "weight": -5,
+          "old": -640,
+          "folded": 640
+        },
+        {
+          "code": 11,
+          "weight": -7,
+          "old": -896,
+          "folded": 896
+        },
+        {
+          "code": 12,
+          "weight": -9,
+          "old": -1152,
+          "folded": 1152
+        },
+        {
+          "code": 13,
+          "weight": -11,
+          "old": -1408,
+          "folded": 1408
+        },
+        {
+          "code": 14,
+          "weight": -13,
+          "old": -1664,
+          "folded": 1664
+        },
+        {
+          "code": 15,
+          "weight": -15,
+          "old": -1920,
+          "folded": 1920
+        }
+      ],
+      "maximum_pair_product_magnitude_at_127": 3810,
+      "maximum_pair_product_magnitude_at_128": 3840,
+      "signed_int16_saturation_possible_for_two_terms": false
+    }
+  ],
+  "not_proved": [
+    "candidate implementation",
+    "alignment and planner",
+    "floating-point accumulation order",
+    "non-finite handling",
+    "performance",
+    "actual-machine applicability"
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "system": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "compiler": "gcc (Debian 14.2.0-19) 14.2.0",
+  "cpu_threads_visible": 9,
+  "model": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "cpus_allowed": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "memory_nodes_allowed": "0",
+  "runtime_env": {
+    "OMP_DYNAMIC": "FALSE",
+    "OMP_PROC_BIND": "FALSE",
+    "GGML_CPU_IQ_ROW_LOCAL": "0",
+    "GGML_CPU_TILED_MM": "unset",
+    "GGML_CPU_TILED_MM_FORCE": "unset",
+    "LD_PRELOAD": "count_paths.so only for numerical runs; unset for timing"
+  },
+  "probe_sha256": "67fb1cb9994c14dc2d5d3bec59acf708a7c03c474417657935b3391f6ea65653",
+  "counter_sha256": "433224ef1bacc02495ec0ece161f7262b76efbc21bfe306d4af88d7ddeee4391",
+  "protocol_sha256": "c770123a97e07054ca944dcc9c7e1b65f6eb6235c2d62b7fe176345178aa69a4",
+  "run_trials_sha256": "986df383f767c933ebd27af435997493d0cf6b1d087831a7b87493088df6c4e7",
+  "variants": {
+    "current": {
+      "cpu_elf_sha256": "1202c7a89087cc27c697cf09ab5bb4f801fbd9ed2485cacbb6f94e3570784bec",
+      "cpu_loaded_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-current/bin/libggml-cpu.so.0.28.0",
+      "base_elf_sha256": "1229f79a41c8cb219c774e50bcc9bd3c4ca050ac88fd94da7502cbb1d4f0c906",
+      "base_loaded_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-current/bin/libggml-base.so.0.28.0",
+      "patch_sha256": {},
+      "compiled_source_sha256": {
+        "ggml/src/ggml-cpu/ggml-cpu.c": "e8fdf3d424463f9852fa774d9de6057dce35855a872936bda87d12d3d756e3a8",
+        "xeon-local/iq3-cache.cpp": "2e1dde95812671f12eacdddb83e181154db1927907933f71478221f006ecc15e",
+        "xeon-local/iq3-cache.h": "7db88449073d5e60274f9414acecf5916eb2ceb6aa52161f5a19093b0a4550b8",
+        "xeon-local/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+        "xeon-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+        "xeon-local/mx-math.inc": "15fc828d91312ed6edbba454e97e26aa546d31db179e5f1b9648406312c79c0b",
+        "xeon-local/mx-rhs.cpp": "1a6ebc4650fd58a6ccabea5fcf3f5fd52d38b6537f0a4ac2c0bfd6b67091123c",
+        "xeon-local/mx-rhs.h": "06f481d18e0d079b083b905c474de1aaf8db625a3398d7fb6c7bad0a4bbd6d62",
+        "xeon-local/placement.inc": "1d02b034b3d94f7f0117266772950d2b8b0f06f7321a314aea0b642f56114fe9",
+        "ggml/src/ggml-cpu/arch/x86/quants.c": "a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7",
+        "ggml/src/ggml-quants.c": "bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73",
+        "CMakeLists.txt": "22f76a052cacb3f2b5591c9ad57d46d32fd8b224b0cc00e4d2ab462f73f0f116"
+      },
+      "maps": "maps-current.txt",
+      "compiled_objects": "compile-current.json",
+      "link": "link-current.txt",
+      "q8_wrapper": "q8-wrapper-current.txt",
+      "symbols": "symbols-current.txt"
+    },
+    "08": {
+      "cpu_elf_sha256": "9ad210e0b8464aefcf98f91a281558626fd9943af98365dca08261f271b50a53",
+      "cpu_loaded_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-08/bin/libggml-cpu.so.0.28.0",
+      "base_elf_sha256": "1229f79a41c8cb219c774e50bcc9bd3c4ca050ac88fd94da7502cbb1d4f0c906",
+      "base_loaded_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-current/bin/libggml-base.so.0.28.0",
+      "patch_sha256": {
+        "08-current-mixed.patch": "cad2e24dea2bc3bfa8d3dc1dd43c2d7930159889dbd49c4f2c4dda4052cbd6a3"
+      },
+      "compiled_source_sha256": {
+        "ggml/src/ggml-cpu/ggml-cpu.c": "f10c89fda42d3537ae64e74da1a9241efdccf36dd5554d6fa58f8c9bdf836704",
+        "xeon-local/iq3-cache.cpp": "d4bd6dc865cf8fefabff7d08ea02b1e2c21a0422680f86032e31029ac49a11dd",
+        "xeon-local/iq3-cache.h": "8dcaac343867d283f000763c63a44283f38448585c7b99e85c168a723eafea28",
+        "xeon-local/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+        "xeon-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+        "xeon-local/mx-math.inc": "15fc828d91312ed6edbba454e97e26aa546d31db179e5f1b9648406312c79c0b",
+        "xeon-local/mx-rhs.cpp": "1a6ebc4650fd58a6ccabea5fcf3f5fd52d38b6537f0a4ac2c0bfd6b67091123c",
+        "xeon-local/mx-rhs.h": "06f481d18e0d079b083b905c474de1aaf8db625a3398d7fb6c7bad0a4bbd6d62",
+        "xeon-local/placement.inc": "1d02b034b3d94f7f0117266772950d2b8b0f06f7321a314aea0b642f56114fe9",
+        "ggml/src/ggml-cpu/arch/x86/quants.c": "a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7",
+        "ggml/src/ggml-quants.c": "bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73",
+        "CMakeLists.txt": "22f76a052cacb3f2b5591c9ad57d46d32fd8b224b0cc00e4d2ab462f73f0f116",
+        "xeon-local/folded-input.inc": "b6fbf1905cca342896729c2bed2905bd0abaef9d1352b7c8ed753cd0fc4f5d9a"
+      },
+      "maps": "maps-08.txt",
+      "compiled_objects": "compile-08.json",
+      "link": "link-08.txt",
+      "q8_wrapper": "q8-wrapper-08.txt",
+      "symbols": "symbols-08.txt"
+    },
+    "09": {
+      "cpu_elf_sha256": "d11522e703341d9bc9b78c32cb87ffb1815f53fe85e8131d2925abfe8f5e5ae3",
+      "cpu_loaded_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-09/bin/libggml-cpu.so.0.28.0",
+      "base_elf_sha256": "1229f79a41c8cb219c774e50bcc9bd3c4ca050ac88fd94da7502cbb1d4f0c906",
+      "base_loaded_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-current/bin/libggml-base.so.0.28.0",
+      "patch_sha256": {
+        "08-current-mixed.patch": "cad2e24dea2bc3bfa8d3dc1dd43c2d7930159889dbd49c4f2c4dda4052cbd6a3",
+        "09-selected-input-only.patch": "fdb845021a5b3a5a515f5ad700bf09dd0b60ac41db2a1ca35dc6b4af7d0bf7a5"
+      },
+      "compiled_source_sha256": {
+        "ggml/src/ggml-cpu/ggml-cpu.c": "5b7f570ed62a51062d3417ffda0f3722c94b17125fdc17a957307d364bb26da9",
+        "xeon-local/iq3-cache.cpp": "d4bd6dc865cf8fefabff7d08ea02b1e2c21a0422680f86032e31029ac49a11dd",
+        "xeon-local/iq3-cache.h": "8dcaac343867d283f000763c63a44283f38448585c7b99e85c168a723eafea28",
+        "xeon-local/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+        "xeon-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+        "xeon-local/mx-math.inc": "15fc828d91312ed6edbba454e97e26aa546d31db179e5f1b9648406312c79c0b",
+        "xeon-local/mx-rhs.cpp": "1a6ebc4650fd58a6ccabea5fcf3f5fd52d38b6537f0a4ac2c0bfd6b67091123c",
+        "xeon-local/mx-rhs.h": "06f481d18e0d079b083b905c474de1aaf8db625a3398d7fb6c7bad0a4bbd6d62",
+        "xeon-local/placement.inc": "1d02b034b3d94f7f0117266772950d2b8b0f06f7321a314aea0b642f56114fe9",
+        "ggml/src/ggml-cpu/arch/x86/quants.c": "a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7",
+        "ggml/src/ggml-quants.c": "bcda33625707fdfcb1367cdd2bb1a2f017430162ec9623abc84ad17459698f73",
+        "CMakeLists.txt": "22f76a052cacb3f2b5591c9ad57d46d32fd8b224b0cc00e4d2ab462f73f0f116",
+        "xeon-local/folded-input.inc": "b6fbf1905cca342896729c2bed2905bd0abaef9d1352b7c8ed753cd0fc4f5d9a"
+      },
+      "maps": "maps-09.txt",
+      "compiled_objects": "compile-09.json",
+      "link": "link-09.txt",
+      "q8_wrapper": "q8-wrapper-09.txt",
+      "symbols": "symbols-09.txt"
+    }
+  }
+}

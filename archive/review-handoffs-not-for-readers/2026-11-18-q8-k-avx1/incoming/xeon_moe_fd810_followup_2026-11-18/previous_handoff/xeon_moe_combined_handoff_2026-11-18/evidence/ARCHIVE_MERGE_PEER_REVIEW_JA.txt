@@ -1,0 +1,100 @@
+統合ZIPの独立査読：前回validation3と最新6.2 max試行の包含関係
+2026-11-18 JST
+担当: /root/consolidation_archive_audit
+
+結論
+
+最新の astra62_max_trial_2026-11-18.zip だけでは、一つ前の validation3 レビューを代替しない。両ZIPを独立サブフォルダで全ファイル保持し、その上に新しい統合案内と実機側メインへの運用メモを置く方針が適切。
+特に、前回にはCPU/GPU並列化の費用分解とGPU担当選定の具体的な次実験があり、今回のCPU局所最適化の試行とは役割が異なる。
+
+1. 読み取った対象と実施範囲
+
+入力A: source_archives/xeon_moe_validation3_review_2026-11-18.zip
+  SHA256: 74c11d144e4aaca73e8f2525f69ce74cd71c05075944eb861e456de03c26fab5
+  ファイル数32、展開したファイルbytes合計819195。
+  論理root: validation3_review_2026-11-18/
+
+入力B: source_archives/astra62_max_trial_2026-11-18.zip
+  SHA256: e2bf46584023523534b7c863103b8e205c4d6e333268682d90642eb382ecc024
+  ファイル数358、展開したファイルbytes合計5894801。
+  論理root: astra62_max_trial_2026-11-18/
+
+両ZIPのCRCを読み取り検査した。入力AのFILE_MANIFEST.jsonの31項目、入力BのSHA256SUMS.jsonの357項目について、ZIP内の全対象bytes・SHA256を照合し、不一致0。各manifest自身は対象外。
+入力Aの32ファイルのSHA256と同じ内容のファイルは、入力Bの358ファイル中に0件。入力Bには前回案の簡単な履歴参照があるが、前回の全文・plan・パッチ・再集計資料は収録されていない。
+例: 入力Bのevidence/history/PRIOR_IDEA_INVENTORY_JA.txtにはF/B/Cの項目がある。一方、H1_COMPACT.plan、optional_dormant_bank_original_graph.patch、validation3レビューの原32ファイルは収録されていない。
+
+新しいエンジン実行、推論、ベンチマーク、原ファイル変更、外部操作はしていない。本書は読取とZIP内ファイルの照合で得た査読所見。
+
+2. 前回から必ず持ち越す具体物
+
+A. CPU/GPU並列の次実験
+  validation3_review_2026-11-18/ASTRA_NEXT_JA.txt
+  validation3_review_2026-11-18/NEXT_EXPERIMENTS.json
+  validation3_review_2026-11-18/hotpath/HOTPATH_REVIEW_JA.txt
+  F/B/Cで追加bank等の保持とcustom経路の費用を分ける提案。同じ新libllamaを各armに用い、F/B/Cの条件を固定する。
+  Bはcontext構築時の固定条件であり、set_mode('B')を呼ぶ新compute modeではない。
+  約2msという過去のC−Fを純copy時間へ割り当てない。B−F、C−Bも複数要素を含む差。
+
+B. 同じtop6でGPU担当を変えるH1機序試験
+  validation3_review_2026-11-18/plans/H1_COMPACT.plan
+  validation3_review_2026-11-18/plans/H1_NONCOMPACT.plan
+  validation3_review_2026-11-18/plans/H1_PLAN_VERIFICATION.json
+  validation3_review_2026-11-18/plans/README_JA.txt
+  既存2cellのcompact331対非compact85、compact78対非compact100を同一入力/top6で比較する固定診断plan。
+  各planは35expert、native475453440 bytes、同じ層別個数・型・初期化形状だが、membershipが異なる。同一bankではない。
+  offline検査済み、実機未実行、通常採用候補ではない。85/100はtrainingで少数なので、その1回の節約が大きくても即採用の根拠にはならない。
+  頻出147/270の追加capture用planとは別。任意active-maskが現APIにあるという前提で進めない。
+
+C. 前回の未適用パッチと実行条件
+  validation3_review_2026-11-18/proposals/optional_dormant_bank_original_graph.patch
+  適用確認のみで、未適用・未ビルド・未実機実行。F/B/C実行にはcaller側のhas_bank/uses_customやguardの具体化も必要。
+
+D. 保存されたvalidation3の結果とデータ分割
+  validation3_review_2026-11-18/ENGINE_REVIEW_JA.txt
+  validation3_review_2026-11-18/parent/PARENT_INDEPENDENT_RECOMPUTATION.json
+  初回768 T1と探索的Python256 T1を分ける。3変種は2 family。過去に見たvalidation3は以後の回帰確認と扱い、残りvalidation2・holdout5の用途を維持する。
+  品質、自由生成の長さ・完結・言語、2トークン表示の論点が残る。新VM試行はこれらを解決していない。
+
+3. 二つの結果を混ぜると誤る点
+
+前回validation3:
+  保存済み実機結果のofflineレビュー。F/Pの速度増加率JA約5.07%、EN約1.80%、Python約0.80%。prompt/sampling/API/UIは計時外。
+  Fは実験libllamaのhot無効条件であり、新たに測定したproductionバイナリという意味ではない。
+  6.2はhigh指定の読取監査1件。今回のmax実装試行とは別タスク。
+
+最新max試行:
+  公開11/05採用済み本体を初期入力とした、GPU・実モデル重みのないVMでの局所実装・比較。
+  IQの約11〜18%は局所演算の所要時間短縮。前回のT1/s増加率と足したり掛けたりして実機速度を予測しない。
+  03/04/06は独立候補、07は合成。02/05は既知の数値差がある履歴版。08は混在fixtureで、現行runtimeへの完成移植ではない。
+  両方がcommit37f6390c9a5bc594658127651e204ab11420cd71を指していても、対象ディレクトリ・実行物・測定環境は異なる。
+
+数値一致の意味:
+  前回は各partition内S=P、異なるGPU担当のP同士にはbyte一致を要求しない。
+  最新は既存CPU演算の保持を目標とした比較であり、CPUを数学的な真値と認定したものではない。
+
+4. 古い役割契約を現在の方針へ接続する方法
+
+前回ASTRA62_SUBAGENT_CONTRACT_JA.txtは、highでの初期read-only監査に向けた契約。ユーザーの現在の『本番環境で6.2 Astra/maxをサブエージェントとして使う』『今後こちらでも親レビュー＋6.2最適化を併用する』希望を制限する恒久ルールではない。
+前回の『次の2本だけ』も、その時点のCPU/GPU実験優先順位を示す。今回生まれたCPU候補の隔離実装や解析まで禁止する趣旨へ拡大しない。
+統合rootの新しい案内に、旧文書は当時の条件と成果を保存した記録であり、現在の割当範囲はユーザーの新しい指示と実機メインの具体的なタスクで定める、と明示するとよい。
+今回のmax試行では実装能力まで観察できた一方、親がFE_DOWNWARD/-128反例と暫定DSO重複を発見した。これらは親の発見として維持する。
+旧ASTRA62_BRIEF_JA.txt内の公式情報・System Card数値は当時の調査資料。今回この統合作業で再検証した情報や、独自に観察した事故率に読み替えない。
+
+5. CPU/GPU本線とCPU候補を併走させる判断
+
+解析・設計・隔離buildの担当分けは並行にできる。実機の性能計時を同時に走らせると資源競合が対照を崩すので、計時枠はメインが管理する。
+F/B/CやH1の一つの比較中はCPU/CUDA/base providerを固定する。途中でCPU候補を入れた結果を旧CPUの同一対照としてつながない。
+CPU候補の採用後は、GPUへ渡す1回の時間価値が変わる可能性がある。同じ配置でCPU残仕事・GPU待ち・output-readyを再評価する。このため、前回H1の診断と今回CPU候補は相互補完的。
+新文書は候補実装を過度に細分化して毎回ユーザー確認待ちにする手順を作らず、既存承認の範囲と計時の競合を具体的に管理する内容がよい。
+
+6. 統合パッケージの検収で推奨する事項
+
+・両source ZIPの元ファイル390件を、元の相対階層を保って別rootへ置く。
+・同名のUSER_REPORT_JA.pdf/txt等を上書き合成しない。
+・抽出前後の390件をbyte数とSHA256で全照合する。原ZIPのハッシュと、統合先相対pathの対応を残す。
+・原manifestを保持し、新しい全体manifestを別に作る。元報告書の本文は黙って改稿しない。
+・ルート案内に、『並列化・validation3の結果』と『VM上の6.2/max独立最適化』の役割、読む順番、新しいメイン向けメモを示す。
+・元ZIPは中にzipのまま入れるだけにせず、統合ZIPを一度展開すれば両方の文書・plan・パッチを読める構成にする。
+・『二つの引継ぎZIPの全内容を統合』と表現する。GitHubの原raw約319MB、上流source、GGUFモデル、実行DSOまで同梱したという意味にはしない。
+
+本書の確認時点では新しい統合ZIPは未完成。ここで合格したのは入力2ZIPのCRCと内蔵manifest、および内容・適用範囲の照合。完成した統合ZIPの390件の保存照合は親側で実施して記録する。

@@ -1,0 +1,278 @@
+{
+  "captured_utc": "2026-11-18T02:48:43.156987+00:00",
+  "method": "Read-only nm and objdump of saved CPU DSOs; no build or execution benchmark",
+  "records": [
+    {
+      "phase": "dso_first_round",
+      "label": "baseline",
+      "source": "/workspace/scratch/1f624f9ac929/parent_evaluation/dso_first_round/lib-baseline/libggml-cpu.so.0.28.0",
+      "sha256": "473c8d1605e0d0d1e0949980b0ecd1c1f27c8c6320708c4178f442e061430041",
+      "matches_saved_manifest": true,
+      "unchanged_during_read": true,
+      "symbol_line": "0000000000106210 0000000000000005 T quantize_row_q8_K",
+      "function_bytes": 5,
+      "classification": "reference_tail_jump",
+      "expected_classification": "reference_tail_jump",
+      "matches_expected_feature": true,
+      "opcode_counts": {
+        "jmp": 1,
+        "vstmxcsr": 0,
+        "stmxcsr": 0,
+        "vmaxps": 0,
+        "vminps": 0,
+        "vmulps": 0,
+        "vcvtps2dq": 0,
+        "vpackssdw": 0,
+        "vpacksswb": 0,
+        "vpsadbw": 0,
+        "vpmovmskb": 0
+      },
+      "reference_references": [
+        {
+          "address": "106210",
+          "asm": "jmp    14b50 <quantize_row_q8_K_ref@plt>"
+        }
+      ],
+      "disassembly_file": "dso_first_round_lib-baseline.disassembly.txt"
+    },
+    {
+      "phase": "dso_first_round",
+      "label": "iq",
+      "source": "/workspace/scratch/1f624f9ac929/parent_evaluation/dso_first_round/lib-iq/libggml-cpu.so.0.28.0",
+      "sha256": "a32c1dd7a50c9eed6124ac223fa943a9d309ab66e136529c2134981cb42f9c54",
+      "matches_saved_manifest": true,
+      "unchanged_during_read": true,
+      "symbol_line": "0000000000106550 0000000000000005 T quantize_row_q8_K",
+      "function_bytes": 5,
+      "classification": "reference_tail_jump",
+      "expected_classification": "reference_tail_jump",
+      "matches_expected_feature": true,
+      "opcode_counts": {
+        "jmp": 1,
+        "vstmxcsr": 0,
+        "stmxcsr": 0,
+        "vmaxps": 0,
+        "vminps": 0,
+        "vmulps": 0,
+        "vcvtps2dq": 0,
+        "vpackssdw": 0,
+        "vpacksswb": 0,
+        "vpsadbw": 0,
+        "vpmovmskb": 0
+      },
+      "reference_references": [
+        {
+          "address": "106550",
+          "asm": "jmp    14b50 <quantize_row_q8_K_ref@plt>"
+        }
+      ],
+      "disassembly_file": "dso_first_round_lib-iq.disassembly.txt"
+    },
+    {
+      "phase": "dso_first_round",
+      "label": "route",
+      "source": "/workspace/scratch/1f624f9ac929/parent_evaluation/dso_first_round/lib-route/libggml-cpu.so.0.28.0",
+      "sha256": "898788030012ca7ff56abeb8724735e5a3b15d9484bc6d1d85019b51718cc695",
+      "matches_saved_manifest": true,
+      "unchanged_during_read": true,
+      "symbol_line": "0000000000106250 0000000000000005 T quantize_row_q8_K",
+      "function_bytes": 5,
+      "classification": "reference_tail_jump",
+      "expected_classification": "reference_tail_jump",
+      "matches_expected_feature": true,
+      "opcode_counts": {
+        "jmp": 1,
+        "vstmxcsr": 0,
+        "stmxcsr": 0,
+        "vmaxps": 0,
+        "vminps": 0,
+        "vmulps": 0,
+        "vcvtps2dq": 0,
+        "vpackssdw": 0,
+        "vpacksswb": 0,
+        "vpsadbw": 0,
+        "vpmovmskb": 0
+      },
+      "reference_references": [
+        {
+          "address": "106250",
+          "asm": "jmp    14b50 <quantize_row_q8_K_ref@plt>"
+        }
+      ],
+      "disassembly_file": "dso_first_round_lib-route.disassembly.txt"
+    },
+    {
+      "phase": "dso_second_round",
+      "label": "baseline",
+      "source": "/workspace/scratch/1f624f9ac929/parent_evaluation/dso_second_round/lib-baseline/libggml-cpu.so.0.28.0",
+      "sha256": "473c8d1605e0d0d1e0949980b0ecd1c1f27c8c6320708c4178f442e061430041",
+      "matches_saved_manifest": true,
+      "unchanged_during_read": true,
+      "symbol_line": "0000000000106210 0000000000000005 T quantize_row_q8_K",
+      "function_bytes": 5,
+      "classification": "reference_tail_jump",
+      "expected_classification": "reference_tail_jump",
+      "matches_expected_feature": true,
+      "opcode_counts": {
+        "jmp": 1,
+        "vstmxcsr": 0,
+        "stmxcsr": 0,
+        "vmaxps": 0,
+        "vminps": 0,
+        "vmulps": 0,
+        "vcvtps2dq": 0,
+        "vpackssdw": 0,
+        "vpacksswb": 0,
+        "vpsadbw": 0,
+        "vpmovmskb": 0
+      },
+      "reference_references": [
+        {
+          "address": "106210",
+          "asm": "jmp    14b50 <quantize_row_q8_K_ref@plt>"
+        }
+      ],
+      "disassembly_file": "dso_second_round_lib-baseline.disassembly.txt"
+    },
+    {
+      "phase": "dso_second_round",
+      "label": "combined",
+      "source": "/workspace/scratch/1f624f9ac929/parent_evaluation/dso_second_round/lib-combined/libggml-cpu.so.0.28.0",
+      "sha256": "11d4878d87039b0f94019edaed749bad2356b210a5ee6a935fb6f175ef6fb967",
+      "matches_saved_manifest": true,
+      "unchanged_during_read": true,
+      "symbol_line": "0000000000106b20 0000000000000315 T quantize_row_q8_K",
+      "function_bytes": 789,
+      "classification": "avx1_vector_body",
+      "expected_classification": "avx1_vector_body",
+      "matches_expected_feature": true,
+      "opcode_counts": {
+        "jmp": 5,
+        "vstmxcsr": 1,
+        "stmxcsr": 0,
+        "vmaxps": 5,
+        "vminps": 1,
+        "vmulps": 2,
+        "vcvtps2dq": 2,
+        "vpackssdw": 2,
+        "vpacksswb": 1,
+        "vpsadbw": 1,
+        "vpmovmskb": 0
+      },
+      "reference_references": [
+        {
+          "address": "106dbb",
+          "asm": "call   14b50 <quantize_row_q8_K_ref@plt>"
+        },
+        {
+          "address": "106e30",
+          "asm": "jmp    14b50 <quantize_row_q8_K_ref@plt>"
+        }
+      ],
+      "disassembly_file": "dso_second_round_lib-combined.disassembly.txt"
+    },
+    {
+      "phase": "dso_second_round",
+      "label": "iq",
+      "source": "/workspace/scratch/1f624f9ac929/parent_evaluation/dso_second_round/lib-iq/libggml-cpu.so.0.28.0",
+      "sha256": "a32c1dd7a50c9eed6124ac223fa943a9d309ab66e136529c2134981cb42f9c54",
+      "matches_saved_manifest": true,
+      "unchanged_during_read": true,
+      "symbol_line": "0000000000106550 0000000000000005 T quantize_row_q8_K",
+      "function_bytes": 5,
+      "classification": "reference_tail_jump",
+      "expected_classification": "reference_tail_jump",
+      "matches_expected_feature": true,
+      "opcode_counts": {
+        "jmp": 1,
+        "vstmxcsr": 0,
+        "stmxcsr": 0,
+        "vmaxps": 0,
+        "vminps": 0,
+        "vmulps": 0,
+        "vcvtps2dq": 0,
+        "vpackssdw": 0,
+        "vpacksswb": 0,
+        "vpsadbw": 0,
+        "vpmovmskb": 0
+      },
+      "reference_references": [
+        {
+          "address": "106550",
+          "asm": "jmp    14b50 <quantize_row_q8_K_ref@plt>"
+        }
+      ],
+      "disassembly_file": "dso_second_round_lib-iq.disassembly.txt"
+    },
+    {
+      "phase": "dso_second_round",
+      "label": "q8",
+      "source": "/workspace/scratch/1f624f9ac929/parent_evaluation/dso_second_round/lib-q8/libggml-cpu.so.0.28.0",
+      "sha256": "95956dc6f86c5a070078290db3b78cbeff0544034ff482b8d17893e9fdd915d5",
+      "matches_saved_manifest": true,
+      "unchanged_during_read": true,
+      "symbol_line": "0000000000106220 0000000000000315 T quantize_row_q8_K",
+      "function_bytes": 789,
+      "classification": "avx1_vector_body",
+      "expected_classification": "avx1_vector_body",
+      "matches_expected_feature": true,
+      "opcode_counts": {
+        "jmp": 5,
+        "vstmxcsr": 1,
+        "stmxcsr": 0,
+        "vmaxps": 5,
+        "vminps": 1,
+        "vmulps": 2,
+        "vcvtps2dq": 2,
+        "vpackssdw": 2,
+        "vpacksswb": 1,
+        "vpsadbw": 1,
+        "vpmovmskb": 0
+      },
+      "reference_references": [
+        {
+          "address": "1064bb",
+          "asm": "call   14b50 <quantize_row_q8_K_ref@plt>"
+        },
+        {
+          "address": "106530",
+          "asm": "jmp    14b50 <quantize_row_q8_K_ref@plt>"
+        }
+      ],
+      "disassembly_file": "dso_second_round_lib-q8.disassembly.txt"
+    },
+    {
+      "phase": "dso_second_round",
+      "label": "route2",
+      "source": "/workspace/scratch/1f624f9ac929/parent_evaluation/dso_second_round/lib-route2/libggml-cpu.so.0.28.0",
+      "sha256": "5281272a1d4353e47cb3c32c10d90c1a3095f25bb6acec97bbba327e51e39fb9",
+      "matches_saved_manifest": true,
+      "unchanged_during_read": true,
+      "symbol_line": "0000000000106690 0000000000000005 T quantize_row_q8_K",
+      "function_bytes": 5,
+      "classification": "reference_tail_jump",
+      "expected_classification": "reference_tail_jump",
+      "matches_expected_feature": true,
+      "opcode_counts": {
+        "jmp": 1,
+        "vstmxcsr": 0,
+        "stmxcsr": 0,
+        "vmaxps": 0,
+        "vminps": 0,
+        "vmulps": 0,
+        "vcvtps2dq": 0,
+        "vpackssdw": 0,
+        "vpacksswb": 0,
+        "vpsadbw": 0,
+        "vpmovmskb": 0
+      },
+      "reference_references": [
+        {
+          "address": "106690",
+          "asm": "jmp    14b50 <quantize_row_q8_K_ref@plt>"
+        }
+      ],
+      "disassembly_file": "dso_second_round_lib-route2.disassembly.txt"
+    }
+  ]
+}

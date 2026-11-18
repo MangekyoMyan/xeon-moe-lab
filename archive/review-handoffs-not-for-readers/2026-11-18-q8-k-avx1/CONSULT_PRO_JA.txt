@@ -1,0 +1,40 @@
+fd810追補への返却：04を現行Xeonで独立ビルド・局所実測
+2026-11-18 JST
+
+受領補完と新08/09を確認したうえで、推奨どおり04だけを実機で具体化しました。通常採用は保留、元APIへ復帰済みです。結果はRESULTS_JA.txt、原データはq8-avx1/runs-v2とFFN_ANALYSIS.jsonです。
+
+補完された旧80dump、新72dumpの実byteをTerra xhighが独立照合しました。前回の「受領側ではbinaryを直接読めない」範囲は、この提供分について埋まりました。新1,608三者組、900sampleの再計算も一致。VM DSOs/実機性能/全モデル品質まで追加検証されたとは読んでいません。
+
+04の新しい事実
+・無変更arch/x86/quants.cの再コンパイルobjectは元objectとbyte一致、再link対照CPUは稼働版33a9e346...とbyte一致。
+・候補eb05a18e...は04のみ。その他のobject・baseを維持し、実from_float/providerとAVX命令を確認。
+・4丸め計41,376blocksで変換の全byte一致。非nearestのfallback込み。変換単体の速度は今回新測定していません。
+・成功captureのcell1/5/6と元GGUFを使い、384expert形状、F32 x、ordered top6、clamp、projection別compact membershipを維持。
+・必要expert分だけcacheを実登録。全120GiB ownerや全モデルのcache圧力を再現した試験ではありません。
+・12物理/24論理、両方T=1。各expertのgate/up→clampedactivation→down出力までのCPU graphを測定。routing weight/merge、GPU/main scheduler/token生成は含みません。
+・quality2processの後に8fresh process（ABBA BAAB）、各cell/threadは4pairedprocess、5samples×8calls。全1,920timed graph callsを保持。
+・60保存出力はcaptureとbyte一致。3warmup最後と各sample最後の出力を比較し、全callの個別出力比較とはしていません。
+
+採否につながった結果
+12threads:
+ cell1 IQ2_S/IQ3_XXS、5/6compact：候補/対照1.023623、改善0/4組。
+ cell5 IQ3_XXS/IQ3_S、6/6compact：1.009443、改善1/4組。
+ cell6 MXFP4対照：0.985614、改善3/4組。
+24threads:
+ cell1：0.877073、改善4/4組、範囲0.689240～0.990448。
+ cell5：1.002928、改善2/4組。
+ cell6：0.954188、改善4/4組、範囲0.756991～0.996474。
+
+通常12threadsで利益が残らず、Q8_Kを通らないMXFP4対照にも差があるため、今回の24threadsの差を04の変換だけへ帰属しません。実行期間、コード配置、OpenMP等の寄与は未分離です。負の対照を差し引く補正や、良い条件だけの採用はしていません。full-model速度試験へ進まず一巡で止めました。
+
+相談したい判断
+1. 04はこの段階で保管/保留にし、新08の現行混在移植を同じ実入力fixtureで比較する方を優先してよいか。
+   同じcaptureはcell1が5/6、cell5が6/6compact。09は重ねず、04も基準へ混ぜない方針です。
+2. 04の原因を追加で見る価値があるなら、最小の反証可能な1比較へ絞ってください。
+   0/1/2blockの実機変換時間、wholegraphでのQ8変換寄与、wrapper追加に伴う他関数のコード配置など、候補はあります。ただし単体倍率だけで再採用へ戻らず、負の対照に出た差も扱う必要があります。
+3. 今回の局所fixture/計時に、決定的な条件の取り違えがないか。
+   現行source/providerは固定。NUMA interleave、THP無効、strict CPU0..threads−1、実filepagecacheとsubsetcompactという範囲です。24thread T1をprefillとは呼んでいません。
+
+コードと生データを省略せず置きました。ROOTが重要編集とテストを担当し、TerraがVM保存物と今回の数値/時刻を独立監査しています。初回のwrapper不具合・保存権限失敗・復帰snapshot待ちの修正記録も保持し、性能成功runへ混ぜていません。これらは候補算術不一致やhardwarefaultとしては扱っていません。
+
+通常APIのconfig/CPU/llama/CUDA/baseは元へ復帰し、現在の本番構成へ04は未採用です。F/B/C/H1、03、新08/09の実機比較、モデル品質評価は今回未実施。

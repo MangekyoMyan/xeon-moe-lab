@@ -1,0 +1,141 @@
+保存済み phase1 / phase2 DSO の feature 照合
+作成日: 2026-11-18 UTC
+担当: /root/max_trial_independent_reviewer
+Q8_K wrapper 部分: /root/max_trial_independent_reviewer/saved_dso_q8_audit
+
+結論
+
+親が保存した dso_first_round と dso_second_round の全8個の CPU DSO は、今回確認した三つの feature の組合せが期待と一致した。
+  (1) folded IQ dot とその runtime 選択・planner 確保
+  (2) Q8_K wrapper の ref 委譲 / AVX1 本体
+  (3) route mapping の圧縮 / 小入力の selected group のみを扱う経路
+
+後の iqsafe / combosafe に見つかった同一 DSO の取り違えが、これら保存済み phase1/2 にも波及していたという証拠は見つからなかった。
+
+この結論は「保存された ELF から識別できる features が期待通り」という範囲である。全 object の source/flags/build 時刻の一致、過去の各計時 process が実際にロードした全 DSO hash まで認証したものではない。特に旧計時を修正版の速度と扱うことはできず、最終 clean build の計時を主結果にする判断は妥当である。
+
+検査方法
+
+保存 DSO から nm と objdump で対象関数を抽出し、実命令を読んだ。hash やファイルサイズが異なるだけで対応が正しいとは判定していない。
+親の保存済み route 実行記録の workspace と出力 guard 検証も照合した。当担当による新たな build、bench、モデル実行は行っていない。親から最終 A/B 計時中との通知後も、静的 listing と既存 JSON/CSV の整理のみを行った。
+
+1. feature 一覧
+
+phase  variant    folded IQ   Q8_K wrapper    route mapping    small selected route
+1      baseline   なし        ref tail jump  E×slots×tokens   なし
+1      iq         あり        ref tail jump  E×slots×tokens   なし
+1      route      なし        ref tail jump  slots×tokens     なし
+2      baseline   なし        ref tail jump  E×slots×tokens   なし
+2      iq         あり        ref tail jump  E×slots×tokens   なし
+2      route2     なし        ref tail jump  slots×tokens     あり
+2      q8         なし        AVX1 + ref     E×slots×tokens   なし
+2      combined   あり        AVX1 + ref     slots×tokens     あり
+
+E は全 expert 数。small selected route は T=1 かつ selected slots<=16 の場合に min(E,slots) の group 容量を使い、実際に選択された expert 配列と sentinel に従って走査する経路を指す。
+
+2. folded IQ の識別
+
+iq (phase1と2) と combined (phase2) にだけ、3種の folded_dot local symbols と xeon_iq_input_from_float exported symbol が存在した。
+
+関数が存在するだけで未使用の可能性を排除しないため、ggml_graph_compute_thread.isra.0 も抽出した。以下の runtime 参照を確認した。
+
+iq:
+  0x1e740: call xeon_iq_input_dot@plt
+  0x1e754: xeon_iq_input_from_float の GOT 値を読む
+combined:
+  0x1ee0b: call xeon_iq_input_dot@plt
+  0x1ee20: xeon_iq_input_from_float の GOT 値を読む
+
+さらに planner に、対象 F32/IQ/T=1 条件で (nelements/256)×0x190 (=400) を確保する命令がある。combined では 0x1ac38–0x1ac84 に dtype 条件と 0x190 乗算を確認した。
+これは保存 ELF 内の runtime 経路と planner の対応を示す。過去の計時 process 内の動的 interposition や callback 到達の新しい実行測定ではない。
+
+3. Q8_K wrapper の識別
+
+phase1 baseline/iq/route と phase2 baseline/iq/route2 の関数は5 bytesの単一命令:
+  jmp quantize_row_q8_K_ref@plt
+
+phase2 q8/combined の関数は789 bytes。MXCSR rounding bits の検査、非 nearest の ref fallback、YMM の vmaxps/vminps/vmulps/vcvtps2dq、XMM の vpackssdw/vpacksswb/vpsadbw、block ごとの ref fallback が存在する。
+
+補助 reviewer は8個すべての実 listing を保存し、親 manifest の hash と読取前後の hash も一致することを確認した。
+根拠: q8/Q8_WRAPPER_AUDIT_JA.txt と q8/Q8_WRAPPER_FEATURE_AUDIT.json
+
+4. route workspace の識別
+
+元 baseline の ggml_graph_plan の MUL_MAT_ID case:
+  0x1aaca: ids.ne[0] を load
+  0x1aad7: E を乗算
+  0x1aadb: ids.ne[1] を乗算
+  後続で8 bytesの mapping 要素サイズを適用
+すなわち E×slots×tokens の予約。
+
+phase1 route の対応 case:
+  0x1aa0a: ids.ne[0] を load
+  0x1aa14: ids.ne[1] を乗算
+E の乗算はなく、後続で counts の E 項を別に加算する。
+すなわち mapping のみ slots×tokens へ圧縮し、E 個の counts/counters は残す第1版に対応する。
+
+phase2 q8 の ggml_graph_plan は、実際の .text 上の関数全 bytes が baseline と一致した。SHA256:
+15c784ff6c4407e0452df39787f27d9cb7b9639fab6cbd83baad3e95a44d7393
+ここでは「異なる library hash だから別実装」という推定ではなく、読んだ baseline planner の機械語と同一であることを確認した。
+
+5. selected-only route の識別
+
+phase2 route2 planner:
+  0x1a9cc–0x1a9d6: ids.ne[1] ==1
+  0x1ac1c–0x1ac24: ids.ne[0] <=16
+  0x1ac32–0x1ac39: min(E,slots)
+  0x1aa22–0x1aa45: slots×tokens mapping と小容量 counts/counters、selected 配列追加
+
+phase2 combined planner にも T=1 / slots<=16 / min(E,slots) の分岐があり、0x1ace0–0x1ace9 が min の選択。folded の400-byte入力確保と共存する。
+
+planner だけを確認して終了せず runtime の inline body も読んだ。
+
+route2 runtime:
+  0x1d407: T==1
+  0x1d41e: slots<=16
+  0x1d429–0x1d44f: group_capacity の選択と保存
+  0x1d937–0x1d93c: selected 配列の最初の値と -1 sentinel
+  0x1e20a–0x1e254: group 数との比較、selected pointer を4 bytes進め、次 ID と sentinel を読む
+  0x1e379: selected[n_selected] への -1 書込み
+
+combined runtime:
+  0x1d5ec: T==1
+  0x1d605: slots<=16
+  0x1d60c–0x1d62e: group_capacity の選択と保存
+  0x1daf1–0x1daf7: selected 配列の最初の値と sentinel
+  0x1e2d1–0x1e31c: group 容量での終了と次 selected ID / sentinel
+  0x1e416: sentinel 書込み
+
+これらは「小入力時の予約だけ縮んで、runtime が昔の全 E 配列を使う」という状態ではない。
+
+6. 親の既存実行記録との整合
+
+validation/ROUTE_REFERENCE_EXECUTION.json と ROUTE_V2_REFERENCE_EXECUTION.json は、以下の workspace 記録の実行に対応する CPU DSO hash を保存しており、それぞれ今回の saved DSO hash と一致する。
+
+既存の同一 fixture 内での比較 (bytes):
+
+variant    case4: E384,slots6,T1,threads7    case6: E384,slots6,T1024,threads1
+baseline   46,656                          18,902,208
+route      28,224                          76,992
+route2     1,088                           76,992
+combined   1,088                           76,992
+
+case4 は strided input と transposed IDs、case6 は contiguous input/IDs。各列内では同じ条件を各 variant に適用している。T=1 の selected group 縮小は route2/combined に現れ、T=1024 では route/route2/combined が同じ圧縮 mapping の値になる。この違いは機械語の分岐と対応する。
+
+各 fixture の出力 hash は variant 間で一致し、親の guard/整数参照検証は pass と記録されている。当担当がここでそれらを再実行したわけではない。
+
+候補実装者の保存 plans-*.csv も別途複写して照合した。IQ のT=1だけの400-byte入力増加、routeの mapping 縮小、route2の小入力分だけの追加縮小、combinedの両変更が対応する。ただし、この候補 CSV は親の実行 receipt ほど直接に各保存 ELF へ紐付くとは扱わず、補助的整合として用いた。
+
+7. 主要ファイル
+
+SYMBOL_INVENTORY.json: 各保存 DSO の hash と関係 symbols
+GRAPH_FUNCTION_CORRELATION.json: planner 関数 bytes の hash、runtime folded 参照
+WORKSPACE_CORRELATION.json: 既存 parent fixture と保存 candidate plans の必要行
+dso_*_graph_plan.asm: planner 全 listing
+dso_*_compute_thread.asm: inline runtime を含む compute thread 全 listing
+q8/: 補助 reviewer による全8 Q8 wrapper の listing と判断
+
+8. 判定の使い方
+
+今回の saved DSO feature 検査を理由に、phase1/2 に具体的な取り違えがあったと断定する必要はない。
+一方、これだけで旧 benchmark の各実行の load 経路・全 build 条件・修正版性能まで保証することもできない。旧計時は発見・比較の経緯を示す予備観測として保存し、別 source / 別 build directory から作った最終版の記録を主たる性能結果とするのが、証拠の粒度に合う。

@@ -1,0 +1,61 @@
+{
+  "phase": "pre_parent_feedback_round2_snapshot",
+  "reviewer": "/root/max_trial_independent_reviewer",
+  "report": "ROUND2_REVIEW_JA.txt",
+  "patches": [
+    {
+      "file": "03-route-selected.patch",
+      "sha256": "d43d8131e4ac511cd5dc5c87e570a01c2ed635455605e921464004092c3c98d0",
+      "result": "No concrete defect identified by static review of capacity, stable per-expert order, sentinel, duplicate IDs, -1 IDs, strides, grouping indices, planner layout and retained synchronization. Cross-expert iteration order changes."
+    },
+    {
+      "file": "04-q8k-avx1.patch",
+      "sha256": "b1e0691007fb67e3356a6e763e3ba14d7dd0a1c5a1efbf460350f2f153ca121d",
+      "result": "No concrete defect identified in reviewed finite/nearest fast path or non-nearest reference fallback. Independent probe confirmed quantizer/reference equality on its one-block fixture in all four rounding modes."
+    },
+    {
+      "file": "05-combined.patch",
+      "sha256": "1c1dcd32255bfea5e4c1fe7082ec9f2d336722be4a049ab53aee813adc139f99",
+      "result": "Conditional discrepancy confirmed: finite F32 input quantizes to -128 under FE_DOWNWARD, reaching folded input path and diverging from legacy compact dot. Does not demonstrate failure under ordinary nearest-mode inference."
+    }
+  ],
+  "confirmed_finding": {
+    "id": "FOLDED_F32_DOWNWARD_MINUS128",
+    "fenv_mode": "FE_DOWNWARD",
+    "input": "256 floats, first value 0.1f (0x3dcccccd), remaining values zero",
+    "weight": "Representable IQ3_XXS compact block, qs bytes 0x88, d=1, scales=1",
+    "quantized_first_value": -128,
+    "legacy_output_bits": "3dce69a1",
+    "folded_output_bits": "bdce69a1",
+    "quantizer_matches_reference_bytes": true,
+    "nearest_same_fixture_matches_legacy_bytes": true,
+    "cpu_dso_sha256": "11d4878d87039b0f94019edaed749bad2356b210a5ee6a935fb6f175ef6fb967",
+    "scope": "Direct function comparison, one valid weight block and one finite input block, four rounding modes; no full graph or model inference",
+    "evidence": [
+      "folded_rounding_probe.cpp",
+      "FOLDED_ROUNDING_PROBE.csv",
+      "FOLDED_ROUNDING_RECEIPT.json"
+    ],
+    "feedback_state": "Parent reports independent confirmation and forwarding source/input/CSV/receipt to candidate. Subsequent changes form a new phase and are not reviewed here."
+  },
+  "source_identity": {
+    "03_04_gnu_unified_diff_matches": true,
+    "05_reconstructed_files_match_pre_feedback_work_hashes": true,
+    "05_gnu_unified_diff_text_identical": false,
+    "05_text_difference_reason": "Different hunk construction; direct patch reconstruction established identical resulting files",
+    "evidence": "round2_snapshot/COMBINED_RECONSTRUCTION_VERIFICATION.json"
+  },
+  "executions_by_reviewer": {
+    "engine_build": false,
+    "performance_benchmark": false,
+    "small_cpp_probe_build_and_run": true,
+    "candidate_sources_modified": false,
+    "scratch_patch_reconstruction": true
+  },
+  "followup_scope": [
+    "Review post-feedback source only when supplied/requested",
+    "If a rounding guard is added, verify graph dispatch as well as direct preparation/dot",
+    "Check that thread-local rounding choices cannot create inconsistent shared-workspace layouts, or document unsupported mixed-rounding environments"
+  ],
+  "measurement_correction": "Original atomic-counter initialization is partitioned across workers: all workers combined initialize E counters, not each worker initializing all E."
+}

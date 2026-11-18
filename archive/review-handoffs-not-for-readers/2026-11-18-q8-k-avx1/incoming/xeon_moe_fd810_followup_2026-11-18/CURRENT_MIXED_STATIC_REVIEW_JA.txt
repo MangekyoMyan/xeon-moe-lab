@@ -1,0 +1,114 @@
+08-current-mixed / 09-selected-input-only 独立静的レビュー
+2026-11-18
+
+結論
+今回読んだ差分から、新しい blocking defect は見つからなかった。
+09 は「通常 Q8_K への量子化を選択入力だけにする」変更ではない。
+通常 Q8_K は従来どおり全入力列に作り、compact expert が使う入力列だけ、
+追加の folded 入力を作る変更である。mixed native/compact が同居できる構成を維持している。
+現行 CPU ソース上の独立候補として比較できる。ただし、実機での採用判定・全モデル速度向上を
+この静的レビューで確定したものではない。
+
+範囲
+原本、patch、再構築ソース、probe、実行スクリプト、既存 compile_commands を読んだ。
+build、native probe、ベンチマークの新規実行はしていない。数値試験担当の処理とは競合させていない。
+親がすでに確認した slot % ne11、broadcast 条件、worker 範囲、barrier、workspace 予約も整合した。
+
+パスの略記
+R = /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18
+O = R/astra62_next/outputs
+S = R/astra62_next/work/trial/src-09
+C = R/source/current_cpu
+
+1. 現行への移植と mixed 経路
+
+・再構築 src-current の ggml-cpu.c、iq3-cache.cpp、iq3-cache.h、compact-kernel.inc、
+  iq-small-kernels.inc の SHA256 を読み取り計算し、fd810 受領原本の5ファイルと一致した。
+  prepare_variant.py は archive の各 blob の hash を検証して上書きし、x86/quants.c も検証する。
+  current → 08 → 09 の差分関係が明示されている。04 Q8_K AVX1 は今回の3候補に含まれない。
+  [O/prepare_variant.py:18–41、O/inputs.json]
+
+・folded の対象は IQ2_S / IQ3_XXS / IQ3_S、単一 token、!use_ref、compact table 有、F32入力。
+  prequantized Q8_K、ref、複数 token は従来経路に残る。MXFP4 の予約・準備・dispatch は残っている。
+  compact_data が NULL の expert は普通の Q8_K を読む。compact_data と folded_rhs の両方がある
+  expert だけ folded_dot を選び、入力の stride も同時に400 bytes/blockへ切り替える。
+  「全expertが新形式入力を誤読する」という混在時の不具合は見つからなかった。
+  [S/ggml/src/ggml-cpu/ggml-cpu.c:1522–1568、1781–1793、1834–1859]
+
+2. 選択入力だけ準備する09の意味
+
+・選択判定は tensor の ids->nb[0] を使い、当該入力列に対応する全slotのどれかに
+  compact pointer があれば準備する。重複expert・共有入力・broadcast入力でも、入力列を
+  単位として一度だけ準備する。前回のrouteを記憶しないので、同じscratchを再使用しても
+  今回のcompact slotに必要な列は今回のQ8_Kから作り直される。
+  [S/ggml/src/ggml-cpu/ggml-cpu.c:1716–1725、1834–1844]
+
+・compact を一つも選ばない回でも folded_rhs の領域予約は残る。09 は準備の仕事量を減らすが、
+  08 に対する scratch 使用量削減ではない。通常Q8_Kの変換や既存の同期も消えない。
+  また、入力共有の gate では一つでもcompactがあれば共有入力1列のfoldが必要なので、
+  「5/6なら準備が1/6減る」はdownの独立入力6列についての話である。
+  [O/09-selected-input-only.patch 全体、S/ggml/src/ggml-cpu/ggml-cpu.c:3177–3180]
+
+・判定を各workerが行う小さな追加コストはある。active worker 1人あたり全入力列を合わせて
+  最大 ids->ne[0] 個のslotを調べる。first==end のworkerではこの走査も呼び出しも行わない。
+  重い行列内積では小さく見えても、短い行数・多いworkerでの採否はoperator全体時間で判断する。
+  これは未測定の性能条件であり、今回発見した正しさの欠陥ではない。
+  [O/09-selected-input-only.patch:8–16、26–32]
+
+3. folded算術とビルド条件
+
+・-128 の処理が含まれている。abs(-128) の unsigned magnitude 128 を識別し、元の psignb が
+  -128をどちらのweight符号でも-128にする動作に合わせ、対応するweight符号を負に固定する。
+  byte符号の移動、group内の整数lane構成、scale、FP32加算、最終水平和に新たな順序変更は
+  見当たらない。IQ2_S/IQ3_Sの加算命令の引数順は元コードと逆だが、ここでは有限値の
+  互換性を扱い、NaN payloadを含む全bit-patternの同一性まで主張しない。
+  [O/08-current-mixed.patch:140–203、C/compact-kernel.inc:58–77、C/iq-small-kernels.inc:48–66]
+
+・400-byte folded_block の sizeof assert がある。paddingは初期化しないが、dotはpaddingを読まない。
+  今回の対象ビルドは Ivy Bridge / AVX1 / no AVX2 / no FMA。
+  保存された build-09/compile_commands.json では、新kernelをincludeする iq3-cache.cpp に
+  -fno-fast-math と -ffp-contract=off が付く。これはbaseを含む全objectに同じ追加flagが
+  付くという意味ではない。元のcompactもAVX系なので、今回を汎用非x86版とは扱わない。
+  [O/build_cpu.sh:7–17、S/CMakeLists.txt:324–338、
+   R/astra62_next/work/trial/build-09/compile_commands.json]
+
+4. probeが実際に確認する範囲
+
+・graph_probe は本物の sparse cache owner/lookup と MUL_MAT_ID を使い、同一graph/scratchで
+  5種類のrouteへ切り替える。strided down、共有gate、strided broadcast、raw Q8、ref、
+  2 token、MXFP4を含む。skip出力0とworkspace前後のguardを確認する設計である。
+  既存行列のCPU計算を再現するprobeとして、個別dotだけの試験より範囲が広い。
+  [O/graph_probe.cpp:150–175、188–263]
+
+・no_table(mask=0) は登録しないため lookup 自体が NULL になる試験。
+  「非NULLのtableで全要素NULL」を作る試験ではない。現行add_selectedはselected_count==0を
+  拒否し、公開前に選択expertのpointerを埋めるので、その全NULL tableは公開APIの通常状態ではない。
+  実用上重要な「tableは非NULLだが今回のtop6はcompact 0/6」は、only_off_route(mask64)の
+  phase0で扱われる。これを全NULL table試験の欠落としてblockingにする理由はない。
+  [O/graph_probe.cpp:150–167、200–206、O/protocol.json、C/iq3-cache.cpp:85、114–142]
+
+・count_paths の fold_select は folded_dot の計算回数ではなく xeon_iq_input_dot の選択関数の
+  呼び出し回数。prepare_blocks は実際に準備関数へ渡したblock数、prepare_callsは呼び出し回数。
+  丸めmodeのcounterも準備関数を呼んだworkerのmodeを観測している。報告で意味を混同しない。
+  run_trials はこの準備量・modeと全出力byteの一致を検査する。私自身が数値試験を再実行・
+  独立再集計したとの主張はしない。
+  [O/count_paths.cpp:23–38、O/run_trials.py:51–68、79–98]
+
+5. 実行物の識別と残る最小比較
+
+・3候補は別CPU DSO、共通の新規build-current baseを使用し、CPU SHAが3種類であることに加え、
+  dladdrと/proc/self/mapsのprovider一致を検査する。計測時はcounter用LD_PRELOADを外す設計。
+  これは「現行CPUソースを再構築した比較」であり、実機が現にロードしているCPU/baseの
+  同一binaryではない。古いVM fixtureや実機の現providerと区別する。
+  [O/build_three.sh:9–17、O/graph_probe.cpp:280–296、O/run_trials.py:29–49]
+
+・実機採用に必要なのは current / 08 / 09 の同じ条件でのoperator比較。
+  09対08だけでなく09対currentを見る。既存の0/6 off-route、mixed、5/6・6/6の比較設計は
+  判断に直結している。実機12/24worker・現在のNUMA配置で、prepareと同期を含む時間を比較する。
+  今回のVM probeはrow-local NUMAを無効化しているため、その効果まで保証しない。
+  04を先に採る場合も、04単独の結果と06/08/09の効果を混ぜない。
+  [O/protocol.json、O/run_trials.py:36–40]
+
+レビューしたpatchのSHA256
+08-current-mixed.patch: cad2e24dea2bc3bfa8d3dc1dd43c2d7930159889dbd49c4f2c4dda4052cbd6a3
+09-selected-input-only.patch: fdb845021a5b3a5a515f5ad700bf09dd0b60ac41db2a1ca35dc6b4af7d0bf7a5

@@ -1,0 +1,95 @@
+--- a/graph_plan_route37.c
++++ b/graph_plan_route37.c
+@@ -107,6 +107,11 @@
+                             cur = GGML_PAD(cur, sizeof(int64_t));
+                             cur += src1->ne[1]*n_tasks;
+                         }
++                        if (ids->ne[1] == 1 && src1->type == GGML_TYPE_F32 && (src0->type == GGML_TYPE_IQ3_XXS ||
++                                src0->type == GGML_TYPE_IQ2_S || src0->type == GGML_TYPE_IQ3_S)) {
++                            cur = GGML_PAD(cur, 16);
++                            cur += ((size_t) src1->ne[0]/256)*src1->ne[1]*XEON_IQ_INPUT_BLOCK_BYTES;
++                        }
+                     } break;
+                 case GGML_OP_OUT_PROD:
+                     {
+--- a/mul_mat_id_route37.c
++++ b/mul_mat_id_route37.c
+@@ -21,6 +21,7 @@
+     const bool src1_cont,
+     const void * wdata,
+     const void * compact_data,
++    const void * folded_rhs,
+     const void * mx_rhs,
+     const size_t mx_stride,
+     const uint64_t mx_safe_mask) {
+@@ -29,7 +30,7 @@
+ 
+     const enum ggml_type type = src0->type;
+ 
+-    ggml_vec_dot_t const vec_dot = compact_data ? (type == GGML_TYPE_IQ2_S ? xeon_iq2s_compact_dot : type == GGML_TYPE_IQ3_S ? xeon_iq3s_compact_dot : xeon_iq3_compact_dot) : type_traits_cpu[type].vec_dot;
++    ggml_vec_dot_t const vec_dot = compact_data && folded_rhs ? xeon_iq_input_dot(type) : compact_data ? (type == GGML_TYPE_IQ2_S ? xeon_iq2s_compact_dot : type == GGML_TYPE_IQ3_S ? xeon_iq3s_compact_dot : xeon_iq3_compact_dot) : type_traits_cpu[type].vec_dot;
+     enum ggml_type const vec_dot_type = type_traits_cpu[type].vec_dot_type;
+     const size_t weight_stride = compact_data ? (size_t)(ne00/256)*144 : nb01;
+     const char * weight_data = compact_data ? (const char *) compact_data : src0_cur;
+@@ -62,6 +63,9 @@
+                     ? (i11      + i12*ne11)*row_size
+                     : (i11*nb11 + i12*nb12));
+ 
++                if (compact_data && folded_rhs) {
++                    src1_col = (const char *) folded_rhs + (i11 + i12*ne11)*(ne10/256)*XEON_IQ_INPUT_BLOCK_BYTES;
++                }
+                 float * dst_col = (float *) ((char *) dst->data + (i1*nb1 + i2*nb2));
+ 
+                 const void * prepared = mx_rhs && ((mx_safe_mask >> i11) & 1)
+@@ -279,6 +283,14 @@
+     void * mx_rhs = mx_shape ? incr_ptr_aligned(&wdata_cur, mx_stride*ne11, 64) : NULL;
+     uint8_t * mx_flags = mx_shape ? incr_ptr_aligned(&wdata_cur, ne11*nth, sizeof(int64_t)) : NULL;
+ 
++    const void * const * compact_experts = (!params->use_ref && (type == GGML_TYPE_IQ3_XXS || type == GGML_TYPE_IQ2_S || type == GGML_TYPE_IQ3_S) && ids->ne[1] == 1)
++        ? xeon_iq3_cache_lookup_experts_v2(src0) : NULL;
++
++    const bool fold_input = compact_experts && src1->type == GGML_TYPE_F32;
++    const size_t iq_blocks = ne10/256;
++    char * folded_rhs = fold_input ?
++        incr_ptr_aligned(&wdata_cur, iq_blocks*ne11*XEON_IQ_INPUT_BLOCK_BYTES, 16) : NULL;
++
+     GGML_ASSERT(params->wsize >= (size_t)((char *) wdata_cur - (char *) params->wdata));
+ 
+     if (src1->type != vec_dot_type) {
+@@ -316,6 +328,17 @@
+             }
+         }
+ #endif
++    }
++
++    if (fold_input) {
++        // This worker has already quantized every input's [first,end) block range.
++        const size_t first = (ith*iq_blocks)/nth;
++        const size_t end = ((ith+1)*iq_blocks)/nth;
++        for (int64_t input = 0; input < ne11; ++input) {
++            const size_t block = input*iq_blocks + first;
++            xeon_iq_input_from_q8((const char *) params->wdata + block*ggml_type_size(vec_dot_type),
++                folded_rhs + block*XEON_IQ_INPUT_BLOCK_BYTES, end-first);
++        }
+     }
+ 
+     if (mx_enabled) {
+@@ -374,9 +397,6 @@
+             if (safe) mx_safe_mask |= UINT64_C(1)<<input;
+         }
+     }
+-
+-    const void * const * compact_experts = (!params->use_ref && (type == GGML_TYPE_IQ3_XXS || type == GGML_TYPE_IQ2_S || type == GGML_TYPE_IQ3_S) && ids->ne[1] == 1)
+-        ? xeon_iq3_cache_lookup_experts_v2(src0) : NULL;
+ 
+     for (int cur_a = 0; cur_a < n_as; ++cur_a) {
+         const int64_t cne1 = matrix_row_counts[cur_a];
+@@ -454,7 +474,7 @@
+                     dst, src0, src1, ids, cur_a,
+                     ir0_start, ir0_end, ir1_start, ir1_end,
+                     src0_cur, matrix_rows, row_size, src1_cont, wdata,
+-                    compact_data, mx_enabled ? mx_rhs : NULL, mx_stride, mx_safe_mask
++                    compact_data, folded_rhs, mx_enabled ? mx_rhs : NULL, mx_stride, mx_safe_mask
+                 );
+             }
+ 

@@ -1,0 +1,30 @@
+{
+  "created_utc": "2026-11-18T02:46:37.313010+00:00",
+  "phase": "post_parent_feedback_snapshot",
+  "report": "ROUND3_CORRECTION_REVIEW_JA.txt",
+  "report_sha256": "6451741509cac57e20e8a48dc61940bd9162f287580d249564974039f5a40895",
+  "patches": {
+    "06": "623fa736121d67e105aea0c3485f9d30dfc90c60c41a8b3dfdfa94db88aef457",
+    "07": "2bad41439602527129aecd3d66883116dda6df669fcc3a093203307944aecc48"
+  },
+  "static_fix_judgment": "No concrete defect identified; input -128 detected from actual Q8 bytes, force negative weight nibble sign reproduces legacy psignb wrap lane-wise.",
+  "rounding_dependent_workspace_layout_added": false,
+  "folded_block_bytes_before": 400,
+  "folded_block_bytes_after": 400,
+  "normal_path_additions": {
+    "prepare": "OR reduction, movemask, has_min store",
+    "dot": "One has_min load and eight test+je pairs per 256-value block in all three observed compiled kernels; correction instructions skipped when flag is zero"
+  },
+  "direct_fixture_four_modes_match_legacy": true,
+  "direct_fixture_dtype": "IQ3_XXS",
+  "graph_dispatch_executed_by_reviewer": false,
+  "performance_benchmark_by_reviewer": false,
+  "observed_iqsafe_and_combosafe_cpu_dso_identical": true,
+  "observed_cpu_dso_sha256": "a471171256eb7e98d49752ff7b4181da9c5bb74f67700a6a59455cfda8087fbc",
+  "build_labels_to_full_sources_mapping_established": false,
+  "evidence": [
+    "round3_snapshot/FOLDED_ROUNDING_RETEST_RECEIPTS.json",
+    "round3_snapshot/SOURCE_AND_ASSEMBLY_CORRELATION.json",
+    "round3_snapshot/RECONSTRUCTION.json"
+  ]
+}

@@ -1,0 +1,41 @@
+--- baseline
+
++++ q8
+
+@@ -13,7 +13,7 @@
+
+ vpshufd xmm11,xmm7,0x0
+ vmovd  xmm7,eax
+ mov    eax,0xffff
+-vmovss xmm9,DWORD PTR [rip+0x28522]        # afce0 <__func__.8+0x330>
++vmovss xmm9,DWORD PTR [rip+0x28562]        # afd20 <__func__.8+0x330>
+ vpshufd xmm10,xmm7,0x0
+ lea    rdx,[rdi+0x400]
+ vmovd  xmm7,eax
+@@ -40,12 +40,12 @@
+
+ vucomiss xmm0,xmm7
+ jp     87831 <quantize_row_q8_K_ref+0xc1>
+ je     88059 <quantize_row_q8_K_ref+0x8e9>
+-vmovss xmm7,DWORD PTR [rip+0x28aa7]        # b02e0 <__func__.3+0x2c0>
++vmovss xmm7,DWORD PTR [rip+0x28ae7]        # b0320 <__func__.3+0x2c0>
+ xor    eax,eax
+-vbroadcastss xmm2,DWORD PTR [rip+0x281bc]        # afa00 <__func__.8+0x50>
++vbroadcastss xmm2,DWORD PTR [rip+0x281fc]        # afa40 <__func__.8+0x50>
+ 00 
+ vdivss xmm7,xmm7,xmm3
+-vbroadcastss xmm3,DWORD PTR [rip+0x2852f]        # afd80 <__func__.8+0x3d0>
++vbroadcastss xmm3,DWORD PTR [rip+0x2856f]        # afdc0 <__func__.8+0x3d0>
+ 00 
+ vmovss DWORD PTR [rsp+0x14],xmm7
+ vshufps xmm4,xmm7,xmm7,0x0
+@@ -439,7 +439,7 @@
+
+ vpaddw xmm13,xmm13,xmm14
+ vmovdqu XMMWORD PTR [rsi+0x100],xmm13
+ vmovdqu XMMWORD PTR [rsi+0x110],xmm1
+-vmovss xmm0,DWORD PTR [rip+0x282d2]        # b0300 <__func__.3+0x2e0>
++vmovss xmm0,DWORD PTR [rip+0x28312]        # b0340 <__func__.3+0x2e0>
+ vdivss xmm0,xmm0,DWORD PTR [rsp+0x14]
+ vmovss DWORD PTR [rsi-0x4],xmm0
+ add    r8,0x1

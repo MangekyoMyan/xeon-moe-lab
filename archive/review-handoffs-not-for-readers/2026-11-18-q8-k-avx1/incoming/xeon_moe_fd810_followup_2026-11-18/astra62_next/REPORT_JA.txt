@@ -1,0 +1,72 @@
+現行CPUソースへの混在compact移植と、選択した入力だけを準備する追加差分
+2026-11-18　gpt-6.2-astra / max　CPU VM
+
+採否
+
+実機でcompact IQを次に試す際は、08-current-mixed.patchを比較候補に残す。IQ3_XXSのdown実寸、選択6 expert中5個がcompactのVM試験で、08の演算全体の時間は現行ソース版の0.842倍、6組すべて短縮した。gate実寸の5/6では0.876倍、6組中5組短縮した。この08を実機照合済みのCPU実装と疎キャッシュへ移植でき、合成入力で出力の全バイトを比較できた。
+
+09-selected-input-only.patchの追加採用は保留する。選択expertが使わない入力列のfolded準備を省けたが、実寸downの0/6では09/08が1.009、短縮3/6組、5/6では1.045、短縮1/6組だった。5/6で09も現行比0.859と短縮した分には、08で導入した内積の効果が含まれる。09固有の実寸改善をこのVMでは示せなかった。
+
+実機レビューが04を最初の独立CPU候補とした順序を維持する。通常APIへの採用は今回の作業範囲外。CPU/GPU分担を診断するF/B/Cと次のH1は未実施である。
+
+今回のソースと三つの対照
+
+current　再構成済み公開エンジンのCPU側に、実機側で照合されたggml-cpu.c、row-localのiq3-cache.cpp/hと二つのcompact kernel、元のplacement.inc、MXFP4のmx-rhs.cpp/hとmx-math.incを配置し、VM用にビルドした。ARCH x86のquants.cは実機レビュー記載のa01b2448…と一致する。疎登録、実mmap、expert表、mutex付きlookup、compact/nativeの読み分け、MXFP4 prepackを実ソースから使う。過去fixtureのcache代替関数や診断用route37の抜粋を介さない。
+
+08　currentへ06の符号処理・-128補正と08の混在dispatchを移植した。F32を一度だけQ8_Kに変換して元形式を保持し、同一workerが量子化した範囲から400 B/blockのfolded形式も準備する。各expertはcacheの有無に応じて入力を読む。既成Q8_Kは旧compact/nativeを使う。F32用の直接prepare関数は移植せず、使用するQ8_K起点の関数を接続した。
+
+09　08へggml-cpu.cだけの小差分を加えた。T=1のslot sが参照する入力列はs % A（Aは活性の列数）。各workerは入力列iについてslot i, i+A, …を既存のid strideで読み、実際にcompact expertがその列を使う場合にfoldedを用意する。-1は飛ばし、配列を引く前にexpert範囲を確かめる。同じ列を使うexpertが複数でも一度だけ準備する。担当ブロックが0のworkerは選択表を読まない。担当のある各workerが同じ選択IDを最大6個調べる費用は計時に入る。既存のbarrierを通った後に各workerが読む順序を保ち、同期を追加・削除する変更はない。
+
+3版の独立source/buildでそれぞれCPU DSOを作り、実行時のbase DSOはcurrentの1個に固定した。すべての数値・計時processでdladdrと/proc/self/mapsを確認した。Q8_K wrapperは全版でquantize_row_q8_K_ref@pltへのjmp。03、04はいずれにも入れていない。実機のCPU ELFは33a9e346…、このVMのcurrentは1202c7a8…。CPUソースを同定した範囲、コンパイラ、ロードしたELFの識別はbuild-evidenceとinputs.jsonに記録した。
+
+準備の計数
+
+通常のTOP6は[0,1,2,3,4,5]。7 expertの合成bankにxeon_iq3_cache_add_selected_v2で選んだIDを逆順に実登録し、返るポインタ表の全7要素を照合してから測った。表なしは何も登録しない。選択0/6で表ありの場合は選択外のexpert 6だけを登録する。他の表あり条件でも6を登録し、選択内の5、0/2/4、0/1/2/3/5、0〜5を順に加えた。表の存在と、今回選択されたcompactの数の違いを区別できる。
+
+K1280・出力17行・入力6列・3 worker・F32の例は、1列あたり5 Q8_K block。3型・4丸めで同じ準備量を確認した。
+
+  今回選択されたcompact      08の準備block    09の準備block    実cache表
+  表なし                     0               0              NULL
+  0/6                        30               0              expert 6のみ
+  1/6                        30               5              非NULL
+  3/6                        30              15              非NULL
+  5/6                        30              25              非NULL
+  6/6                        30              30              非NULL
+
+K5120・1入力を6 expertで共用するgateでは、compactが一つでもあればその1列が必要になる。K2304・6入力のdownでは列あたり9 block。09は使わない列への書込みを省くが、plannerは実行前に選択IDを使えず全列の最大領域を確保する。VMの7 expert・3 workerでdownの予約はcurrent 1,589,824 B、08と09はいずれも1,611,424 B。gateでは1,579,904 Bから両版とも1,587,904 Bになった。
+
+数値照合
+
+表なし・0/1/3/5/6の6条件、4丸め、各67 graph呼出し、計1,608組。1版171,360個のF32について3版の出力バイトが一致した。3版分の4,824行は同じ入力に対する各版の記録である。72個の圧縮済み出力ファイルを同梱した。
+
+IQ2_S、IQ3_XXS、IQ3_Sについて、連続/非連続IDと活性、重複と-1、全skip、A=1/2/3/6、既成Q8_Kの-128、use_ref、T=2、worker数がブロック数を超える例を試した。F32には下向き丸めを意識した0.1fなどの入力を含めた。新規構築したworkerで丸めを切り替える各processについて、準備関数に入った際の実丸めも計数した。同一graphとscratchを使い回して5つのrouteに切り替えた経路では、以前のprepareが残った状態でも正しく推移した。全skipの値とworkspace前後のguardも確認した。MXFP4対照は各回で実RHS準備18回・実内積102回、3版で一致した。raw/numerical.csvのfold_selectはcallbackの選択回数で、内積を実行した行数とは単位が異なる。
+
+準備を含む演算全体の時間
+
+全条件でIQ3_XXS、E=7、選択6、T=1、合成重み・合成F32。downはK=2304、出力5,120行・入力6列。gateはK=5120、出力2,304行・共有入力1列。両方3 worker、CPU 2–4。小行数対照はK2304・出力1行、1 worker、CPU 2。3 warmup後に5 sampleを採り、実寸はsampleごとに4 graph、小行数は300 graphを実行。ggml_graph_compute全体を測り、毎回の量子化・通常Q8保持・追加形式の準備・cache lookup・ID走査・barrier・内積・出力書込みを含めた。重み/キャッシュの初期登録、graph/plan作成、計数器、出力hashは時間の外。
+
+同じseedで3版を別processとして実行し、全6通りの実行順を1回ずつ使った。1条件は6組。時間比はまず各processの5点の中央値を取り、同じ組で割ってから6比の中央値を求めた。短縮組数は分子が分母より速かった組数。下表の丸括弧は6組中の短縮数で、各欄の分母が比較元を示す。
+
+  条件                         08/現行        09/現行        09/08
+  down 表なし                  1.008 (2)      1.003 (3)      1.002 (3)
+  down 0/6、表あり             1.010 (2)      1.025 (2)      1.009 (3)
+  down 1/6                     1.032 (2)      1.007 (2)      0.986 (3)
+  down 3/6                     0.948 (4)      0.953 (4)      1.000 (3)
+  down 5/6                     0.842 (6)      0.859 (6)      1.045 (1)
+  down 6/6                     0.938 (5)      0.837 (5)      0.906 (4)
+  gate 5/6                     0.876 (5)      0.866 (6)      0.985 (3)
+  出力1行 0/6、表あり          1.008 (2)      0.976 (6)      0.968 (4)
+  出力1行 1/6                  1.014 (2)      0.963 (4)      0.939 (5)
+  出力1行 5/6                  1.089 (1)      1.043 (1)      0.948 (5)
+
+down 5/6の代表時間は現行3,649 µs、08が3,086 µs、09が3,238 µs。09/08は0.990–1.158。0/6の09/08は0.955–1.244。6/6は両版が同数のblockを準備する条件でも0.755–1.111と振れた。したがって6/6の時間差を準備削減に帰属できない。1行の制御条件は省いた準備が全体時間に占める割合が大きく、実寸での利益を代用しない。全900 sample・60 tripletの生値と全範囲はraw/timing.csvとsummaryにある。計時の全tripletで出力hashが一致した。
+
+今回の判断を適用できる範囲
+
+実CPU側で現在使われる3つのIQ内積、expert別の疎登録・lookup、MXFP4の準備を同じVMビルドへ含め、以前のfixtureで代替していた経路の一部を実ソースで検証できた。VMはXeon Platinum 8573C表示、GCC 14.2、Ivy Bridge向けAVX1、AVX2/FMA無効、OpenMP有効、許可メモリノードは0のみ。VM用のreserve=0、owner生成時のpacking 1 thread、GGML_CPU_IQ_ROW_LOCAL=0を使用した。実機の双Ivy、12/24 worker、2ノードのページ配置、モデルloader・長寿命owner、重み全集合・実選択分布、モデルlogits、API・生成速度は未計測。0/6の本番出現率も未測定である。
+
+実機側の04とは別のCPU比較として、06+08を進める段階で、同一基準から作る現行・08のCPU DSOを、同じ保存実入力、同一のbase DSO、既存のNUMA方針で比較する価値がある。特に観測済みの5/6と6/6、対照の非選択compactのみ・表なし、通常のworker数で結果の振れまで確認する。09はそこで入力列別の準備費または低hit率が実際に問題になったときの候補として残る。VMの時間比をtoken/sへ換算しない。
+
+再現と記録の取扱い
+
+REPRODUCE_JA.txtに保存データの読み直しとVM再構築の手順を記載した。原本の4,014ファイル全体を現行runtimeと同一とは仮定していない。対象の9ファイルについて、row-localとmx-prepackの保存build記録にあるsource SHAと照合した。加えて実機レビューが照合した5 CPUファイルのhash、Q8 wrapper source、実機報告の4 backing fileを区別する。CMakeのgit stamp取得は独立ソース木に.gitがなくunknownになり、ccacheも使っていない。3ビルドは正常終了し、source/patch/object/ELFをSHAで記録した。採否に用いた出力不一致、除外した計時roundはない。今回は新しい実機レビューを読んだ後の追加試行である。

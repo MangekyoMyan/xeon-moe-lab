@@ -1,0 +1,210 @@
+
+/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/candidate/runtime/libggml-cpu.so.0.28.0:     file format elf64-x86-64
+
+
+Disassembly of section .init:
+
+Disassembly of section .plt:
+
+Disassembly of section .plt.got:
+
+Disassembly of section .text:
+
+0000000000107da0 <quantize_row_q8_K>:
+  107da0:	55                   	push   %rbp
+  107da1:	48 89 e5             	mov    %rsp,%rbp
+  107da4:	41 57                	push   %r15
+  107da6:	41 56                	push   %r14
+  107da8:	41 55                	push   %r13
+  107daa:	49 89 fd             	mov    %rdi,%r13
+  107dad:	41 54                	push   %r12
+  107daf:	53                   	push   %rbx
+  107db0:	48 83 e4 e0          	and    $0xffffffffffffffe0,%rsp
+  107db4:	48 83 ec 20          	sub    $0x20,%rsp
+  107db8:	c5 f8 ae 5c 24 1c    	vstmxcsr 0x1c(%rsp)
+  107dbe:	f6 44 24 1d 60       	testb  $0x60,0x1d(%rsp)
+  107dc3:	0f 85 d9 02 00 00    	jne    1080a2 <quantize_row_q8_K+0x302>
+  107dc9:	48 85 d2             	test   %rdx,%rdx
+  107dcc:	4c 8d a2 ff 00 00 00 	lea    0xff(%rdx),%r12
+  107dd3:	4c 0f 49 e2          	cmovns %rdx,%r12
+  107dd7:	49 c1 fc 08          	sar    $0x8,%r12
+  107ddb:	48 81 fa ff 00 00 00 	cmp    $0xff,%rdx
+  107de2:	0f 8e 8d 02 00 00    	jle    108075 <quantize_row_q8_K+0x2d5>
+  107de8:	c5 fa 10 2d e8 13 01 	vmovss 0x113e8(%rip),%xmm5        # 1191d8 <__func__.1+0x6a8>
+  107def:	00 
+  107df0:	4c 8d 76 04          	lea    0x4(%rsi),%r14
+  107df4:	45 31 ff             	xor    %r15d,%r15d
+  107df7:	c5 fa 10 25 51 0e 01 	vmovss 0x10e51(%rip),%xmm4        # 118c50 <__func__.1+0x120>
+  107dfe:	00 
+  107dff:	48 8d 9f 00 04 00 00 	lea    0x400(%rdi),%rbx
+  107e06:	66 2e 0f 1f 84 00 00 	cs nopw 0x0(%rax,%rax,1)
+  107e0d:	00 00 00 
+  107e10:	c5 e0 57 db          	vxorps %xmm3,%xmm3,%xmm3
+  107e14:	4c 89 e8             	mov    %r13,%rax
+  107e17:	c5 fc 28 d3          	vmovaps %ymm3,%ymm2
+  107e1b:	c5 fc 28 cb          	vmovaps %ymm3,%ymm1
+  107e1f:	66 66 2e 0f 1f 84 00 	data16 cs nopw 0x0(%rax,%rax,1)
+  107e26:	00 00 00 00 
+  107e2a:	66 66 2e 0f 1f 84 00 	data16 cs nopw 0x0(%rax,%rax,1)
+  107e31:	00 00 00 00 
+  107e35:	66 66 2e 0f 1f 84 00 	data16 cs nopw 0x0(%rax,%rax,1)
+  107e3c:	00 00 00 00 
+  107e40:	c5 f8 10 00          	vmovups (%rax),%xmm0
+  107e44:	c4 e3 7d 18 40 10 01 	vinsertf128 $0x1,0x10(%rax),%ymm0,%ymm0
+  107e4b:	c5 fc 5f c9          	vmaxps %ymm1,%ymm0,%ymm1
+  107e4f:	48 83 c0 20          	add    $0x20,%rax
+  107e53:	c5 fc 5d d2          	vminps %ymm2,%ymm0,%ymm2
+  107e57:	c5 fc c2 c0 03       	vcmpunordps %ymm0,%ymm0,%ymm0
+  107e5c:	c5 e4 56 d8          	vorps  %ymm0,%ymm3,%ymm3
+  107e60:	48 39 c3             	cmp    %rax,%rbx
+  107e63:	75 db                	jne    107e40 <quantize_row_q8_K+0xa0>
+  107e65:	c4 e3 7d 19 ce 01    	vextractf128 $0x1,%ymm1,%xmm6
+  107e6b:	c5 f0 5f c6          	vmaxps %xmm6,%xmm1,%xmm0
+  107e6f:	c5 fc 50 c3          	vmovmskps %ymm3,%eax
+  107e73:	49 8d 76 fc          	lea    -0x4(%r14),%rsi
+  107e77:	c5 f8 12 c8          	vmovhlps %xmm0,%xmm0,%xmm1
+  107e7b:	c5 f8 5f c1          	vmaxps %xmm1,%xmm0,%xmm0
+  107e7f:	c5 fa 16 c8          	vmovshdup %xmm0,%xmm1
+  107e83:	c5 fa 5f c1          	vmaxss %xmm1,%xmm0,%xmm0
+  107e87:	85 c0                	test   %eax,%eax
+  107e89:	0f 85 a1 01 00 00    	jne    108030 <quantize_row_q8_K+0x290>
+  107e8f:	c5 f8 54 cc          	vandps %xmm4,%xmm0,%xmm1
+  107e93:	c5 f8 2e e9          	vucomiss %xmm1,%xmm5
+  107e97:	0f 82 93 01 00 00    	jb     108030 <quantize_row_q8_K+0x290>
+  107e9d:	c4 e2 7d 18 0d 5a 0d 	vbroadcastss 0x10d5a(%rip),%ymm1        # 118c00 <__func__.1+0xd0>
+  107ea4:	01 00 
+  107ea6:	c5 ec 57 d1          	vxorps %ymm1,%ymm2,%ymm2
+  107eaa:	c5 f8 28 ca          	vmovaps %xmm2,%xmm1
+  107eae:	c4 e3 7d 19 d2 01    	vextractf128 $0x1,%ymm2,%xmm2
+  107eb4:	c5 f0 5f ca          	vmaxps %xmm2,%xmm1,%xmm1
+  107eb8:	c5 f0 12 d1          	vmovhlps %xmm1,%xmm1,%xmm2
+  107ebc:	c5 f0 5f ca          	vmaxps %xmm2,%xmm1,%xmm1
+  107ec0:	c5 fa 16 d1          	vmovshdup %xmm1,%xmm2
+  107ec4:	c5 f2 5f ca          	vmaxss %xmm2,%xmm1,%xmm1
+  107ec8:	c5 f0 54 d4          	vandps %xmm4,%xmm1,%xmm2
+  107ecc:	c5 f8 2e ea          	vucomiss %xmm2,%xmm5
+  107ed0:	0f 82 5a 01 00 00    	jb     108030 <quantize_row_q8_K+0x290>
+  107ed6:	c5 e8 57 d2          	vxorps %xmm2,%xmm2,%xmm2
+  107eda:	c5 f8 2e c2          	vucomiss %xmm2,%xmm0
+  107ede:	ba 00 00 00 00       	mov    $0x0,%edx
+  107ee3:	0f 9b c0             	setnp  %al
+  107ee6:	0f 45 c2             	cmovne %edx,%eax
+  107ee9:	84 c0                	test   %al,%al
+  107eeb:	74 12                	je     107eff <quantize_row_q8_K+0x15f>
+  107eed:	c5 f8 2e ca          	vucomiss %xmm2,%xmm1
+  107ef1:	0f 9b c0             	setnp  %al
+  107ef4:	0f 45 c2             	cmovne %edx,%eax
+  107ef7:	84 c0                	test   %al,%al
+  107ef9:	0f 85 8e 01 00 00    	jne    10808d <quantize_row_q8_K+0x2ed>
+  107eff:	c5 f8 2f c1          	vcomiss %xmm1,%xmm0
+  107f03:	77 5c                	ja     107f61 <quantize_row_q8_K+0x1c1>
+  107f05:	c5 f8 2e c1          	vucomiss %xmm1,%xmm0
+  107f09:	c5 f0 57 1d ef 0c 01 	vxorps 0x10cef(%rip),%xmm1,%xmm3        # 118c00 <__func__.1+0xd0>
+  107f10:	00 
+  107f11:	0f 8a 6d 01 00 00    	jp     108084 <quantize_row_q8_K+0x2e4>
+  107f17:	4c 89 e8             	mov    %r13,%rax
+  107f1a:	74 31                	je     107f4d <quantize_row_q8_K+0x1ad>
+  107f1c:	e9 63 01 00 00       	jmp    108084 <quantize_row_q8_K+0x2e4>
+  107f21:	66 66 2e 0f 1f 84 00 	data16 cs nopw 0x0(%rax,%rax,1)
+  107f28:	00 00 00 00 
+  107f2c:	66 66 2e 0f 1f 84 00 	data16 cs nopw 0x0(%rax,%rax,1)
+  107f33:	00 00 00 00 
+  107f37:	66 0f 1f 84 00 00 00 	nopw   0x0(%rax,%rax,1)
+  107f3e:	00 00 
+  107f40:	48 83 c0 04          	add    $0x4,%rax
+  107f44:	48 39 c3             	cmp    %rax,%rbx
+  107f47:	0f 84 37 01 00 00    	je     108084 <quantize_row_q8_K+0x2e4>
+  107f4d:	c5 fa 10 08          	vmovss (%rax),%xmm1
+  107f51:	c5 f0 54 d4          	vandps %xmm4,%xmm1,%xmm2
+  107f55:	c5 f8 2e d0          	vucomiss %xmm0,%xmm2
+  107f59:	7a e5                	jp     107f40 <quantize_row_q8_K+0x1a0>
+  107f5b:	75 e3                	jne    107f40 <quantize_row_q8_K+0x1a0>
+  107f5d:	c5 f8 28 c1          	vmovaps %xmm1,%xmm0
+  107f61:	c5 fa 10 3d fb 11 01 	vmovss 0x111fb(%rip),%xmm7        # 119164 <__func__.1+0x634>
+  107f68:	00 
+  107f69:	c5 c2 5e c0          	vdivss %xmm0,%xmm7,%xmm0
+  107f6d:	c5 f8 54 cc          	vandps %xmm4,%xmm0,%xmm1
+  107f71:	c5 f8 2e e9          	vucomiss %xmm1,%xmm5
+  107f75:	0f 82 b5 00 00 00    	jb     108030 <quantize_row_q8_K+0x290>
+  107f7b:	b8 80 80 80 80       	mov    $0x80808080,%eax
+  107f80:	4c 89 ea             	mov    %r13,%rdx
+  107f83:	31 c9                	xor    %ecx,%ecx
+  107f85:	c5 f8 c6 d8 00       	vshufps $0x0,%xmm0,%xmm0,%xmm3
+  107f8a:	c5 f9 6e f0          	vmovd  %eax,%xmm6
+  107f8e:	c4 e3 65 18 db 01    	vinsertf128 $0x1,%xmm3,%ymm3,%ymm3
+  107f94:	c5 c1 ef ff          	vpxor  %xmm7,%xmm7,%xmm7
+  107f98:	c5 f9 70 f6 00       	vpshufd $0x0,%xmm6,%xmm6
+  107f9d:	0f 1f 00             	nopl   (%rax)
+  107fa0:	c5 f8 10 0a          	vmovups (%rdx),%xmm1
+  107fa4:	c4 e3 75 18 4a 10 01 	vinsertf128 $0x1,0x10(%rdx),%ymm1,%ymm1
+  107fab:	c5 f4 59 cb          	vmulps %ymm3,%ymm1,%ymm1
+  107faf:	c5 fd 5b c9          	vcvtps2dq %ymm1,%ymm1
+  107fb3:	c5 f8 10 52 20       	vmovups 0x20(%rdx),%xmm2
+  107fb8:	c4 c3 7d 19 c8 01    	vextractf128 $0x1,%ymm1,%xmm8
+  107fbe:	c4 e3 6d 18 52 30 01 	vinsertf128 $0x1,0x30(%rdx),%ymm2,%ymm2
+  107fc5:	c4 c1 71 6b c8       	vpackssdw %xmm8,%xmm1,%xmm1
+  107fca:	c5 ec 59 d3          	vmulps %ymm3,%ymm2,%ymm2
+  107fce:	c5 fd 5b d2          	vcvtps2dq %ymm2,%ymm2
+  107fd2:	c4 c3 7d 19 d0 01    	vextractf128 $0x1,%ymm2,%xmm8
+  107fd8:	c4 c1 69 6b d0       	vpackssdw %xmm8,%xmm2,%xmm2
+  107fdd:	c5 f1 63 ca          	vpacksswb %xmm2,%xmm1,%xmm1
+  107fe1:	c5 fa 7f 4c ce 04    	vmovdqu %xmm1,0x4(%rsi,%rcx,8)
+  107fe7:	c5 f1 ef ce          	vpxor  %xmm6,%xmm1,%xmm1
+  107feb:	c5 f1 f6 cf          	vpsadbw %xmm7,%xmm1,%xmm1
+  107fef:	c5 f1 6d d1          	vpunpckhqdq %xmm1,%xmm1,%xmm2
+  107ff3:	c5 e9 d4 c9          	vpaddq %xmm1,%xmm2,%xmm1
+  107ff7:	48 83 c2 40          	add    $0x40,%rdx
+  107ffb:	c5 f9 7e c8          	vmovd  %xmm1,%eax
+  107fff:	66 2d 00 08          	sub    $0x800,%ax
+  108003:	66 89 84 0e 04 01 00 	mov    %ax,0x104(%rsi,%rcx,1)
+  10800a:	00 
+  10800b:	48 83 c1 02          	add    $0x2,%rcx
+  10800f:	48 83 f9 20          	cmp    $0x20,%rcx
+  108013:	75 8b                	jne    107fa0 <quantize_row_q8_K+0x200>
+  108015:	c5 fa 10 0d 23 11 01 	vmovss 0x11123(%rip),%xmm1        # 119140 <__func__.1+0x610>
+  10801c:	00 
+  10801d:	c5 f2 5e c8          	vdivss %xmm0,%xmm1,%xmm1
+  108021:	c4 c1 7a 11 4e fc    	vmovss %xmm1,-0x4(%r14)
+  108027:	eb 27                	jmp    108050 <quantize_row_q8_K+0x2b0>
+  108029:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+  108030:	ba 00 01 00 00       	mov    $0x100,%edx
+  108035:	4c 89 ef             	mov    %r13,%rdi
+  108038:	c5 f8 77             	vzeroupper
+  10803b:	e8 50 dc f0 ff       	call   15c90 <quantize_row_q8_K_ref@plt>
+  108040:	c5 fa 10 2d 90 11 01 	vmovss 0x11190(%rip),%xmm5        # 1191d8 <__func__.1+0x6a8>
+  108047:	00 
+  108048:	c5 fa 10 25 00 0c 01 	vmovss 0x10c00(%rip),%xmm4        # 118c50 <__func__.1+0x120>
+  10804f:	00 
+  108050:	49 83 c7 01          	add    $0x1,%r15
+  108054:	49 81 c5 00 04 00 00 	add    $0x400,%r13
+  10805b:	49 81 c6 24 01 00 00 	add    $0x124,%r14
+  108062:	48 81 c3 00 04 00 00 	add    $0x400,%rbx
+  108069:	4d 39 e7             	cmp    %r12,%r15
+  10806c:	0f 8c 9e fd ff ff    	jl     107e10 <quantize_row_q8_K+0x70>
+  108072:	c5 f8 77             	vzeroupper
+  108075:	48 8d 65 d8          	lea    -0x28(%rbp),%rsp
+  108079:	5b                   	pop    %rbx
+  10807a:	41 5c                	pop    %r12
+  10807c:	41 5d                	pop    %r13
+  10807e:	41 5e                	pop    %r14
+  108080:	41 5f                	pop    %r15
+  108082:	5d                   	pop    %rbp
+  108083:	c3                   	ret
+  108084:	c5 f8 28 c3          	vmovaps %xmm3,%xmm0
+  108088:	e9 d4 fe ff ff       	jmp    107f61 <quantize_row_q8_K+0x1c1>
+  10808d:	b9 20 00 00 00       	mov    $0x20,%ecx
+  108092:	31 c0                	xor    %eax,%eax
+  108094:	4c 89 f7             	mov    %r14,%rdi
+  108097:	c4 c1 7a 11 56 fc    	vmovss %xmm2,-0x4(%r14)
+  10809d:	f3 48 ab             	rep stos %rax,%es:(%rdi)
+  1080a0:	eb ae                	jmp    108050 <quantize_row_q8_K+0x2b0>
+  1080a2:	48 8d 65 d8          	lea    -0x28(%rbp),%rsp
+  1080a6:	5b                   	pop    %rbx
+  1080a7:	41 5c                	pop    %r12
+  1080a9:	41 5d                	pop    %r13
+  1080ab:	41 5e                	pop    %r14
+  1080ad:	41 5f                	pop    %r15
+  1080af:	5d                   	pop    %rbp
+  1080b0:	e9 db db f0 ff       	jmp    15c90 <quantize_row_q8_K_ref@plt>
+
+Disassembly of section .fini:

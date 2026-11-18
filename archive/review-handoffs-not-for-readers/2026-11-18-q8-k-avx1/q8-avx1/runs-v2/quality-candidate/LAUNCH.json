@@ -1,0 +1,29 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "/home/codex/projects/llm-lab/moe-implementation-20261026/release/without_thp.py",
+    "numactl",
+    "--physcpubind=0-23",
+    "--interleave=0,1",
+    "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/real_ffn",
+    "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/runs-v2/quality-candidate/SPEC.json",
+    "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/runs-v2/quality-candidate"
+  ],
+  "environment": {
+    "LD_LIBRARY_PATH": "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/candidate/runtime:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+    "LD_PRELOAD": "",
+    "OMP_DYNAMIC": "FALSE",
+    "OMP_THREAD_LIMIT": "24",
+    "OMP_MAX_ACTIVE_LEVELS": "1",
+    "GGML_CPU_IQ_ROW_LOCAL": "0"
+  },
+  "design_sha256": "4d300673174d8f620c6cf0da604cb6118b8be1ed32a0e76b0604d2eff29756cb",
+  "CPU_sha256": "eb05a18ebbc1ffbab9346a86fc58f36796355eb9de7e7283f2931ef87f23b920",
+  "base_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+  "binary_sha256": "497174c49b3e28635efca853fbb34678e4f427e551a7eae0032cc3337a3866c4",
+  "spec_sha256": "b40c9251fba8a703ab0dfbd47917b155ede24ffae0640a7572f8950c4db85cde",
+  "guard_sha256": "ae8f58d2cf9e70847ce219bb35fd8ac77544fdc0e435987b31316c11b904c5ed",
+  "runner_sha256": "88fbbfc64e81a12ec7ade8d599fa7bf6240d2746661290e2e0658c0faa3e8b41",
+  "reserve_GiB": 64,
+  "budget_seconds": 600
+}

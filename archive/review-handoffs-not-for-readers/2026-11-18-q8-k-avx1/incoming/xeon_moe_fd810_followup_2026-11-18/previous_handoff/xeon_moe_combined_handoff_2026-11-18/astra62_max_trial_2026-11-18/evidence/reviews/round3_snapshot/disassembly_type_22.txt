@@ -1,0 +1,351 @@
+
+/workspace/scratch/1f624f9ac929/parent_evaluation/independent_review/round3_snapshot/lib-combosafe/libggml-cpu.so:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+000000000010df70 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)>:
+  10df70:	55                   	push   rbp
+  10df71:	48 89 e5             	mov    rbp,rsp
+  10df74:	48 83 e4 e0          	and    rsp,0xffffffffffffffe0
+  10df78:	83 7d 18 01          	cmp    DWORD PTR [rbp+0x18],0x1
+  10df7c:	0f 85 a4 05 00 00    	jne    10e526 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x5b6>
+  10df82:	41 89 f8             	mov    r8d,edi
+  10df85:	41 81 e0 ff 00 00 00 	and    r8d,0xff
+  10df8c:	0f 85 94 05 00 00    	jne    10e526 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x5b6>
+  10df92:	44 8d 97 ff 00 00 00 	lea    r10d,[rdi+0xff]
+  10df99:	85 ff                	test   edi,edi
+  10df9b:	44 0f 49 d7          	cmovns r10d,edi
+  10df9f:	41 c1 fa 08          	sar    r10d,0x8
+  10dfa3:	81 ff ff 00 00 00    	cmp    edi,0xff
+  10dfa9:	0f 8e 71 05 00 00    	jle    10e520 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x5b0>
+  10dfaf:	bf 80 80 80 80       	mov    edi,0x80808080
+  10dfb4:	48 89 ca             	mov    rdx,rcx
+  10dfb7:	4c 89 c8             	mov    rax,r9
+  10dfba:	c5 c8 57 f6          	vxorps xmm6,xmm6,xmm6
+  10dfbe:	c5 f9 6e ef          	vmovd  xmm5,edi
+  10dfc2:	bf 08 08 08 08       	mov    edi,0x8080808
+  10dfc7:	c5 f9 6f 15 51 6d 00 	vmovdqa xmm2,XMMWORD PTR [rip+0x6d51]        # 114d20 <__func__.1+0x5c0>
+  10dfce:	00 
+  10dfcf:	c5 f9 6e e7          	vmovd  xmm4,edi
+  10dfd3:	bf 0f 0f 0f 0f       	mov    edi,0xf0f0f0f
+  10dfd8:	c5 f9 70 ed 00       	vpshufd xmm5,xmm5,0x0
+  10dfdd:	c5 f9 6f 0d 3b 68 00 	vmovdqa xmm1,XMMWORD PTR [rip+0x683b]        # 114820 <__func__.1+0xc0>
+  10dfe4:	00 
+  10dfe5:	c5 f9 6e c7          	vmovd  xmm0,edi
+  10dfe9:	c5 f9 70 e4 00       	vpshufd xmm4,xmm4,0x0
+  10dfee:	c5 f9 70 c0 00       	vpshufd xmm0,xmm0,0x0
+  10dff3:	0f 1f 44 00 00       	nop    DWORD PTR [rax+rax*1+0x0]
+  10dff8:	0f b6 b8 84 01 00 00 	movzx  edi,BYTE PTR [rax+0x184]
+  10dfff:	c5 fa 6f 18          	vmovdqu xmm3,XMMWORD PTR [rax]
+  10e003:	c5 e1 ef 1a          	vpxor  xmm3,xmm3,XMMWORD PTR [rdx]
+  10e007:	c5 7a 6f 50 10       	vmovdqu xmm10,XMMWORD PTR [rax+0x10]
+  10e00c:	c5 7a 6f 48 20       	vmovdqu xmm9,XMMWORD PTR [rax+0x20]
+  10e011:	40 84 ff             	test   dil,dil
+  10e014:	74 16                	je     10e02c <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0xbc>
+  10e016:	c4 c1 41 71 d2 04    	vpsrlw xmm7,xmm10,0x4
+  10e01c:	c5 31 db c5          	vpand  xmm8,xmm9,xmm5
+  10e020:	c5 b9 eb db          	vpor   xmm3,xmm8,xmm3
+  10e024:	c5 c1 db fc          	vpand  xmm7,xmm7,xmm4
+  10e028:	c5 e1 eb df          	vpor   xmm3,xmm3,xmm7
+  10e02c:	0f b6 8a 84 00 00 00 	movzx  ecx,BYTE PTR [rdx+0x84]
+  10e033:	c5 e1 db f8          	vpand  xmm7,xmm3,xmm0
+  10e037:	c5 e1 71 d3 04       	vpsrlw xmm3,xmm3,0x4
+  10e03c:	c4 e2 69 00 ff       	vpshufb xmm7,xmm2,xmm7
+  10e041:	c5 e1 db d8          	vpand  xmm3,xmm3,xmm0
+  10e045:	c4 62 29 04 d7       	vpmaddubsw xmm10,xmm10,xmm7
+  10e04a:	c4 e2 69 00 db       	vpshufb xmm3,xmm2,xmm3
+  10e04f:	c4 62 31 04 cb       	vpmaddubsw xmm9,xmm9,xmm3
+  10e054:	c5 7a 6f 40 40       	vmovdqu xmm8,XMMWORD PTR [rax+0x40]
+  10e059:	41 89 c9             	mov    r9d,ecx
+  10e05c:	c1 e9 03             	shr    ecx,0x3
+  10e05f:	41 83 e1 0f          	and    r9d,0xf
+  10e063:	83 e1 1e             	and    ecx,0x1e
+  10e066:	47 8d 4c 09 01       	lea    r9d,[r9+r9*1+0x1]
+  10e06b:	83 c1 01             	add    ecx,0x1
+  10e06e:	c4 c1 79 6e f9       	vmovd  xmm7,r9d
+  10e073:	c5 f9 6e d9          	vmovd  xmm3,ecx
+  10e077:	c4 e2 41 00 f9       	vpshufb xmm7,xmm7,xmm1
+  10e07c:	c4 e2 61 00 d9       	vpshufb xmm3,xmm3,xmm1
+  10e081:	c5 29 f5 d7          	vpmaddwd xmm10,xmm10,xmm7
+  10e085:	c5 31 f5 cb          	vpmaddwd xmm9,xmm9,xmm3
+  10e089:	c5 fa 6f 78 50       	vmovdqu xmm7,XMMWORD PTR [rax+0x50]
+  10e08e:	c5 fa 6f 58 30       	vmovdqu xmm3,XMMWORD PTR [rax+0x30]
+  10e093:	c5 e1 ef 5a 10       	vpxor  xmm3,xmm3,XMMWORD PTR [rdx+0x10]
+  10e098:	40 84 ff             	test   dil,dil
+  10e09b:	74 17                	je     10e0b4 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x144>
+  10e09d:	c4 c1 21 71 d0 04    	vpsrlw xmm11,xmm8,0x4
+  10e0a3:	c5 41 db e5          	vpand  xmm12,xmm7,xmm5
+  10e0a7:	c5 99 eb db          	vpor   xmm3,xmm12,xmm3
+  10e0ab:	c5 21 db dc          	vpand  xmm11,xmm11,xmm4
+  10e0af:	c4 c1 61 eb db       	vpor   xmm3,xmm3,xmm11
+  10e0b4:	0f b6 8a 85 00 00 00 	movzx  ecx,BYTE PTR [rdx+0x85]
+  10e0bb:	c5 61 db d8          	vpand  xmm11,xmm3,xmm0
+  10e0bf:	c5 e1 71 d3 04       	vpsrlw xmm3,xmm3,0x4
+  10e0c4:	c4 42 69 00 db       	vpshufb xmm11,xmm2,xmm11
+  10e0c9:	c5 e1 db d8          	vpand  xmm3,xmm3,xmm0
+  10e0cd:	c4 42 39 04 c3       	vpmaddubsw xmm8,xmm8,xmm11
+  10e0d2:	c4 e2 69 00 db       	vpshufb xmm3,xmm2,xmm3
+  10e0d7:	c4 e2 41 04 fb       	vpmaddubsw xmm7,xmm7,xmm3
+  10e0dc:	41 89 c9             	mov    r9d,ecx
+  10e0df:	c1 e9 03             	shr    ecx,0x3
+  10e0e2:	41 83 e1 0f          	and    r9d,0xf
+  10e0e6:	83 e1 1e             	and    ecx,0x1e
+  10e0e9:	47 8d 4c 09 01       	lea    r9d,[r9+r9*1+0x1]
+  10e0ee:	83 c1 01             	add    ecx,0x1
+  10e0f1:	c4 41 79 6e d9       	vmovd  xmm11,r9d
+  10e0f6:	c5 f9 6e d9          	vmovd  xmm3,ecx
+  10e0fa:	c4 e2 61 00 d9       	vpshufb xmm3,xmm3,xmm1
+  10e0ff:	c4 62 21 00 d9       	vpshufb xmm11,xmm11,xmm1
+  10e104:	c5 c1 f5 fb          	vpmaddwd xmm7,xmm7,xmm3
+  10e108:	c4 41 39 f5 c3       	vpmaddwd xmm8,xmm8,xmm11
+  10e10d:	c5 fa 6f 58 60       	vmovdqu xmm3,XMMWORD PTR [rax+0x60]
+  10e112:	c4 41 39 fe c2       	vpaddd xmm8,xmm8,xmm10
+  10e117:	c4 c1 41 fe f9       	vpaddd xmm7,xmm7,xmm9
+  10e11c:	c5 e1 ef 5a 20       	vpxor  xmm3,xmm3,XMMWORD PTR [rdx+0x20]
+  10e121:	c5 7a 6f 50 70       	vmovdqu xmm10,XMMWORD PTR [rax+0x70]
+  10e126:	c5 7a 6f 88 80 00 00 	vmovdqu xmm9,XMMWORD PTR [rax+0x80]
+  10e12d:	00 
+  10e12e:	40 84 ff             	test   dil,dil
+  10e131:	74 17                	je     10e14a <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x1da>
+  10e133:	c4 c1 21 71 d2 04    	vpsrlw xmm11,xmm10,0x4
+  10e139:	c5 31 db e5          	vpand  xmm12,xmm9,xmm5
+  10e13d:	c5 99 eb db          	vpor   xmm3,xmm12,xmm3
+  10e141:	c5 21 db dc          	vpand  xmm11,xmm11,xmm4
+  10e145:	c4 c1 61 eb db       	vpor   xmm3,xmm3,xmm11
+  10e14a:	0f b6 8a 86 00 00 00 	movzx  ecx,BYTE PTR [rdx+0x86]
+  10e151:	c5 61 db d8          	vpand  xmm11,xmm3,xmm0
+  10e155:	c5 e1 71 d3 04       	vpsrlw xmm3,xmm3,0x4
+  10e15a:	c4 42 69 00 db       	vpshufb xmm11,xmm2,xmm11
+  10e15f:	c5 e1 db d8          	vpand  xmm3,xmm3,xmm0
+  10e163:	c4 42 29 04 d3       	vpmaddubsw xmm10,xmm10,xmm11
+  10e168:	c4 e2 69 00 db       	vpshufb xmm3,xmm2,xmm3
+  10e16d:	c4 62 31 04 cb       	vpmaddubsw xmm9,xmm9,xmm3
+  10e172:	c5 7a 6f a8 a0 00 00 	vmovdqu xmm13,XMMWORD PTR [rax+0xa0]
+  10e179:	00 
+  10e17a:	41 89 c9             	mov    r9d,ecx
+  10e17d:	c1 e9 03             	shr    ecx,0x3
+  10e180:	41 83 e1 0f          	and    r9d,0xf
+  10e184:	83 e1 1e             	and    ecx,0x1e
+  10e187:	47 8d 4c 09 01       	lea    r9d,[r9+r9*1+0x1]
+  10e18c:	83 c1 01             	add    ecx,0x1
+  10e18f:	c4 41 79 6e d9       	vmovd  xmm11,r9d
+  10e194:	c5 f9 6e d9          	vmovd  xmm3,ecx
+  10e198:	c4 62 21 00 d9       	vpshufb xmm11,xmm11,xmm1
+  10e19d:	c4 e2 61 00 d9       	vpshufb xmm3,xmm3,xmm1
+  10e1a2:	c4 41 29 f5 d3       	vpmaddwd xmm10,xmm10,xmm11
+  10e1a7:	c5 31 f5 cb          	vpmaddwd xmm9,xmm9,xmm3
+  10e1ab:	c5 7a 6f 98 b0 00 00 	vmovdqu xmm11,XMMWORD PTR [rax+0xb0]
+  10e1b2:	00 
+  10e1b3:	c5 fa 6f 98 90 00 00 	vmovdqu xmm3,XMMWORD PTR [rax+0x90]
+  10e1ba:	00 
+  10e1bb:	c5 e1 ef 5a 30       	vpxor  xmm3,xmm3,XMMWORD PTR [rdx+0x30]
+  10e1c0:	40 84 ff             	test   dil,dil
+  10e1c3:	74 16                	je     10e1db <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x26b>
+  10e1c5:	c4 c1 19 71 d5 04    	vpsrlw xmm12,xmm13,0x4
+  10e1cb:	c5 21 db f5          	vpand  xmm14,xmm11,xmm5
+  10e1cf:	c5 09 eb f3          	vpor   xmm14,xmm14,xmm3
+  10e1d3:	c5 99 db dc          	vpand  xmm3,xmm12,xmm4
+  10e1d7:	c5 89 eb db          	vpor   xmm3,xmm14,xmm3
+  10e1db:	0f b6 8a 87 00 00 00 	movzx  ecx,BYTE PTR [rdx+0x87]
+  10e1e2:	c5 61 db e0          	vpand  xmm12,xmm3,xmm0
+  10e1e6:	c5 e1 71 d3 04       	vpsrlw xmm3,xmm3,0x4
+  10e1eb:	c4 42 69 00 e4       	vpshufb xmm12,xmm2,xmm12
+  10e1f0:	c5 e1 db d8          	vpand  xmm3,xmm3,xmm0
+  10e1f4:	c4 42 11 04 ec       	vpmaddubsw xmm13,xmm13,xmm12
+  10e1f9:	c4 e2 69 00 db       	vpshufb xmm3,xmm2,xmm3
+  10e1fe:	c4 62 21 04 db       	vpmaddubsw xmm11,xmm11,xmm3
+  10e203:	41 89 c9             	mov    r9d,ecx
+  10e206:	c1 e9 03             	shr    ecx,0x3
+  10e209:	41 83 e1 0f          	and    r9d,0xf
+  10e20d:	83 e1 1e             	and    ecx,0x1e
+  10e210:	47 8d 4c 09 01       	lea    r9d,[r9+r9*1+0x1]
+  10e215:	83 c1 01             	add    ecx,0x1
+  10e218:	c4 41 79 6e e1       	vmovd  xmm12,r9d
+  10e21d:	c5 f9 6e d9          	vmovd  xmm3,ecx
+  10e221:	c4 62 19 00 e1       	vpshufb xmm12,xmm12,xmm1
+  10e226:	c4 e2 61 00 d9       	vpshufb xmm3,xmm3,xmm1
+  10e22b:	c4 41 11 f5 ec       	vpmaddwd xmm13,xmm13,xmm12
+  10e230:	c5 21 f5 db          	vpmaddwd xmm11,xmm11,xmm3
+  10e234:	c4 41 21 fe d9       	vpaddd xmm11,xmm11,xmm9
+  10e239:	c5 fa 6f 98 c0 00 00 	vmovdqu xmm3,XMMWORD PTR [rax+0xc0]
+  10e240:	00 
+  10e241:	c4 41 11 fe ea       	vpaddd xmm13,xmm13,xmm10
+  10e246:	c5 e1 ef 5a 40       	vpxor  xmm3,xmm3,XMMWORD PTR [rdx+0x40]
+  10e24b:	c5 7a 6f a0 d0 00 00 	vmovdqu xmm12,XMMWORD PTR [rax+0xd0]
+  10e252:	00 
+  10e253:	c5 7a 6f 88 e0 00 00 	vmovdqu xmm9,XMMWORD PTR [rax+0xe0]
+  10e25a:	00 
+  10e25b:	40 84 ff             	test   dil,dil
+  10e25e:	74 16                	je     10e276 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x306>
+  10e260:	c4 c1 29 71 d4 04    	vpsrlw xmm10,xmm12,0x4
+  10e266:	c5 31 db f5          	vpand  xmm14,xmm9,xmm5
+  10e26a:	c5 09 eb f3          	vpor   xmm14,xmm14,xmm3
+  10e26e:	c5 a9 db dc          	vpand  xmm3,xmm10,xmm4
+  10e272:	c5 89 eb db          	vpor   xmm3,xmm14,xmm3
+  10e276:	0f b6 8a 88 00 00 00 	movzx  ecx,BYTE PTR [rdx+0x88]
+  10e27d:	c5 61 db d0          	vpand  xmm10,xmm3,xmm0
+  10e281:	c4 42 69 00 d2       	vpshufb xmm10,xmm2,xmm10
+  10e286:	c4 42 19 04 e2       	vpmaddubsw xmm12,xmm12,xmm10
+  10e28b:	c5 e1 71 d3 04       	vpsrlw xmm3,xmm3,0x4
+  10e290:	c5 e1 db d8          	vpand  xmm3,xmm3,xmm0
+  10e294:	c4 e2 69 00 db       	vpshufb xmm3,xmm2,xmm3
+  10e299:	41 89 c9             	mov    r9d,ecx
+  10e29c:	c1 e9 03             	shr    ecx,0x3
+  10e29f:	41 83 e1 0f          	and    r9d,0xf
+  10e2a3:	83 e1 1e             	and    ecx,0x1e
+  10e2a6:	47 8d 4c 09 01       	lea    r9d,[r9+r9*1+0x1]
+  10e2ab:	83 c1 01             	add    ecx,0x1
+  10e2ae:	c4 41 79 6e d1       	vmovd  xmm10,r9d
+  10e2b3:	c4 62 29 00 d1       	vpshufb xmm10,xmm10,xmm1
+  10e2b8:	c4 41 19 f5 e2       	vpmaddwd xmm12,xmm12,xmm10
+  10e2bd:	c5 7a 6f 90 10 01 00 	vmovdqu xmm10,XMMWORD PTR [rax+0x110]
+  10e2c4:	00 
+  10e2c5:	c4 41 19 fe e0       	vpaddd xmm12,xmm12,xmm8
+  10e2ca:	c4 62 31 04 c3       	vpmaddubsw xmm8,xmm9,xmm3
+  10e2cf:	c5 f9 6e d9          	vmovd  xmm3,ecx
+  10e2d3:	c5 7a 6f 88 00 01 00 	vmovdqu xmm9,XMMWORD PTR [rax+0x100]
+  10e2da:	00 
+  10e2db:	c4 e2 61 00 d9       	vpshufb xmm3,xmm3,xmm1
+  10e2e0:	c5 39 f5 c3          	vpmaddwd xmm8,xmm8,xmm3
+  10e2e4:	c5 fa 6f 98 f0 00 00 	vmovdqu xmm3,XMMWORD PTR [rax+0xf0]
+  10e2eb:	00 
+  10e2ec:	c5 e1 ef 5a 50       	vpxor  xmm3,xmm3,XMMWORD PTR [rdx+0x50]
+  10e2f1:	c5 b9 fe ff          	vpaddd xmm7,xmm8,xmm7
+  10e2f5:	40 84 ff             	test   dil,dil
+  10e2f8:	74 16                	je     10e310 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x3a0>
+  10e2fa:	c4 c1 39 71 d1 04    	vpsrlw xmm8,xmm9,0x4
+  10e300:	c5 29 db f5          	vpand  xmm14,xmm10,xmm5
+  10e304:	c5 09 eb f3          	vpor   xmm14,xmm14,xmm3
+  10e308:	c5 b9 db dc          	vpand  xmm3,xmm8,xmm4
+  10e30c:	c5 89 eb db          	vpor   xmm3,xmm14,xmm3
+  10e310:	0f b6 8a 89 00 00 00 	movzx  ecx,BYTE PTR [rdx+0x89]
+  10e317:	c5 61 db c0          	vpand  xmm8,xmm3,xmm0
+  10e31b:	c5 e1 71 d3 04       	vpsrlw xmm3,xmm3,0x4
+  10e320:	c4 42 69 00 c0       	vpshufb xmm8,xmm2,xmm8
+  10e325:	c5 e1 db d8          	vpand  xmm3,xmm3,xmm0
+  10e329:	c4 42 31 04 c8       	vpmaddubsw xmm9,xmm9,xmm8
+  10e32e:	c4 e2 69 00 db       	vpshufb xmm3,xmm2,xmm3
+  10e333:	c4 62 29 04 d3       	vpmaddubsw xmm10,xmm10,xmm3
+  10e338:	41 89 c9             	mov    r9d,ecx
+  10e33b:	c1 e9 03             	shr    ecx,0x3
+  10e33e:	41 83 e1 0f          	and    r9d,0xf
+  10e342:	83 e1 1e             	and    ecx,0x1e
+  10e345:	47 8d 4c 09 01       	lea    r9d,[r9+r9*1+0x1]
+  10e34a:	83 c1 01             	add    ecx,0x1
+  10e34d:	c4 41 79 6e c1       	vmovd  xmm8,r9d
+  10e352:	c5 f9 6e d9          	vmovd  xmm3,ecx
+  10e356:	c4 62 39 00 c1       	vpshufb xmm8,xmm8,xmm1
+  10e35b:	c4 e2 61 00 d9       	vpshufb xmm3,xmm3,xmm1
+  10e360:	c4 41 31 f5 c8       	vpmaddwd xmm9,xmm9,xmm8
+  10e365:	c5 29 f5 d3          	vpmaddwd xmm10,xmm10,xmm3
+  10e369:	c4 41 29 fe d3       	vpaddd xmm10,xmm10,xmm11
+  10e36e:	c5 fa 6f 98 20 01 00 	vmovdqu xmm3,XMMWORD PTR [rax+0x120]
+  10e375:	00 
+  10e376:	c4 41 31 fe cd       	vpaddd xmm9,xmm9,xmm13
+  10e37b:	c5 e1 ef 5a 60       	vpxor  xmm3,xmm3,XMMWORD PTR [rdx+0x60]
+  10e380:	c5 7a 6f 98 30 01 00 	vmovdqu xmm11,XMMWORD PTR [rax+0x130]
+  10e387:	00 
+  10e388:	c5 7a 6f 80 40 01 00 	vmovdqu xmm8,XMMWORD PTR [rax+0x140]
+  10e38f:	00 
+  10e390:	40 84 ff             	test   dil,dil
+  10e393:	74 16                	je     10e3ab <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x43b>
+  10e395:	c4 c1 11 71 d3 04    	vpsrlw xmm13,xmm11,0x4
+  10e39b:	c5 39 db f5          	vpand  xmm14,xmm8,xmm5
+  10e39f:	c5 09 eb f3          	vpor   xmm14,xmm14,xmm3
+  10e3a3:	c5 91 db dc          	vpand  xmm3,xmm13,xmm4
+  10e3a7:	c5 89 eb db          	vpor   xmm3,xmm14,xmm3
+  10e3ab:	0f b6 8a 8a 00 00 00 	movzx  ecx,BYTE PTR [rdx+0x8a]
+  10e3b2:	c5 61 db e8          	vpand  xmm13,xmm3,xmm0
+  10e3b6:	c5 e1 71 d3 04       	vpsrlw xmm3,xmm3,0x4
+  10e3bb:	c4 42 69 00 ed       	vpshufb xmm13,xmm2,xmm13
+  10e3c0:	c5 e1 db d8          	vpand  xmm3,xmm3,xmm0
+  10e3c4:	c4 42 21 04 dd       	vpmaddubsw xmm11,xmm11,xmm13
+  10e3c9:	c4 e2 69 00 db       	vpshufb xmm3,xmm2,xmm3
+  10e3ce:	c4 62 39 04 c3       	vpmaddubsw xmm8,xmm8,xmm3
+  10e3d3:	41 89 c9             	mov    r9d,ecx
+  10e3d6:	c1 e9 03             	shr    ecx,0x3
+  10e3d9:	41 83 e1 0f          	and    r9d,0xf
+  10e3dd:	83 e1 1e             	and    ecx,0x1e
+  10e3e0:	47 8d 4c 09 01       	lea    r9d,[r9+r9*1+0x1]
+  10e3e5:	83 c1 01             	add    ecx,0x1
+  10e3e8:	c4 41 79 6e e9       	vmovd  xmm13,r9d
+  10e3ed:	c5 f9 6e d9          	vmovd  xmm3,ecx
+  10e3f1:	c4 62 11 00 e9       	vpshufb xmm13,xmm13,xmm1
+  10e3f6:	c4 e2 61 00 d9       	vpshufb xmm3,xmm3,xmm1
+  10e3fb:	c4 41 21 f5 dd       	vpmaddwd xmm11,xmm11,xmm13
+  10e400:	c5 39 f5 c3          	vpmaddwd xmm8,xmm8,xmm3
+  10e404:	c5 7a 6f a8 50 01 00 	vmovdqu xmm13,XMMWORD PTR [rax+0x150]
+  10e40b:	00 
+  10e40c:	c5 39 fe c7          	vpaddd xmm8,xmm8,xmm7
+  10e410:	c4 41 21 fe dc       	vpaddd xmm11,xmm11,xmm12
+  10e415:	c5 11 ef 6a 70       	vpxor  xmm13,xmm13,XMMWORD PTR [rdx+0x70]
+  10e41a:	c5 fa 6f 98 60 01 00 	vmovdqu xmm3,XMMWORD PTR [rax+0x160]
+  10e421:	00 
+  10e422:	c5 fa 6f b8 70 01 00 	vmovdqu xmm7,XMMWORD PTR [rax+0x170]
+  10e429:	00 
+  10e42a:	40 84 ff             	test   dil,dil
+  10e42d:	74 17                	je     10e446 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x4d6>
+  10e42f:	c5 99 71 d3 04       	vpsrlw xmm12,xmm3,0x4
+  10e434:	c5 41 db f5          	vpand  xmm14,xmm7,xmm5
+  10e438:	c4 41 09 eb ed       	vpor   xmm13,xmm14,xmm13
+  10e43d:	c5 19 db e4          	vpand  xmm12,xmm12,xmm4
+  10e441:	c4 41 11 eb ec       	vpor   xmm13,xmm13,xmm12
+  10e446:	0f b6 8a 8b 00 00 00 	movzx  ecx,BYTE PTR [rdx+0x8b]
+  10e44d:	c5 11 db e0          	vpand  xmm12,xmm13,xmm0
+  10e451:	c4 c1 11 71 d5 04    	vpsrlw xmm13,xmm13,0x4
+  10e457:	c4 42 69 00 e4       	vpshufb xmm12,xmm2,xmm12
+  10e45c:	c4 c2 61 04 dc       	vpmaddubsw xmm3,xmm3,xmm12
+  10e461:	c5 11 db e8          	vpand  xmm13,xmm13,xmm0
+  10e465:	c4 42 69 00 ed       	vpshufb xmm13,xmm2,xmm13
+  10e46a:	c4 c2 41 04 fd       	vpmaddubsw xmm7,xmm7,xmm13
+  10e46f:	41 83 c0 01          	add    r8d,0x1
+  10e473:	48 81 c2 90 00 00 00 	add    rdx,0x90
+  10e47a:	48 05 90 01 00 00    	add    rax,0x190
+  10e480:	89 cf                	mov    edi,ecx
+  10e482:	c1 e9 03             	shr    ecx,0x3
+  10e485:	83 e7 0f             	and    edi,0xf
+  10e488:	83 e1 1e             	and    ecx,0x1e
+  10e48b:	8d 7c 3f 01          	lea    edi,[rdi+rdi*1+0x1]
+  10e48f:	83 c1 01             	add    ecx,0x1
+  10e492:	c5 79 6e f7          	vmovd  xmm14,edi
+  10e496:	c4 62 09 00 f1       	vpshufb xmm14,xmm14,xmm1
+  10e49b:	c4 41 61 f5 e6       	vpmaddwd xmm12,xmm3,xmm14
+  10e4a0:	c5 f9 6e d9          	vmovd  xmm3,ecx
+  10e4a4:	c4 e2 61 00 d9       	vpshufb xmm3,xmm3,xmm1
+  10e4a9:	c5 c1 f5 fb          	vpmaddwd xmm7,xmm7,xmm3
+  10e4ad:	c4 c1 19 fe d9       	vpaddd xmm3,xmm12,xmm9
+  10e4b2:	c4 c1 41 fe fa       	vpaddd xmm7,xmm7,xmm10
+  10e4b7:	c4 c1 61 fe db       	vpaddd xmm3,xmm3,xmm11
+  10e4bc:	c4 c1 41 fe f8       	vpaddd xmm7,xmm7,xmm8
+  10e4c1:	c4 e3 65 18 df 01    	vinsertf128 ymm3,ymm3,xmm7,0x1
+  10e4c7:	c5 fa 10 7a f0       	vmovss xmm7,DWORD PTR [rdx-0x10]
+  10e4cc:	c5 fc 5b db          	vcvtdq2ps ymm3,ymm3
+  10e4d0:	c5 c2 59 78 f0       	vmulss xmm7,xmm7,DWORD PTR [rax-0x10]
+  10e4d5:	c5 c0 c6 ff 00       	vshufps xmm7,xmm7,xmm7,0x0
+  10e4da:	c4 e3 45 18 ff 01    	vinsertf128 ymm7,ymm7,xmm7,0x1
+  10e4e0:	c5 c4 59 db          	vmulps ymm3,ymm7,ymm3
+  10e4e4:	c5 cc 58 f3          	vaddps ymm6,ymm6,ymm3
+  10e4e8:	45 39 d0             	cmp    r8d,r10d
+  10e4eb:	0f 8c 07 fb ff ff    	jl     10dff8 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x88>
+  10e4f1:	c5 f8 28 c6          	vmovaps xmm0,xmm6
+  10e4f5:	c4 e3 7d 19 f6 01    	vextractf128 xmm6,ymm6,0x1
+  10e4fb:	c5 f8 58 c6          	vaddps xmm0,xmm0,xmm6
+  10e4ff:	c5 f8 12 c8          	vmovhlps xmm1,xmm0,xmm0
+  10e503:	c5 f8 58 c1          	vaddps xmm0,xmm0,xmm1
+  10e507:	c5 fa 16 c8          	vmovshdup xmm1,xmm0
+  10e50b:	c5 fa 58 c1          	vaddss xmm0,xmm0,xmm1
+  10e50f:	c5 fa 59 05 75 68 00 	vmulss xmm0,xmm0,DWORD PTR [rip+0x6875]        # 114d8c <__func__.1+0x62c>
+  10e516:	00 
+  10e517:	c5 fa 11 06          	vmovss DWORD PTR [rsi],xmm0
+  10e51b:	c5 f8 77             	vzeroupper
+  10e51e:	c9                   	leave
+  10e51f:	c3                   	ret
+  10e520:	c5 c8 57 f6          	vxorps xmm6,xmm6,xmm6
+  10e524:	eb cb                	jmp    10e4f1 <void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)+0x581>
+  10e526:	48 8d 0d 71 59 00 00 	lea    rcx,[rip+0x5971]        # 113e9e <_fini+0x351a>
+  10e52d:	be 2d 00 00 00       	mov    esi,0x2d
+  10e532:	31 c0                	xor    eax,eax
+  10e534:	48 8d 15 ed 46 00 00 	lea    rdx,[rip+0x46ed]        # 112c28 <_fini+0x22a4>
+  10e53b:	48 8d 3d b6 45 00 00 	lea    rdi,[rip+0x45b6]        # 112af8 <_fini+0x2174>
+  10e542:	e8 e9 73 f0 ff       	call   15930 <ggml_abort@plt>

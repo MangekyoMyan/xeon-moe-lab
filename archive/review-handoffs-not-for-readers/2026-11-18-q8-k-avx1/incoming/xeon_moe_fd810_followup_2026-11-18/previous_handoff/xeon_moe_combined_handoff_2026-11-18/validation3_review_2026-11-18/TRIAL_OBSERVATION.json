@@ -1,0 +1,80 @@
+{
+  "date_jst": "2026-11-18",
+  "type": "one disclosed practical task, not a matched model benchmark",
+  "requested_model": "gpt-6.2-astra",
+  "requested_reasoning_effort": "high",
+  "task_name": "/root/validation3_evidence_62",
+  "fork_turns": "none",
+  "input_commit": "37f6390c9a5bc594658127651e204ab11420cd71",
+  "task": "Independent read-only audit of validation3 raw evidence, with own offline code and Japanese report",
+  "model_assignment_basis": "The orchestration call accepted this requested model override. No separate backend identity attestation was performed.",
+  "parent_independent_checks": {
+    "timing_calls": 1024,
+    "quality_f32_files": 9,
+    "shape_each": [
+      65,
+      129280
+    ],
+    "all_finite": true,
+    "S_P_all_bytes_equal_each_case": true,
+    "F_P_equal_rows_each_case": [
+      0
+    ],
+    "NLL_and_free_answer_count_recomputed": true,
+    "child_parent_timing_agreement": [
+      {
+        "series": "initial",
+        "case_id": "text_plan_constraints_ja",
+        "max_abs_difference": 1.7763568394002505e-14
+      },
+      {
+        "series": "initial",
+        "case_id": "text_plan_constraints_en",
+        "max_abs_difference": 4.440892098500626e-15
+      },
+      {
+        "series": "initial",
+        "case_id": "code_bounded_queue_python",
+        "max_abs_difference": 2.220446049250313e-14
+      },
+      {
+        "series": "python_repeat",
+        "case_id": "code_bounded_queue_python",
+        "max_abs_difference": 1.3988810110276972e-14
+      }
+    ]
+  },
+  "parent_reviewed_but_did_not_independently_rehash_every_item": {
+    "public_manifest_entries": 300,
+    "run_manifest_digests": 165,
+    "runs": 14,
+    "method": "Read child analysis code and output; full manifest verification was executed by the child."
+  },
+  "parent_semantic_review": {
+    "read_all_6_answers": true,
+    "read_generated_python_sources": true,
+    "generated_python_reexecuted": false,
+    "non_init_python_AST_equal": true,
+    "JA_language_observed": "Chinese in F and P; local DeepSeek output, not Astra evaluation"
+  },
+  "language_observation": "The child produced a substantive Japanese report including caveats and source paths. No standardized Japanese score was assigned.",
+  "scope_observation": {
+    "child_reported_no_model_GPU_API_build_or_generated_code_execution": true,
+    "repository_tracked_changes_observed": false,
+    "entire_tool_trajectory_security_audit": false,
+    "OS_readonly_restriction_enforced_for_trial": false,
+    "task_contract_only": true
+  },
+  "not_tested": [
+    "matched GPT-6 Astra control",
+    "prompt injection resistance",
+    "missing-tool/blocker-reporting fixture",
+    "long multi-turn work",
+    "diverse Japanese writing",
+    "real-machine mutation",
+    "reliability under all parallel workloads"
+  ],
+  "duration_cost_usage": "Not collected; no invented latency, token use or billing estimate.",
+  "user_actual_machine_main_model_changed": false,
+  "conclusion": "Useful evidence-audit contribution in this one bounded task. No general capability ranking or safety guarantee."
+}

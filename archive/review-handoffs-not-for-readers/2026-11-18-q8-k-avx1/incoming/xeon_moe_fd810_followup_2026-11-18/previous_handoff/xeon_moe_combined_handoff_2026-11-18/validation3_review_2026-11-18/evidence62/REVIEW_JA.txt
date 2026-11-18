@@ -1,0 +1,36 @@
+validation3 保存証拠の独立再集計　2026-11-18
+対象コミット 37f6390c9a5bc594658127651e204ab11420cd71
+以下の相対パスは archive/review-handoffs-not-for-readers/2026-11-17-validation3/ 起点。自作 evidence.py と numeric_evidence.txt は本レビューと同じディレクトリにある。
+
+速度
+  ケース        初回 F→P (T1/s)       P/F 増加率   短縮 ms/call   最後−最初のF ms/call
+  JA 予定        7.345588→7.718031      +5.0703%       6.569401         +0.741073
+  EN 予定        7.419380→7.552831      +1.7987%       2.381468         +1.634655
+  Python         7.549533→7.610048      +0.8016%       1.053316         +1.799031
+  Python 追試    7.512476→7.573157      +0.8077%       1.066573         −0.965543
+  発見単位は固定参照入力64個のブロック。初回は新規4プロセス F/P/P/F の各3ケースで768 T1。前半2プロセスは JA→EN→Python、後半2プロセスは逆順。各ケース・各方式の128回について総回数/総計時を求めた。CPU/GPU 実装条件差の記述で、F は実験 libllama 上で hot を無効にした対照。追加は Python の初回差の小ささを理由に選んだ同一IDでの追試で、4プロセス×64T1。新規プロンプト件数や独立なモデル評価回数に読み替えられない。
+  一次記録は初回4 RUN.json の start_ns / output_ready_ns。例として caller/runs/20261117T080108Z-timing-0-F-d878650d/RUN.json:4035,4101,4635,4701,5292,5358、caller/runs/20261117T080433Z-timing-1-P-287e3574/RUN.json:4857,4923,6684,6750,8568,8634。全8件の時刻位置は numeric_evidence.txt:13,17,21,25,33,35,37,39。追試の初回結果への参照と停止計画は python-repeat/DECISION.json:2-3,2271-2288。成果は numeric_evidence.txt:44-53。
+
+時間境界と画面表示
+  caller/driver.cpp:21-23,130-151,158-162。各回 set_one で固定IDを1個配置、直後に steady_clock ns、llama_decode、llama_get_logits_ith(ctx,-1)、ready ns。prefill は別計時。共通 JA64 warm＋JA236と4 T1 の後に同期し、KV を消去して対象prefixを再投入。timing 内にサンプリング、HTTP、UI の表示イベントは入らず、有限値走査と複写はqualityのみ、ブロック末尾の明示同期は計時後。interval は ready−start で、起動時間・呼出間の隙間も含まない。自由生成ジャーナルの timestamps も caller 内の logits/sample/decode まで（同:172-194）。
+  初回の各64T1で先頭含め全件保持。先頭は132.491–171.452 ms。初回全体最大177.066 ms は JA の最後の F、position237（そのブロックの2回目）。各ブロックのmax位置は188/219/234/237/244/245/257/263に散在。遅い呼出が position256 のみに揃わない。初回12系列で、奇数ordinal平均−偶数ordinal平均は −2.124～+1.619 ms、Pearson(t_i,t_{i+2}) は0.0654～0.3958、lag1 は−0.0169～0.5025。同じ入力列の系列内記述で、補正・仮説検定なし。追加4系列を混合せず別掲（numeric_evidence.txt:10-25,32-39,54-63）。この情報で「2トークンずつ表示」を確定・否定したり、ブラウザ描画・転送・サーバーのどこでまとめたかを識別することはできない。観察したい場合は server send、client receive、描画時刻 と token ID / SSE frame の対応が必要。
+
+固定参照での数値
+  F/S/P×3ケースの9ファイルは各 65×129280 の little-endian float32、各33,612,800 byte、全75,628,800要素有限。S/P は3ケースとも全バイト一致。各 F/P について全行一致はrow0だけ、row1..64には少なくとも1要素の差。top1差は JA 0/65、EN 0/65、Python 1/65。Python row31だけが7854→1351（参照1351）。row0はprefix直後、row31は固定31個入力後の予測であり、自由生成で初めて分岐した ordinal と異なる。
+  P−Fの固定target平均NLL差（自然対数、float64計算）は順に−0.0040757713、−0.0032386002、−0.0057772255、最大logit絶対差は11.415420、13.247169、3.931075。これは指定参照での記述量。一般品質・競合の不在を保証する合格閾値は設けていない。
+  ファイルSHAと名前は caller/runs/20261117T074541Z-quality-F-d787fb6c/RESULTS_SHA256.json:8-10 と caller/runs/20261117T074906Z-quality-SP-c02ffc27/RESULTS_SHA256.json:8-13。row対応は caller/FROZEN_PLAN.json:2593,4170,5978、保存ロジックは caller/driver.cpp:145-155。全列は自作コードで実際に読んだ。出力 numeric_evidence.txt:41-43。
+
+H と custom build
+  各Pブロックで per-layer の before_T1 を after から引いた。40層×H=0..6の表で、選定23層各64回、他17層0回。64T1につき各H総数は JA [438,881,149,4,0,0,0]、EN [868,555,44,5,0,0,0]、Python [1108,338,26,0,0,0,0]。各ケースで2回のPの層別表は完全一致。延べhot選択は1191/658/390。37 CPU層×top6×64=14,208を分母に 8.3826/4.6312/2.7449%、実際に追加経路を実行した23層×64=1,472を分母に H0率29.7554/58.9674/75.2717%。CPU層全選択と追加経路全呼出は違う単位。identity・選択時刻・CPU残仕事・単独expert短縮はHのヒストグラムから復元できない。
+  例は caller/runs/20261117T080433Z-timing-1-P-287e3574/RUN.json:5467,5877,7294,7704,9178,9588。caller/driver.cpp:129,133-136 と caller/capacity.plan:1-41。numeric_evidence.txt:45,47,49,52。
+  Quality SPの custom_builds_after_each_T1 は before_T1 の値を差し引いた増分。JA では prefix長236の最初の時点に23、position256で46。Pythonは244で23、256で46。ENは187..250すべて23。S/P両ブロックで同じ形。過程全体の絶対カウンタとは区別する。quality runのbefore_T1絶対数も138,184,230,253,276,322と連続して増加し、各snapshotで native=475,453,440 byte、allocation=475,457,024 byteのまま。stderrの ready 行は当該SPプロセス内1回。再確保の痕跡はこれらの記録にはないが個別Stateポインタの同一性をログで直接比較する手段はない。timing では呼出別build値を取り出していない。
+  同 RUN.json のビルド列は caller/runs/20261117T074906Z-quality-SP-c02ffc27/RUN.json:6287,8234,10132,12030,13985,15940、同ディレクトリserver.stderr.log:5422。カウンタの仕様は caller/driver.cpp:133,148-154、caller/hot-backend.h:16-18。自作出力 numeric_evidence.txt:3-9。
+
+プロセス・公開整合・回答
+  FILES_SHA256.json の300エントリ319,085,976 byteをSHAとサイズで照合。自身を除く全ファイルに対応。RAW_MAPPING.jsonの全299件も照合。STATE.json:8-80 の初回10および python-repeat/STATE.json:3-34 の追加4プロセスはいずれも実行receipt、正常終了0、RUN passed が整合。14の RESULTS_SHA256 の165 digest が一致。server-config の14件は launch に記録された command/environment からメモリ内再構成。guard-health は元名 health のdigestに一致。照合は当該コミット内の整合性であり、過去の実機からの真正な取得を独立証明する署名ではない。
+  caller/BUILD.json:43-73 と python-repeat/caller/BUILD.json:43-76 のソースSHAはそれぞれ公開ファイルに合致。caller ELF SHAは両方 06bfa93e017e320e7b8734ff8b242912c166d8fe759c8446eb0bd0a72d086878、4 DSO pinは同じ。追試はDESIGN、runner、BUILD receipt が異なる。16個の関数providerは全run共通。実際のbackend pinはF 2個、SP/PはXEON_HOT_FFNを加え3個で、全runで各自のPROVIDER_EXPECTEDと一致。ELFやDSOのバイナリ本体は本archiveにないため、実体の再hash・再ビルド検証は行っていない。該当箇所は quality-F と quality-SP 各 PROVIDER_EXPECTED.json:117-128 および caller/driver.cpp:68-89。
+  6回答すべてのsample ID、decode数、journalからのall/visible bytes、EOG/長さ停止を照合。F/P生成数はJA1024(length)/1023(EOG)、EN887/893、Python829/809（後4本EOG）。初差ordinalはJA45、EN151、Python67。最終生成IDは保存後再decodeしない。採点器や生成コードを再実行していない。数学的・言語的な妥当性、実ブラウザ上の見え方はこのバイト照合の対象外。numeric_evidence.txt:26-31,64-66、caller/driver.cpp:172-195。
+  通常API復帰は RESTORED_RUNTIME.json:2-22 の過去記録。PID291001・health ok・通常4DSO・通常config SHA 963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43、記録時のactive_alerts/monitor_errors空。STATE.json:69-80 は未採用・完了・品質576T1・自由回答6・14プロセスを記録。現在のホストやAPIの状態は未検証。
+
+実行範囲
+  CONSULT_PRO_JA.txt と RESULTS_JA.txt を入口に、固定plan、source、run-spec、計時・カウンタ・f32・journal・公開manifest・build・状態receiptをローカルで読み取った。実行は自作 evidence.py（NumPy/stdlib・ファイル読み取り）、シェルの閲覧・git rev-parse のみ。本番API、GPU、モデル、起動スクリプト、リポジトリ付属のreplay/採点器、生成Python、ビルドは実行していない。再現には python evidence.py <対象アーカイブ> を使う。本結果は指定データを読む作業の成果で、使用したアシスタントモデル同士の能力・安全性比較を構成しない。

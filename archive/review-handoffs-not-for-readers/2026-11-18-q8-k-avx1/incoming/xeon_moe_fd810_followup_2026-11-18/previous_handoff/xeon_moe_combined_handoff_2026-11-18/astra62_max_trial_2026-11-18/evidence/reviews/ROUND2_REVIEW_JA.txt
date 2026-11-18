@@ -1,0 +1,154 @@
+第2版候補の独立レビュー — 親から反例を知らせる前の snapshot
+作成日: 2026-11-18 UTC
+担当: /root/max_trial_independent_reviewer
+
+0. 結論と確認範囲
+
+03-route-selected.patch の追加分岐について、静的確認では具体的な正しさの欠陥を発見しなかった。
+04-q8k-avx1.patch についても、通常の finite 入力と round-to-nearest を対象とする経路、および非 nearest 時の参照実装への切替に、具体的な欠陥を発見しなかった。
+一方、05-combined.patch の F32 → folded 入力 → compact dot は、F32 なら生成 Q8 値に -128 が現れないという前提が非 nearest では成り立たない。FE_DOWNWARD の有限 F32 入力で、既存 compact dot と新 folded dot の符号が反転する最小反例を直接実行で確認した。Q8 の参照実装との byte 一致自体は保たれる。この問題は「量子化の byte 一致」と「後段 dot の byte 一致」が別であることを示す。
+
+これは通常 nearest で動く実機推論の故障、回答品質の低下、あるいは計測済み通常 nearest の速度向上が無効であることを示すものではない。既存 compact の -128 符号反転の wrap と新計算の違いであり、新計算が数学的に誤っていると判定したものでもない。
+
+このレビューは親が反例を候補実装者へ通知する前の snapshot を対象とする。親は反例を独立確認して source/input/CSV/receipt を候補実装者へ渡したと報告した。以後の修正は別フェーズであり、本書では未確認。
+
+当レビュー担当はエンジン全体をビルドせず、性能ベンチマークもしていない。既存の候補 DSO を読む小さな C++ probe のみ自分でビルド・実行した。route の graph 実行検証は親の別記録を参照すること。この機械は実機 Xeon と異なるため、命令・算術確認と実機速度を区別する。
+
+1. 対象の固定とソース照合
+
+snapshot 記録: round2_snapshot/SNAPSHOT.json
+採取時刻: 2026-11-18 02:24:30.237398 UTC
+
+03-route-selected.patch
+SHA256 d43d8131e4ac511cd5dc5c87e570a01c2ed635455605e921464004092c3c98d0
+12752 bytes
+
+04-q8k-avx1.patch
+SHA256 b1e0691007fb67e3356a6e763e3ba14d7dd0a1c5a1efbf460350f2f153ca121d
+3739 bytes
+
+05-combined.patch
+SHA256 1c1dcd32255bfea5e4c1fe7082ec9f2d336722be4a049ab53aee813adc139f99
+25330 bytes
+
+03/04 は初期 accepted ソースとの差分を GNU diff -u で再生成し、提出 patch との完全一致を確認した。
+根拠: round2_snapshot/SOURCE_CORRELATION.json
+
+05 は GNU diff の hunk 構成が提出 patch と異なった。この文字列差だけをソース不一致と扱わず、初期ソースを reviewer 所有ディレクトリへ複写し、その複写へ snapshot patch を git apply した。5 ファイルすべてが指摘前に記録した work/combined の SHA256 と一致した。候補実装者のソースは変更していない。
+根拠: round2_snapshot/COMBINED_RECONSTRUCTION_VERIFICATION.json
+再構成先: round2_snapshot/combined_reconstruction/
+
+以下の基点パスは /workspace/scratch/1f624f9ac929/astra62_max_trial/。
+「03 source」は work/route2/ggml/src/ggml-cpu/ggml-cpu.c の下記 hash 時点を指す。
+SHA256 32b45f84180f022c9c6e886b3f18658e0004799d074bfd89d3677f00eb6d76de
+「04 source」は work/q8/ggml/src/ggml-cpu/arch/x86/quants.c の下記 hash 時点を指す。
+SHA256 603f06f60c1595159b08e0497aae8bc266aeb1ac2c9810d1dd661dc88bd6cdc2
+「05 source」は上記 combined_reconstruction 内の対応ファイルを指す。以後 work 側が変わっても、その新状態に本書を適用しない。
+
+2. route 小入力分岐: 容量・行順・ID 対応
+
+03 source 1491–1494:
+小入力条件は token 数が 1、selected slot 数が 16 以下。固定の group_of_slot[16] はこの条件内でのみ読む。
+
+03 source 1729–1751, 3113–3130:
+group_capacity = min(expert 数, selected slot 数)。小入力時は counts/ends と atomic counters を group_capacity 個だけ確保し、selected expert の配列を group_capacity + 1 個確保する。mapping 自体は selected slots × tokens 個。planner と runtime は同じ group_capacity と selected 領域を使い、整数境界・cache-line 境界・tiled scratch の配置順も対応している。
+
+03 source 1793–1837:
+有効 ID のユニーク数は min(expert 数, selected slot 数) 以下なので selected 配列の容量に収まる。選択 expert は最初に現れた順に登録され、各 slot に group 番号を記録する。ID -1 は group に追加せず、その output slot を 0 にする。全 ID が -1 なら selected[0] = -1 となり、後段は未使用 ends を読まずに終了する。ユニーク数が容量と一致する場合も +1 の sentinel 書込みは収まり、group loop 自体が容量で止まる。
+
+ID 読み出しは ids.nb[0], ids.nb[1] を使う。重複 expert は同じ group へ入るが、mapping は各 selected slot を別々に保存するため、出力を同じ slot に潰さない。count → prefix → fill 後は ends[e] がその group の排他的終端となり、開始位置は e == 0 ? 0 : ends[e - 1]、行数はその差分になる。各 expert 内の token/slot 行順は元経路と同じ。
+
+03 source 1851–1870:
+group 番号と実 expert ID を使い分けている。ends と atomic counters は group 番号、重みオフセットと tiled expert 呼出しには selected[group] の実 expert ID を使う。配列の取り違えは見つからない。
+
+変更される順番は expert 間の順番である。元の expert ID 昇順から、最初に選択された順へ変わる。別 expert の別 output slot への演算なので、それだけで浮動小数点の加算順が変わると扱う必要はない。ただし重みアクセスの順番・局所性・仕事配分の時間特性は変わり得るため、その効果は実測事項。
+
+3. route 同期・chunk・NUMA・tiled/packed 経路
+
+03 source 1841–1846:
+atomic 初期化は worker ごとの範囲分割であり、全 worker が全 counters を初期化するわけではない。初期化と thread 0 による mapping 作成の後の barrier が残り、量子化済み入力・mapping・selected を後段から読む前に同期する。
+
+各 worker は同じ selected と ends を使って group を走査する。counter の index も group に置き換わっている。NUMA/static chunk のサイズ計算自体は元コードと同じで、chunk 内に渡す mapping の始点だけが圧縮表のその expert 部分になる。4/2/1-row の MXFP4 分岐を含む全 chunk 呼出しが同じ expert-local mapping を受け取る。
+
+tiled は元から expert-local な int32 の (slot, token) ペア列を読む。新実装はこの形式・連続性・各 expert 内の順番を保存する。小入力分岐以外は第1版の全 expert counts → prefix → fill 経路に戻る。
+
+以上はコード上の不変条件の確認である。各 ISA、NUMA 環境、全 dtype/stride 組合せの実行網羅を行ったという意味ではない。
+
+4. route 改善の説明で避けるべき誤解
+
+元の巨大 mapping は予約量が E × selected_slots × tokens × 8 bytes だが、元コードがこの全領域を memset していたわけではない。実際に fill する mapping は有効 selected slot 数分である。メモリ予約の縮小率をそのまま演算速度やメモリ転送量の縮小率にしない。
+
+第1版は全 E の counts と worker loop を残す。第2版の小入力分岐では、その E に比例した領域・走査も選択済み group 数へ縮める。ただし元の atomic 初期化コストは「各 worker × E 初期化」ではなく「全 worker 合計 E 初期化」である。
+
+graph plan の work_size は graph 内の各 node の workspace の最大値を使う。layer 数だけ削減量を単純加算しない。extra buffer backend は通常 CPU 経路を迂回し得るため、その経路に本変更の効果を自動的に帰属しない。
+
+5. Q8_K AVX1 の算術点検
+
+04 source 504–577 / 05 source の arch/x86/quants.c 同行:
+AVX があり AVX2 がないビルドでのみ新経路を使う。非 nearest の MXCSR なら関数全体を quantize_row_q8_K_ref へ戻す。AVX2 その他は従来の参照呼出しを保つ。
+
+526–552:
+正の最大と負の最小を独立に収集し、絶対最大の符号を選ぶ。正負が同じ絶対値で並ぶ場合は元入力を先頭から走査し、参照実装の strict > による「最初の最大値」の符号を保存する。NaN/Inf を検出した block は参照へ戻す。この fallback は参照の非有限値の扱いが有用・安全であることを新しく保証するものではない。
+
+538–542:
+ゼロ block は d と qs のみを 0 にし、bsums は書き換えない。元の q8_K_ref も同じであり、bsums の未初期化そのものを今回の回帰と扱わない。
+
+553–572:
+iscale = -127 / extremum、出力 d = 1 / iscale を保存する。scale が非有限なら ref へ戻す。普通の nearest では 8-lane の cvtps_epi32 と元の nearest_int の nearest-even が対応し、128-bit の pack は元の lane 順を保つ。値域が通常の -127…127 なら pack の下限飽和は発火せず、上限飽和も参照側の MIN(127, …) と対応する。
+
+567–570 の bsums は各 signed byte に XOR 0x80 を適用して q+128 の unsigned byte とし、PSADBW で16要素を合計し、16×128 を引く。各16要素の signed sum と一致する。
+
+根拠となる参照関数は source_repo/vendor/llama.cpp/ggml/src/ggml-quants.c の nearest_int 630–635 と quantize_row_q8_K_ref 2784–2820。
+
+候補実装者の outputs/raw/q8-byte-check.csv には4 rounding mode ×12 pattern の試験で byte 不一致0の記録があった。この記録を当担当が再実行したわけではない。以下の独立反例でも quantize_row_q8_K と ref の出力は4 mode とも byte 一致した。
+
+6. combined の確認済み反例: FE_DOWNWARD で -128 が生じる
+
+05 source ggml-cpu.c 1717–1727:
+compact_data が存在し src1 が F32 なら folded を選ぶ。入力が既に Q8 の場合は -128 問題を考慮して既存 compact へ戻すコメントがあるが、F32 から非 nearest で生成される -128 はこの条件で除外されない。
+
+05 source xeon-local/folded-input.inc 14–29, 50–71:
+Q8 を作って符号を重み側へ移し、入力の abs byte を unsigned として積和する。-128 の abs byte は 0x80、unsigned 値として128になる。
+
+元の accepted/overlays/xeon-local/compact-kernel.inc 68–69 は signed Q8 に _mm_sign_epi8 を使う。-128 を負符号で反転しても8-bit上では -128 へ wrap するため、-128 と負重みの組合せの算術が folded とは違う。
+
+独立 probe:
+  folded_rounding_probe.cpp
+  FOLDED_ROUNDING_PROBE.csv
+  FOLDED_ROUNDING_RECEIPT.json
+
+256個の F32 のうち x[0] = 0.1f (bits 0x3dcccccd)、残りは0。
+IQ3_XXS compact block は全 nibble 0x8、d = 1、scale = 1。
+これは grid[0] の値4と全負符号に対応する表現可能な block であり、無効な compact code を投じた反例ではない。元 grid の根拠は ggml-common.h の iq3xxs_grid 先頭 (1018行) と ksigns_iq2xs の全負符号 entry。
+
+同じ DSO の旧 compact dot と新 folded preparation/dot を直接呼んだ結果:
+
+mode             q[0]   old bits   new bits   byte一致
+FE_TONEAREST      -127   bdcccccd   bdcccccd   yes
+FE_DOWNWARD       -128   3dce69a1   bdce69a1   no
+FE_UPWARD         -126   bdcb2ffa   bdcb2ffa   yes
+FE_TOWARDZERO     -127   bdcccccd   bdcccccd   yes
+
+FE_DOWNWARD の old は約 +0.100787408、新は約 -0.100787409。
+全4 mode で量子化出力 q は quantize_row_q8_K_ref と byte 一致した。
+
+実行時 CPU DSO SHA256:
+11d4878d87039b0f94019edaed749bad2356b210a5ee6a935fb6f175ef6fb967
+実行直前・直後の hash は同じ。receipt の採取時刻は 2026-11-18 02:29:54.365160 UTC。
+
+probe は -march=ivybridge -mno-avx2 -mno-fma -fno-fast-math -ffp-contract=off -frounding-math でコンパイル。exit 0、stderr 空。
+
+この確認は1 block の direct function 比較である。graph_dispatch、複数 worker の rounding 環境、実モデルの中間値、全 IQ dtype、質問応答品質を実行確認したものではない。通常 nearest ではこの probe の old/new は一致している。非 nearest をサポート対象とするなら、F32 であることだけでは byte 一致の十分条件にならない、という具体的な確認である。
+
+7. combined の workspace と今後の修正確認
+
+05 source ggml-cpu.c 3127–3133:
+planner は compact candidate な F32 入力に folded block の400 bytesを予約する。runtime が compact cache miss や use_ref で通常 Q8_K block の292 bytesへ戻っても、予約が大きい側になるため、この条件の違いだけで過小確保にはならない。K が block size256の倍数である通常の tensor 制約内では、runtime の行数×row_size と planner の全要素数ベースの予約は対応する。
+
+修正確認では、prepare/direct dot の同一性だけでなく、実 graph の F32 + compact + 非 nearest が期待する経路へ入るかを別に見る必要がある。rounding mode は thread ごとの状態なので、mode を各 worker の shared workspace stride 選択へ直接反映する変更なら、worker 間で異なる layout を選ばないことも確認対象となる。現時点でその修正版を見たわけではないため、具体的な修正の正否は未判定。
+
+8. 元からある事項と今回の候補の区別
+
+初期 source_repo/vendor/llama.cpp/ggml/src/ggml-cpu/tiled/tiled.cpp 605–642 の ggml_tiled_supported は dtype switch が return するため、その後634–640の src1 type / noncontiguous Q8_K check に到達しない形になっていた。今回の route patch が導入したものではなく、当担当はその入力条件の実行再現も行っていない。もしその種の失敗を観測するなら、まず初期状態でも起きるか分離する。
+
+本書の対象範囲で他に再現した defect はない。性能、採用可否、実機での品質は親と実機担当の測定・判断に委ねる。「静的に見つからなかった」を全条件の正しさ保証と読み替えないこと。

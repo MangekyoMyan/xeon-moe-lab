@@ -1,0 +1,14 @@
+{
+  "variants": ["current","08","09"],
+  "selection_masks": {"no_table":0,"only_off_route":64,"one_of_six":96,"three_of_six":85,"five_of_six":111,"six_of_six":127},
+  "routes": [[0,1,2,3,4,5],[6,6,6,6,6,6],[-1,-1,-1,-1,-1,-1],[-1,5,4,4,1,0],[3,1,4,0,5,2]],
+  "timing_orders": [["current","08","09"],["08","09","current"],["09","current","08"],["09","08","current"],["08","current","09"],["current","09","08"]],
+  "seed_base": 87321, "warmups":3, "samples":5,
+  "cases":[
+    {"name":"down","k":2304,"rows":5120,"inputs":6,"threads":3,"affinity":"2-4","loops":4,"masks":["no_table","only_off_route","one_of_six","three_of_six","five_of_six","six_of_six"]},
+    {"name":"gate","k":5120,"rows":2304,"inputs":1,"threads":3,"affinity":"2-4","loops":4,"masks":["five_of_six"]},
+    {"name":"short_rows","k":2304,"rows":1,"inputs":6,"threads":1,"affinity":"2","loops":300,"masks":["only_off_route","one_of_six","five_of_six"]}
+  ],
+  "numerical_round_modes": ["nearest","down","up","toward_zero"],
+  "functional_scope":"Each process checks all three IQ types and MXFP4. CPU sources and real sparse owner/lookup/allocator are used. No original model, no GPU; row-local NUMA policy is disabled."
+}

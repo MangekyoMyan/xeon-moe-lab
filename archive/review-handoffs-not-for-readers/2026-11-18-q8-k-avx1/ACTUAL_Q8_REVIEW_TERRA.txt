@@ -1,0 +1,46 @@
+04実機CPU局所試験の独立証拠レビュー
+2026-11-18。R=/home/codex/projects/llm-lab/fd810-followup-20261118。
+
+標準Pythonによる保存JSON/バイト/時刻の読取・再計算のみ。既存の分析scriptは実行/importしていない。新しい性能試験・build・モデル/API操作なし。実行、復帰は担当者側の記録を読む。
+
+結論
+
+Q8_K変換単体の4丸め比較と、実保存入力・実重みによるCPUの3射影＋活性部分のquality/timingは、保存証拠の範囲で整合している。実機12 threadのIQ2条件は候補/対照時間比中央値1.023623、4組中0組短縮、IQ3条件は1.009443、1/4短縮。24 threadではIQ2条件0.877073、4/4短縮だが4組の範囲0.689240–0.990448で大きく変動し、IQ3条件1.002928、2/4短縮。Q8_Kを用いないMXFP4の対照も24 threadで0.954188、4/4短縮・比0.756991–0.996474と揺れる。計時には有利・不利が混在し、この条件の04単独による安定したモデル全体の利益は証明されない。現時点の本番採用・full-model速度試験の保留は妥当。24 threadの数値はT1形状でありprefillの測定ではない。
+
+1. 実行物と数値
+
+q8-avx1/BUILD.json、CONTROL_CHECK.json: control CPU DSOと、保存上の通常runtime CPUファイルの現在の内容は完全byte一致、双方SHA256 33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3。control quants.c.oも元build objectと直接byte一致、SHA 0bc9b33e5ab7706d57e2e3abbbdf9aa883e5f53f9c329066d88b7c73749bd66e。候補CPU SHA eb05a18ebbc1ffbab9346a86fc58f36796355eb9de7e7283f2931ef87f23b920、共通base SHA 2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558。control/candidateのsource SHAは各a01b2448.../603f06f6...とBUILDの記録に整合。これは保存実体の現在の比較と各runの記録の検証であり、任意の時間・将来の実行物への保証ではない。
+
+q8-avx1/numeric-fixed-wrapper/control.csv と candidate.csv は各4行、各mode 1,536呼出し・10,344 blocks・差0を記録し、それぞれ4×10,344=41,376 blocks。非nearestはfallbackを含み、すべて高速化されたという意味ではない。control/candidateのprovider JSONではfrom_floatは各CPU、referenceは共通baseに対応。これらは当時の試験記録の再読でありprobeの再実行ではない。最初のwrapperがmainをrenameしてimplicit returnを失った失敗と修正は PROBE_WRAPPER_FIX.txt に保存されており、失敗を成功成績に混ぜない。
+
+2. 10保存runと元captureの直接照合
+
+q8-avx1/STATE-v2.json、FFN_DESIGN.json、runs-v2/*/RESULTS_SHA256.json、health.json、LAUNCH.json、RUN.json、SPEC.json を標準Pythonで読み、10段階の全manifest hash・各格納file hash、正常終了・child return 0、指定CPU/base/providerの対応、binary/design/spec hashを確認。health上のchild PIDは10個とも異なる。すべてのsampleの開始/終了差が正でcalls=指定数、各blockの計時後worker CPU receiptは12なら0–11、24なら0–23。worker receiptは計時後の別OpenMP領域の記録で、個々のgraph内での全瞬間のコア位置のtraceではない。
+
+3 cell×2 thread×10 process=60個の保存出力（各5120×6=30,720 F32、合計1,843,200 F32）は、それぞれ対応する元capture down出力と直接全byte一致し、全値finite。全sampleに保存されたoutput FNV64も元captureから独自計算した値と一致。60個は同一入力に対して別runで得た結果であって60の独立したモデル入力ではない。計時中は各sample 8 graphの最後だけ、warmupは連続3回の最後だけ出力を比較しており、1,920呼出しすべての個別出力byteを確認したわけではない（q8-avx1/real_ffn.cpp:96–100）。
+
+各cell/threadにて10 runの選択重みrecord（384 expertのtensor形状、選択expertと元GGUFファイルのoffset/元byte FNV、compact expert）がquality-controlと一致することも確認した。live plan membershipと取得済みcompact mask、read-only GGUF mmap、CPUのfrom_float/cache/providerを当時のrunが確認した内容はreal_ffn.cpp:34–80、84–95にある。記録されたproviderは各runがdladdrで得たpathであり、保存されていない各CPU命令実行traceではない。
+
+入力は3個の既存capture cell1（layer7 IQ2_S/IQ3_XXS、各射影5/6 compact）、cell5（layer13 IQ3_XXS/IQ3_S、6/6 compact）、cell6（layer28 MXFP4、非compact）。CPUのgate/up→clamped SwiGLU→downによる6 expert出力までを同じgraphで測る。routing weightsの適用・expert結果の加重merge、GPU、API、完全モデルやtoken生成は含まない。現行の384 expert tensorを保持し、fixtureに必要なcompactのみ登録した局所試験で、モデル全体のcache配置や全層の実動作そのものではない。
+
+3. 全保存時刻の独立再計算
+
+8 fresh timing processesはcontrol/candidate/candidate/control/candidate/control/control/candidateのABBA BAAB。各cell/threadで4 controlと4 candidate、近接の指定組は(0,1),(3,2),(5,4),(6,7)。各processでは5 sample、各sampleは8 graph。3 cell×2 thread×8 process×5 sample=240 sample、1,920 graph calls。240独立processや1,920独立入力ではない。各processの5 sampleの中央値から対応組の候補/対照比を取り、その4比の中央値を用いる。全6条件で独自集計値はFFN_ANALYSIS.jsonと一致した。
+
+cell / threads     四つの候補/対照時間比                       中央値       短縮
+1 IQ / 12          1.005296, 1.049320, 1.022773, 1.024473     1.023623     0/4
+1 IQ / 24          0.689240, 0.990448, 0.833917, 0.920230     0.877073     4/4
+5 IQ / 12          1.003785, 1.020348, 0.997636, 1.015100     1.009443     1/4
+5 IQ / 24          0.976813, 1.033628, 0.974479, 1.029042     1.002928     2/4
+6 MXFP4 / 12       0.976870, 0.906832, 1.002465, 0.994358     0.985614     3/4
+6 MXFP4 / 24       0.996474, 0.993901, 0.914475, 0.756991     0.954188     4/4
+
+各比の中央値から算出した時間変化は、cell1 12thread +2.36% / 24thread −12.29%、cell5 +0.94% / +0.29%、MXFP4 −1.44% / −4.58%。速度増減率と時間変化は同じではない。比の範囲やsample間の揺れを消して中央値だけを普遍化しない。cell1/24の最初の組は対照6.9024ms・候補4.7574msで比0.689、同条件の2番目は3.2048ms対3.1742msで0.990。背景変動の原因は本証拠で特定できない。各種入力・step・モデル全体、GPU併用における効率は測っていない。
+
+MXFP4は保存CPUソース exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c:295–299 で dot type Q8_0を使用する。今回のQ8_K wrapper変更とは異なるので、同じFFN fixture・順序での変動を見る負の対照として有用。ただし差は他のノイズや組織配置などの可能性を示すに留まり、変動要因の証明ではない。品質条件と計時条件は同じ形状・cache・保存x/top6、CPUのみ。24 logical CPUを使った単一token演算を複数token/prefillやトークン毎のサービスlatencyへ外挿しない。
+
+4. 中断履歴と復帰の記録
+
+初回品質runは q8-avx1/runs/quality-control/server.stderr.log の「FAIL: output write」、STATE.jsonのchild-exited returncode 1、RUNNER_REVISION2.txtにより、run directory所有者とsupervisorがchildへ与えるLAB所有者との不一致として記録されている。成功したRUNやタイミングには算入しない。修正後はruns-v2のquality2本を先にやり直してquality gateを作り、timing8本を実施。元API停止をtry/finallyに含め、capture manifestの開始前・各process前照合も追加された（run_ffn.py:10–13,27–30,62–99）。初回復帰はGPUメモリ解放が古い監視snapshotに反映されずstart.pyが拒否。改訂では既存の使用量しきい値を変えず最大60秒待ちを追加したと記録。hardware protection stopを迂回してrestartする仕組みではない。
+
+R/RESTORED_RUNTIME.jsonの保存結果はAPI health ok、通常CPU/base/CUDA/libllamaのbacking hash一致、監視service active、monitor errors/alerts空と報告。STATE-v2.jsonはnormal_API_restored=true、restore_required=false。これは担当側の復帰実行と確認の保存記録であり、今回このレビューがAPIを新たに呼び出したわけではない。
