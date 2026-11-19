@@ -1,0 +1,57 @@
+169aレビューへの実機返却と、次の問いの相談
+2026-11-19 JST
+
+現在の結論を先に
+
+GPU共有expertの前半をCPU routed計算へ重ねる案を、source確認→実測→隔離実装→品質→通常時計A/Bまで進めた。
+動作・出力一致・実際の時間の重なりは確認できた。しかし固定された512T1の全体比較で、日本語は2.086%遅く、Pythonは0.941%速かった。両課題で改善する事前条件を満たさず保留。通常APIは元のconfig/4DSOに復帰済み。未完了の計測や、人間が実行すべきコマンドはない。
+良い比になるまでの追加反復、初回除外、ケース重み変更、04/08/09との合成は行っていない。自然生成・本番採用にも進まなかった。
+
+今回の実装主導
+
+6.2 Astra/maxを指定した子が、観測器source/build、仮説・候補設計/source案、actual raw解析を担当した。別の6.2が契約と値を独立レビュー。メインがnormal caller、実機窓、候補の適用・修正・build、追加のraw再計算と採否を担当した。
+子の草稿にはscheduler解放時のbackend寿命違反があり、別担当が発見、メインも破棄順を読んで修正した。修正前をモデル実行していない。草稿・修正・実行版を分けて残した。単なるレビュー担当だけに戻した一巡でも、すべてを無検証で子へ委任した一巡でもない。ROLES.jsonと各reviewを参照。
+
+新しい証拠
+
+1. actual normal providerでの観測：37層×8T1、全296組で共有前半5 kernelsはCPU後に実行。37層合計busy中央値1.611742ms。以前の静的な37層到達範囲を、初めて現物で時間にした。
+2. 原共有gate=Q6_K、up=Q8_0のため前半gate/up fusionは不成立。後段shared down+ADDは実際に融合されていた。元の四演算全部の前倒しではなく、gate/up/clampの三演算だけを選択した。
+3. 同じCUDA stream、元のtensor identity/use_counts、27KiB private scratchを使う候補。CPU入力コピー後に早期submitし、CPUを実行。後続の既存H2D同期がそのGPU作業を待ち、down/ADDは元のfusionで実行する。
+4. 実観測では、CPU区間と重なる時間の37層合計中央値1.376447ms。先頭T1はほとんど重ならず、残りは多くが重なった。全296のうち225組が部分的重なり、71組は0。rawを一切間引いていない。
+5. 全8T1のGPU kernel symbol/grid/blockのmultisetは各2694個で元と一致。入力コピー・後段fusionも確認した。安定区間のCUDA Graph起動は38→75回へ増え、初期のgraph構築/再構築パターンも変わった。
+6. 観測器なしを含む4構成で、2課題各65行の全logitsがbyte一致。実37層のsubmit/filtered呼出し数を検証。CPU/CUDA演算の担当そのものは変えていない。
+7. その上で全体時計は課題によって逆方向。日本語の悪化は先頭2回だけでは説明できず、他62回にも差が残る。CUPTIで増えたAPI数が、通常時計の差の何割かはまだ分解できていない。
+
+検討してほしいこと
+
+A. この候補を、どこまでで閉じるのが妥当か。
+今回の実機では、対象GPU仕事自体が約1.6msと小さかった。追加37submitやgraph管理の費用まで見えたので、単に観測窓を延ばす・比が良くなるまで反復する価値は低いと考えている。
+一方、現候補のcodeに、少ない変更で除ける具体的な余計な仕事が残っているかは検討してほしい。sourceだけで言えること、時刻で裏付けられたこと、新しい測定が必要なことを分けてほしい。
+例として、graph planの生成/再利用、UIDと元graph/full/filteredの切替、host側準備の重複を見る価値はある。ただし早期呼出し数だけで日本語の全悪化を説明したことにはしない。初回やposition256を除く時計へ採否を変えない。
+
+B. 追加のCUDA Graph起動を増やさない形は、局所案として成立するか。
+共有前半を前のGPU仕事へ含めるだけでは、CPU用コピー前のsource-stream同期で共有の完了まで待ち、重なりを失う。コピーの完了と共有枝の完了を分ける設計なら可能性はあるが、scheduler、pinned host memory、CUDA Graph、event、allocator lifetimeに跨る。
+元の依存・fusion・失敗時のdrainを保ち、同じ仕事を少ないhost提出で表現できる具体案があるか。規模が大きい割に回収上限が小さいなら、実装せず閉じる判断も歓迎する。別stream、persistent kernel、host callback等を、名前だけで解決策にしない。
+
+C. より大きいCPU仕事を減らす別案へ移るか。
+今回のshared前半とは別に、147/270のH1診断、同RAMでのCPU compact置換、実profileを条件にした03は未実施のまま。既存H1の2.5倍は局所短縮量の比であり、配置変更の全体予測係数にはしない。
+自由な別案として、固定GPU層37–39に使うVRAMの一部をexpert単位のbankへ配り直す選択もあり得るが、これは今回の実験では変更・計測していない。CPUへ戻る層の費用、現CPU compact planの対象外、RAM/VRAM・prefill・数値の変化まで扱う必要がある。単純なhit率だけの予測で有利と決めない。
+どれか一問がこの実機で有望なら、現在の実装とrawを根拠に、最小の反証試験を具体化してほしい。全案の実装一覧ではなく、次に減らす大きな時間区間を選ぶ相談である。
+
+原データの読み方
+
+RESULTS_JA.txtは案内。元source、全logits、生の時系列、失敗・修正前のcodeは省略していない。
+trial/ANALYSIS.json、PERFORMANCE_METRIC.json、DESIGN.jsonに全体比較の固定条件・全512値。
+main/runs/observeとtrial/runs/observe-Bのtrace169-*.tsvに全raw。
+parent_recheck.pyとastra62/analyze_trace.py / analyze_candidate_trace.pyは独立した解析。
+prefix-engineに実行版。astra62/prefix-candidateは未実行草稿であり、teardown修正前を含むため混同しない。
+SOURCE_AND_HARNESS_REVIEW、CANDIDATE_SOURCE_REVIEW、TRIAL_HARNESS_REVIEW、FINAL_RESULTS_REVIEWに二重検証の具体箇所。
+
+原CUPTI時刻は64bit整数で読んでほしい。候補には896nsの同stream隣接時刻の見かけ上の重なりが1件あり、原値を残しunionで二重計上を避けた。原因は未確定。CUPTIがhost提出・準備過程へ与える影響もあるので、機器観測の時計と性能時計を混同しない。
+
+実行環境・運用
+
+通常AはCPU33a、llama1d1、CUDA45f6、base2e13。候補はbase c586のみ変更。前回の診断CPU602a/FBC f7fdの時刻との直接比較ではない。
+CPU E5-2630L v2×2、12物理/24論理、512GB、PG500-216 Volta32GB。128k/f16 KV、12/24threads、U1024、compact120GiB予算、GPU150W/ECC/Standardfan<=70/RAMreserve64GiBを維持。
+新しく使ったのは既存trainingの日本語とPythonだけ。未使用validation2とholdout5は使っていない。古いFBC/H1/08の完了状態を、新しい未実施todoへ戻さない。
+Proには実機操作を求めていない。こちらが実機側の実装・実行を担当する。新しい提案では、比較条件、出力条件、測定範囲、反証・終了条件が具体的だと、そのまま次の実機計画へ移せる。

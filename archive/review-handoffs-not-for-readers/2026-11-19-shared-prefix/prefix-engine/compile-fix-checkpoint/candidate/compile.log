@@ -1,0 +1,14 @@
+In file included from /home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src/../include/ggml-backend.h:3,
+                 from /home/codex/projects/llm-lab/169a-exploration-20261119/prefix-engine/ggml-backend.cpp:11:
+/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src/../include/ggml.h:184:67: error: invalid use of ‘extern’ in linkage specification
+  184 | #        define GGML_API __attribute__ ((visibility ("default"))) extern
+      |                                                                   ^~~~~~
+/home/codex/projects/llm-lab/169a-exploration-20261119/prefix-engine/shared_prefix.inc:277:12: note: in expansion of macro ‘GGML_API’
+  277 | extern "C" GGML_API int xeon_shared_prefix_stats_v1(ggml_backend_sched_t, uint64_t *, size_t);
+      |            ^~~~~~~~
+/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src/../include/ggml.h:184:67: error: invalid use of ‘extern’ in linkage specification
+  184 | #        define GGML_API __attribute__ ((visibility ("default"))) extern
+      |                                                                   ^~~~~~
+/home/codex/projects/llm-lab/169a-exploration-20261119/prefix-engine/shared_prefix.inc:278:12: note: in expansion of macro ‘GGML_API’
+  278 | extern "C" GGML_API int xeon_shared_prefix_stats_v1(ggml_backend_sched_t sched, uint64_t * out, size_t n) {
+      |            ^~~~~~~~

@@ -1,0 +1,162 @@
+169a：custom経路と次のbank探索の独立レビュー
+2026-11-19 / 担当 r169a_hotpath_and_bank
+固定commit 169a2f7eab8d52071661f0da6859d38df4206f8b
+
+判断
+
+6.2 Astra/maxへ、次の限定実験の実装だけでなく「全体の時間を最も減らしそうな問いを選ぶ」役割を渡すことに賛成する。今の根拠で最も自然な配置側の一手は、頻出147/270を実入力で捕捉し、同予算H1で時間価値を確認すること。一方、これを必ず当てる宿題にはしない。新しい測定で利益が弱い、特定ケースにしか寄らない、joint top6では成立しないと分かれば、その結論で止めて別の律速候補へ移れる任務にする。
+
+custom C−Bを次に一か所だけ細分するなら、main CのState::compute内でprivate CPUのgraph_computeと出力getの間を切る。既存stampをmainの短い診断へ接続し、入力準備・plan/execute・出力copyを分ける。最初の問いは実mainのCUDA_Host destinationでcopy費用が観測差を説明し得る規模か、である。外側schedulerやCPUbackendの同期を先に削る提案ではない。
+
+今回のC−Bは全体約130ms/T1に対しJA約0.90%、Python約0.56%の規模である。この差を戻すだけの改善に探索全体を固定する理由はない。ただし、この比は原因別費用の厳密な上限でも、GPU分担全体の上限でもない。相殺されている費用や別の有効な変更の可能性は残る。
+
+1. 今回、何を直接確認したか
+
+現在のfbc-engine/hot-backend.cpp、h1/hot-backend.cpp、h1/operator_replay.h、H1二plan、全4runのREPLAY.jsonを読んだ。H1主要2cellの全12blockについてC−P、C−S、S−P、C−Oを独自再計算した。入力・出力全byteや全manifestの再監査は別担当の範囲であり、この報告で自分が全項目を再監査したとはしていない。
+
+147/270の頻度・共起は、前回の保存済み独立再集計HOTPATH_RECOMPUTED.jsonから再読した。このsubtask自身は元11,840routeを再取得して数え直していない。projection別compact membershipは、現在ローカルにあるfrequency19200.planを別に読み、L3/13とL7/19が3射影ともcompact、L3/147とL7/270が3射影とも非compactであることを確認した。runtimeの実lookupは新capture時に再確認する必要がある。
+
+計測を実行するコード、ELF、モデル、通常API、保存コマンドは起動していない。以下の次案も未実装・未実行である。読んだ原本SHA、再計算値、提案の状態はHOTPATH_BANK_ANALYSIS.jsonに残した。
+
+2. H0で既に省けているものを、再度最適化案にしない
+
+State::computeはH0時にGPU input copy、submit、join、scatterを通らない。private graph、weight bank、H別GPU graphはinitialize内で作られる。毎tokenのgraph再構築・weight再uploadを原因とする根拠はない。
+
+H0に残る明示copyは、1層につきF32 input 20,480B、IDs 24B、canonical 6-slot output 122,880B。23層で3,297,832B/T1である。このbytesから所要msは出ない。外側schedulerのcopyも含まない。
+
+mainのState::computeは現在stamp=nullptrで呼ばれる。一方standaloneはstampを渡すが、cpu_begin→cpu_endにはgraph_computeと出力tensor_getが一緒に入っている。OのCPU spanはgraph_computeだけで出力getが時計外であり、C−Oを純copy費用と読むこともできない。
+
+standaloneのtx/ti/tyはoriginal.cpuへallocしたCPU buffer。mainのCPU nodeは観測時CUDA_Hostで、専用backendのget_buffer_typeもCUDA_Hostを返す。この差があるためstandaloneの入力/出力copy値をそのままmainへ足せない。
+
+さらに、F/BはCPU38split、CはCPU15split＋専用23split。専用splitが各private CPU graphを1回呼ぶ構造では、CPU graph呼出しは名目上38対15＋23＝38となる。これは動的call counterの実測ではないが、「23回のOpenMP起動が丸ごと純増した」という仮説とは違う。graph内容、private pool、配置、barrier、affinityの費用が同じかは別に残る。
+
+3. 最小の次の診断：実main上でCPU出力copyを切る
+
+変更箇所はState::computeのCPU経路を中心に限定する。既存のcpu_beginとcpu_endの間に、ggml_backend_graph_compute(private_cpu,l.cpu->graph)が戻った直後のcpu_graph_endを一つ加える。既存cpu_set_end、partition_endも記録する。backend_computeから診断専用のSampleStampを渡し、固定上限の事前確保配列へ保存する。
+
+観測の呼び方は次の通り。
+
+・cpu_set_end−partition_end：CPU入力準備。mode CのIDs復元、分岐、時計自体も含むので厳密なmemcpy単体時間と呼ばない。
+・cpu_graph_end−cpu_begin：private CPU plan＋execute。通常のFFN計算を含む。
+・cpu_end−cpu_graph_end：private CPU output get。mainの実dstへの122,880B出力copy境界。
+・各T1で23層分を合計し、ケース別・層別に生値を残す。時計や分岐の微小費用も併記し、機械的な過剰補正をしない。
+
+既存training JA/Python、同じ準備、同じCPU/CUDA/base、同じbank/compact/host buffer配置で一巡だけ行えば、copyがこの差の規模を説明し得るかを問える。最初からF/B/C全試験を何巡も再実行する必要はない。Cの診断on/offでlogits・経路・配置の一致を確かめ、追加clockとrecordの費用を把握する。全時刻を保持する。診断の細かなprocess数は6.2が最小に設計してよいが、結果を見る前に固定する。
+
+eval callback、route recorder、計時中log、vector拡張、追加同期を入れない。既存計時の主時計はdecode→logits-readyのまま保つ。詳細traceで得た内部時間を、そのまま未観測の性能向上と呼ばない。
+
+この一手が答えられる範囲は限定的である。State::computeへ入る前のState mutex待ちや外側scheduler待ちは入らない。CPU plan＋executeが大きいことも当然あり、それ自体がC−Bの原因とは言えない。Bの元FFN計算という対応相手が必要な費用だからである。
+
+判断の分岐も先に決める。
+
+・copy/入力準備が差と同程度で、再現する層に集中するなら、その実bufferとlifetimeを保った1つのcopy削減案を作る。alias化を即実装する前にowner・allocator reuse・同期契約を確認する。
+・copyが十分小さいなら、この探索を閉じる。次はCPUbackend内のplan対execute、または既存scheduler同期呼出しの待ち時間のどちらか一問を選ぶ。
+・外側を追う場合は、既に呼ばれている同期の前後を記録する。新しいcudaDeviceSynchronize等を加えて測定対象の並列性を壊さない。147 copy object／76splitが同じでも、実転送bytes・buffer属性・同期待ち時間が同じとは限らない。
+
+既知のCPUbackendソースは各graph_computeでggml_graph_planを作り、work_dataは必要容量が増えるときだけ再確保する。初期graph warmupがある一方、定常全callのmalloc不在を測ったわけではない。「planはある」と「planが主因」を分ける。State mutexやallocator reuseを保護する同期の削除は、原因確認の代わりにならない。
+
+4. H1の大きな利益は、今回overlapだけに依存していない
+
+再計算したnoncompactのC−S中央値は次の通り。
+
+  cell1 / L7 / expert85  : 0.601999, 0.563055 ms
+  cell4 / L35 / expert100: 0.516763, 0.527630 ms
+
+対応するC−Pはそれぞれ0.597912/0.572154、0.531626/0.530852msである。SはGPU join完了後にCPUを動かすため、serial分担でも大きな利益が出ている。したがって今回の主要な示唆は「CPUで重い担当をGPUへ替える価値」であり、「同時実行の工夫だけで約2.5倍の利益が出た」とは読めない。
+
+主要2cell・全4processのP host submit中央値は約0.121〜0.133ms、P join残待ちは約0.035〜0.042ms、S joinは約0.043〜0.051msだった。これは保存host時計の区間であり、GPU device全所要時間ではない。launch/submitの費用、残待ち、CPU経路の差を分けて扱う根拠にはなる。
+
+S−Pが小さい/符号が揺れることは、このH1でoverlapの実測追加利益が小さいことを示す。GPUが全く動いていない、同時実行が常に無意味、別のHでも同じ、という結論にはならない。小差は測定変動や資源競合による相殺も含み得る。現段階でGPU device timelineを得たとは言わない。
+
+このため次の配置では、Hを増やすこと自体よりCPUに残る仕事と投入/合流後のoutput-readyを重視する。H1のC−PをH2/H3へ倍掛けしない。
+
+5. 147/270は低頻度85/100より実配置に近いが、偏在が大きい
+
+旧training5の保存済み再集計は以下の通り。
+
+  対象        全5例計  JA  EN  mixed  Python  C++  元hotとの同時出現
+  L3 / 147       78     0   0    23      0     55      71/78
+  L7 / 270       77     0   0    26      0     51      30/77
+
+147/270が「頻出」であるのは、この5例中mixedとC++に偏った頻度である。JA/EN/Pythonへ利益を一般化しない。特にJAで多く選ばれているexpertを追い出すなら、これらのtargetが当該ケースでは一度も利益を返さないことを損失側へ入れる。
+
+147は78回中71回が既存hotとの共起で、追加するとH2/H3等になる場合が重要となる。一方270は77回中47回で元H0だった。両者の同じ約78回という頻度から同じ分担価値を推測できない。
+
+指定する2captureは旧案と同じでよい。
+
+  C++ training decode_call1 / position241 / L3
+    ordered top6 [330,257,13,153,147,61]
+    比較はcompact13対noncompact147。
+  C++ training decode_call15 / position255 / L7
+    ordered top6 [270,335,173,19,357,32]
+    比較はcompact19対noncompact270。
+
+compact13/19のtraining出現は109/137回。単純なfrequency×利益という仮の式なら必要な1回利益比は109/78≈1.40、137/77≈1.78となり、85/100の51倍・128倍とは異なる。しかしこの仮の式を最終scoreにしない。今回約2.46倍という別expertの実測をここへ代入して採用確定しない。
+
+両cellとも型組はIQ2_S gate/up、IQ3_XXS down、形状は5120/2304/384。IQ3_SやMXFP4全般の係数には使えない。x、ordered global IDs、routing weight、unweighted down、clamp、provider、projection別cache lookup、capture on/off一致を保存する。元baseline/teacher-forced軌道を使い、capture結果を見て都合のよいcallを選び直さない。
+
+captureは既存のproducer pointerを保持しCPU gate後に安全にreadする方法を踏襲する。CUDA weighted/mergeノードをcallbackで切断しない。capture helperのコメントがproposalのままでも、そのファイル名だけから実行済みと判定しない。今回のh1/driver.cppはcallbackを禁止して旧captureをreplayしており、新captureは別に必要である。
+
+6. 同予算H1の具体例
+
+現在のH1_COMPACT.planを両armの基準とし、次の2層だけを置換する例なら、35expert・23非空層・475,453,440 native B・層別型/個数/graph初期化形状を揃えられる。
+
+  plan                     L3 membership     L7 membership
+  FREQ_H1_COMPACT           [0,13,306]        [19,154,331]
+  FREQ_H1_NONCOMPACT        [0,147,306]       [154,270,331]
+
+他層は同一とする。L3元membership [13,61,306]のままでは指定captureに13と61が当たりH2になるため、61を両plan共通filler0へ置換した。この0は両新captureのtop6に含まれない。L7では19と270を交換する。
+
+この例は静的にH=1を確認した未実行の診断設計であり、新しい通常bank候補ではない。GPU local IDをglobal expert IDと混同しない。runtime membership、型、shape、native/upload/readback bytes、primary実compactを再確認し、期待値JSONとhashを新たに固定する。既存の任意active-maskを仮定しない。
+
+新2cellを主比較としてCOMPACT/NONCOMPACT/NONCOMPACT/COMPACTの4fresh、既存O/C/S/Pの4warmup・12balanced blockを適用すれば、新primary定常384観測となる。この段階で旧8cellの性能を全部再測定することは必須ではない。実装変更とguardの範囲に応じた回帰確認は行う。旧8cellを再度計るなら全H期待値を再生成する必要があり、既存cell2はH2対H1、cell3はH3対H2となるので一括平均しない。
+
+品質はO=C=capture、各partition内S=P、cold slot一致。partition間のPは担当変更slotだけがCPU/CUDA演算差を持ち得る。cross-partition bit一致を要求しない。全process・全block・不利な値を保存して一巡で閉じる。
+
+7. training5 joint top6から候補一つへ進む方法
+
+H1で成功したら自動的に147/270を両方bankへ追加する、という手順にはしない。次の順で選ぶ。
+
+(a) trainingのケース重みと品質/速度の採否条件を結果を見る前に固定する。既定の5例等重みを使うなら明記する。今回の2targetだけを有利にするためC++比率を後から上げない。
+
+(b) 全11,840routeについて、layer、ordered top6、projection別型/compact、候補のGPU担当集合、H、CPU残仕事を保持する。hit数だけで集計しない。候補により失う既存hit、増えるH0→H1とH1→H2/H3、未測定の型/compact組合せをケース別に出す。
+
+(c) 同一セルC−Pの実測を優先し、H1の2.5倍を全expertへ付けない。近い条件への補間は推定と表示し、観測済みの範囲、未測定範囲、結果のばらつきを分離する。P joinをGPU全時間に見立ててmax(CPU,GPU)式へ代入しない。
+
+(d) まず既存23層・層別個数を保った同byteのmembership置換に絞ると、active層数変更の外側費用を新たに仮定する量を減らせる。ただし147/270のH1比較相手13/19を、そのまま最適な追い出し相手と決めない。置換するexpertはjoint top6で失う時間価値も評価する。
+
+(e) 2captureだけでは、変化するH2/H3の時間まで同定できない。元L3指定route自体がoriginal35ではH2である。予測順位を左右する未測定jointパターンが大きい場合は、暫定候補を一つ先に固定し、その候補に固有の代表jointセルを一つだけ追加診断するか、配置候補化を保留する。多数のbankを実機gridで競わせない。
+
+(f) ケース別予測、失う利益、不確かさ、実容量、active層数を示し、次に全モデルへ持ち込むcandidateを一つだけ凍結する。native bytesだけでpeak VRAM余裕は決まらないため、既存実allocation/vision warmup等のguardを維持する。候補が優位と説明できなければoriginal35を残すことも有効な探索結果である。
+
+(g) 凍結後に全モデルの固定入力品質・output-ready速度で反証する。GPU/CPU算術差があるので過去H1の局所一致だけで全モデル品質を代替しない。使ったvalidation3は回帰扱い、未使用validation2とholdout5は既定の後段役割を保つ。未使用データをcandidateランキングに使わない。
+
+8層案も静的な比較対象には残せるが、23→8層の削減をC−B/23で一律に換算してよい根拠はない。旧8層案は36expert・480,522,240Bで、original35より5,068,800B多く、厳密な同byte案ではない。JAのhit数は1377→1087、C++は564→660であり、time value未確認のまま「同じhitの90.9%を保持した高速案」と扱わない。
+
+8. 6.2へ渡す探索余地と反証条件
+
+任務は固定表の消化ではなく、ユーザーが使う全体経路の品質を維持して実T1時間を減らすこととする。main側はbaseline・共有資源の予定・通常APIの操作担当を一本化し、6.2は問い、最小実験、実装、解釈の主導を持てる。raw/providerの独立確認と採否はmainが行う。全ベンチを二重実行することは標準にしない。
+
+6.2が別候補を出す場合、提出するのは最大三つ程度の短い仮説比較でよい。各仮説には、現在のどの時間区間/コード/routeに根拠があるか、減らせそうな絶対msの規模、まだ測っていない部分、最小の反証試験、採らなかった案より優先する理由を付ける。実機に載せるcandidateは同時に一つとし、既存の保護と資源枠内で進める。
+
+比較すべき探索方向の例は以下。これを全て実装する指示ではない。
+
+・CPUで重いexpertをGPUへ渡す配置：今回H1が支持。147/270の偏在、joint H、CPU残仕事で説明が崩れれば保留。
+・custom入出力または既存同期の費用：main C−Bが根拠。in-situで十分小さければ主戦場にしない。
+・CPUの実FFN経路やcompact予算とGPU常駐の重なり：original35のIQ95projection slotsがCPU compactと重なる既知事実から検討できる。ただしCPU cacheを動かすとprefill/非custom経路にも影響するので、未測定の利益を断言せず独立候補として扱う。
+・active層数削減：H0でも追加経路を通ることが根拠。全体の外側配置/保持、失うhit、ケース偏りを含めて測らないと有利とは言えない。
+
+08保留や未実施03は、他の担当レビューと合わせて再評価できる。VM tiny/many倍率を実T1へ換算せず、04/09/24Tを救済条件として追加しない。強い新根拠がなければ147/270とcopy切分けを進め、全体traceがもっと大きい律速を示したら、その根拠を説明した上で次の一手を差し替える。この自由を与えることと、候補数を無制限に増やすことは別である。
+
+根拠の入口
+
+・r169a_review_2026-11-19/source/fbc-engine/hot-backend.cpp
+・同 h1/hot-backend.cpp、h1/operator_replay.h、h1/H1_COMPACT.plan、h1/H1_NONCOMPACT.plan
+・同 h1/runs/h1-0-H1_COMPACT/REPLAY.json から h1-3-H1_COMPACT/REPLAY.json の全4本
+・同 fbc/ANALYSIS.json、astra62-review/FINAL_RESULTS_REVIEW_JA.txt
+・deliverables/xeon_moe_combined_handoff_2026-11-18/validation3_review_2026-11-18/hotpath/HOTPATH_RECOMPUTED.json
+・同 HOTPATH_REVIEW_JA.txt、ASTRA_NEXT_JA.txt
+・parent_evaluation/static_material_source/frequency19200.plan
+・parent_evaluation/prior_inventory/primary_source_cache/accepted_cpu.cpp
+
+現在と旧資料は混同せず、旧資料の「未実施F/B/C/H1」を現在のpendingへ戻していない。

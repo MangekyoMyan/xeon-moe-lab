@@ -1,0 +1,44 @@
+{
+  "question": "Does existing shared-expert CUDA work remain exposed after CPU-routed computation in the unmodified normal engine?",
+  "stages": [
+    {
+      "name": "baseline",
+      "stage": "baseline",
+      "cases": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "observe",
+      "stage": "observe",
+      "cases": [
+        0,
+        1
+      ]
+    }
+  ],
+  "protocol": {
+    "normal_provider_pins": "INITIAL_RUNTIME.json",
+    "warmup": "JA first64,clear,fullJA+4T1,clear; identical everyprocess",
+    "cases": "frozen train JA272/Python240; no validation/holdout",
+    "work_per_case": "prefix+64T1,all65logitrows saved",
+    "observer": "CUPTI earlyinit beforegraphinstances; traceonlyfirst4T1 eachcase with no evalcallback",
+    "timing": "decode to normaloutputready, observer run descriptive only not performanceclaim",
+    "quality_gate": "all65rows bitidentical observer-vsnormal; actualCPU/CUDA/base/llama exactsame",
+    "timeline_gate": "no activity loss/errors, labels/correlation/provider consistent; if missing kernelattribution reportunknown",
+    "decision": "Assess actual sharedGPUcriticalpath fromall37layers first; only then narrowcandidate build with newprospective A/Bdesign",
+    "restoration": "root singleAPIwindow restoresoriginalconfigurationunlesshardwarefault"
+  },
+  "complete_previous_studies": [
+    "FBC",
+    "H1",
+    "CPU08"
+  ],
+  "non_goals": [
+    "no oldtiming extrapolation",
+    "no newexpertbank",
+    "no08/04/09 rescue",
+    "no deploymentwithoutnewwholemodeltest"
+  ]
+}

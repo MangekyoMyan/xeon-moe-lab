@@ -1,0 +1,119 @@
+実機メイン向け: 6.2 Astra/maxが探索から実装・限定計測まで主導する一巡
+2026-11-19 JST / 169a受領後の新しい指示
+
+目的と役割
+
+人間の希望は、実機側の6.2 Astra/maxに探索させ、その実力と新しい最適化の余地を見ること。今回の主目的は、既定の実験表を消化することではなく、通常利用に近い生成全体の待ち時間を減らせる一案を、実機の根拠から選ぶことである。
+
+6.2は仮説選定、読取調査、候補設計、専用worktree/buildへの実装、既存実機枠での限定実測、失敗修正、採否案まで担当する。メインは共有資源と通常API操作の単一責任者、独立検証、通常運用への採否・復帰を担当する。
+前回同様にメインが全ての重要編集とbuildを引き取り、6.2をレビューだけに戻すと、今回試したい役割を検証できない。競合や欠けた権限がある場合は、必要な操作だけをメインが行い、設計・実装の主導は子に残す。
+
+既存の人間の許可と実機運用条件の範囲で進める。この資料自体を新たな包括権限や保護解除の根拠にしない。一方、既に許可された可逆的な読取・修正・隔離build・限定実験を一つずつ人間へ再確認する必要もない。
+
+モデルの起動
+
+実機で使えるsubagent機能の正しい指定方法で gpt-6.2-astra / max を明示する。requested model/effortと、返却されたresolved model/effortがあるなら両方を記録する。指定名だけで実際のモデルが保証されるかは、その環境の返却情報に従う。使えない場合は、別モデルの作業を6.2の結果として記録しない。
+ASTRA62_EXPLORATION_TASK_169A_JA.txtに、現行checkout、実provider、使えるrunner、作業先、実機枠と既存の採否条件を添える。今回は資料を隠す盲検評価ではない。前回の負の結果も渡し、同じ失敗を繰り返さずに探索できるようにする。
+
+完了済みを戻さない
+
+・F/B/C一巡、旧H1診断、08-only/12T screenは完了。
+・C−Bの差は一方向だが複合費用。保持B−Fだけを主因にしない。
+・旧H1は担当を替える価値を支持。85/100は診断用、通常bankへ採用しない。
+・08は保留。最良runだけを選ばず、09、04、24Tを足して救済する予定にしない。
+・03は未実施。既存VM倍率は実機全体の速度見積りに使えない。
+・通常APIは保存記録上、元設定/4 DSOへ復帰済み。新candidateの採用はない。
+
+参照baselineと実機baselineを区別する
+
+FBCはCPU602a、H1は診断llama83bf＋CPU602a、08は現行33a再現controlを使った。新試行で古いF時刻と新候補を直接比較しない。現行通常構成、4 DSOの実体・ロード先・hash、source/buildの対応を確認し、その基準と候補を同時期に新しく測る。
+保存sourceとbuildの照合はr169a_review_2026-11-19/astra62_exploration/SOURCE_CHAIN.jsonにある。base2e13とCUDA45f6は原buildのsource hash/library hashが結び付く。CPU602aの再利用C++ objectは旧linkにパスが記録されるが、同objectのhashが独立に残っていない。実機で同じsource/objectが使われると決めつけない。
+
+第一候補: 既存GPU共有expertをCPU routed expertに重ねる
+
+これは探索の推奨出発点であり、採用前提の実装課題ではない。
+保存されたquality-FのJA/Pythonそれぞれ第1 T1では、CPU層0～36の全てに、同じGPU ffn_normから二枝が出る。
+  CPU: routed gate/up → SwiGLU clamp → routed down。
+  GPU: shared gate/up → SwiGLU clamp → shared down。
+最後にffn_outのADDで合流する。共有重みは既にCUDA0に常駐し、共有枝はrouting IDsやCPU down結果を入力に持たない。現記録の共有枝はCPU split直後のGPU split内にあり、同じsplitのrouted加重和より後に並ぶ。
+親も別コードで全37層×2課題の依存・配置・順番を確認した。これはdevice timelineではない。
+
+最初の問い
+
+現行実providerで、CPU input/IDs ready、CPU開始/終了、GPU共有枝開始/終了、合流の順と費用を見る。目的は「隠せるGPU時間があるか」と「何がその開始を遅らせているか」である。既存のeval callbackでgraphを切断してfusionを変える観測は使わない。詳細観測は通常の性能計時と分ける。
+host clockとCUDA eventの異なる時刻原点を直接引かない。使える相関済みtimeline、または同一CUDA流上の区間時間と境界でのevent状態等で読む。新しいdevice-wide synchronizeを入れて見かけの直列化を作らない。実機で使用可能な観測手段を確認し、道具の導入自体を長期課題にしない。
+一層の時間を37倍して全体予測にしない。まず代表形状で反証可能な観測を行い、層ごとの差、既に隠れている部分、launch/同期費用を踏まえ、主時計に対して意味のある規模か判断する。
+
+限定試作の例
+
+既存CPU splitのnormとIDsのhost側コピーが両方完了した後、同期CPU graph_computeの直前に、共有GPU枝を非同期提出する。CPUを動かし、次のGPU側でrouted加重和と共有結果を元のADD順で合わせる。
+初期試作は、計測で確認したT=1かつCPU routed枝/GPU共有枝がこの依存関係を持つ実構成を対象にする。層、入力形状、実backend、依存から識別し、split番号だけを分岐キーにしない。prefill、多token、その他の対象外graphは元の経路へ戻す。
+単に共有枝を一つ前のGPU splitへ移す案は、CPU入力コピー時の送信元同期で共有枝の完了を待ち、利益を消す可能性がある。原schedulerは宛先がasync copyを受けられなければ送信元を同期し、参照CPUのcpy_tensor_asyncはNULLである。
+同じGPU streamで成立する構成を先に検討できる。別streamが必要なら入力ready、共有結果ready、buffer再利用の依存を明示する。APIをasyncと呼ぶだけでCPU/GPUが重なるとは扱わない。
+
+守る計算上の条件
+
+元の共有枝を二重実行しない。演算・重み・clamp・最終ADDのoperand順を保持する。norm、共有出力、中間bufferが並列実行中にallocatorから再利用されないよう、寿命とaliasを確認する。元のGPU fusionと新しいlaunch数を観察する。CUDA graph captureやscheduler eventなど、実装が触れた契約も確認する。
+非同期提出後にCPU計算が失敗・中断して通常mergeを通らない場合も、関連GPU作業の完了を確認するまで入力・一時領域・共有出力を破棄、再利用、次要求へ流用しない。通常成功経路へ新しい全GPU同期を足す指示ではない。
+同じ担当のまま順序だけを変更する候補では、固定入力・logitsの一致を第一の品質条件にする。不一致があれば、buffer競合、演算順、fusion変更、実providerを解明してから進める。単に「浮動小数点だから」と受け入れない。
+
+進む/閉じる基準
+
+未重複の共有GPU時間が小さい、既に重なっている、CPU開始や次層の開始が同程度遅れる、追加submit/同期が利益を消す、寿命/依存を限定した変更で保てない、出力条件を満たせないなら閉じられる。主時計を改善しなければ、局所GPU時間だけの改善で採用しない。
+固定された時間制限や、何としてもこの案を通す条件は設けない。反証に必要な仕事を完了したら、根拠を添えて別の問いに進める。
+
+次点: 147/270の時間価値からGPU配置候補を一つへ
+
+元の相談1には、条件付きで賛成する。新しい配置を有効だと決める前に、次の実入力を捕捉する。
+  C++ training call1 / position241 / L3: [330,257,13,153,147,61]
+  C++ training call15 / position255 / L7: [270,335,173,19,357,32]
+主比較はcompact13対noncompact147、compact19対noncompact270。
+型は両方IQ2_S gate/up、IQ3_XXS down。x、ordered IDs、routing weight、unweighted down、clamp、provider、射影別実lookupを保存する。capture on/off一致、既存fusionを守る。
+
+L3の指定routeはoriginal35で13と61のH2。13→147だけでは両planともH2になり、新H1にはならない。診断例は次の通り。
+  COMPACT: L3 [0,13,306]、L7 [19,154,331]
+  NONCOMPACT: L3 [0,147,306]、L7 [154,270,331]
+その他は旧H1_COMPACTと同じとすると、35expert、23非空層、層別shape/type、475,453,440 native Bを維持する。0は指定top6にない共通filler。これは未実行のH1診断planであり、通常bank案ではない。actual upload/readbackとexpected Hを新しく固定し、古い8cellの期待Hをそのまま使わない。
+この問いを選んだ場合、旧OCSP、warmup4周、12balanced block、COMPACT/NONCOMPACT/NONCOMPACT/COMPACTという設計を新primary2cellに適用できる。新primary定常384観測。回帰確認の範囲は実装変更に合わせる。旧8cellの性能を全再測定することを自動条件にしない。
+
+同じpartitionではO=C=capture、S=P、cold slots一致。partition間のPは担当変更slotにCPU/CUDA差があり得る。CPU bit一致だけを採用基準にしない。
+147/270はtraining5中、JA/EN/Python各0、mixed49、C++106の合計155出現。101出現で別の既存GPU expertが同時選択される。新たな利益だけでなく、取り除くexpertの損、H0→H1とH1→H2/H3、CPU残仕事、層数の費用を課題別に扱う。
+一つのH1の短縮量を頻度で掛け、全体改善を確定しない。training5のordered top6、実compact、型、未測定jointの質量を残して、一候補を凍結する。順位を左右する未測定H2/H3がある場合、固定候補に必要な代表jointを追加診断するか、候補化を保留する。多数bankを実機で競わせ続けない。
+ケース重みを結果の後で変えない。既存training5を等重みで使うなら先に明記する。使ったvalidation3は回帰、未使用validation2は候補固定後の反証、holdout5は最終確認に温存する。
+
+CPU側の対案
+
+同じ147/270を通常CPUのcompactへ入れる案を、GPU配置とは分けた候補にできる。旧11/12 censusだけで同一tensor内の最小頻度donorを選ぶと、L3のgate/up/downで9→147、L7の3射影で5→270となる。同じ19,200枠/127,401,984,000 packed B。
+training5のcompact射影割当はmixed +147、C++ +318、他±0。旧censusでは合計−45で、普遍的な改善ではない。速度と品質は未測定、H1のGPU分担時間をCPU compactの短縮へ転用しない。候補規模も全IQ射影割当の約0.303%なので、全体で大きい効果を根拠なしに約束しない。
+03はCPU MUL_MAT_IDの準備/384候補走査が実時間に見えた場合の候補。37層×3射影への静的reachはあるが、時刻寄与は未測定。08の保留だけを理由に03を良いと判断しない。
+
+相談2: customの費用を一か所切るなら
+
+main CのState::computeで、private CPU graph_computeから戻った直後、output tensor_getの直前にcpu_graph_endを一つ置く。既存SampleStampをmainの診断限定で接続し、partition_end、cpu_set_end、cpu_begin、cpu_endと合わせる。
+  cpu_set_end−partition_end: 入力準備。IDs復元や分岐も含み、純memcpyとは呼ばない。
+  cpu_graph_end−cpu_begin: private CPU plan＋execute。
+  cpu_end−cpu_graph_end: mainの実CUDA_Host dstへのoutput get。
+T1別・層別に事前確保した領域へ記録し、時計内fprintf/vector拡張/追加同期を避ける。observer on/offの出力と経路、observer費用を確認する。性能判定はobserver offで行う。
+standaloneはCPU dstであり、そのcopy値をmainへ足さない。現C−Bには入場前のmutex待ちや外側同期もあり、この一点で全原因を識別したとはしない。copyが小さければこの枝を閉じる。次に追うならplan/executeまたは既存同期待ちのどちらか一問。
+H0ではGPU submit/join等は既にskipされている。毎tokenのweight uploadやgraph新規構築を原因にしない。F/BはCPU38split、CはCPU15＋専用23splitなので、コード上のCPU graph呼出しが単純に23回増えたとは言えない。
+約0.7～1.2msの解明は有用だが、新しい共有expert探索の開始条件にはしない。
+
+相談3: 08保留の扱い
+
+保管・保留に賛成。新しく再開する根拠が出た場合、最初の問いは順序/準備運転後の時間定常性。固定controlの診断と、08効果の比較、局所kernel、実モデルの評価を混ぜない。
+全8runのMX cell6で、第1sampleは後ろ3sampleの中央値より13.78～21.10%遅かった。原因を温度/NUMA等に確定していない。先頭sampleの事後除外、MX差引き補正、良い比が出るまでの反復は行わない。
+
+実機枠と採否
+
+読み取り調査と文章レビューは並列にできる。重いbuildと性能計測、同じGPU/CPUを占有する実験は重ねない。既存runnerへAPI停止/復帰を委任する場合も、メインと子から同じ操作を二重発行しない。
+今回記録のGPU150W/ECC、Standard fan<=70%、RAM reserve64GiB等は既存の運用条件として扱い、現行機の適用条件を引き継ぐ。これらを候補救済のため緩めない。
+局所で反証されなかった候補について、固定入力の全体output-readyを基準/候補のfresh対応組で測る。ケース順・arm順、準備運転、反復数、品質条件、時計境界を結果を見る前に決め、全runと不利な値を残す。内部graph呼出しを独立process数と数えない。
+計時は実際に結果を利用できる地点まで。GPU enqueueの戻りだけを完了として扱わない。既存基準より速いと主張するには同じ時計・仕事量が必要。通常採用を検討する候補は、observer offの自然生成でも同条件の通常基準と確認する。
+Open WebUIの2個ずつの表示は未解明。自然生成段階ではtoken完了、API送出、client受信/表示の境界を区別し、SSE chunk数をtoken数と同一視しない。平均だけで滑らかさまで改善と宣言しない。
+
+メインの二重検証と返却物
+
+子のまとめだけを読んで承認せず、選定根拠、diff、実provider、実入力と経路、出力、raw時刻を自分で照合する。ベンチの全二重実行は標準条件にしない。追加試験は採否を左右する具体的な未解決点に対して行う。
+子が反証により候補を変更した場合、なぜ別案が良いかを短く記録して続行する。通常運用への適用と復帰の責任はメインが持つ。
+返却には、requested/resolved model/effort、誰が仮説・実装・build・実測・監査を担当したか、選んだ案と捨てた案、全結果、実機の復帰記録、子への介入点、残る問いを含める。
+当たらなかった仮説、未実装で棄却できた案、速度差を判断できなかった一巡も、有用な成果として明確に返す。

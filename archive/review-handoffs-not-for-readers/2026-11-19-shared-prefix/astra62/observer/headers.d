@@ -1,0 +1,31 @@
+/home/codex/projects/llm-lab/169a-exploration-20261119/astra62/observer/libtrace169.so: \
+ /home/codex/projects/llm-lab/169a-exploration-20261119/astra62/trace169.cpp \
+ /home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include/ggml-backend.h \
+ /home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include/ggml.h \
+ /home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include/ggml-alloc.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/cuda.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_result.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_version.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cuda_stdint.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_activity.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_callbacks.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/builtin_types.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/device_types.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/crt/host_defines.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/driver_types.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/vector_types.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/surface_types.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/texture_types.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_events.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_metrics.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_common.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_activity_deprecated.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_driver_cbid.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_runtime_cbid.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/cupti_nvtx_cbid.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/generated_cuda_runtime_api_meta.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/cuda_runtime_api.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/builtin_types.h \
+ /home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include/cuda_device_runtime_api.h \
+ /home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include/generated_cuda_meta.h

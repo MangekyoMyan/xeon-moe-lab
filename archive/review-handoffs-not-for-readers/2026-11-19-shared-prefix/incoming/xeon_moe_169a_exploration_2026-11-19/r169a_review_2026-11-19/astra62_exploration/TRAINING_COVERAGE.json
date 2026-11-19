@@ -1,0 +1,303 @@
+{
+  "commit": "169a2f7eab8d52071661f0da6859d38df4206f8b",
+  "input_sha256": {
+    "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/plans/frequency19200.plan": "cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6",
+    "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/replay/runs/20261117T053052Z-U1024-1563d936/RUN.json": "1d67479dbcf9bb6e27003c178f1d561f5f5f3e12266bfda7336508fec2cd4dfb",
+    "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/training/20261112-075449/TRAINING_COUNTS.json": "368247308300582250b61a11fe4287c569e17488857a9996934ce09a378d933c",
+    "archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/capacity.plan": "4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596",
+    "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/text_cache_budget_ja.json": "c12248067032cff93484f2b5c58f8d755a9c00024894d8d75c1338316a163064",
+    "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/text_cache_budget_en.json": "f49c0632e927be4311806bc0e1645409e9b5065106dc591f7755fa7037e8985c",
+    "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/mixed_build_log_ja_en_log.json": "9914bc94d9b43f5c6d0c4e5a7577edf4fdd0481aefed3acb204098f318a7fcbb",
+    "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/code_stable_grouping_python.json": "9640a7a409405b9437d943a8b2ecd78da2c6543294eeb6d175cb3819ed12812e",
+    "archive/review-handoffs-not-for-readers/2026-11-17-gpu-workspace/pilot-capture/runs/20261117T035402Z-U1024-d22b3e04/code_stable_grouping_cpp.json": "a45f0531e0342fd8d47aad78b06720c904dfb9e30f29a61957e84dbb967dc056"
+  },
+  "case_count": 5,
+  "T1_routes": 11840,
+  "ordered_route_expert_slots": 71040,
+  "baseline_projection_slots_by_case": {
+    "text_cache_budget_ja": {
+      "packed_iq_projection_slots": 28412,
+      "native_iq_projection_slots": 2308,
+      "mxfp4_projection_slots": 11904
+    },
+    "text_cache_budget_en": {
+      "packed_iq_projection_slots": 28298,
+      "native_iq_projection_slots": 2422,
+      "mxfp4_projection_slots": 11904
+    },
+    "mixed_build_log_ja_en_log": {
+      "packed_iq_projection_slots": 26432,
+      "native_iq_projection_slots": 4288,
+      "mxfp4_projection_slots": 11904
+    },
+    "code_stable_grouping_python": {
+      "packed_iq_projection_slots": 28648,
+      "native_iq_projection_slots": 2072,
+      "mxfp4_projection_slots": 11904
+    },
+    "code_stable_grouping_cpp": {
+      "packed_iq_projection_slots": 24650,
+      "native_iq_projection_slots": 6070,
+      "mxfp4_projection_slots": 11904
+    }
+  },
+  "focal_experts": {
+    "L3/E147": {
+      "text_cache_budget_ja": {
+        "appearances": 0,
+        "same_route_original35_gpu_hit": 0
+      },
+      "text_cache_budget_en": {
+        "appearances": 0,
+        "same_route_original35_gpu_hit": 0
+      },
+      "mixed_build_log_ja_en_log": {
+        "appearances": 23,
+        "same_route_original35_gpu_hit": 16
+      },
+      "code_stable_grouping_python": {
+        "appearances": 0,
+        "same_route_original35_gpu_hit": 0
+      },
+      "code_stable_grouping_cpp": {
+        "appearances": 55,
+        "same_route_original35_gpu_hit": 55
+      }
+    },
+    "L7/E270": {
+      "text_cache_budget_ja": {
+        "appearances": 0,
+        "same_route_original35_gpu_hit": 0
+      },
+      "text_cache_budget_en": {
+        "appearances": 0,
+        "same_route_original35_gpu_hit": 0
+      },
+      "mixed_build_log_ja_en_log": {
+        "appearances": 26,
+        "same_route_original35_gpu_hit": 5
+      },
+      "code_stable_grouping_python": {
+        "appearances": 0,
+        "same_route_original35_gpu_hit": 0
+      },
+      "code_stable_grouping_cpp": {
+        "appearances": 51,
+        "same_route_original35_gpu_hit": 25
+      }
+    }
+  },
+  "diagnostic_cpu_option": {
+    "scope": "Membership counts only on frozen training data, no time or model predictions. No plan file, new measured result or validation data.",
+    "method": "Start from frequency19200; for the three projections of each of the two pre-existing focal experts, substitute the least common currently packed member in that same tensor under original Nov 12 census (tie break lowest id). Old census alone determines the six donors, independent of the five recent counts. Keep 80 IQ tensors, row-wise sizes, 19,200 matrix slots and 127401984000 packed bytes. No GPU bank.",
+    "changes": [
+      {
+        "name": "blk.3.ffn_gate_exps.weight",
+        "new_member": 147,
+        "removed_member": 9,
+        "old_census_new_member": 0,
+        "old_census_removed_member": 8,
+        "training5": {
+          "text_cache_budget_ja": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "text_cache_budget_en": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "mixed_build_log_ja_en_log": {
+            "new_packed": 23,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_python": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_cpp": {
+            "new_packed": 55,
+            "lost_packed": 0
+          }
+        }
+      },
+      {
+        "name": "blk.3.ffn_up_exps.weight",
+        "new_member": 147,
+        "removed_member": 9,
+        "old_census_new_member": 0,
+        "old_census_removed_member": 8,
+        "training5": {
+          "text_cache_budget_ja": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "text_cache_budget_en": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "mixed_build_log_ja_en_log": {
+            "new_packed": 23,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_python": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_cpp": {
+            "new_packed": 55,
+            "lost_packed": 0
+          }
+        }
+      },
+      {
+        "name": "blk.3.ffn_down_exps.weight",
+        "new_member": 147,
+        "removed_member": 9,
+        "old_census_new_member": 0,
+        "old_census_removed_member": 8,
+        "training5": {
+          "text_cache_budget_ja": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "text_cache_budget_en": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "mixed_build_log_ja_en_log": {
+            "new_packed": 23,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_python": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_cpp": {
+            "new_packed": 55,
+            "lost_packed": 0
+          }
+        }
+      },
+      {
+        "name": "blk.7.ffn_gate_exps.weight",
+        "new_member": 270,
+        "removed_member": 5,
+        "old_census_new_member": 2,
+        "old_census_removed_member": 9,
+        "training5": {
+          "text_cache_budget_ja": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "text_cache_budget_en": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "mixed_build_log_ja_en_log": {
+            "new_packed": 26,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_python": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_cpp": {
+            "new_packed": 51,
+            "lost_packed": 0
+          }
+        }
+      },
+      {
+        "name": "blk.7.ffn_up_exps.weight",
+        "new_member": 270,
+        "removed_member": 5,
+        "old_census_new_member": 2,
+        "old_census_removed_member": 9,
+        "training5": {
+          "text_cache_budget_ja": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "text_cache_budget_en": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "mixed_build_log_ja_en_log": {
+            "new_packed": 26,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_python": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_cpp": {
+            "new_packed": 51,
+            "lost_packed": 0
+          }
+        }
+      },
+      {
+        "name": "blk.7.ffn_down_exps.weight",
+        "new_member": 270,
+        "removed_member": 5,
+        "old_census_new_member": 2,
+        "old_census_removed_member": 9,
+        "training5": {
+          "text_cache_budget_ja": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "text_cache_budget_en": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "mixed_build_log_ja_en_log": {
+            "new_packed": 26,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_python": {
+            "new_packed": 0,
+            "lost_packed": 0
+          },
+          "code_stable_grouping_cpp": {
+            "new_packed": 51,
+            "lost_packed": 0
+          }
+        }
+      }
+    ],
+    "total_old_census_net_iq_projections": -45,
+    "training5_projection_count_changes": {
+      "text_cache_budget_ja": {
+        "added": 0,
+        "removed": 0,
+        "net": 0
+      },
+      "text_cache_budget_en": {
+        "added": 0,
+        "removed": 0,
+        "net": 0
+      },
+      "mixed_build_log_ja_en_log": {
+        "added": 147,
+        "removed": 0,
+        "net": 147
+      },
+      "code_stable_grouping_python": {
+        "added": 0,
+        "removed": 0,
+        "net": 0
+      },
+      "code_stable_grouping_cpp": {
+        "added": 318,
+        "removed": 0,
+        "net": 318
+      }
+    }
+  },
+  "cautions": [
+    "Original census was aggregated and may include prefill tails. No shared denominators between old census and training5.",
+    "CPU sparse lookup membership is inferred from the frozen plan, not a fresh runtime pointer inspection. Native vs compact arithmetic and time require a live matched comparison.",
+    "Two focal identities were originally drawn from these training cases. No validation or generalization claim. A GPU allocation changes which CPU experts execute. This CPU-only alternative carries no GPU bank."
+  ]
+}

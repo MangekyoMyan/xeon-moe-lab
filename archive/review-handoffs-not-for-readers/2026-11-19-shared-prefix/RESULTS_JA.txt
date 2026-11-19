@@ -1,0 +1,99 @@
+共有GPU計算とCPU routed計算の並列化：実機探索結果
+2026-11-19 JST / 169a2f7eからの新しい一巡
+
+結論
+
+仕組みは動作し、演算結果も保持できた。しかし、通常生成の全体時間は2課題で改善が揃わず、今回の候補は保留・未採用とした。
+通常APIは元の設定と4ライブラリで復帰済み。復帰確認PID206028、health正常、監視サービス正常、アラームなし。CPU08/04/09の再試験、24T救済、新しいexpert bank、自然生成試験は行っていない。実験コントローラーは終了している。
+
+観測器なしの生成時間（1トークンのdecode開始→logits取得完了）
+
+課題                    通常A平均       候補B平均       時間の変化
+日本語メモリ相談         129.476047 ms   132.177423 ms   +2.086390%（悪化）
+Python stable grouping   131.396672 ms   130.160218 ms   -0.941008%（短縮）
+
+各構成・各課題2個の独立プロセス。各プロセスは64回、全4プロセス×2課題×64=512回の生成を計時した。初回も含めた算術平均であり、最良値や後半だけの速度ではない。
+前半A→B、後半B→A。後半は課題順も逆転し、各組の中では同じ順とした。
+対応するB/A時間比は日本語1.025803941 / 1.015820789、Python0.996683208 / 0.984578128。
+日本語は両組とも遅く、Pythonは両組とも速い。事前に固定した「両課題の両組で短縮し、課題平均で各0.5%以上短縮」を満たさなかった。
+通常Aの後−前は日本語-2.673544ms、Python+1.769352ms。4プロセス・2課題だけから一般的な効果や有意性を保証しない。
+生成率として表す場合、上の時間変化と符号・数値が同じではない。日本語の率は約-2.044%、Pythonは約+0.950%。
+
+何を変更したか
+
+元の各層は、GPUがnormとrouting IDsを作る→CPUが6個のrouted expertを処理→GPUが共有expertと合流を処理、という流れだった。
+共有expertのgate/up/clamped-SwiGLUは、CPUのrouted結果を必要としない。CPUへの入力コピーが済んだ直後に、この前半3演算を同じGPU backendへ投入し、その後にCPU計算を走らせた。
+共有expertのdownと、routed側結果との最後のADDは元の位置に残す。元のCUDAがdown+ADDを融合できるため、その依存を壊さない。
+
+候補はbase schedulerのみ変更した。CPU、CUDA、llamaの演算実装・量子化形式・重み・最終ADDの入力順は同じ。
+3本のF32ベクトル用に、実割当27,648B（27KiB）の専用GPU作業領域を作った。これは専用tensor bufferの値であり、増えたCUDA Graph管理領域などを含む総VRAM差ではない。
+GPUへ渡すexpert数や常駐重みを増やした変更ではない。
+
+元のtensor identityとglobal use countを維持し、GPUへの提出中だけ3個のdata/bufferを専用領域へ束縛、すぐ元に戻す。後続では元のGLU結果のdata/bufferだけを一時的に束縛する。元のallocation計画を変更せず、最終down+ADDの融合条件を残した。
+T=1、全37層の特定の形状・型・依存、通常CPU/CUDA0の2backend、単一pipeline copy、callbackなし、CUDA graph stream-region optimizationなし等に限定する。未適合graphは元の経路へ戻す。通常設定は変更せず、候補は実験プロセスの環境変数XEON_169_SHARED_PREFIX=1だけで有効にした。
+
+最初の実機観測
+
+4 DSOを変えない通常構成にCUPTI観測器を付けた。public graph dispatch/copy関数を転送付きで囲い、graphを分断するeval callbackや追加device-wide synchronizationは入れていない。
+CUDA Graphの生成前からCUPTIを初期化し、両課題の先頭4回だけの詳細を保存した。時刻解析はCUPTIの同じ時刻系を使った。
+
+通常：37層×8T1=296組すべてで、共有前半のGPU kernelは対応するCPU処理より後。重なりは0。
+共有前半は、入力量子化→Q6_K内積→入力量子化→Q8_0内積→clamp、の5 kernels。
+37層合計のGPU busy時間中央値は1.611742ms、合計span中央値は1.657153msだった。
+後段の入力量子化＋融合down/ADDは約0.869msで、前半と同じ独立性を持たない。これを隠せる時間に足していない。
+
+候補：全296組で前半5 kernelsが前倒しされ、後段の融合down/ADDが維持された。
+CPUの同期graph dispatch区間と重なった時間は、37層合計・各T1の中央値で1.376447ms。
+225/296組は一部が重なり、71組は重ならなかった。先頭T1の重なりは日本語2層、Python1層だけで、残り6T1は各37層で部分的な重なりがあった。「すべての計算が常に完全並列」ではない。
+全8T1で、GPU kernel名・grid・blockのmultisetは通常と一致（各2,694 kernels）。同じホスト↔デバイス転送の方向・サイズも確認した。CUDA内部D→Dコピーのサイズ分布には違いがあるため、物理コピー全部が同一とは述べない。
+
+観測上の追加コスト
+
+安定した観測区間のcudaGraphLaunchは、1T1当たり通常38回→候補75回。37回の早期投入が増えた。
+候補では初期のCUDA Graph作成・再作成のパターンも変わった。CPUへ渡す前に終わってしまう共有前半も、先頭T1には多い。
+ただし、CUPTIはhost側の提出時間や準備過程を変える。上の1.6msや1.38msは、そのまま普通の生成で取り戻せる時間ではない。
+日本語の全体悪化を追加起動だけで説明できたわけでもない。事後の内訳では、先頭2回の差が全64回平均に寄与する分は+0.91317ms、残り62回分も+1.78821msだった。合計+2.70138msをすべて残した。
+Pythonでは、品質記録から確認したgraph更新近傍のcall1,2,17,18の寄与は+0.41342ms、他60回は-1.64988ms、合計-1.23645ms。後半だけを新しい採否時計にしていない。
+
+時刻の限界
+
+候補のPython call2/layer22で、同じstreamの隣接kernel時刻に896nsの見かけ上の重なりが一件あった。原因は未確定。原時刻はそのまま保存し、busy/CPU重複時間はinterval unionで二重計上を避けた。
+観測器のmetadata収集やCUPTI APIの費用を、純コピー・GPU待ち・回収可能な時間と呼ばない。観測器は性能計時プロセスには読み込んでいない。
+
+正しさ・実行経路の検証
+
+通常、通常＋観測器、候補、候補＋観測器の4構成で、両課題ともprefixを含む65行×129,280の全logitsがbyte一致した。対象となる固有の数値は2課題で16,806,400個、1構成当たり67,225,600B。全構成のfinite性とbyte同一性を検証した。
+観測器なし候補で、各64T1・各課題のすべてに37回の早期投入と37回の後続投入があり、prefillの候補実行は0、失敗drainは0だった。専用領域は27,648B。日本語・Pythonとそのposition256を跨ぐgraph更新も含む。
+全timingプロセスの最終行も通常の対応行とbyte一致。将来の全入力に対する証明、長文・画像・自然生成の評価ではない。
+
+固定条件と実行物
+
+Xeon E5-2630L v2×2、12物理/24論理、512GB。PG500-216/Volta32GB。
+通常context128k、f16 KV、decode12/prefill24threads、batch/ubatch1024、NUMA0,1 interleave、通常GPU routed層37–39、CPU compact127,401,984,000B。
+GPU150W、ECC有効、Standard fan<=70%、RAM reserve64GiB。ハードウェア設定は変更していない。
+
+通常CPU    33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3
+通常llama  1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26
+共通CUDA   45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0
+通常base   2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558
+候補base   c586449d1f06819062656502f192d2e1ec2aa3d79869b07d8406fe1394251b7e
+
+今回Aは現行の通常ライブラリ。前回FBCの診断CPU602a/llama f7fdなどと、新候補の速度を直接比較したものではない。
+同じレシピから元のbase objectとDSOを再構築し、両方とも現行にbyte一致させたうえで候補だけを変更した。全runの解決先、inode、size、hash、source/build対応を保存している。
+
+担当・修正過程
+
+6.2 Astra/maxを明示して、第一担当へ仮説検討、観測器の実装・build、候補設計・source案、raw時刻解析を任せた。別の6.2 Astra/maxが契約・source・harness・最終値を独立監査した。
+メインは元資料の確認、実機runtime pins、caller/runner、候補の適用・修正・build、単一API操作窓、独立のraw再計算と採否を担当した。resolved modelの独立した返却欄はツールから提供されず、ROLES.jsonに指定内容をそのまま記録した。
+独立レビューで、候補草稿のscheduler破棄時に既に破棄されたbackendへ同期を呼ぶ問題を発見。メインが所有者の破棄順を確認して修正した。問題の草稿を実機モデルで実行したことはない。
+候補の初回compileではexternを含むGGML_APIマクロのC linkage指定が不正だったため修正し、候補だけ再compileした。controlの再buildは行っていない。
+通常baselineの計算後、メインの検証器にnumpy依存が残っていて停止。標準ライブラリへ直し、保存済み結果を再検証した。モデルは再実行せず、APIの一度目の復帰後、残っていたobserverだけ続行した。全失敗・修正前sourceも保存した。
+
+参照先
+
+trial/ANALYSIS.json：事前に固定した全体時計と全512値。
+PARENT_BOTH_TIMELINES.json、astra62/TIMELINE.json、astra62/CANDIDATE_TIMELINE.json：二重のraw再計算。
+main/runs、trial/runs：全時系列、logits、stdout/stderr、provider/build/guard記録。
+prefix-engine：実行した候補と完全なdiff。astra62/prefix-candidateは草稿であり実行版ではない。
+contract-review：独立の設計・実装・harness・最終値レビュー。
+RESTORED_SHARED_PREFIX_TRIAL.json：元APIへ戻した記録。API_WINDOW_SHARED_PREFIX_TRIAL.jsonの復帰義務は解消済み。

@@ -1,0 +1,68 @@
+{
+  "question": "Does shared gate/up/clamp overlap shorten original output-ready time after its additional dispatch overhead?",
+  "stages": [
+    {
+      "name": "quality-B",
+      "stage": "quality",
+      "arm": "B",
+      "cases": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "observe-B",
+      "stage": "observe",
+      "arm": "B",
+      "cases": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "timing-0-A",
+      "stage": "timing",
+      "arm": "A",
+      "cases": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "timing-1-B",
+      "stage": "timing",
+      "arm": "B",
+      "cases": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "timing-2-B",
+      "stage": "timing",
+      "arm": "B",
+      "cases": [
+        1,
+        0
+      ]
+    },
+    {
+      "name": "timing-3-A",
+      "stage": "timing",
+      "arm": "A",
+      "cases": [
+        1,
+        0
+      ]
+    }
+  ],
+  "baseline_reference": "main/runs/baseline",
+  "prospective_gate": {
+    "quality": "Every65logitrow candidate off-observer and withobserver bitidentical to originalnormalbaseline; allfinite. EveryqualityT1 exactly37early+37post, prefix0; sourcefieldsRAIIrestored.",
+    "mechanism": "Candidateobserver only verifies actualfivekernelprefix overlap and originaljoint down+ADD; no positiveclockclaim fromobserver.",
+    "performance": "Fourfreshprocesses A/B/B/A;64T1/case;sameJA64+fullJA+4warmup;caseorder reversed secondpair;firstsample retained;clock decode-to-outputready;noCUPTI.",
+    "advance": "Both paired B/A mean-time ratios below1 in bothcases, eachcase mean reduction>=0.5percent; allunfavorabledataretained. Ifpasses, nextstage uninstrumentedgreedyvalidation beforeadoption. Ifunstable/slow,hold ratherthanrepeatuntilpositive.",
+    "scope": "Two trainingcases,shortcontext,teacherforced. No global/generalqualityclaim."
+  },
+  "settings": "Original128k/f16KV/CPU12+24/GPU150W/ECC/fan<=70/RAM64GiB; noextraexpertbank;onlybasecandidate."
+}

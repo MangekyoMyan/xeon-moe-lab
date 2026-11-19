@@ -1,0 +1,54 @@
+{
+  "commit": "169a2f7eab8d52071661f0da6859d38df4206f8b",
+  "reference_root": "reference_source",
+  "reference_paths": {
+    "base_source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/ggml-backend.cpp",
+    "base_build": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/gpu-stream-20261103/SCHEDULER.json",
+    "cpu_source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/ggml-cpu.cpp",
+    "cpu_source_release_copy": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/ggml-cpu.cpp",
+    "cpu_build_cxx": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/CPU_BUILD.json",
+    "route_cpu_link": "archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/BUILD.json",
+    "route_cpu_c": "archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/ggml-cpu.c",
+    "cuda_source": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu",
+    "cuda_build": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/BUILD.json"
+  },
+  "local_source_sha256": {
+    "base_source": "002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd",
+    "base_build": "7f9409b833c0e7dcb72a151af7341ab30df93365897313cdbc5e7010afa888c3",
+    "cpu_source": "a78f95779e0c8cd4bb2177c196118d0b6fb15a5e4f1a29e75531b7df25230f9c",
+    "cpu_source_release_copy": "a78f95779e0c8cd4bb2177c196118d0b6fb15a5e4f1a29e75531b7df25230f9c",
+    "cpu_build_cxx": "e0203376d84720841d67b12bc9b043f3e906d629229fe6c6615ac6b38c855714",
+    "route_cpu_link": "e8322467f2457b14f3782781db755cd09d32110e70e839ae13ec586d4f463f49",
+    "route_cpu_c": "ce6a78a1a34c0fe9623a116320b9fad8d1ae0cb83102ba9a4cb8fbd58a473988",
+    "cuda_source": "2cdc72370dcb884fcbac85cf2757ef1259265c5181558b1e1eb933157a72d3d0",
+    "cuda_build": "ff01c82b3394b18d2b0e4654da093a267b93e308444e7df76495beef780b206b"
+  },
+  "fbc_build_record": {
+    "path_in_handoff": "fbc/runs/quality-F/BUILD.json",
+    "sha256": "b9522dd83694264bf770763f68035ee069bbb326c39aeb87e13b35dee10be85c"
+  },
+  "cpu08_build_record": {
+    "path_in_handoff": "cpu08/BUILD.json",
+    "sha256": "0f9879c1bead3a0975c6058f69ab4a9ec5bf16398a99dd50ae3a95d7fd0352a1"
+  },
+  "saved_provider_chain": {
+    "base": {
+      "source_sha256": "002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd",
+      "library_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+      "basis": "The archived scheduler build lists both hashes. The library hash is in the recorded F run build. Scheduler source lines 2095-2134 and 2137-2173 show input copies before graph dispatch and source sync when destination async copy is unavailable."
+    },
+    "cuda": {
+      "source_sha256": "2cdc72370dcb884fcbac85cf2757ef1259265c5181558b1e1eb933157a72d3d0",
+      "library_sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0",
+      "basis": "The release build lists candidate source and library. The library hash is in the recorded F run build; release source lines 2830-2834 synchronize this backend's CUDA stream."
+    },
+    "cpu": {
+      "backend_cxx_sha256": "a78f95779e0c8cd4bb2177c196118d0b6fb15a5e4f1a29e75531b7df25230f9c",
+      "route_library_sha256": "602a6578c0784f42358fcd06607a93439fbef01ccd15482aa89506034eaf6b81",
+      "reused_cxx_object_path": "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/ggml-cpu.cpp.o",
+      "normal_cpu08_link_shared_object_sha256": "b0dc640fe8306a7bf7ee8b1e66933575784c90f4c7fe7f8fa727e53817a21617",
+      "basis": "Sparse CPU_BUILD pairs the C++ source hash with the compile command writing this object path. The route37 link names the object at that same path; the resulting CPU library hash is in the F build. The route37 link does not record this object's own hash. cpu08/BUILD records the hash when it reuses the path in its separate 33a baseline. CPU C++ lines 170-207 show synchronous graph compute and NULL cpy_tensor_async."
+    }
+  },
+  "scope": "Recorded build/source/hash correspondence only. No original binaries, no new live process, no device trace, no new benchmark."
+}

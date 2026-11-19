@@ -1,0 +1,117 @@
+親レビュー: 169a結果の独立確認と次の判断
+2026-11-19 JST
+
+採る方針
+
+6.2 Astra/maxに、実機での仮説選定・実装・限定実測を主導させる。
+推奨する最初の問いは、GPU常駐共有expertとCPU routed expertを重ねる余地が実際のcritical pathにあるか。現在の資料で静的な根拠は強いが、利益の大きさは未測定。実機の観測で意味が薄ければ、本人が別の一案を選べる。
+147/270新captureと同予算H1は次点として具体化する。custom C−Bの一境界診断は補助、08は保留、03はprofile依存の候補とする。
+
+対象と行ったこと
+
+固定commit: 169a2f7eab8d52071661f0da6859d38df4206f8b
+archive/review-handoffs-not-for-readers/2026-11-19-fbc-h1-iq08/
+incoming/を除く全578ファイル/371,690,820Bを取得し、全SHA256とGit blob SHA1を親が照合した。
+元の8cell captureと、6.2が参照した18件のraw/source/buildも固定Git byteとして照合した。
+
+・CONSULT、RESULTS、上流6.2最終レビュー、source/build/plan/RAWを読んだ。
+・計測監査担当の独立Python実装を全文確認し、親が再実行した。全295入力/5067検査項目が通過し、出力JSONは担当版と一致した。
+・親が別にparent_recompute.pyを書き、FBC、H1主要全block、CPU08全sample、共有枝37層×2課題を再計算した。提供側verify/analyzeも子の分析コードもimportしていない。
+・別の直接読取でtraining5全11,840routeから147/270頻度・共起・指定capture位置を数え、base/CUDAのsource→保存library hashを照合した。PARENT_REFERENCE_CHECK.jsonに記録。
+
+実施していないこと
+
+実機接続、API操作、build、モデル/ELF実行、新しい推論ベンチ、実GPU timelineの取得は行っていない。公開exportに実モデル・DSO現物はない。
+既存のprovider、affinity、counter、24の直接四丸めkernel比較、正常終了、API復帰は保存記録である。byte比較・finite検査・時計算術は実byteから行ったが、保存されていない全callの出力まで検査したとは扱わない。
+
+1. F/B/Cをどう解釈するか
+
+6fresh timing processの順はF/B/C/C/B/F、後半で課題順反転。2課題×64 T1×6=768 calls。各arm/caseの独立processは2本。
+全65行のquality F=B=Cは両課題で実byte一致、finite。timing末尾12行もquality最終行と一致する。
+
+                         F平均       B平均       C平均      C−B平均
+JA                    130.564181  129.623380  130.791773  +1.168392 ms/T1
+Python                130.375214  130.918076  131.646689  +0.728613 ms/T1
+
+C−B対応差はJA +0.541318/+1.795467、Python +1.117614/+0.339612。全て正。
+B−FはJA −0.646323/−1.235278、Python −0.293754/+1.379479。保持自体の大きい一貫した遅延とは読めない。
+F後−前もJA −1.229932ms、Python +2.497769ms動く。旧の約2msを普遍定数にしない。
+
+76split/147copy objectが同じでも、実転送byte・待ち時間・buffer属性は同じとは限らない。458→389は書換consumer edgeで、physical DMA回数ではない。
+host bufferのCPU欄→専用backend欄への計上先変更を物理NUMA移動と読まない。元DAG/post tensor配置はF/B一致。
+CPU graph呼出しはコード上F/Bの38対Cの15＋23。23 OpenMP起動が純増したと断定しない。
+追加経路の観測差は約130msの0.6～0.9%規模。これは純copy費用の推定でも、GPU分担全体の上限でもない。一方、この差の回収だけに主探索を固定する根拠もない。
+
+相談2への回答
+
+main CのState::computeで、private CPU graph_compute帰還直後/出力get直前のcpu_graph_endを追加する。現cpu_begin→cpu_endは両方を含む。既存stampを診断runだけmainへ接続すれば、入力準備、plan＋execute、実CUDA_Host dstへの出力getを分けられる。
+standaloneのCPU dst値をmainへ移植しない。in-situのcopyが小さければこの枝を閉じ、次はplan/executeか既存外側同期待ちの一問。State mutexやallocator同期を原因確認の代わりに削らない。
+
+2. H1が示した機序と限界
+
+4process、1536定常観測、128 first-use。主要cell1/4の全8条件でC−Pは12/12block正。
+  cell1 compact C−P: 0.2336615 / 0.2413685 ms
+        noncompact: 0.5979120 / 0.5721535 ms
+  cell4 compact C−P: 0.2261465 / 0.2006920 ms
+        noncompact: 0.5316260 / 0.5308515 ms
+2processの中央値平均の比は2.463140/2.489179。モデル速度倍率ではない。
+
+noncompact C−Sもcell1 0.601999/0.563055、cell4 0.516763/0.527630ms。serial分担でほぼ同規模の利益がある。このH1が強く支持するのはCPUの重い担当を替える価値。S−Pの小ささから、別条件のoverlapまで無価値とは言えない。
+
+追加の時刻分解では、CのCPU区間−PのCPU区間はcompact約0.369～0.427ms、noncompact約0.692～0.779ms。PのCPU外超過は約0.159～0.180ms。各blockでC−P=CPU区間差−CPU外超過は整数nsで一致する。中央値同士の加法性は仮定しない。
+CPU区間はgraph_compute＋出力get。host submit約0.121～0.133ms、join残待ち約0.035～0.042msをdevice全時間や純copyと呼ばない。
+
+全128保存mode出力はfinite。O=C=元capture、同partitionでS=P、cold150slot実byte一致。同plan反復の全modeも一致。異partitionの差は期待された担当変更slotだけ。これを全モデル品質の保証にはしない。
+
+相談1への回答
+
+147/270の追加2capture→同予算H1は妥当な次点。詳細はMAIN資料とhotpath_bank/。
+親も原11,840routeを再読し、L3/147は78（mixed23/C++55）、L7/270は77（mixed26/C++51）、JA/EN/Python各0を確認した。original35との共起は71/78、30/77。
+この偏りは課題別配置の価値を変える。言語一般の結論ではない。JA/Pythonだけで新targetの直接利益を測る設計にしない。
+L3指定routeは元H2なので共通fillerを入れたH1診断が必要。新H1の利益をH2/H3へ線形外挿せず、失うhit、CPU残仕事、同時選択、未測定質量を含めtrainingで一候補を凍結する。
+diagnostic13/19は比較相手であり、必ず追い出すべき最適donorではない。85/100の測定値を147/270の係数に転用しない。
+
+3. 08を保留する判断
+
+120 timing sample、960 graph呼出し、8fresh timing process。5sampleを全て残したprocess中央値の4対応比。
+  cell1: .924906867/.990768868/.809621521/.989603094 → 中央値.957254981
+  cell5: .938012004/1.036260463/.976734775/.979068712 → .977901744
+  MX   : 1.031034212/.990110609/.985741197/.932365861 → .987925903
+主要比中央値の改善を隠さず、順序による規模変化と逆転も保持する。30保存出力・921600 F32は元captureと一致しfinite。
+qualityの24直接比較とpath counterは保存記録までの照合。通常120GiB全cache、長寿命推論、全モデル自然生成の試験ではない。
+
+相談3への回答
+
+保管・保留が妥当。全8runのMX第1sampleは3.122929～3.335808ms/graphで、各run後ろ3sample中央値より13.78～21.10%遅い。採否統計は変更せず、この差を時間定常性の手掛かりとして残す。
+再開の新根拠が出た場合、最初の問いを順序/準備運転に限定する。原因を温度やNUMAへ確定しない。MXは共通planner/callerを通るので単純差引き補正をしない。
+03は現行CPUの準備/走査がprofileに現れるなら次のCPU候補。VMの倍率やstatic reachから全体速度を約束しない。
+
+4. 6.2の新案を親が採った理由
+
+子が見つけた共有GPU枝は、既にGPU上の重みを使い、現在のCPU routed枝と同じnormを入力にする。別の担当への算術変更や新bankを前提にしない。2課題とも37層の同じ構造が直接確認でき、次の実機で問う場所が具体的である。
+親はpostのnode順・placementとpreの依存を別コードで追い、共有4nodeがCPU routed枝とweighted mergeの後に並び、最終ADDへだけ合流することを確認した。
+しかし、この独立性は性能保証ではない。原schedulerのcopy_inputは宛先async copy非対応時に送信元を同期する。CPU backendのcopy_asyncはNULL、CUDA synchronizeはbackend streamを待つ。共有枝を単純に前のsplitへ置くだけでは、CPU開始を待たせる可能性がある。
+よって「実機で未重複時間を確認→意味があればコピー完了後/CPU開始前へ限定提出」を第一候補とする。scheduler/allocatorの寿命、fusion、追加submitを含め、主時計で反証する。
+
+base/CUDAの原build hashは今回FBC記録へつながる。CPU C++ sourceは保存compile commandとreused object pathを介した連鎖だが、602a link当時のobject hashが欠ける。現在liveのsource/libraryを親が新しく照合したとはしていない。
+
+5. 受領版と役割
+
+169aのINTAKE.jsonは975ファイル、ZIP SHA256 7b23e23f6e39b70b86d8aff74fe7d05f663dc4a793140ee207deb3fd65230c49。役割追補入りの最終版は979ファイル、615f3c869d24392e959a4001d9f43eb8cad437ff5b19bedd61795aaeed79b9c4。
+CONSULT/RESULTSは、6.2が実装・設計・最終rawを独立レビューし、主担当が重要編集/build/実機操作/採否を行ったと記録する。6.2が探索から実機試作まで主導した能力試験の結果とは区別する。
+誰がなぜ旧版を使用したか、追補を別途読んだかは推測しない。今回の最上位資料で役割と完了状態を明示して次へ進む。
+
+原資料へのリンク
+
+最新相談:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/169a2f7eab8d52071661f0da6859d38df4206f8b/archive/review-handoffs-not-for-readers/2026-11-19-fbc-h1-iq08/CONSULT_PRO_JA.txt
+最新結果:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/169a2f7eab8d52071661f0da6859d38df4206f8b/archive/review-handoffs-not-for-readers/2026-11-19-fbc-h1-iq08/RESULTS_JA.txt
+受領記録:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/169a2f7eab8d52071661f0da6859d38df4206f8b/archive/review-handoffs-not-for-readers/2026-11-19-fbc-h1-iq08/INTAKE.json
+新仮説のグラフ原本の一つ:
+https://github.com/MangekyoMyan/xeon-moe-lab/blob/169a2f7eab8d52071661f0da6859d38df4206f8b/archive/review-handoffs-not-for-readers/2026-11-19-fbc-h1-iq08/fbc/runs/quality-F/text_cache_budget_ja-graph-post.json
+source/buildの正確な参照pathとhash:
+r169a_review_2026-11-19/astra62_exploration/SOURCE_CHAIN.json、REFERENCE_SOURCE_MANIFEST.json。
+全578ファイルの原pathとhash:
+r169a_review_2026-11-19/SOURCE_IDENTITIES.json。

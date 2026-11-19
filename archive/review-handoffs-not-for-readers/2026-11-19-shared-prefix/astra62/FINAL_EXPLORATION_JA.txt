@@ -1,0 +1,34 @@
+共有expert先行投入試作の判断
+
+通常APIへの採用は保留とする。共有GPU計算の一部をCPU routed計算と重ねる機構は実機で成立し、同じ入力に対するlogitsも全て一致した。事前に決めた全体速度条件は、日本語の両方の独立比較で遅くなったため満たさなかった。自然生成への進級条件にも届かなかった。
+
+                                日本語training       Python training
+  1組目 B/A（平均時間比）          1.025804             0.996683
+  2組目 B/A（平均時間比）          1.015821             0.984578
+  全64回・両組 B/A                1.020864             0.990590
+  B−A（ms/T1）                   +2.70138             −1.23645
+  通常基準に対する時間変化          +2.086%              −0.941%
+
+速度比較は観測器なしの4新規プロセスでA/B/B/Aの順。後半2プロセスは課題順を反転した。各プロセス各課題の全64回、合計512回の出力取得までの時計を含んでいる。事前条件は両課題とも2組全てのB/Aが1未満、かつ2組全体のB/Aが0.995以下。整数ナノ秒の同じ全端点から分数で独立計算し、rootの判定と一致した。基準Aの後半と前半の平均差は日本語−2.674 ms、Python +1.769 msであり、二つのtrainingケースから一般的な速度効果は決められない。
+
+仮説の根拠を調べるため、実稼働baseのPLT dispatchと同期コピーを転送するLD_PRELOAD観測器を実装した。当初は共有枝全体の前倒しを検討したが、実CUDAソースの型条件と最終ADD融合を点検し、共有gate/up/clampの3演算だけに対象を絞った。通常engineの相関済み観測で、これに対応する五つのGPU kernelは全296層回でCPU終了後に始まった。各回の実測37層の実行時間合計の中央値は1.612 ms。downと最終ADDに対応する0.869 msはCPU側出力が必要であり、この対象から外した。
+
+試作は同一CUDA streamに3演算を投入してからCPUを動かす。3個の専用2304要素F32スロットを全層で順次使い、GGML上の元tensorの識別、元のclamp、down、ADDの入力順を維持する。通常成功経路へのdevice-wide同期追加を避け、途中失敗ではbackendが生存中にGPUをdrainする。prefillと条件に合わないグラフは既存経路を通る。品質過程の全128回のT1で、37組ずつの先行投入と合流、prefillで0件、失敗drain 0、専用実割当27,648 Bを確認した。
+
+試作の観測では5つの共有kernelと後段の融合付きdownを296組全てで再識別した。CPU同期dispatchと重なった時間の37層合計は中央値1.376 ms。部分重複225層回、ゼロ71層回で、両課題の初回で特に小さかった。Python第2回L22の記録には隣接する依存kernelの時刻区間が896 ns重なる一例があり、元の時刻を保持して区間の和集合で計算した。全8回で、デバイスkernelの名前とgrid/blockの組合せは各回2,694個全て基準と同じだった。安定した第3、4回のhost側cudaGraphLaunchは1回あたり38から75へ増え、両課題第2回の試作には71件ずつのgraph instantiateがあった。7回で一部のD→D copyのサイズ内訳も違った。観測器付きのこれらの記録だけでは通常時の総時間差の原因は確定しない。
+
+通常時計の64回平均への寄与を見ると、日本語の第1、2回は合計+0.913 ms、他の62回は+1.788 msであった。Pythonの第1、2、17、18回は計+0.413 msで、他の60回は−1.650 ms。Pythonの第17回はposition 256で、品質ランのplan世代がここで変わった。両課題の差は初回や再構築付近以外にもある。採否は冒頭の全回の数値で決めた。
+
+元の2課題各65行、合わせて16,806,400個のF32値を独立に有限性確認し、通常基準、観測あり基準、観測なし試作、観測あり試作の対応行がbyte単位で一致することを照合した。6試験プロセスのpreflightと実行時関数・backendsの実ファイル、inodeとhashを照合した。試作baseはc586449d1f06819062656502f192d2e1ec2aa3d79869b07d8406fe1394251b7e。観測を外した基準は元のbase2e13であり、再リンクcontrolでも元のobjectとDSOの再現に成功した。
+
+役割分担は、私が仮説を選び、現行sourceとrawを照合し、CUPTI観測器、隔離scheduler提案、タイムラインと全体時計の独立検算を担当した。rootは通常API・ガード・実行枠を管理し、実caller・採否条件・候補組込みを編集し、候補をbuildして全モデル試験と復帰を実行した。独立契約レビューが、元案のscheduler破棄時に先に破棄されたbackendを参照し得る問題を見付け、rootがbuild前に修正した。元案と修正内容はprefix-candidate/PROPOSAL_STATUS_JA.txtとrootのprefix-engineに残した。今回の実行対象はこの修正版である。
+
+元のAPIはPID206028、health ok、config963b6525と元の4ライブラリhashに復帰した。両監視サービスはactive、復帰確認時のalertは0。確認記録は../RESTORED_SHARED_PREFIX_TRIAL.json。同じ候補の追加反復、自然生成、通常APIへの配備は実施していない。
+
+再確認用の生記録・計算
+  ../main/runs/{baseline,observe}/       通常品質と元のdevice timeline
+  ../trial/runs/                        試作quality/observeと全ABBAのraw
+  TIMELINE.json、CANDIDATE_TIMELINE.json  296層回ずつの対応、時刻、GPU kernel ID
+  CUDA_LAUNCH_AND_COPY_AUDIT.json       全kernel識別の照合、launchとcopyの内訳
+  TRIAL_EVIDENCE_AUDIT.json             実provider、全出力、再構築近傍の寄与
+  ABBA_INDEPENDENT.json                 全512回からの独立採否

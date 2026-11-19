@@ -1,0 +1,66 @@
+実機で6.2 Astra/maxに任せる探索
+2026-11-19　対象コミット 169a2f7eab8d52071661f0da6859d38df4206f8b
+
+判断
+
+次の実機枠は6.2を探索の主担当にしたい。今回の記録は、6.2が実装内容・計測設計・最終生データを独立レビューし、重要な編集、ビルド、実機操作、採否をメインが担当したもの。受領した当時のZIPは975ファイルだった。後から作った担当変更の追補は、次の試行に使う指示書である。6.2が実機で一案を選び、試作して反証まで運ぶ能力は、今回の復帰・計測記録からはまだ判定できない。
+
+着手候補には、通常の計算経路でCPUが6個のexpertを処理している時間に、GPUに常駐している共有expertを重ねる案を選ぶ。両方に同じ入力が届く。次点には、既知の147/270をGPUへ置く案と、同じ2個を現有RAMの範囲でCPU compactにする案がある。三案を一括して実施する予定ではない。6.2は、実機で見えるクリティカルパスに従って候補を別の一案へ差し替えてよい。
+
+今回の結果が動かした判断
+
+・F/B/Cでは各課題・各条件につき独立なprocessは2本。追加bankを保持するBと元のFの差の平均はJA −0.941、Python +0.543 ms/T1。全expertをCPUで処理するcustom経路CとBの差はJA +1.168、Python +0.729 ms/T1で、対応4差とも正だった。Bに対して約0.90%、0.56%の複合差であり、copyだけで回収できる速度の予測値ではない。両F間の差もJA −1.230、Python +2.498 ms/T1だった。76 split、147 copy object、host bufferの計上先から物理転送時間やNUMA配置は決まらない。
+・H1のcell1でC−Pはcompact約0.234～0.241、noncompact約0.572～0.598 ms。cell4は約0.201～0.226対0.531～0.532 ms。2.463倍・2.489倍は同じ実入力でGPU担当を変えたときの「局所短縮量」の比。CPU残仕事が軽くなる仮説を支持する。S−Pは小さく変動した。85/100は過去trainingで2回/1回。固定host入力ready→6 expert host出力readyの結果を、そのまま生成速度やすべてのexpertへの係数として使えない。
+・08は実入力、数値、実folded経路を通過。局所B/Aはcell1 0.957255（4/4短縮）、cell5 0.977902（3/4）、MX 0.987926（3/4）。後段のcell1では約1%に縮み、先頭・B先行のcell5では1.036260へ逆転した。今回の事前条件に従い保留。12Tでの局所信号は残す。通常APIは元の設定・4 DSOに復帰した時点が最終記録。新構成の実サービス自然生成速度、過去9.8 T/sと同条件での性能はいずれも未測定。
+
+第一候補　GPUの共有expertとCPUのrouted expertを重ねる
+
+根拠
+quality-FのJA・Python各第1 T1のgraph-pre/post、対象区間のscheduler元ログを突き合わせた。0～36層のすべてで、GPU上の同じ正規化入力から、CPUの6 expert用gate/up→SwiGLU→downと、GPUの常時実行される共有expertのgate/up→SwiGLU→downが分岐する。共有expertの4演算はCPU側のrouting IDやdown出力を入力に持たず、元の入力順を持つffn_outのADDで合流する。保存された順では、各層のGPU共有4演算はCPU側の計算とGPUのrouted加重和の後に並ぶ。これは依存関係・配置と提出予定順の記録で、デバイスが各命令を実行した時刻は含まない。
+
+L0ではCPU split 2にrouted 87～90、続くCUDA split 3の103～106に共有枝、107にADDがある。L36ではCPU 74／CUDA 75。2課題とも37組すべてで、CPU split入力にnormとtop6、次のGPU split入力にCPUのdown出力が明示された。共有expertのCUDA配置も共通だった。対象37層の共有行列は各層3枚、計111枚・論理サイズ1,179,832,320 B。これは静的な対象範囲であり、毎tokenの実DRAM転送量や時間ではない。
+
+仮説と一桁目の検証
+追加bankを持たない経路で、共有expertの未重複のGPU実行をCPUのrouted区間に隠せる可能性がある。現在の実providerで、短い固定入力に対してCPUの入力ready、CPU開始/終了、GPU共有枝の開始/完了、最終mergeの順を記録する。既存fusionを切断するeval callbackは用いない。hostの単調時計とCUDA eventの異なる時刻原点を直接引かず、実機で利用できる相関済みタイムライン、あるいは同じCUDA流上の区間時間とCPU境界でのevent状態で読む。機器観測は対照の計時と分ける。1層の値を37倍する前に、層差や既に隠れた部分を調べる。CPUが十分長く、未重複のGPU枝が全体時間の変動に対して試す価値があるなら、限定試作に進む。
+
+試作の境界
+既存CPU splitのnormとIDsがhostへ渡り終えた直後、同期CPU graphを呼ぶ直前に、既存GPU重みで共有枝だけを非同期提出する。その後CPUを実行し、次のGPU splitでrouted加重和と共有結果を元どおりのADDで合わせる。これは試作の一例。実機で同じ関係をもっと単純に達成できれば、実装方法は任せる。
+
+前のGPU splitの末尾へ4演算を挿すだけだと、CPU入力を渡す際の送信元同期が共有枝の完了まで待ち、待ち時間の引っ越しになる可能性がある。保存schedulerは非同期copyを受けない宛先に対し送信元を同期する。参照CPU backendのcpy_tensor_asyncはNULL、CUDA側のsynchronizeは当該backendのstreamを待つ。既存copyの後でGPU枝を提出する案は、この同層の待ちを避けるためのもの。別streamが必要なら、入力ready、共有結果ready、再利用されるbufferの寿命を明示できる場合に限る。元の枝を二重計算せず、同じ重み・元の演算順・同じmergeを使う。計算中にnorm/共有出力/一時領域をallocatorが別演算へ再利用しないことと、GPUのfusionや追加起動費を試作と実物で調べる。
+
+反証
+共有枝が既に大部分重なる、未重複時間が小さい、GPU早出しでCPUの開始や次の層が同程度遅れる、仕組みの寿命/依存を小さく正しく保てない、固定入力の期待結果を維持できない、同条件の統合時間が改善しない。これらを新しい知見として返せる。局所GPU時間だけの改善で採用へ進まない。
+
+第二候補　頻出非compactを同予算GPU配置で測る
+
+元training5の11,840件（5課題×64 T1×37層）の順序付きtop6を読み直した。L3/147はmixed 23回・C++ 55回。L7/270はmixed 26回・C++ 51回。どちらもJA、EN、Pythonでは0回。2個の155回中101回では既存original35の別expertも同じ層・同じtop6にあった（L3 16+55、L7 5+25）。同時hitの数は、どの既存expertを外すかで変わる。二つを単純に追加してH1連発とみなす見積りはできない。
+
+C++ trainingの既存軌道を再現し、call1/pos241/L3の147対13とcall15/pos255/L7の270対19を、同じ入力・ordered IDs・実projection別compact確認で比較する。捕捉on/offで出力、route、融合を確認する。同じ層別個数・型・native予算の2planで1 expertずつGPUへ渡す。H1のC−Pはその入力の局所利益。異partitionのP同士にはCPU/CUDA算術差があり、O=C、partition内S=P、cold slot一致を確認する。
+
+training5のjoint top6へ候補とoriginal35をそれぞれ適用する。H0/H1/H2以上、増減したexpert、残るCPU仕事、対象層数、失う元hit、GPU残待ちを課題別に残す。H2/H3の転移に強い仮定が必要なら結論を上下に振っても候補が残るかを見る。H1から直線外挿して決めない。一案を凍結できたときに、同時期の通常基準と旧配置と比較する。少なくとも直接hitがあるtrainingと、利益が減る可能性のあるtrainingを含める。H1の小ささ、CPU残仕事・同時hit・取り除く元expertの損が勝つ場合、特定課題だけに寄る場合は採用を見送れる。
+
+第三候補　同じ2 expertをGPUへ移す前に、通常CPUのcompactへ回す
+
+追加GPU bankを使わず、現行CPUのfrequency19200でL3の3射影は9→147、L7の3射影は5→270という同一tensor内の置換を検討した。置換元は旧11/12のtraining censusで現compact中の最小頻度、同数なら最小IDとして選んだ。新しい5例の出現数は置換元の選択には使っていない。各tensorの型・行数・枠数が同じなので、対象80 tensor・19,200枠・127,401,984,000 packed bytesは維持できる。
+
+凍結したtraining5では、変わるIQ射影のcompact利用はmixed +147、C++ +318、JA/EN/Python ±0件。全5課題・153,600 IQ射影割当の0.303%の正味増。以前の8課題を集計したcensusに当てると逆に−45件。古いcensusにはprefill末尾を含む可能性がある。異なる分母の単純合算はしない。これらは3射影を数えた配置診断であり、時間や実行済みplanではない。価値は、2個をCPUのみに置いた場合の利点と旧課題の損を、CPU/GPU算術やcustomの複合差から独立に問えること。CPU compactの変更でも元の入力・出力は再確認する。CPU pathの実時間差が小さい、旧分布の損が大きい、固定入力が一致しない場合は閉じる。広いCPU planの再学習まではこの試行の前提にしない。
+
+customの追加費用を一箇所だけ見るなら
+
+Cの実main graphのState::computeを対象にし、L188のprivate x/IDsへのset二つとL198のprivate CPU graphからdstへのgetの合計を「private host I/O」として外から囲う。L198にある同期graph_computeとgetの間に時刻を一つ置けば、既存のcpu_begin→cpu_endがCPU演算＋出力copyを含む混同を解ける。mode Cでmatched Hを全CPUへ戻す部分をcopyだけの時刻へ含めない。23層のT1別合計を保存し、同じactual mainのCUDA_Host destination、観測オフのblock時刻と対にする。新しいGPU同期やfprintfを内側に加えない。コピー時間がC−Bに比べ小さければ、大規模なzero-copy試作の優先を下げる。大きくてもコピーを削った正味利得の保証はなく、両armの通常計時が要る。この補助診断は第一候補の開始条件ではない。
+
+08と03
+
+08の再ベンチ、04/09/24Tとの組合せは予定しない。低費用で問うなら、3warmup後も残るcell内の時間推移がDSO差やfixture順への感度を説明し得るか、固定controlで一度だけ診る。局所kernelの計時、実モデルの全体効果と問いを分ける。順序診断が必要になったときだけ行い、08の有望な比を復活させる材料にはしない。
+
+03は未実施で、08の失格から良否は決まらない。現行のcontrol CPUソースはMUL_MAT_IDの384 counterをworker全体で初期化し、その後は各workerが384候補を走査する。実グラフのCPU層は37×3＝111 MUL_MAT_IDで、各T1に選ぶexpertは6個。03の疎な経路には適用範囲がある。CPU側の一次profileが実際にその処理へ時間が割かれることを示す場合には、08の反復より03単独の現行移植・実12T screenを優先する。既存のVMで得たtiny/many倍率やworkspace値からms/T1は計算できない。射影別疎cache、MX、非連続/重複/−1 IDs、T>1 fallback、plannerとの一致を変更範囲に沿って保つ。
+
+担当と完了の判断
+
+実機メインは主担当を6.2 Astra/maxに指定し、モデル選択の返却情報、現行checkout・実provider・利用可能な既存runner、専用作業先、固定の品質・速度条件と既存の実機枠を渡す。技術案の選定、実装、隔離ビルド、可逆的な試験、失敗の修正と記録を子に任せる。メインは共有機と通常APIの単一担当、rawと実行物の独立照合、採否・復帰の責任を持つ。可逆的な操作ごとの承認やベンチの丸ごとの二重実行は要求しない。負の結果、候補を変更した理由、試作前に棄却できた理由も成果として返す。
+
+評価の軸は、同じモデル・通常設定・固定入力列・同じ時計で、変更なしと候補を新しく測った生成全体のms/T1。順序を相殺するfresh対で、遅いrun、全時刻、実際のproviderを残す。正確さの期待は変更に合わせる。順序だけを変更する候補は同じ軌道のlogits一致、GPUにexpertを移す候補は担当別の同値条件と生成品質の変化を評価する。採用を検討する段階で、診断なしの自然生成でも同条件の通常基準と比べる。既使用validation3は回帰、未使用validation2は候補固定後の反証、holdout5は最終確認に温存する。観測時の時計、通常APIの自然生成、過去の異なるベンチ結果を混ぜない。
+
+根拠と再現
+
+inspect_shared_branch.py <169aの公開handoffディレクトリ> <出力JSON> で、2課題の生graphとraw stderrの対象ログ区間からSHARED_BRANCH.jsonを再生成できる。inspect_training_coverage.py reference_source <出力JSON> が、旧CPU plan・旧訓練census・5課題の生route・original35からTRAINING_COVERAGE.jsonを再生成する。2本ともモデル・保存コマンドの実行を含まない。reference_sourceの18ファイルは元Git blobと照合した。REFERENCE_SOURCE_MANIFEST.jsonに全ID、SOURCE_CHAIN.jsonにscheduler/CPU/CUDAの対応と、602aのリンクが流用したCPU C++ objectの当時のハッシュを記録していない点を記載した。実機接続、API操作、実ビルド、変更試作や新しい速度測定はこのレビューでは行っていない。

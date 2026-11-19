@@ -1,0 +1,72 @@
+169a2f7 保存計測の独立数値監査
+対象: MangekyoMyan/xeon-moe-lab commit 169a2f7eab8d52071661f0da6859d38df4206f8b
+archive/review-handoffs-not-for-readers/2026-11-19-fbc-h1-iq08/
+
+結論
+
+今回の採否を覆す数値不整合は見つからなかった。F/B/CのC−B正値、H1の非compact側の大きい短縮、08の保留を支持する。次に頻出expertの実入力を少数追加し、同予算H1から配置候補を凍結する実機探索を任せることを、保存計測の整合性は妨げない。今回の再計算から新bankの効果や全モデル速度は予測しない。
+
+実施範囲と証拠の境界
+
+independent_measurement_audit.pyを新規に書き、提供側verify/analyze/replayをimport・実行せず、保存された整数ns、JSON、F32/I32、planを読み取った。295入力ファイル、5067検査項目が通過。これは検査項目の数であり、独立試験の数ではない。入力のSHAと全差分はINDEPENDENT_MEASUREMENT_AUDIT.json、主要集計はNUMERIC_SUMMARY.jsonにある。
+
+実施したのはローカルの保存byte比較、finite確認、保存時計の算術、ID・plan・partitionの整合確認。モデル・DSO実体は同梱されておらず、その現物ハッシュ、実行時のnative weight内容、kernel実行、実機状態の新規確認はしていない。CPU/GPU provider、affinity、interposerの経路回数、直接kernel四丸め比較、正常終了、API復帰は保存記録として扱う。実機/API/build/新規推論ベンチは一切行っていない。
+
+guard-health記録上の23 processは別PID・同一boot IDでchild_returncode=0、起動終了区間は重複しない。FBC=quality3＋timing6、H1=4、08=quality2＋timing8。この事実は保存された運転記録の整合であって、現在のサービス状態を保証するものではない。
+
+1. F/B/C
+
+guardの時系列とrawの命名順が一致し、F/B/C/C/B/F。前半はJA→Python、後半はPython→JA。各64T1を全て保持し、各process/caseの平均から同一半巡の対応差を求めた。2入力×64T1×6process=768 timed T1、各arm/caseのfresh processは2。
+
+             B−F 前半/後半/平均 (ms/T1)          C−B 前半/後半/平均 (ms/T1)
+JA          −0.646323/−1.235278/−0.940801       +0.541318/+1.795467/+1.168392
+Python      −0.293754/+1.379479/+0.542862       +1.117614/+0.339612/+0.728613
+
+最後F−最初FはJA −1.229932ms、Python +2.497769ms。C−Bの4対応差は全て正だが、custom dispatch/private CPU/copy/外側配置同期を合わせた差であり、純copy時間ではない。B−Fは一方向の悪化ではない。
+
+固定prefix 272/240、64入力ID、65 target、positionの全run一致を直接確認。quality各65×129280 F32の6ファイルをfinite検査し、両入力ともF=B=Cの全byte一致。timingの12末尾ファイルも対応quality最終行と一致した。時刻はdecode開始からllama_get_logits_ith帰還まで。保存されていない中間timing出力までbyte照合したとは扱わない。
+
+2. H1
+
+実行順compact/noncompact/noncompact/compact。全8セル×4mode×12block×4process=1536定常観測、別に128 first-use。主比較cell1/4は全8条件でC−Pが12/12block正。
+
+cell1 compact C−P: 0.2336615 / 0.2413685ms
+cell1 noncompact C−P: 0.5979120 / 0.5721535ms
+cell4 compact C−P: 0.2261465 / 0.2006920ms
+cell4 noncompact C−P: 0.5316260 / 0.5308515ms
+
+各値はprocess内の12対応差の中央値。2process中央値の平均の比はcell1=2.463140、cell4=2.489179。局所短縮量の比であり、operator速度やモデル速度の倍率ではない。S−Pも全blockを保存し、process中央値はcell1 compact −0.003666/−0.0038315ms、noncompact +0.0050975/+0.0047565ms、cell4 compact +0.017509/−0.022683ms、noncompact +0.012564/+0.0127315ms。
+
+128個のmode出力をfinite検査し、全32セル条件でO=C=元capture、partition内S=Pを実byte照合。元captureは別の固定Git commitから取得された8セル全てのdown実体。Pのcold 150slotはOと一致した。同planの2process間もO/C/S/P全て一致。partition間Pの相違は予定する担当変更slotだけで、主要cell1は4/5、cell4は0/3。cell3のH3対H2は同じ仕事量として平均しない。別保存reference8ファイルはfinite確認をした。
+
+追加の時刻の手掛かり
+
+既存rawのcpu_begin/endとhost endpointを別集計すると、主要8条件の「CのCPU区間−PのCPU区間」のprocess中央値はcompactで0.3686635〜0.427353ms、noncompactで0.691845〜0.778691ms。「PのCPU外時間−CのCPU外時間」は0.158985〜0.179717msで、CPU側削減の差が局所短縮を主に広げる観測と整合する。ブロックごとには C−P = CPU区間差 − CPU外超過 が整数nsで厳密に一致する。中央値同士は加法的とは限らない。
+
+Pのsubmit_end−cpu_set_endの中央値は0.1208615〜0.133434ms、CPU完了後のjoin残待ちは0.034619〜0.041506ms。H>0の全保存sampleで、SはCPU開始前にjoin、PはCPU完了後にjoinという順序も確認。これらはcaller側の区間時計であり、GPU kernel全時間・hardware command数・純転送時間ではない。単独replayのCPU dstとmainのCUDA_Host配置が異なるため、この値をmainのC−Bへ数値移植しない。
+
+3. 08
+
+8 timing processはAB/BA/BA/ABの4対応組。各セル5sample、各sample8graph合計。全120sampleを8で割ったms/graphのprocess内中央値からB/Aを算出し、先頭sampleも残した。計960 timed graph呼出しだが、960個の独立サンプルではない。qualityには別に1graph×3cell×2process=6 sampleがあり、性能集計へ混ぜていない。
+
+cell1 B/A: 0.924906867 / 0.990768868 / 0.809621521 / 0.989603094
+  中央値0.957254981、短縮4/4組、A−B中央値0.154808688ms/graph。
+cell5 B/A: 0.938012004 / 1.036260463 / 0.976734775 / 0.979068712
+  中央値0.977901744、短縮3/4組、A−B中央値0.063901938ms/graph。
+cell6 B/A: 1.031034212 / 0.990110609 / 0.985741197 / 0.932365861
+  中央値0.987925903、短縮3/4組、A−B中央値0.034032938ms/graph。
+
+cell1の先頭位置は組1/3で7.51%/19.04%短縮、末尾位置は組2/4で0.923%/1.040%短縮。cell5のB先行＋先頭の組2は3.626%遅延。arm/positionをまたぐ方向と大きさの安定性は不足する。
+
+30個の保存出力、921600 F32はfiniteで元captureと実byte一致。120 timing sampleと6 quality sampleの記録FNVも元capture実byteから計算したFNVと一致。これはsample末尾のチェック記録であり、960回全ての出力byteが個別保存されていたとは扱わない。24の直接四丸め比較のequal/output_bits、およびquality限定folded経路回数は保存記録の確認までで、新しくkernelを実行していない。
+
+追加の時刻の手掛かり
+
+全8runのMX cell6で、第1sampleは3.122929〜3.335808ms/graph、同runの最後3sampleの中央値に対し13.78〜21.10%遅い。これは再集計の説明用指標で、採否統計の変更ではない。caller sourceでは各cellでpoolを新設し3warmup後に5sampleを連続計時する。既定warmup後にもcell内の時間変化が残ることは読めるが、温度・周波数・page/cache・pool状態等のどれが原因かは保存時計だけでは決まらない。MXも共通planner/callerを通るため、完全な無関係対照として主要セルから差し引かない。
+
+先頭cell1の大きな改善を含め全rawを保持したまま、08は保管・保留でよい。もし再開する場合には、採用・モデル全体試験とは別に「既定warmup後の時間定常性／順序依存を解く」という問いを一つに限定すべきである。今回のsampleを事後除外して候補を救済したり、良い結果になるまで反復したりする根拠はない。
+
+成果物
+independent_measurement_audit.py: source/captureをread-onlyで読む独立再計算。
+INDEPENDENT_MEASUREMENT_AUDIT.json: 全raw時刻差、全H1 block差、全08 sample、検査項目、入力SHA。
+NUMERIC_SUMMARY.json: FBC/H1/08の主要数値と4対応比。

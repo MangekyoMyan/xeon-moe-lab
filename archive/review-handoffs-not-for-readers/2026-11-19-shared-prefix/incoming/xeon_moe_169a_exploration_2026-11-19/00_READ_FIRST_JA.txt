@@ -1,0 +1,66 @@
+169a結果の受領・実機6.2 Astra/max探索への統合引き継ぎ
+2026-11-19 JST
+
+今回渡すのは、このZIP一つでよい。
+前回の役割分担追補を含む979ファイル版を previous_handoff/ に全byte保存した。
+今回の指示と状態はこの最上位の資料を優先する。旧資料の未実施一覧を再実行予定へ戻さない。
+
+最初に読む資料
+
+1. 万華鏡にゃん向け: USER_REPORT_169A_JA.txt
+   今回の結果、何が分かったか、まだ何が分からないか、次の実機探索の理由。
+2. 実機メイン向け: MAIN_EXPLORATION_169A_JA.txt
+   6.2を探索・実装・限定計測の主担当にする。メインは実機枠、独立検証、採否・復帰を担当する。
+3. 実機6.2向け: ASTRA62_EXPLORATION_TASK_169A_JA.txt
+   現在のbaselineと既存の実機許可・runnerを添えて渡せる依頼文。
+4. 判定根拠: ROOT_REVIEW_169A_JA.txt
+   親の独立再集計、相談3問への回答、共有expert並列化の根拠と限界。
+5. モデル運用: ASTRA62_OPERATIONS_169A_JA.txt
+   この環境で実際に観察した行動と、次に実機で観察する点。
+6. 機械可読の現状: CURRENT_DECISIONS_169A.json
+
+最新状態
+
+・F/B/C一巡: 完了。今回のC−BはJA +1.168392ms、Python +0.728613ms/T1。
+・既存H1診断: 完了。CPU側の重いexpertをGPUへ渡す価値を支持。診断85/100は通常採用しない。
+・08-only/12物理スレッドscreen: 完了、保管・保留。通常採用・モデル全体08試験は未実施。
+・共有GPU expertとCPU routed expertの重なり: 新しい未実装仮説。実機の未重複時間を確認する第一候補。
+・147/270新capture、同予算H1、新bank: 未実施。次点の配置探索候補。
+・同RAM内のCPU compact置換: 新しい静的対案。速度・品質未測定。
+・03: 未実施。実profileが対象費用を示す場合のCPU側候補。
+・04/09/24Tなどを組み合わせて08を救済する作業は指示していない。
+
+第一候補を必ず成功させる課題ではない。実機の根拠に従い6.2が別の一案へ移ってよい。
+全候補を順番に実装するリストでもない。探索の目的は、通常利用に近い生成全体の時間を減らせる変更を見つけること。
+
+今回の証拠
+
+r169a_review_2026-11-19/source/:
+  固定commit 169a2f7eab8d52071661f0da6859d38df4206f8b の最新handoffから、incoming/を除く全578ファイル。
+  65行logits全6本、graph原記録、stderr、全clock、不利なrun、source/build/planを省略せず含む。
+  原本371,690,820B。全ファイルのSHA256とGit blob SHA1を親が照合した。
+  元のincoming/は975ファイル版の転載であり、このsourceミラーには含めない。
+  代わりに previous_handoff/ へ、追補を含む前回979ファイル版を一式収録した。
+  したがってsource/単独が上流FILES_SHA256.jsonの全パスを満たすと扱わない。
+以下はいずれも r169a_review_2026-11-19/ 以下。
+capture_reference/: 元の8cellの実byteと固定commit由来情報。
+measurement_audit/: 保存時計と実byteの独立監査、全295入力、5067検査項目。
+astra62_exploration/: 今回6.2/maxの独立探索、再集計2スクリプト、18件の原source/build/training参照。
+hotpath_bank/: custom境界と147/270同予算診断の具体案。
+parent_recompute.py / PARENT_RECOMPUTATION.json: 親の別実装による再集計。
+
+SOURCE_IDENTITIES.json等のhashはファイル同一性を示す。現物モデルやELF、実機の現在状態をこちらで新しく確認した証明ではない。
+今回こちらで行ったのは保存資料の取得、読取、数値再集計、byte検査と指示書作成。実機接続・API操作・build・新規推論ベンチは行っていない。
+
+ZIP確認
+
+展開先のこのディレクトリで python3 verify_package.py を実行できる。
+通常API、保存コマンド、モデル、ELFを実行しない。manifestのbyte照合だけを行う。
+FILES_SHA256.json自身は自己参照hashの対象外。その他の全ファイルを対象とする。
+
+受領版の注意
+
+最新実機INTAKE.jsonは975ファイル版、SHA256 7b23e23f6e39b70b86d8aff74fe7d05f663dc4a793140ee207deb3fd65230c49。
+役割分担追補を含む前回の最終979ファイル版はSHA256 615f3c869d24392e959a4001d9f43eb8cad437ff5b19bedd61795aaeed79b9c4。
+今回の記録では6.2は主に独立レビュー担当。実機探索の一貫主導を試した結果とは区別する。
+受領の経緯や、別経路で追補を読んだかどうかは断定しない。次回はこの最上位指示で役割を揃える。

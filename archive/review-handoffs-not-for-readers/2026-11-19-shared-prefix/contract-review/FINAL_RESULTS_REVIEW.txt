@@ -1,0 +1,46 @@
+Independent final results review, 2026-11-19
+
+Decision
+
+HOLD the three-node shared-expert GPU scheduling candidate. Japanese output-ready decode time increased by 2.086390% and Python time decreased by 0.941008%. Both adjacent process pairs agree on the direction within each case. Japanese failed the prospective cross-case screen. The original API is restored. No natural-generation test or deployment was performed.
+
+Timing arithmetic from the raw logs
+
+I read the four uninstrumented trial/runs/timing-*/RUN.json files, subtracted each start_ns from its corresponding output_ready_ns as integers, and computed ratios from integer sums. Each process completed both fixed training cases, each with 64 consecutive positive intervals. All 512 individual intervals, first durations, means, medians, four process RUN hashes, pair ratios and aggregate effects agree with trial/ANALYSIS.json. The paired processes used the same case order. The prospective metric was fixed before the first timing process started.
+
+Process        PID     Case order          JA mean ms     Python mean ms
+A0             203599  JA, Python          130.812820     130.511995
+B1             204204  JA, Python          134.188306     130.079114
+B2             204826  Python, JA          130.166540     130.241322
+A3             205407  Python, JA          128.139275     132.281348
+
+Case       B1/A0         B2/A3         A mean ms     B mean ms     B minus A ms
+JA         1.025803941   1.015820789   129.476047    132.177423     +2.701375
+Python     0.996683208   0.984578128   131.396672    130.160218     -1.236454
+
+The aggregate B/A ratio divides the mean of the two B process means by the mean of the two A process means for each case. JA gives 1.020863901 and Python 0.990589917. The fixed advancement rule requires all four pair ratios below 1 and each case aggregate at most 0.995. Only Python satisfies its case rule. The corresponding output-rate changes, if reported for these inputs, are -2.043749% for JA and +0.949947% for Python. The first observed T=1 durations are retained in every mean. In process order A0, B1, B2, A3 these were 156.292674, 179.848866, 152.113458 and 139.643652 ms for JA, and 160.215394, 160.470771, 152.508905 and 152.152508 ms for Python. Original A3 minus A0 was -2.673544 ms for JA and +1.769352 ms for Python. The two-pair experiment supports a screening decision for these fixed inputs. The cause of the opposing case results remains unresolved.
+
+Quality, execution and hardware receipts
+
+I verified the file set and SHA256 for all 110 entries in the eight process manifests, comprising 315,497,404 bytes. They cover original baseline and observer, candidate quality and observer, and all four timing processes. For each case I read and compared all four complete F32 outputs byte for byte. Each is 33,612,800 bytes, consisting of the prefix output plus 64 T=1 outputs, 129,280 logits per row. An independent exponent scan found zero nonfinite values among 8,403,200 baseline logits per case. All four saved timing final rows equal the corresponding last baseline row. Each complete JA file hashes to 35d028fed9fa08bbe8f304c598ced362ff466aff176ecf407133c0a1870bbd64 and each complete Python file hashes to 077eefd33928bfbec340162c5b5e54c2bbad9e4ac3ae72bc23f38a7a33d69d01.
+
+The six trial process receipts report distinct child PIDs, normal exit and status zero. I verified their exact five symbol-provider paths, devices, inodes and file sizes against backing files, the active CPU/CUDA graph function providers, replacement base only on B, and original and candidate DSO hashes. A used base 2e13b370 and B used c586449d. Both used CPU 33a9e346, llama 1d1e7d72 and CUDA 45f6b7d8. The control engine object and DSO reproduced their frozen counterparts. I checked the saved case IDs, prefix IDs, token inputs, placement, shared weight types/shapes, context, preparation, 127,401,984,000 compact-cache bytes, scratch counters and launch environments. CUPTI was absent from every timing process.
+
+For both B quality and B observer, each individual T=1 call had exactly 37 early and 37 filtered submissions, checked across 256 per-call records. The full multi-token case prefills added zero. The two timed B processes also reported 2,368 of each submission per case over 64 T=1 calls. All B states recorded 27,648 bytes of scratch with zero fault drains. A recorded zero candidate activity. In each of the six trial health receipts the GPU power cap was 150 W, ECC was enabled with zero double-bit events, and fan mode was Standard. All retained monitor samples respected the fan and memory limits. The lowest available RAM across the six retained 30-sample windows was 68.046791 GiB. These windows are the retained tails of the supervised runs.
+
+Mechanism and scope
+
+I independently joined raw split, node, tensor, host-copy, CUPTI correlation and device-kernel TSVs for both original and candidate observers. For all 296 layer-calls per arm, I matched the layer's CPU gate, its norm/ID copies, the ordered gate/up/clamp nodes, the two input quantizers, both projection kernels and the clamp kernel by type and launch dimensions. Every corresponding post-CPU GPU split ran the routed weighted reduction plus the down-input quantization and fused shared-down/final-ADD kernel. On B the filtered GPU split omitted all three early nodes. All B early outputs used the same triple of distinct scratch addresses for sequential layers.
+
+The original per-call median across 37-layer totals was 1.611742 ms of shared-prefix GPU execution and 0 ms of overlap with the matched CPU graph dispatch. The candidate had median 1.591574 ms of prefix GPU execution and 1.376447 ms of overlap. Measured per-call overlap totals in case/call order were 0.057214, 1.334431, 1.415697, 1.440893, 0.000365, 1.337197, 1.441425 and 1.453605 ms. Of 296 candidate layer-calls, 225 had positive intersection, 71 had zero, and none contained all five GPU intervals fully within the CPU provider's host dispatch interval. I counted the union of clipped device intervals. One apparent same-stream overlap of 896 ns was counted once. Both collectors reported zero drops in the windows, unknown kernel correlations, foreign-thread calls and errors. These are instrumented device/host intersections. The separate uninstrumented timings above determine the candidate decision.
+
+Restoration
+
+I checked the strict restoration receipt and closed window against INITIAL_RUNTIME.json. The verified receipt records PID 206028, health ok, matching original configuration 963b6525 and all four backing-file hashes, no experimental mappings, active API and both monitor services, no active alerts and no monitor errors. API_WINDOW_SHARED_PREFIX_TRIAL.json cleared restore_required and trial/STATE.json recorded all six runs passed and the window closed. The receipt time is 2026-11-19 11:49:15 JST. This review inspected saved outputs, source and receipts. No model or benchmark was run as part of the audit.
+
+Evidence hashes at review
+
+  trial/PERFORMANCE_METRIC.json        801804fce8330d084bdbd4256a8259adc0e8cff68deb47fb88fae15f4356fee7
+  trial/ANALYSIS.json                  010cbadb6e2af8afcc53e30b376a3a82a5dff8340c09b9c805cdea82ace2e582
+  PARENT_BOTH_TIMELINES.json           eb6eb66b58656d3aa0ce4d079043f5bca8e87a207c87d33b3793f99be36fc07f
+  RESTORED_SHARED_PREFIX_TRIAL.json   0c609a0ac8c88a07355e6e567fcbab7579e62cdf87c7a4be5c3efe7b91be0666
