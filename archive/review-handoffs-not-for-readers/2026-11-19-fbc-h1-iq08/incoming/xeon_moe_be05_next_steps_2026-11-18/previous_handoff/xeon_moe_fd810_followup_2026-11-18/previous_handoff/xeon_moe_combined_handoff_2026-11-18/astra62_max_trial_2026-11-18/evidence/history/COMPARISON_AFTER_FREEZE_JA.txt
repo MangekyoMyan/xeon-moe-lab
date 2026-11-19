@@ -1,0 +1,133 @@
+初期案固定後の一次コード照合 — 親専用
+確認日: 2026-11-18 JST / 2026-11-18 01:53:04 UTC
+固定commit: 37f6390c9a5bc594658127651e204ab11420cd71
+初期案SHA256: 2d245bd0634d9c21636328fb2e35149ca9fae21b4972b5658f4e3cb9d35042e0
+固定済みの初期案を一次コードと照合。試験対象の6.2子に連絡・助言していない。読取のみ、build・bench・実機操作なし。初期台帳は変更していない。
+
+候補1は入力abs共有という既知方向に対する別の符号表現、候補2は照合した後続CPUにも残るdense route workspaceへの具体案。候補6は部分expert cacheの独立再発見。
+
+読み方
+・『今回照合範囲で初出』は未読の過去資料・外部文献に同じ案がないという主張ではない。
+・初期ソースと後続実装は別。後続に存在しても、子が初期ソースを正しく読んだことは否定されない。
+・route37/SOURCE.jsonはmx-prepack release candidate由来を記録する。実機の現在のロード状況をこの作業でlive確認していない。
+・今回の分類は初期案の表現に対するもの。後で作られたpatchや測定値の正しさは別の検証が必要。
+・ソースに見える命令数・予約容量の差を実行時間の改善率に変換しない。
+
+候補1: 入力absと符号の事前準備、packed重みへの1 XOR
+分類: 既存方向の具体化。packed符号XORという核は今回照合した後続コードでは未確認
+初期ソース: 採用compact-kernel.incとiq-small-kernels.incは、各32係数で二つのsigned LUT lookupを行い、各出力行でweight absとactivation sign移動を行う。子の出発点はコードと対応している。
+後続コード: iq-abs.cppは入力absをprepareで共有するが、dot内で元のsigned入力y0/y1とprepared absの両方を読み、_mm_sign_epi8(q0,y0)、_mm_sign_epi8(q1,y1)を各出力行で行う。対象はiq-abs.hでIQ2_S/IQ3_S。iq-rhsはIQ3_XXSに対する+62 biased LUTと事前pair補正、mx-prepackは+12 biased LUTと補正/FP32 scale再利用であり、いずれもpacked sign XORではない。
+区別すべき部分: 子は入力の符号をpacked重みのbit3/bit7と対応させて事前準備し、重み1ロードへ1 XORを行ってからLUT lookupする案。符号処理を入力側へ移す目的は既知だが、旧abs dotに残る二つのpsignbを置き換える表現が異なる。IQ3_XXSも含めるなら旧IQ2_S/IQ3_S abs operatorより対象範囲も広い。
+注意: 初期案だけではbyte同一性や実効速度を未確認。-128、非有限scale、zero、sidecar読込増、準備の償却を検証する必要がある。abs sidecarという言葉だけで完全な再発見としない。全履歴にXOR版がないとは主張しない。
+根拠:
+  accepted_compact.inc: 44–54, 58–77行
+    accepted/overlays/xeon-local/compact-kernel.inc
+  accepted_iqsmall.inc: 32–45, 48–66行
+    accepted/overlays/xeon-local/iq-small-kernels.inc
+  iq_abs.cpp: 24–39, 41–62行
+    archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.cpp
+  iq_abs.h: 33–37行
+    archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.h
+  iq_rhs.cpp: 13–26行
+    archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/release-candidate-a/sources/iq-rhs.cpp
+  iq_math.inc: 1–24行
+    archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/release-candidate-a/sources/iq-math.inc
+  mx_rhs.cpp: 17–33行
+    archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.cpp
+  mx_math.inc: 9–24行
+    archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-math.inc
+
+候補2: MUL_MAT_IDのルート索引をcount/prefix/fillで圧縮
+分類: 今回照合した採用・後続CPUソースでは未実装。照合範囲内で初出の具体案
+初期ソース: 採用コードはmatrix_row_counts[E]に加え、matrix_rows[E][P]を予約する。P=ids->ne[0]*ids->ne[1]。各選択枠は一つのexpertに属し、-1は出力をzeroにしてmappingを追加しないため、有効mapping総数はP以下。
+後続コード: mx-prepack/release-candidate-aとそれを元にしたroute37ソースにも、同じE*P mapping予約、MMID_MATRIX_ROWのEごとの固定stride、plannerのE*P積算が残る。今回読んだ後続ソースにprefix offset方式はない。
+区別すべき部分: countからoffsetを作り、P個以下のmappingをexpertごとに詰める方式により、mapping領域の上限をE*P件からP件へできる。offset/count等のO(E)補助領域は別に必要。計画側と実行側の同時変更が具体的な提案点。
+注意: これは予約量の静的な改善余地で、速度やRSS/メモリ帯域削減の実測ではない。二巡のID読込、重複、-1、stride、各expert内の順序、tiled/four-column経路、align、overflowを確認する。未読履歴・外部文献での新規性は不明。
+根拠:
+  accepted_cpu.c: 1737–1744, 1789–1808, 3076–3086行
+    accepted/overlays/ggml/src/ggml-cpu/ggml-cpu.c
+  mx_cpu.c: 1752–1759, 3123–3133行
+    archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c
+  route_cpu.c: 1491–1496, 1753–1760, 1826–1845, 3132–3137行
+    archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/ggml-cpu.c
+  route_SOURCE.json: 1–16行
+    archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/SOURCE.json
+
+候補3: 小バッチの(slot,出力行tile)を直接分配
+分類: counter初期化削減は既知方向。全体を平坦化する実行方式は今回照合では同一実装を未確認
+初期ソース: 採用コードはith==0がrow_counts全Eをzero化し、atomic counter初期化はcur_a=ith;cur_a<E;cur_a+=nthで分担する。その後の全E走査は各workerが行う。
+後続コード: cpu-coordination/active-onlyには、最初に出現したactive expertのcounterだけをith0で初期化する案がある。ただし各workerの全E走査とexpertごとのatomic_fetch_addは残る。route37にも小規模/NUMA条件でchunk数をnthへそろえ、fetch_addを通らない既存分岐がある。
+区別すべき部分: 子の(slot,連続出力行tile)を全workerへ直接割当てる方式は、active counterのみ初期化する案とは異なる。E走査とexpert別atomicをまとめて減らす具体化候補。
+注意: 初期文の『全E countersを各workerで初期化』は、全workerがE個ずつ重複初期化する意味なら不正確。合計E個をworker間で分担する、と修正する。NUMA条件では既にdynamic atomicを回避する場合があり、消せる費用は実分岐次第。速度は未測定。
+根拠:
+  accepted_cpu.c: 1789–1791, 1811–1825行
+    accepted/overlays/ggml/src/ggml-cpu/ggml-cpu.c
+  coord_active_cpu.c: 1789–1827, 1902–1906行
+    archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cpu-coordination/active-only/ggml-cpu.c
+  route_cpu.c: 1892–1906, 1951–1955行
+    archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/ggml-cpu.c
+
+候補4: Q8_K入力量子化のAVX1化と既存byte列維持
+分類: 今回照合範囲で初出の具体的kernel候補。実装・同一性・速度は未検証
+初期ソース: vendorのx86/quants.c:505–507はquantize_row_q8_Kからquantize_row_q8_K_refを呼ぶだけである。AVX1実装がこのwrapperにないという指摘は正しい。
+後続コード: 今回読んだ後続ggml-cpu.cのtype traitもquantize_row_q8_Kを参照する。abs/iq-rhs/mx-prepackは量子化後のsidecar処理で、Q8_K量子化そのもののAVX1置換ではない。
+区別すべき部分: 最大同値時の符号、丸め、zero block再利用等を含めbyte列維持を目標にしたAVX1化という案。CPU/CUDA間の量子化を揃える以前の診断とは目的・変更箇所が違う。
+注意: 全ての後続quants objectを照合したわけではない。byte同一性は初期案だけでは証明できない。実モデルでは量子化費用が多数の出力行へ償却されるため、単体倍率を全体速度に置き換えない。
+根拠:
+  vendor_x86_quants.c: 504–507行
+    vendor/llama.cpp/ggml/src/ggml-cpu/arch/x86/quants.c
+  route_cpu.c: 405–409行
+    archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/ggml-cpu.c
+  iq_abs.cpp: 24–39行
+    archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.cpp
+
+候補5: compactを複数トークン・expertごとの局所batchへ拡張
+分類: 今回照合範囲では未実装の適用条件拡張案。詳細な新規性は未確認
+初期ソース: 採用コードのcompact lookupはids->ne[1]==1に制限される。後続route37でも同条件が残る。
+後続コード: route37にはexpertごとにtiledへ渡す分岐やMXFP4の複数列処理があるが、それだけで複数トークンcompact IQが実装済みとは言えない。sparse-cacheのcompact dot APIもnrc==1をassertする。
+区別すべき部分: expertごとの局所頻度・行数を見て、compact IQを複数トークンへ使う境界を探す点。既存のMXFP4多列処理と型・cache経路を混同しない。
+注意: ids条件を外すだけで成立すると判断しない。Q8入力stride、行mapping、tiled選択、入力再利用、sidecar適用条件、メモリ局所性の検証が必要。今回実装・性能確認なし。
+根拠:
+  accepted_cpu.c: 1819–1830行
+    accepted/overlays/ggml/src/ggml-cpu/ggml-cpu.c
+  route_cpu.c: 1868–1882, 1925–1947行
+    archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/ggml-cpu.c
+  sparse_cache.cpp: 195–197行
+    archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/iq3-cache.cpp
+
+候補6: expert単位の部分compactと利益/MiBによる予算配分
+分類: 部分expert化・pointer表は後続実装の独立再発見。選択基準の具体化部分は別評価
+初期ソース: 採用iq3-cache.cppはggml_nbytes(t)/type_sizeでテンソル全体を加工して一つのdataへ格納する。子が見た初期ソースについての指摘は正しい。
+後続コード: sparse-cache/release-v2-aにはadd_selected_v2、selected_count分のみのallocation/変換、expert_ptrs、lookup_experts_v2、shape/type検査、budget/reserve検査がある。route37はそのexpert pointerを参照する。
+区別すべき部分: 構造変更そのものは後続ですでに具体化済み。子の『traceがあれば限界利益/MiB』は配置評価の方向性として意味があるが、初期案には具体的なscore算出・最適化solver・検証はまだない。GPU配置の時間価値という既知方向とも関連するが、CPU compact予算という対象は区別する。
+注意: 後続資料を渡していないため、既存部分compactを知らないことを能力失敗にしない。mutex除去は読み出したpointerの寿命・同時freeを別途保証する必要がある。どの選定方式が速いかは未測定。
+根拠:
+  accepted_cache.cpp: 74–110, 132–139行
+    accepted/overlays/xeon-local/iq3-cache.cpp
+  sparse_cache.cpp: 28–46, 75–141, 149–150, 178–186行
+    archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/iq3-cache.cpp
+  sparse_selection.h: 16–24, 49–84行
+    archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/selection-plan.h
+  route_cpu.c: 1868–1878行
+    archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/ggml-cpu.c
+
+候補7: GPU unique expert転送量・warm/cold・待ち時間による閾値調整
+分類: 既存の計測方針の再発見と、対象経路の具体化。現段階は観測案
+初期ソース: llama-moe-cacheにはIDのasync取得後のsynchronizeと連続miss uploadの併合がある。採用ggml-backendにはMXFP4のbatch閾値判定があり、子の記述はこれらのコードと対応する。
+後続コード: GPU転送、CPU残仕事、GPU待ち、分担の時間価値を測る方向は既知台帳P02/P06にある。ただし現在のresident hot bankと一般MoE cacheのmiss転送は同じ経路でない。
+区別すべき部分: 初期ソースにあるcacheと閾値へ観測点を結び付けた点は有用な具体化。新しい閾値やcache方針を発見・実装したという結果はまだない。
+注意: VMでGPU転送を代用できないとの認識は妥当。一般cacheの転送が最新実機構成の主要律速と断定しない。cacheに既存のbytes/hits/misses統計があることと、区間別時間が測定済みであることは別。
+根拠:
+  moe_cache.cpp: 555–597, 604–614行
+    vendor/llama.cpp/src/llama-moe-cache.cpp
+  accepted_backend.cpp: 1329–1338行
+    accepted/overlays/ggml/src/ggml-backend.cpp
+
+親への評価上の提案
+・候補1は『absは既出だから全部既出』とまとめず、1 XORの符号表現を切り出して評価する。後続abs/bias方式との比較を行う場合、初期baselineとの比較と別に示す。
+・候補2はdense mapping予約が後続にも残ることをコードで確認できた。予約量の上限改善と速度改善を分ける。
+・候補3のcounter初期化の記述は軽微な正確性の修正点。各workerによる全E走査の指摘と、counter初期化の総量を混同しない。
+・候補6は典型的な独立再発見である。未提供の後続sourceを知らなかったことを減点せず、そこへ到達した判断と実装を評価する。
+・残りの案の採否は、子の実装・反証・必要条件の開示を確認した後に判断する。今回、速度の順位やモデル能力の総合点は付けていない。
+
+一次コードの完全なGitHub URL、SHA256、行数はJSONのsourcesと primary_source_cache/SOURCE_MANIFEST.json にある。cacheファイル自体は親の読取用中間物であり、ユーザーへ配る必要はない。

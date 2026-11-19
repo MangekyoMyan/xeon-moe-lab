@@ -1,0 +1,130 @@
+{
+  "date_jst": "2026-11-18",
+  "status": "proposal only; no new engine build or inference run in this review",
+  "base_commit": "37f6390c9a5bc594658127651e204ab11420cd71",
+  "fixed_runtime": {
+    "whole_GPU_expert_layers": [
+      37,
+      38,
+      39
+    ],
+    "CPU_compact_GiB": 120,
+    "n_ctx": 131072,
+    "KV": "f16",
+    "n_ubatch": 1024,
+    "threads": 12,
+    "threads_batch": 24,
+    "GPU_power_W": 150,
+    "ECC": "unchanged",
+    "existing_guards": "unchanged"
+  },
+  "experiment_1": {
+    "name": "F_B_C_cost_decomposition",
+    "requires_new_libllama": true,
+    "baseline_all_arms_same_new_build": true,
+    "placement": "original35",
+    "training_cases": [
+      "text_cache_budget_ja",
+      "code_stable_grouping_python"
+    ],
+    "timed_arm_order": [
+      "F",
+      "B",
+      "C",
+      "C",
+      "B",
+      "F"
+    ],
+    "case_order_second_half": "reverse",
+    "T1_per_case_block": 64,
+    "timed_calls": 768,
+    "quality": "all 65 rows finite and F=B=C byte equal",
+    "B_is_compute_mode": false,
+    "B_custom_calls_expected": 0,
+    "source_detail": "ASTRA_NEXT_JA.txt"
+  },
+  "experiment_2": {
+    "name": "paired_H1_time_value",
+    "status": "mechanism/candidate diagnostics, not bank adoption",
+    "inputs": "same x, ordered top6, weights, clamp for each paired comparison",
+    "existing_fixture_pairs": [
+      {
+        "cell": 1,
+        "layer": 7,
+        "compact": 331,
+        "noncompact": 85
+      },
+      {
+        "cell": 4,
+        "layer": 35,
+        "compact": 78,
+        "noncompact": 100
+      }
+    ],
+    "conditional_new_training_capture": [
+      {
+        "case": "code_stable_grouping_cpp",
+        "decode_call": 1,
+        "position": 241,
+        "layer": 3,
+        "ids": [
+          330,
+          257,
+          13,
+          153,
+          147,
+          61
+        ],
+        "compact": 13,
+        "noncompact": 147
+      },
+      {
+        "case": "code_stable_grouping_cpp",
+        "decode_call": 15,
+        "position": 255,
+        "layer": 7,
+        "ids": [
+          270,
+          335,
+          173,
+          19,
+          357,
+          32
+        ],
+        "compact": 19,
+        "noncompact": 270
+      }
+    ],
+    "quality": "O=capture; O=C; S=P within a partition; cold slots equal; no byte-equality demand across different GPU partitions",
+    "active_mask_exists": false,
+    "selected_method": "two separately fixed same-allocation-shape diagnostic memberships; no new mask logic",
+    "prepared_plans": [
+      "plans/H1_COMPACT.plan",
+      "plans/H1_NONCOMPACT.plan"
+    ],
+    "plans_status": "offline verified, not engine-executed",
+    "requires_new_engine_DSO_for_existing_two_cells": false,
+    "caller_runner_changes": "explicit plan/hash pin and diagnostic label; caller-only rebuild if needed",
+    "fresh_process_order": [
+      "H1_COMPACT",
+      "H1_NONCOMPACT",
+      "H1_NONCOMPACT",
+      "H1_COMPACT"
+    ],
+    "conditional_new_capture_plans_prepared": false
+  },
+  "data_split_policy": {
+    "train": "existing training5 only for new placement selection",
+    "validation3": "already observed; regression checks may reuse with that label",
+    "remaining_validation": 2,
+    "holdout": 5
+  },
+  "not_combined_into_next_candidate": [
+    "ubatch change",
+    "moving whole GPU layers to CPU",
+    "bank growth",
+    "origin instrumentation fix",
+    "normal API adoption"
+  ],
+  "scope": "Read ASTRA_NEXT_JA.txt before implementation; this JSON is not an executable config."
+}

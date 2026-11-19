@@ -1,0 +1,183 @@
+be05受領後: CPU/GPU分担の次の診断とCPU候補の優先順位
+2026-11-18 JST
+担当: /root/be05_parallel_priority
+範囲: 静的レビュー。実機/API操作、新build、新ベンチは行っていない。
+
+結論
+
+私の独立した推奨は、04を保留して原因追究をいったん閉じ、次の実機診断は
+F/B/C一巡、その後に既存2cellのH1を優先すること。
+新08には実入力fixtureで試す価値があるが、その移植・数値確認の準備を並行して行い、
+F/B/C→H1の開始条件にはしない。04も09も08へ重ねない。
+
+新08を既存fixtureで先に一度試す案自体が間違いという判断ではない。
+既存の測定器を再利用できる利点はある。しかし、今回04を閉じてもなお残る最大の
+未確認事項は、追加分担の仕組みの費用と、GPUに渡すexpertの時間価値である。
+ユーザーの主目的であるCPU/GPU並列化を、CPU局所候補の連続試行の後ろへ置き続けない。
+
+1. 今回の04から更新できる判断
+
+be05の報告では、通常12物理threadの対象2cellに採用利益が示されず、対象外MXFP4にも
+候補/対照差が出ている。従って、04の局所変換の理論的/旧VMの倍率を理由に全モデルへ
+進めなかった判断を支持する。
+
+この結果は、CPU最適化全般や新08の否定ではない。04はF32→Q8_Kという準備、
+08は多数のweight行で繰り返す内積側の仕事を扱い、作用する場所が違う。
+一方、新08が実機で必ず有効という証拠にもならない。
+新08を試すなら今回の384 expert形状・同じx/top6/実weight・projection別compactを維持した
+fixtureを使う理由はあるが、subset ownerと全120GiB cacheの違いもそのまま残る。
+
+今回の04のfixtureにはGPU、外側の主scheduler、routing weightとmergeが含まれない。
+その観測からF/B/Cの差やH1の利益を決めることはできない。逆に04が不採用なので、
+並列診断のCPU providerを変更せずにF/B/C→H1を進めることができる。
+
+source: be05/source/CONSULT_PRO_JA.txt、RESULTS_JA.txt。
+この担当は今回のFFNコード全体・生計時の独立監査担当ではない。決定的なfixture不具合の
+有無は親と測定監査担当の結果へ委ね、ここでは測定範囲と診断目的の関係を評価している。
+
+2. 情報価値と依存関係
+
+04をさらに掘る:
+  分かるのは、短い変換呼出し自体、whole graph中の寄与、コード配置等のどこが効いたか。
+  04採用保留を覆すには演算全体の利益が必要で、単体速度の再確認だけでは足りない。
+  04が未採用でも他の二本を進められるため、現時点で依存の中心に置く必要はない。
+
+新08を試す:
+  現在の実入力/実weightで、compact内積の繰返し仕事を減らす価値が分かる。
+  CPU側の有望な候補であり、準備は並行可能。ただしGPU分担に必要な保持・scheduler・
+  GPUとの重なりは判定できない。新08が局所的に良くても自動的に並列構成の新基準へはしない。
+
+F/B/Cを試す:
+  同じ算術・同じ入力のまま、追加保持とcustom経路の複合費用を分けられる。
+  旧C−Fの値をコピー費用と解釈してよいか、そもそもその差が同一providerで残るかを
+  直接確認できる。今の並列化実装で直す場所を選ぶ情報になる。
+
+H1を試す:
+  同じtop6・同じ入力で、GPUへ移す仕事の選び方を変える利益を直接比較できる。
+  engine DSOを維持したまま、既存plan/fixtureとcallerの明示的な変更で試せる。
+  04も08も必要条件ではない。F/B/Cが曖昧でも止めずに進められる。
+
+推奨する作業順は、F/B/Cの一巡 → H1の既存2cell → 得た根拠による分担側の一手。
+新08は隔離したCPU候補として準備を進め、共有実機の計時をメインが前後へ配置する。
+新08の重い試験を先に挟むとしても一つの固定した対照で閉じ、04の原因追究へ枝分かれして
+F/B/Cを再び未着手のままにしない、という区切りを明示する。
+
+3. F/B/Cの意味を限定して使う
+
+F: 同じ新しい診断libllamaでhot無効、追加bankなし、元main graph。
+B: bank、private backend/pool、pinned領域、warmupを保持し、元main graph。
+C: Bと同じ保持、custom23層を通り、選択された6 expertを全てCPUで計算。
+
+Bはcontext構築時の固定条件。既存のcompute modeはC/S/Pのみなのでset_mode('B')を
+追加で呼ぶ設計にはしない。既存未適用patchはStateのflagによりxeon_hot_buildをbypassする。
+callerはhas_bankとuses_customを分け、Bの存在・payload・readyとcustom builds/calls=0を
+それぞれ検査する必要がある。旧callerのF/SP/P guardをそのままBへ流用しない。
+
+元のllama-graph.cppではweighted tailのGPU pinはxeon_hot_usedがtrueのときだけ呼ぶ。
+Bでxeon_hot_buildをbypassすればこのpin自体は行われない。従ってF/Bの元graphの構造を
+比較する設計と整合する。ただし追加backendの存在や初期化がallocation/placementに与える
+効果は実測記録が必要で、静的なbypassだけで同一placementとはしない。
+
+B−Fは保持・初期化・backend存在・配置を含む差であり、純VRAM保持費用ではない。
+C−Bはcustom dispatch・private CPU graph・copy・外側配置/同期を含む差であり、
+純コピー費用でもH0だけの費用でもない。Cはmatched Hに関係なくexecuted H=0にする。
+
+同じ新しい診断libllamaと同じCPU/CUDA/baseで全armを作る。旧Fの数字と新B/Cを比較しない。
+過去の並列診断CPU602aと今回04の通常CPU33aは別の基準である。
+F/B/Cは選んだ一つの診断provider組合せを全armで維持し、04実測の比を足したり、
+通常CPU33aの結果へ名前だけを読み替えたりしない。
+
+4. 最小のF/B/C実行を具体的に閉じる
+
+既存案の一巡を維持する。
+・既存training JAとPythonを各固定64 T1。今回のvalidationへ合わせて選び直さない。
+・各processは同じ準備入力・4 T1、同期、KV clear、対象prefix再入力を行う。
+・qualityでは同じ固定入力の65行を保存し、finiteかつF=B=C byte一致を確認する。
+・元graphのop/shape/依存を正規化し、実placement/splits/copyを記録する。
+  Bに追加backendがあること自体は想定内で、backend個数のF/B一致を要求しない。
+・F/B/C/C/B/Fのfresh process順、後半はcase順も反転する。
+・2case×64T1×6process=768 timed calls。先頭や遅い点を削らない。
+・時計は従来どおりdecode開始からlogits取得によるoutput-readyまで。
+  quality用全logits出力、callback、route collector、詳細debugは計時から外す。
+
+これはarm/caseあたり2processの粗い判別試験であり、精密な分布推定ではない。
+同processの64 tokenを64個の独立runとして扱わない。今回04で対象外MXにも差が出たことは、
+次の比較でもドリフトを無視しない理由になるが、MXの差を補正係数として流用しない。
+
+結果からの次の一手:
+・BがFに近く、CがBより遅い方向が2例で揃うなら、custom側を次の一箇所で分ける。
+  例: callerのoutput-ready時間を維持して、計時外の短いtraceで外側placement/copyと
+  private CPU区間の実経路を確認する。いきなり同期やthreadpoolを改造しない。
+・B−Fが主なら、保持・初期化・配置を調べる。copy削除を先に選ばない。
+・差が小さい/反転/曖昧なら、この分解は保留してH1へ進む。
+  原因が一意になるまでF/B/Cを反復する条件にはしない。
+
+B実装前の補助として、既存F/Cの短いT1をGGML_SCHED_DEBUG=2で各1回記録する案はある。
+これはactual split/copyの有無を調べるもので、コピー時間やGPU完了時刻の測定ではない。
+既存codeの確認で分かる範囲なら、この補助実行も必須化しない。
+
+5. 再提案しないこと
+
+hot-backend.cppを直接読んだ範囲で、H0のGPU submit、join、scatterは既にif(hot)で省かれる。
+H0に残るCPU入力/ID copyとCPU結果copyの明示bytesは1層143,384B、23層3,297,832B。
+このbytesから所要時間や旧C−Fの内訳を逆算しない。
+
+registryのmap/mutexは主として構築/制御で、compute内の各expertごとのlookupではない。
+execution_mutexは同Stateのpinned領域等を保護する。これを初手で除去しない。
+private poolのpoll=0だけでpthreadのsleep/wakeupを主因と決めない。対象はOpenMP build。
+private graphの構築・GPU weight uploadは初期化側にあり、毎token作り直す前提で直さない。
+backend内部の全mallocがゼロという断定も、新計測なしには行わない。
+
+6. H1は既存2cellで、固定した小さな機序試験にする
+
+主比較:
+  cell1/layer7: compact331をGPUへ送るH1 対 非compact85をGPUへ送るH1。
+  cell4/layer35: compact78を送るH1 対 非compact100を送るH1。
+  同じx、ordered top6、weight、clampを使う。
+
+H1_COMPACT.plan/H1_NONCOMPACT.planは両方35expert、475,453,440 native bytes。
+層別個数・型・初期化形状を揃えるが、bank membershipは異なる。
+同一bankへ両候補を入れるとH2になるので、未実装active-maskを前提にしない。
+COMPACT→NONCOMPACT→NONCOMPACT→COMPACTを事前固定し、callerのplan/hash期待値を
+具体的に更新する。guardを外して通す手順にはしない。
+
+既存replayの全8cellを保持するが、主要比較はcell1/4に限定する。
+cell3は一方H3、他方H2なので、8cell全体を同じ仕事量の比較として平均しない。
+qualityはO=C、各partition内S=P、cold slot一致。担当するGPU expertが違うpartition間の
+P同士にbyte一致は要求しない。
+
+C−Pは同じbank/同じcellでの局所的な分担利益、S−Pはそのpartitionでの重なりの利益として読む。
+join待ちはCPUが終わった後の残待ちであり、GPU全所要時間ではない。
+H1の利益をH2/H3へ倍掛けしない。両候補でGPU側仕事も異なるので、CPUの単独時間差だけで
+H1の勝敗を予言しない。
+
+既存training頻度は331/85=102/2、78/100=128/1であり、85/100は機序確認用。
+単発のH1が良くても即bank採用ではない。頻出147/270の追加captureは、既存2cellの結果が
+CPUで重い仕事を渡す方向を支持し、配置候補へ進む理由ができた場合の次の小作業にする。
+
+7. 新08と合流させる時点
+
+F/B/C→H1の測定中はCPUを固定する。新08が局所fixtureで有利なら、別の固定CPU基準として
+その結果を記録し、その基準で分担を再評価する。旧比と新比を足し算で合成しない。
+新08の合否が出るまで現在の分担診断を待つ必要はない。
+
+最終配置の選定ではtrainingのjoint top6とprojection別compactを保持する。
+頻度×単独expert時間だけの和や、8層案のhit総数だけで選ばない。
+候補は一つに凍結して統合へ進み、既使用validation3は回帰、残りvalidation2/holdout5は
+調整に使わず残す。今回04の保留を理由に未使用評価を広く開く必要はない。
+
+読んだ資料とsource
+
+[1] be05_review_2026-11-18/source/CONSULT_PRO_JA.txt、RESULTS_JA.txt。
+    公開commit be05f5fb10438e83ff0201deef2ddfd21bf4a111 のq8-k-avx1資料。
+[2] fd810_review_2026-11-18/source/ROOT_REVIEW_JA.txt。
+[3] 前回統合資料 validation3_review_2026-11-18/ASTRA_NEXT_JA.txt、
+    hotpath/HOTPATH_REVIEW_JA.txt、plans/README_JA.txt、H1_PLAN_VERIFICATION.json。
+[4] commit 37f6390c9a5bc594658127651e204ab11420cd71 の
+    archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot/integrated/hot-backend.cpp。
+    initialize 122–164、compute 166–197、backend_compute 202–207、build/mode 242–259を直接読取。
+[5] 同commitのintegrated/llama-graph.cpp、weighted tailのxeon_hot_used条件（2506–2510）。
+[6] 同commitの2026-11-17-validation3/incoming/parallel_pilot_review_2026-11-17_v2/
+    integration/optional_dormant_bank_original_graph.patch。未適用提案として読取。
+
+この文書は優先順位と診断仕様の提案。F/B/CやH1を実行したという記録ではない。

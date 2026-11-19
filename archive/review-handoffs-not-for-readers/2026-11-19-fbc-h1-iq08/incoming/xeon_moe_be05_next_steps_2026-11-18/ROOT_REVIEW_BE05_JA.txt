@@ -1,0 +1,249 @@
+親レビュー — 04 Q8_K AVX1実機結果、独立再計算と次の判断
+2026-11-18 JST
+対象commit: be05f5fb10438e83ff0201deef2ddfd21bf4a111
+資料root: archive/review-handoffs-not-for-readers/2026-11-18-q8-k-avx1/
+
+判断
+
+04の通常採用保留を支持する。追加の04測定は現時点で不要。
+次の重い実機計測はF/B/C一巡→既存H1主要2セル。
+新08単独の現行移植・数値照合・12物理T試験準備を並行して進める。
+この判断は04の全負荷での恒久的な遅延を証明したという意味ではなく、
+現在の通常条件で次段階へ進む利益が示されなかったことによる。
+
+1. 証拠をどこまで独立に確認したか
+
+取得原本
+固定commitのincoming/以外の208ファイル、計14,554,528 bytesを取得した。
+各ファイルをGit blob SHAへ一致確認し、SHA256とsizeをSOURCE_IDENTITIES.jsonへ保存した。
+incoming/は前回原本の重複なので新規source/には含めず、前回726ファイルを別にそのまま同梱した。
+実機のGGUF shard、実機ELF/DSO実体はこの取得物にはない。
+
+親の読取
+CONSULT/RESULTS、real_ffn.cpp、runner/build/準備/分析コード、BUILD/NUMERIC/FFN設計、
+現行CPU caller/backendの保存ソース、実機launch/provider記録、全RUNと独立監査を確認した。
+今回の実機engine、probe、ベンチ、APIをこちらで実行していない。
+実機libraryのbyte一致やAPI復帰は保存receiptを照合した範囲である。
+
+独立担当
+・明示指定gpt-6.2-astra / max: 次の採否、順序別時刻と静的仕事量、08と任意診断の仕様。
+・測定監査: 提供分析scriptを実行/importせず、保存出力・manifest・全時刻を独自再計算。
+・並列化優先順位: hot-backend.cpp、llama-graph.cpp、既存B patch/planを直接読んで依存と順序を評価。
+
+親の独立再計算
+parent_recompute.pyを別に作成し、8本のtiming RUNから全6条件の対応比と順序の関連を再計算。
+型/寸法/呼出し分割から仕事量も再計算した。
+独立監査scriptを全て読んだ後、親の出力先へ再実行した。
+parent_recheck/PARENT_RECALCULATION.jsonは監査担当のINDEPENDENT_RECALCULATION.jsonとJSON全体で一致。
+元ベンチの再実行ではなく、保存物の再検査である。
+
+2. 現行対照と04の記録
+
+実機: dual E5-2630L v2、12 physical / 24 logical、2 NUMA、512GB。
+通常CPU/control SHA256:
+33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3
+04candidate:
+eb05a18ebbc1ffbab9346a86fc58f36796355eb9de7e7283f2931ef87f23b920
+共通runtime base:
+2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558
+
+実機記録では、無変更x86/quants.cの再compile objectは元objectとbyte一致。
+それを再linkしたcontrol CPUも通常CPUとbyte一致。
+候補は04だけを加え、他objectを維持。実from_float/providerとAVX命令を確認している。
+Ivy向けmno-avx2/mno-fmaと既存算術条件を照合した。
+link時baseパスとruntime baseは別に記録されている。実行時providerを基準に読む。
+
+4round modeでcandidate計41,376blocks、unequal_bytes=0。
+非nearestは参照fallbackを含む。全round modeでAVX高速経路という主張ではない。
+今回、変換単体の実機速度は新測定していない。
+過去VMの5.6～5.9倍を今回の局所graph速度として使わない。
+
+3. fixtureと時計
+
+元captureは20261117T052657Z-U1024-3483cb75。
+3セルとも一つの日本語training軌跡からの固定入力であり、3独立会話でも多言語試験でもない。
+
+cell1 / layer7: gate IQ2_S、up IQ2_S、down IQ3_XXS。全射影5/6 compact。
+cell5 / layer13: gate IQ3_XXS、up IQ3_XXS、down IQ3_S。全射影6/6 compact。
+cell6 / layer28: 全MXFP4。Q8_0を使い、04のQ8_Kは通らない。
+
+384expertの実GGUF形状、保存F32 x、ordered global top6、clamp、射影別cache登録を維持。
+gate/upはK5120/M2304、downはK2304/M5120。出力は5120×6。
+native weightは実機RUN中のexpert別byte hash/offset/sizeを照合した。
+GGUF現物をこのVMで再hashした意味ではない。
+
+clockはFixture.compute()からggml_backend_graph_compute(cpu, graph)を8回呼ぶ区間。
+F32→Q8、cache lookup、ID/row map、barrier、dot、clamped SwiGLUを含む。
+現行backendはcomputeごとにggml_graph_planを作るので、そのplan費用もclock内。
+DAG構築、初期packing、初期scratch確保・成長、出力のcopy/hash/memcmpはclock外。
+同じgraphのwarmup後に計るので、通常の初回scratch増大は先に済む。
+routing weight乗算、6expert加重merge、attention、主scheduler、GPU、API、samplingはclock外。
+モデルFFN全体またはtoken/sの測定とは呼ばない。
+
+メモリとthread
+必要expertだけを実登録するsubset owner。全120GiB compact ownerや全モデル圧力は再現しない。
+THP無効、numactl interleave node0,1、strict pool CPU0..threads−1、row-local無効。
+CPU0..11は両socketの12物理core、12..23がSMT sibling。
+12/24の両方T=1であり、24T条件はprefillではない。
+既存file page cacheの物理NUMA配置は、この起動指定だけでは証明できない。
+worker receiptは計時後の別OpenMP領域のCPU/TID。計時中の全瞬間のaffinity traceではない。
+capture idsのnb1=1536Bと連続6IDのnb1=24Bは、T=1でiid1=0、nb0=4Bなので今回の参照先は一致する。
+
+4. 保存出力と集計の監査
+
+成功した2quality processと8timing process、合計10processを照合。
+run manifest130項目に対応。公開exportのhealth renameとserver-config未配置分は、
+LAUNCH記録と元のserializationを使ってhash対応を確認した。
+親が元captureの必要な3セルを取得し、独立監査が元manifestと直接照合した。
+
+全60出力file、各30,720 F32、計1,843,200 F32がfiniteで元captureと全byte一致。
+各sample末尾のFNVも実byteから再計算して一致。
+これは3入力の反復であり、60独立入力ではない。
+
+8timing process×3cell×2thread×5sample=240sample。
+各sample8graphで1,920 timed calls。
+全開始/終了時刻は整合し、processやconditionの重なりは見つからなかった。
+3warmup末尾と各sampleの最後を検査。全1,920callを個別保存したわけではない。
+失敗runは成功timingの中へ混ぜていない。遅いsampleも全て残している。
+
+arm順:
+control,candidate,candidate,control,candidate,control,control,candidate
+対応(control,candidate)=(0,1),(3,2),(5,4),(6,7)
+各対応組は同じcell/thread順。
+
+統計量:
+process内5sampleの中央値 → 対応組candidate/control → 4比の中央値。
+240sample/1,920callsを独立した240/1,920組とは扱わない。
+
+cell/thread    比の中央値       短縮組     最小比～最大比
+1 / 12         1.023623158       0/4        1.005296～1.049320
+1 / 24         0.877073148       4/4        0.689240～0.990448
+5 / 12         1.009442512       1/4        0.997636～1.020348
+5 / 24         1.002927848       2/4        0.974479～1.033628
+6 / 12         0.985614021       3/4        0.906832～1.002465
+6 / 24         0.954188190       4/4        0.756991～0.996474
+
+全比・中央値・短縮数は公開FFN_ANALYSISと一致した。
+12T主要2条件から採用利益は示されていない。
+24Tのcell1と対象外MXの同方向変化を04だけへ帰属しない。
+MX差を引いて補正しない。4組だけから将来の全負荷での04性能を断定しない。
+
+5. 追加で確認した順序との関連
+
+元の対応比を変更せず、全保存sampleから追加の記述を作った。
+
+process0,1,4,5: cell順1/5/6、各thread順12/24。
+process2,3,6,7: cell順6/5/1、各thread順24/12。
+
+24Tの5sample最大/最小:
+各processの最初のfixture 8件: 全件2.478089960～2.862171207、中央値2.720911259。
+後続fixture 16件: 中央値1.099592288。監査側の全範囲は1.019～2.170。
+
+cell1のprocess中央値:
+12T 順方向3.725～3.870ms、逆方向3.123～3.277ms。
+24T 順方向3.816～6.902ms、逆方向2.961～3.218ms。
+両armを合わせた各4processの範囲である。
+cell1/24Tの対応比は順方向約0.689/0.834、逆方向約0.990/0.920。
+
+cell1を先頭に置けばcell1/24Tが揺れ、逆順でMXのcell6を先頭に置けばcell6/24Tが揺れる。
+候補と対照の両方に現れる。
+この最大/最小は各8graphの平均である5sample間の比で、個々のtoken間隔ではない。
+
+これは事後的な関連の記述。fixture順、thread順、起動後の経過、pool履歴等が同時に変わる。
+memory residency、OpenMP、OS/監視、code placementのどれが原因かを識別していない。
+対応組は正しくそろっており、「試験の全てが不正」とする発見ではない。
+遅い初期sampleの削除や04採用の救済へ使わない。
+08を12Tのみで一巡する仕様に反映し、任意のA/A案を予備として用意した。
+
+6. 04と08の仕事の違い
+
+IQセルでQ8_K入力を作る論理block数:
+gate20 + up20 + down6×9 = 94。
+現行worker分割を適用したfrom_float呼出し:
+12T: 計96call、0block=18、1block=62、2block=16。
+24T: 計192call、0block=98、1block=94、2block=0。
+
+IQ重みと入力の論理block組合せ:
+6×(2304×20 + 2304×20 + 5120×9)=829,440。
+論理dot行数は6×(2304+2304+5120)=58,368。
+新08が使えるcompact行はcell1=48,640、cell5=58,368、cell6=0。
+
+これらは静的な仕事量であり、実call trace・DRAM転送量・critical path時間ではない。
+94と829,440の比を時間割合やAmdahl上限にしていない。
+候補の逆アセンブルではzero-length exit前のMXCSR読取等があるが、遅延への寄与は未測定。
+空callの固定費だけで12Tの結果を説明したという主張はしない。
+
+08は内積側の反復する処理を減らすため、04保留とは別に実機試験の価値が残る。
+08 folded RHSのstrided spanは射影ごと8,000/8,000/21,600B。
+37,600Bは累計であり、共有scratchを順に再利用するplannerの同時peakは最大射影+alignmentで読む。
+08は共通planner/MUL_MAT_IDも変更するので、MXのfoldが0でもcandidate全体の費用差はあり得る。
+08のMX対照を、04と同じ意味で「変更の影響が全くない」と扱わない。
+
+7. 優先順位を並列化へ戻す理由
+
+04はCPU局所graphの試験であり、追加bank保持・主scheduler・GPUとの重なりを測っていない。
+従って04の成績からF/B/CやH1を否定も肯定もできない。
+04を採用しないので、現在の固定CPUで残る分担診断を先へ進められる。
+
+F/B/Cは追加保持とcustom経路を通る複合費用を分ける一巡。
+H1はGPUへ渡すexpertの時間価値を既存2セルで確かめる機序試験。
+新08はCPUの別候補で、その準備を並行して進める。
+08を先に測りやすい利便性だけで未測定の並列化本線を繰り返し後ろへ回さない。
+
+F/B/Cが曖昧でもH1へ進む。
+H1の低頻度expert85/100の成功を、そのまま全体bank採用へつなげない。
+CPU最適化を後で採用した場合はCPUの残仕事が変わるため、別基準で分担を再評価する。
+旧比と新比を足して最終token/sを推定しない。
+
+8. 実機側の失敗・復帰記録
+
+初回probe wrapperでmainを別名へ変更しimplicit return0を失った不具合、出力保存UIDの不一致は
+実機側が修正し、新しい成功quality/timingをruns-v2として保存した。
+候補算術の不一致・hardware faultとは分類されていない。
+
+初回API復帰のGPU使用量snapshot拒否は、後の空GPU観測と更新遅れで整合する。
+拒否時snapshot自体がないため、原因を確定したとはしない。
+v2は既存used<=128MiB判定へ記録が追いつくのを最大60秒待ち、閾値は緩和していない。
+
+元config・CPU/llama/CUDA/baseの復帰とhealth OK等は公開receiptで確認した。
+記録PID35482を現在のlive PIDと呼ばない。このVMから今の実機を観測していない。
+
+9. 今回未確認のもの
+
+・04の変換単体の新しい実機速度、Q8処理の実時間割合、24T順序関連の原因。
+・08/09/03の実機利益、F/B/C/H1の今回の新しい結果。
+・全120GiB owner・全モデル圧力での局所候補の効果。
+・一般回答品質、未使用holdout、言語間の速度差。
+・API/SSE/Open WebUIの送受信時刻と2トークン表示の原因。
+・過去9.8 token/sと同一条件での新しいモデル速度。
+今回の資料からこれらを確定しない。
+
+再現
+
+展開したZIPのrootから:
+  python3 be05_review_2026-11-18/parent_recompute.py
+  python3 be05_review_2026-11-18/astra62_decision/inspect_order_and_work.py be05_review_2026-11-18/source
+  python3 be05_review_2026-11-18/measurement_audit/audit_saved_ffn.py --source be05_review_2026-11-18/source --capture be05_review_2026-11-18/measurement_audit/capture_reference --out /tmp/be05-reproduced.json
+
+上の3つは保存データを読み、engineをbuild/起動しない。
+最後の出力先は作業者が選ぶ一時ファイルであり、元sourceを上書きしない。
+元SOURCE_IDENTITIESとPACKAGE検査で、資料の改変と計算結果の違いを分けて確認できる。
+
+出典
+
+固定公開root:
+https://github.com/MangekyoMyan/xeon-moe-lab/tree/be05f5fb10438e83ff0201deef2ddfd21bf4a111/archive/review-handoffs-not-for-readers/2026-11-18-q8-k-avx1
+
+そのCONSULT_PRO_JA.txt、RESULTS_JA.txt、HARDWARE.json、q8-avx1/BUILD.json、NUMERIC.json、
+real_ffn.cpp、FFN_BUILD.json、FFN_DESIGN.json、FFN_ANALYSIS.json、runs-v2/、STATE-v2.json、
+control/candidate/sourceとdisassembly、RESTORED_RUNTIME.json。
+元captureの固定commit/pathはmeasurement_audit/capture_reference/SOURCE_IDENTITIES.json。
+
+独立結果:
+be05_review_2026-11-18/PARENT_RECOMPUTATION.json
+be05_review_2026-11-18/parent_recheck/PARENT_RECALCULATION.json
+be05_review_2026-11-18/measurement_audit/INDEPENDENT_RECALCULATION.json
+be05_review_2026-11-18/measurement_audit/INDEPENDENT_TIMING_SAMPLES.csv
+be05_review_2026-11-18/astra62_decision/ORDER_AND_WORK.json
+be05_review_2026-11-18/parallel_priority/REPORT_JA.txt
+

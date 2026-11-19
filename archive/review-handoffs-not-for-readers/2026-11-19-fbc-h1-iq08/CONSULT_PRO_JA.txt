@@ -1,0 +1,51 @@
+be05次案への返却：F/B/C→H1→08単独12Tの一巡を完了
+2026-11-19 JST
+
+人間からsubagentを6.2 Astra優先にしてほしいという明示の希望があり、以後gpt-6.2-astra/maxに実装・設計・最終原データを独立レビューしてもらいました。主担当が重要編集・実機操作・採否を担当しています。
+予定3本を完了し、通常APIを元config/4DSOへ復帰しました。新しい候補やbankは通常採用していません。04追加、任意A/A、03、09、24T救済は未実施です。
+
+新しい判断材料
+
+F/B/C:
+同じ新libllama f7fdfd…、CPU602a/CUDA45/base2e13で、training JA272/Python240を全arm新測定。
+65行F=B=C、allocation前DAG F=B、post node順/tensor情報もF=B。B.readyとpayloadがありcustom0、Cは指定23層H0だけ。
+全arm/case76split、scheduler copy object147。rewritten edge F/B458対C389はphysical transfer数ではありません。
+main buffer計上でhost564,898,144BがFのCPU欄からB/CのXEON_HOT_FFN欄へ移るが、F/Bのtensor配置/buffer typeは同じ。物理NUMA移動とは読んでいません。
+B−F平均: JA−0.940801ms、Python＋0.542862ms。C−B平均: JA＋1.168392ms、Python＋0.728613ms、対応4差は全て正。
+保持だけの大きな費用を示さず、custom側の複合費用を見る根拠にはなります。ただし純copy、OpenMP、外側同期のどれかに確定していません。一巡で閉じました。
+
+H1:
+old83bf llama/602a CPUでcaller-owned bankを一つだけ作成。4fresh、両planの実membership/shape/native/upload bytesとprimaryの実compact lookupを検証。
+cell1 C−P: compact0.233662/0.241369ms、noncompact0.597912/0.572154ms。
+cell4 C−P: compact0.226147/0.200692ms、noncompact0.531626/0.530852ms。
+2process平均の短縮量比は2.463/2.489。operator全体やtoken/sが2.5倍という意味ではありません。
+各primary runの12block C−Pは全て正。S−Pは小さい/揺れ、join残待ちをGPU全時間にはしていません。
+O=C=capture、partition内S=P、cold slots一致。異partition Pは期待する担当変更slotだけ異なります。
+331/85の出現102/2、78/100の128/1も元training5から再確認。85/100のbank採用はしていません。
+
+08:
+現行33aをbyte再現したA対08-only a2211850…、CPUの2TUだけ変更。Q8_K wrapperはrefのまま、同じbase2e13。
+quality実byte一致と、第三warmupで94prepareblocks・48,640/58,368folded rowsを実確認。24の直接-128/four-rounding legacy比較も一致。
+8fresh12physicalのみ。時間比中央値cell1=.957255、cell5=.977902、MX=.987926。
+cell1の4比 .924907/.990769/.809622/.989603（先頭で大きく、後段約1%）。cell5 .938012/1.036260/.976735/.979069、3/4改善だがB先行＋先頭で逆転。
+MXは共通planner/caller変更を通るため単純な無影響対照とはしていません。差引き補正なし。
+事前のarm/positionを跨ぐ方向安定性の条件に不足があるとして08を保留しました。モデル全体試験や通常採用へ進めていません。利益が永久にないとも断定しません。
+
+次の相談
+
+1. H1がCPUで重いexpertを渡す機序を支持したので、予定されていた頻出147/270の追加2capture→同予算H1へ進むことを第一候補と考えます。
+   その二つの実入力・同時top6・実compact状態で確かめ、training5のjoint top6から時間価値候補を1つ凍結する手順を具体化してください。
+   既存85/100の値をそのまま147/270へ一般化せず、今回の結果だけで新bankを当て直していません。
+
+2. custom側の約0.7～1.2msを次に一箇所だけ切り分けるなら何が有効でしょうか。
+   外側のsplit/copy object数は同じです。追加private CPU入力/出力copy、private graph計画・実行、外側配置/同期のどこに境界を置くと最小変更で判別できるか。
+   standalone replayのdstはCPU buffer、mainの観測ではCPU node bufferはCUDA_Hostなので、単独operatorのcopy値をmainへそのまま当てるのは避けたいです。
+   callbackでfusionを変えたり、State mutexやallocator同期を先に削ったりはしません。
+
+3. 08は保管・保留にして配置側を先に進める判断が妥当か確認してください。
+   追加をするなら「順序依存」「局所kernel」「実モデル」のどの問いを分けるかを限定してください。良い条件になるまで繰り返したり09/24Tを足したりする前提にはしたくありません。
+   未実施03も今回の全rawを踏まえて優先度を見直せますが、VMのtiny/many倍率をtoken/sへ換算しません。
+
+全source/plan/provider/build、65行logits、graph metadataと元stderr、全clock、全8cellと不利条件を添付します。要約は案内であり、元データを省略していません。
+RESULTS_JA.txt、fbc/ANALYSIS.json、h1/ANALYSIS.json、cpu08/ANALYSIS.jsonとSCREEN_DECISION、astra62-review/FINAL_RESULTS_REVIEW_JA.txtを入口にしてください。
+UTF8ログparserの回復は原bytesの読取だけで、quality再実行や性能結果の選別をしていません。最終RESTORED_CPU08.jsonはPID176350、元config/4DSO、health正常を確認しています。

@@ -1,0 +1,249 @@
+実機側メインへ — be05を受けた採否と次の実行仕様
+2026-11-18 JST
+固定受領commit: be05f5fb10438e83ff0201deef2ddfd21bf4a111
+
+決定
+
+04は保管・保留。通常CPUへ採用しない。今は04の追加計測へ進まない。
+共有実機の次の本線はF/B/C一巡 → 既存H1の主要2セル。
+新08-current-mixedの現行移植・数値照合・12物理スレッド比較の準備は並行して進める。
+08の合否をF/B/C/H1の開始条件にしない。04/09を08へ重ねない。
+09は保留、03は今回の二本が返った段階で再判断する。
+
+前回MAIN_NEXT_TASKS_JA.txtの「次は04」は、今回の実機実行で完了した。
+前回原本は記録として保持するが、この文書を新しい優先順位として読む。
+同じ実機で重いbuildやベンチを同時に走らせる提案ではない。共有資源の予定はメインが一本化する。
+既存の作業権限・運用手順を維持して進める担当指示であり、新しいユーザー承認を要求するものではない。
+
+0. CONSULTの3点への回答
+
+(1) 04を保留して新08へ進めるか
+    CPU候補として賛成。数値適合は確認できたが通常12Tで利益が残らないため04は保留でよい。
+    全体の重い実機測定の優先はF/B/C→H1。08準備は並行可能であり、CPU候補の順と混同しない。
+
+(2) 04を追加で掘るなら何を一つ測るか
+    今は追加測定なし。
+    測定状態の診断が必要になった場合だけ、同じcontrol・同じcapture・graph24Tで
+    cell1/6の先頭／後段を入れ替えるA/A一巡を選ぶ。仕様は6節。
+    Q8変換の直接因果を測る実験ではなく、結果で04の採否を自動反転しない。
+
+(3) 今回のfixture/計時に決定的な取り違えはあるか
+    コード・provider記録・保存出力・全生時刻を照合した範囲では見つからなかった。
+    subset owner、実file page配置未測定、graph planが時計内、別OpenMP領域のworker receipt、
+    fixture順とthread順の同時反転という限界はある。試験を捨てる理由とは区別する。
+    詳細はROOT_REVIEW_BE05_JA.txt、独立監査を参照。
+
+1. 次の実機枠: F/B/Cを一巡
+
+目的
+以前のC−Fを、追加保持を用意する複合差と、custom計算経路を通す複合差へ分ける。
+追加経路を軽くする場所を選ぶための診断であり、原因の完全解明まで反復する試験ではない。
+
+arm
+F: 新しい共通診断libllama、hot bankなし、元main graph。
+B: bank/private backend/pool/pinned領域/warmupを保持、元main graphを使う。
+C: Bと同じ保持、custom23層を通すが6 expertは全CPU。matched Hによらずexecuted H=0。
+既存original35のpayload=475,453,440B、元GPU37–39、CPU compact120GiBの条件を維持・照合する。
+
+Bの実装
+Bはcontext構築時の固定条件。既存modeはC/S/Pなので、set_mode('B')を使う仕様にしない。
+同梱済みoptional_dormant_bank_original_graph.patchは提案であり、適用・build済みと扱わない。
+callerのhas_bankとuses_customを分ける。
+Bではbankの存在・payload・readyを確認し、custom builds/calls=0を確認する。
+Cは準備処理後のcounter差分で対象23層だけを通ったことを確認し、初期化の呼出しと混ぜない。
+旧callerの「bankがあればcustomを通る」という期待をそのまま流用しない。
+
+llama-graph.cppのweighted tail GPU pinはxeon_hot_usedが真の場合だけ。
+Bでxeon_hot_buildをbypassするとこのpin自体も生じない。
+ただし追加backendや初期化が実allocation/placementへ与える影響は別途記録する。
+F/Bでbackendの個数まで同一でなければ失敗、とする条件は置かない。
+
+比較基準
+全armで同じCPU/CUDA/baseと同じ新しい診断libllamaを使い、freshに実行する。
+以前の並列診断CPU602a…と今回通常CPU33a9…は別の基準。
+選んだprovider組を新manifestへ固定し、旧F時刻と新B/C時刻を混ぜない。
+通常33aの04結果を旧602aの分担結果へ足し合わせない。08も途中へ入れない。
+
+入力・品質・計時
+既存trainingのJA/Python各64 T1を固定。validationを見て課題を選び直さない。
+既存案の準備入力・4 T1、同期、KV clear、対象prefix再入力を維持する。
+qualityでは同じ固定入力の65行を保存し、finiteかつF=B=Cの全byte一致を確認する。
+F/Bの元graphのop/shape/依存を正規化して比較し、actual placement/splits/copyを別に記録する。
+Cのcustom graphまでF/Bと同じDAGを要求しない。
+qualityや詳細collectorの有無を、性能arm間の違いにしない。
+
+fresh processの順はF/B/C/C/B/F。後半はJA/Pythonのcase順も反転。
+2case×64T1×6process=768 timed calls。
+時計は既存のdecode開始からlogits取得によるoutput-readyまで。
+全logitsの大量出力、route collector、callback、詳細debugは計時へ入れない。
+全時刻・全runを保存し、先頭や遅い値を削らない。
+arm/caseあたり2processの粗い診断であり、同processの64tokenを64独立runと扱わない。
+
+差の呼び方
+B−F: 保持・初期化・backend存在・配置を合わせた差。純VRAM保持時間ではない。
+C−B: custom dispatch・private CPU・copy・外側配置/同期を合わせた差。純copy時間ではない。
+
+一巡の終わり
+品質・provider・経路の不一致があれば修正点を報告し、性能を結論に使わない。
+有効な一巡が取れたら、差が曖昧でもH1へ進む。
+BがFに近くCが遅い方向なら、次の改修候補はcustom側の実経路を見て一つ選ぶ。
+B−Fが主なら保持・初期化・配置側へ焦点を移す。
+どちらも原因が一意になるまでF/B/Cを回し続ける条件にはしない。
+
+既にあるコードを踏まえる
+H0ではGPU submit/join/scatterをif(hot)で省いている。これを新規最適化として再提案しない。
+private graph構築とweight uploadは初期化側。毎token再構築・再uploadという前提で直さない。
+OpenMP buildに対してpoll=0だけでpthread sleep/wakeupを主因と決めない。
+execution_mutexはStateのpinned領域等を保護する。未計測の原因として先に外さない。
+短い計時外traceは実経路を確認する用途。debug logだけからcopy時間を推定しない。
+
+2. 続いてH1: 既存2セルの分担価値
+
+主要比較
+cell1 / layer7: compact331をGPUへ送るH1 対 非compact85を送るH1。
+cell4 / layer35: compact78をGPUへ送るH1 対 非compact100を送るH1。
+
+同梱H1_COMPACT.planとH1_NONCOMPACT.planを使う。
+両方35expert、475,453,440 native bytes。層別個数・型・初期化形状をそろえ、membershipを変える。
+同じbankへ両候補を入れるとH2になるので、未実装active-maskを前提にしない。
+callerのplan/hash/shape期待値は具体的な新値へ更新し、guardを削って通さない。
+各projectionの実cache lookupで331/78のcompact pointerと85/100の非compactを確認し、receiptへ保存する。
+
+fresh processの順はCOMPACT/NONCOMPACT/NONCOMPACT/COMPACT。
+同じx、ordered top6、重み、clamp、固定providerを使う。
+既存全8セルは保持するが、主比較はcell1/4。
+cell3はH3対H2なので、全8セルを同じ分担量の対として平均しない。
+
+quality
+O=C、各partition内でS=P、cold slotの一致を確認する。
+GPU担当expertが異なるpartition間のP同士にbyte一致を要求しない。
+既知のCPU/CUDA算術差があるため、担当を替えた結果差と実装ミスを区別する。
+
+時間
+C−Pは同じbank・同じセルでの局所分担利益。
+S−Pは同じpartitionでのCPU/GPUの重なりによる利益。
+join待ちはCPUが終わった後に残るGPU待ちであり、GPUの全所要時間ではない。
+H1の利益をH2/H3へ倍掛けしない。CPU単独時間だけから勝敗を決めない。
+
+解釈と終了
+既存training頻度は331/85=102/2、78/100=128/1。85/100は機序確認用で、成功即bank採用ではない。
+2セルの結果がCPUで重い仕事を渡す方向を支持し、配置検討へ進む理由ができたときだけ、
+頻出147/270の追加captureを次の小さな作業として考える。
+効果なし・不安定ならその結果を返し、都合のよいexpert探索へ拡張しない。
+
+3. 並行して準備するCPU候補: 新08単独
+
+使用する差分
+previous_handoff/xeon_moe_fd810_followup_2026-11-18/astra62_next/08-current-mixed.patch
+SHA256 cad2e24dea2bc3bfa8d3dc1dd43c2d7930159889dbd49c4f2c4dda4052cbd6a3
+旧08-mixed-dispatch、旧07、09-selected-input-onlyと混同しない。
+
+Aは通常CPU33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3。
+Bは同じ現行ソース・ビルド条件へ新08だけを現行移植した候補。
+baseは2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558。
+04は入れずQ8_K参照wrapperを維持する。09/03も入れない。
+実行時providerと変更objectを対応付け、実機の通常libraryを上書きしない。
+
+04のbuild scriptはx86/quants.c objectだけの差替えであり、そのまま08を評価する用途には使えない。
+08が変更するggml-cpu.c、iq3-cache実装とheader、依存先を照合して候補をbuildする。
+Ivy向け命令と既存算術flags、expert単位cache lookupとMXFP4 RHS経路を維持する。
+
+固定fixture
+元capture 20261117T052657Z-U1024-3483cb75 のcell1、5、6。
+384expert形状、保存F32 x、ordered global top6、clamp、射影別compactを維持。
+cell1はIQ2_S/IQ2_S/IQ3_XXSで5/6compact。
+cell5はIQ3_XXS/IQ3_XXS/IQ3_Sで6/6compact。
+cell6はMXFP4でfolded入力なし。
+subset owner、THP無効、numactlのnode0,1 interleave、IQ_ROW_LOCAL=0をそろえる。
+全T=1、性能比較はstrict CPU0..11の12物理スレッドのみ。
+
+数値・経路
+先にA/B各1quality processで全3セルを元captureとbyte照合し、finiteとweight/ID/providerを確認する。
+計時外で08経路が実際に選ばれたことを確認する。
+論理上の追加準備はgate/up/down=20/20/54ブロック。
+400B strideの領域は8,000/8,000/21,600Bで、37,600Bは3射影の累計。
+同じscratchを順に使うplannerの最大領域を37,600Bと呼ばない。alignmentを含む実planを読む。
+compact行数はcell1=48,640、cell5=58,368。cell6=0。
+call数、準備block数、dot行数を測るなら単位を分け、計時DSOには診断counterを残さない。
+
+計時の順
+対応組1: A→B、各cell順1/6/5。
+対応組2: B→A、各cell順5/6/1。
+対応組3: B→A、各cell順1/6/5。
+対応組4: A→B、各cell順5/6/1。
+計8fresh process、各cell3warmup、5sample×8graph、計960 timed graph。
+時計は今回と同じggml_backend_graph_compute境界。
+warmup末尾と各sample末尾の出力照合、全raw、全provider、worker receiptを残す。
+04の旧control時刻を08の対照に使わず、Aも新しく実行する。
+
+集計
+process内5sample中央値→対応組B/A→セルごと全4比、中央値、時間差ms、短縮数、範囲。
+先頭／後段とarm先後で方向を確認する。
+MXFP4はfoldを使わないが08の変更する共通planner/MUL_MAT_IDを通る。
+08ではMXに変化があっても、それを全て無関係なノイズとは扱えない。
+5/6と6/6は層・型・活性も異なるので、compact率だけの因果比較にはしない。
+
+止め方
+数値・provider・経路の不一致は性能を読む前に止める。
+両主要セルに短縮が繰り返し現れ、arm先後とcell先後で方向が保たれ、
+対照の変動を併記しても利益を説明できる場合だけ、固定モデル入力の品質・全体速度へ進める。
+片方のみ、順依存のみ、MXを含む共通の揺れと区別できない場合は、この一巡で保留。
+小標本の選別条件を統計的有意の証明とは呼ばない。
+MX比の差引き、都合のよい条件の選択、後付け24T探索、09追加で救済しない。
+
+4. 二本を合流させる時点
+
+F/B/C→H1中のCPUは固定する。
+08が別の固定基準として採用候補になった時だけ、そのCPU残仕事で分担を改めて評価する。
+04や旧CPUの短縮率と08やGPU側の短縮率を足してtoken/sを予測しない。
+最終配置はjoint top6・射影別compact・実時間を見る。hit総数や頻度×単独expert時間だけで決めない。
+既使用validation3は回帰として扱い、未使用validation2/holdout5を今回の局所候補探索のために開かない。
+
+5. 返却してほしいもの
+
+F/B/C:
+実装差分、Bの状態とcustom=0のreceipt、全provider、固定入力、quality、normalized graphとactual placement、
+全6processの生時刻・失敗も含む記録、B−F/C−Bの範囲と一巡後の判断。
+
+H1:
+2planのhash/容量/shape、caller期待値変更、全8cellの出力とraw、主要cell1/4のC−P/S−P、
+cold slot/各partition内の品質、join残待ちをGPU全時間と混同しない集計。
+
+08:
+候補source・変更object・flagsとlibrary/provider、quality、経路確認、8freshの全時刻、
+各セル4比とms差、不利条件、通常採用とは分けた局所採否。
+
+共通:
+実機側の既存手順に沿う通常API復帰・設定/library receipt。
+この返却物一覧は保護条件の緩和や新たな運用権限を意図しない。
+
+6. 今は実行しない任意のA/A診断
+
+問いは、04がなくても最初のfixtureの24T計測が揺れるか。
+既存control33a、同じbase、real_ffn、captureを使用。
+graph threads=[24]に固定し、P=[cell1,cell6]、R=[cell6,cell1]を4freshでP/R/R/P。
+各cell3warmup、5sample×8graph、計320 timed graph。
+各セルの先頭／後段が各2回となる。全rawを保存し、5sample最大/最小、中央値ms、位置比を併記する。
+
+IQ初期packingは既存どおり12workerなので、全phaseのteam数が固定された試験ではない。
+各cellのowner、graph、pool初期化を含む実行文脈が位置とともに変わる。
+最大/最小は少数sampleの単発遅延にも敏感で、安定速度の推定量とはしない。
+結果が出ても04算術の寄与率・コード配置・12T不利益の原因は決まらない。
+1巡で閉じ、04採否や08/F/B/C/H1の開始条件にしない。
+
+同一DSOへ参照と04を入れるruntime選択案は、直接因果を問う将来案として6.2原報告にだけ残した。
+今回の実行予定にはない。
+
+参照位置
+
+be05_review_2026-11-18/astra62_decision/LIMITED_EXPERIMENTS_JA.txt
+be05_review_2026-11-18/parallel_priority/REPORT_JA.txt
+be05_review_2026-11-18/measurement_audit/MEASUREMENT_REVIEW_JA.txt
+ROOT_REVIEW_BE05_JA.txt
+
+既存F/B/C・H1の詳しい原案:
+previous_handoff/xeon_moe_fd810_followup_2026-11-18/previous_handoff/
+xeon_moe_combined_handoff_2026-11-18/validation3_review_2026-11-18/ASTRA_NEXT_JA.txt
+同plans/README_JA.txt、H1_PLAN_VERIFICATION.json、H1_COMPACT.plan、H1_NONCOMPACT.plan、
+同proposals/optional_dormant_bank_original_graph.patch。
+

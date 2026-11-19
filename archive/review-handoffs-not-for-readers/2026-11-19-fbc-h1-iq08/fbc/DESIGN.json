@@ -1,0 +1,115 @@
+{
+  "stages": [
+    {
+      "name": "quality-F",
+      "mode": "F",
+      "stage": "quality",
+      "cases": [
+        "text_cache_budget_ja",
+        "code_stable_grouping_python"
+      ]
+    },
+    {
+      "name": "quality-B",
+      "mode": "B",
+      "stage": "quality",
+      "cases": [
+        "text_cache_budget_ja",
+        "code_stable_grouping_python"
+      ]
+    },
+    {
+      "name": "quality-C",
+      "mode": "C",
+      "stage": "quality",
+      "cases": [
+        "text_cache_budget_ja",
+        "code_stable_grouping_python"
+      ]
+    },
+    {
+      "name": "timing-0-F",
+      "mode": "F",
+      "stage": "timing",
+      "cases": [
+        "text_cache_budget_ja",
+        "code_stable_grouping_python"
+      ]
+    },
+    {
+      "name": "timing-1-B",
+      "mode": "B",
+      "stage": "timing",
+      "cases": [
+        "text_cache_budget_ja",
+        "code_stable_grouping_python"
+      ]
+    },
+    {
+      "name": "timing-2-C",
+      "mode": "C",
+      "stage": "timing",
+      "cases": [
+        "text_cache_budget_ja",
+        "code_stable_grouping_python"
+      ]
+    },
+    {
+      "name": "timing-3-C",
+      "mode": "C",
+      "stage": "timing",
+      "cases": [
+        "code_stable_grouping_python",
+        "text_cache_budget_ja"
+      ]
+    },
+    {
+      "name": "timing-4-B",
+      "mode": "B",
+      "stage": "timing",
+      "cases": [
+        "code_stable_grouping_python",
+        "text_cache_budget_ja"
+      ]
+    },
+    {
+      "name": "timing-5-F",
+      "mode": "F",
+      "stage": "timing",
+      "cases": [
+        "code_stable_grouping_python",
+        "text_cache_budget_ja"
+      ]
+    }
+  ],
+  "provider": "diagnosticCPU602a/CUDA45/base2e13; same newFBC llama allarms",
+  "quality_trace": "preallocation originalDAG and postallocation metadata plusGGML_SCHED_DEBUG2, allqualityarms; disabledtiming",
+  "clock": "decode start to normal logits ready",
+  "timed_calls": 768,
+  "prepare": "sameJA prefix64 warm then full272prefix+4referenceT1; synchronize,clearKV,targetprefix; countersafterprep",
+  "selected_layers": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    10,
+    11,
+    13,
+    14,
+    15,
+    16,
+    17,
+    19,
+    20,
+    22,
+    28,
+    29,
+    33,
+    35,
+    36
+  ]
+}

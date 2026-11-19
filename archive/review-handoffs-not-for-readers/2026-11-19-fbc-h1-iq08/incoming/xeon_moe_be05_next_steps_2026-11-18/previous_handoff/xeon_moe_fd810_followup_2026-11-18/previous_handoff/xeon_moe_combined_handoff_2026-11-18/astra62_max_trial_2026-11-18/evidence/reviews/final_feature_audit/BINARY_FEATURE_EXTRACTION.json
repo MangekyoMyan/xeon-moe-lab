@@ -1,0 +1,394 @@
+{
+  "captured_utc": "2026-11-18T02:55:51.928085+00:00",
+  "rows": [
+    {
+      "variant": "baseline",
+      "libggml-cpu": {
+        "sha256": "473c8d1605e0d0d1e0949980b0ecd1c1f27c8c6320708c4178f442e061430041",
+        "text_sha256": "c16bf4be9ae7f77f11a5addb13318fa31f7d6d139a952352b520d8a1ce164700",
+        "text_size_bytes": 1021059,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "ggml_graph_compute_thread.isra.0",
+            "address": "0x1c770",
+            "size": 8617,
+            "bytes_sha256": "070d367089da6d926b3ac45ec525c668ee80085954bf7ddb6258b76e967da38e",
+            "listing": "baseline_ggml_graph_compute_thread.isra.0.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "ggml_graph_plan",
+            "address": "0x1a3d0",
+            "size": 2792,
+            "bytes_sha256": "15c784ff6c4407e0452df39787f27d9cb7b9639fab6cbd83baad3e95a44d7393",
+            "listing": "baseline_ggml_graph_plan.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "quantize_row_q8_K",
+            "address": "0x106210",
+            "size": 5,
+            "bytes_sha256": "663e8b3e39815fd0815afe972a7b2a787a0c029f9b4df9044a4b88f6e12392ce",
+            "listing": "baseline_quantize_row_q8_K.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          }
+        ]
+      },
+      "libggml-base": {
+        "sha256": "0cacc663d14215adc9e40c351ee84e0814ed3bf70852d64b7bb5574ec0aa2708",
+        "text_sha256": "fa6ca250360f52ff7406903349dd10b4c908b84814f3f47cbbae41bae1e53cff",
+        "text_size_bytes": 603991,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "quantize_row_q8_K_ref",
+            "address": "0x87770",
+            "size": 2304,
+            "bytes_sha256": "2fd8d0abb6ed8e34f264ceec28229425a2e0f6cf3d08e6fc70d98ca259fd30bf",
+            "listing": "baseline_quantize_row_q8_K_ref.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          }
+        ]
+      }
+    },
+    {
+      "variant": "iqsafe",
+      "libggml-cpu": {
+        "sha256": "a269d354cae8f8b12672cc931466d2074c42f78ddc81a7478f43ac92cd7035b4",
+        "text_sha256": "4619523dd997eb393abd5196120e71a2b957da3e95877c82e4ab3cc7dda000c6",
+        "text_size_bytes": 1026883,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "void folded_dot<(ggml_type)18>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)",
+            "address": "0x10e550",
+            "size": 1249,
+            "bytes_sha256": "fbd496bb7eca8df19e3cb03c4710f96085cf431b3c6e8fcc9ed39f1966324866",
+            "listing": "iqsafe_folded_type_18.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": true
+          },
+          {
+            "symbol": "void folded_dot<(ggml_type)21>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)",
+            "address": "0x10da50",
+            "size": 1310,
+            "bytes_sha256": "58814a602fd5f94733f8d454683f39c1375af51a7862dbb72d3c7ab69cfc5f4d",
+            "listing": "iqsafe_folded_type_21.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": true
+          },
+          {
+            "symbol": "void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)",
+            "address": "0x10df70",
+            "size": 1495,
+            "bytes_sha256": "0ecb0ae21a1a762ba891a3155e3d149c0fea93f16d0643778f685c74632d0713",
+            "listing": "iqsafe_folded_type_22.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": true
+          },
+          {
+            "symbol": "ggml_graph_compute_thread.isra.0",
+            "address": "0x1c7f0",
+            "size": 9298,
+            "bytes_sha256": "0db29c01f877e54179d59aaa9fc46b7a2182db8938c7e06c57ee1d6b82e6ff48",
+            "listing": "iqsafe_ggml_graph_compute_thread.isra.0.asm",
+            "key_refs": [
+              "1e740:\te8 6b 74 ff ff       \tcall   15bb0 <xeon_iq_input_dot@plt>",
+              "1e754:\t48 8b 05 a5 37 12 00 \tmov    rax,QWORD PTR [rip+0x1237a5]        # 141f00 <xeon_iq_input_from_float@@Base+0x32a50>"
+            ],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "ggml_graph_plan",
+            "address": "0x1a3d0",
+            "size": 2904,
+            "bytes_sha256": "79b7795a47a403f1a83ca36ed25e760ed8cf6f463244b81cbc53dad09c113d2c",
+            "listing": "iqsafe_ggml_graph_plan.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "quantize_row_q8_K",
+            "address": "0x106550",
+            "size": 5,
+            "bytes_sha256": "e0d0b6fe73520f9ae4e6f7e342196f4fad4bd53b0dcd01157baf3a69f7078288",
+            "listing": "iqsafe_quantize_row_q8_K.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "xeon_iq_input_from_float",
+            "address": "0x10f4b0",
+            "size": 787,
+            "bytes_sha256": "9dc93e038d7b64b94baa5cd4719e41ae15a4cf8a1367a94692865aaa811e53ba",
+            "listing": "iqsafe_xeon_iq_input_from_float.asm",
+            "key_refs": [
+              "000000000010f4b0 <xeon_iq_input_from_float>:",
+              "10f4d8:\t0f 8e d5 02 00 00    \tjle    10f7b3 <xeon_iq_input_from_float+0x303>",
+              "10f7ad:\t0f 8c 3d fd ff ff    \tjl     10f4f0 <xeon_iq_input_from_float+0x40>"
+            ],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          }
+        ]
+      },
+      "libggml-base": {
+        "sha256": "c158a00d97c27a3cdd5c66908e0282a2b47582e73918d0692dcc8d064fb6b2c2",
+        "text_sha256": "9dccb85733fb3014c5a239ace5035cd440f4174512829a28794e8a3a29e2e626",
+        "text_size_bytes": 603991,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "quantize_row_q8_K_ref",
+            "address": "0x87770",
+            "size": 2304,
+            "bytes_sha256": "2db7ae09c57938d5b0682c1b1a0332a406f1166f266788e10fe187cb5d146ce6",
+            "listing": "iqsafe_quantize_row_q8_K_ref.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          }
+        ]
+      }
+    },
+    {
+      "variant": "combosafe",
+      "libggml-cpu": {
+        "sha256": "39c5c91cde77aa3d5f53bfe5638defc87374ec2f2f1b84ea405b4687840e44ae",
+        "text_sha256": "b6e975df1bd0547d606d151fb5abe434f2dc65df80d1787fd844621aff83d9c8",
+        "text_size_bytes": 1029187,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "void folded_dot<(ggml_type)18>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)",
+            "address": "0x10ee50",
+            "size": 1249,
+            "bytes_sha256": "7564c4f983b109ec45ef80b10cee1106beae4ffb3d5666f7d9ccdd43674ae0a5",
+            "listing": "combosafe_folded_type_18.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": true
+          },
+          {
+            "symbol": "void folded_dot<(ggml_type)21>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)",
+            "address": "0x10e350",
+            "size": 1310,
+            "bytes_sha256": "2863b765a642a31e1087550d91cf4b57195e6dfe160ec76dbd7ddd835079bdd9",
+            "listing": "combosafe_folded_type_21.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": true
+          },
+          {
+            "symbol": "void folded_dot<(ggml_type)22>(int, float*, unsigned long, void const*, unsigned long, void const*, unsigned long, int)",
+            "address": "0x10e870",
+            "size": 1495,
+            "bytes_sha256": "82a05b4593d48ee8a39a9df3d836c3b02b791f9ee101256aff32b700947e5747",
+            "listing": "combosafe_folded_type_22.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": true
+          },
+          {
+            "symbol": "ggml_graph_compute_thread.isra.0",
+            "address": "0x1c770",
+            "size": 10887,
+            "bytes_sha256": "a16123b362afd4e232514d682cbd0c6a4dbb2649005f75a43e8059299359d1fb",
+            "listing": "combosafe_ggml_graph_compute_thread.isra.0.asm",
+            "key_refs": [
+              "1ee0b:\te8 a0 6d ff ff       \tcall   15bb0 <xeon_iq_input_dot@plt>",
+              "1ee20:\t48 8b 05 d9 40 12 00 \tmov    rax,QWORD PTR [rip+0x1240d9]        # 142f00 <xeon_iq_input_from_float@@Base+0x33150>"
+            ],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "ggml_graph_plan",
+            "address": "0x1a310",
+            "size": 3007,
+            "bytes_sha256": "de7356bdf6c67ecf0c0d3615a484aa7d581b112f73154861b655b4dc2da344dd",
+            "listing": "combosafe_ggml_graph_plan.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "quantize_row_q8_K",
+            "address": "0x106b20",
+            "size": 789,
+            "bytes_sha256": "81d1acc045b0e02da86707fd97c51162636de5037a6c29a9afadcbace3a6891f",
+            "listing": "combosafe_quantize_row_q8_K.asm",
+            "key_refs": [],
+            "vcvtps2dq": true,
+            "has_min_load": false
+          },
+          {
+            "symbol": "xeon_iq_input_from_float",
+            "address": "0x10fdb0",
+            "size": 787,
+            "bytes_sha256": "e6b147f057345d4815eda67ad229aa0ac785fdd16bcbef9b1d2816989f09bbe0",
+            "listing": "combosafe_xeon_iq_input_from_float.asm",
+            "key_refs": [
+              "000000000010fdb0 <xeon_iq_input_from_float>:",
+              "10fdd8:\t0f 8e d5 02 00 00    \tjle    1100b3 <xeon_iq_input_from_float+0x303>",
+              "1100ad:\t0f 8c 3d fd ff ff    \tjl     10fdf0 <xeon_iq_input_from_float+0x40>"
+            ],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          }
+        ]
+      },
+      "libggml-base": {
+        "sha256": "bcdd8cac6a6afc56223bd8bf52fdde96dc74ec98a138319bba63fe136c6dafd0",
+        "text_sha256": "bac3dfc804e2a0a71ffb3f1a0203c2d793ac4083eafbd1e42899c0dcc4c626f4",
+        "text_size_bytes": 603991,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "quantize_row_q8_K_ref",
+            "address": "0x87770",
+            "size": 2304,
+            "bytes_sha256": "a6fcc0c70245e493898556ec50e881ae873c337868a8dd45f9a9e3d2e5027d73",
+            "listing": "combosafe_quantize_row_q8_K_ref.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          }
+        ]
+      }
+    },
+    {
+      "variant": "route2",
+      "libggml-cpu": {
+        "sha256": "097e3bbad924643ef9aac91d040d4c3834cde5138e6f2b730529de4c10ef9923",
+        "text_sha256": "5520bb63258199cf2c1ece9a571e82c04dc966592ee500bef873a4d16935d8c5",
+        "text_size_bytes": 1022211,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "ggml_graph_compute_thread.isra.0",
+            "address": "0x1c6f0",
+            "size": 9902,
+            "bytes_sha256": "99261d88a052b93af61561c2df174ea1b1328009769ec514e4a400adf9cc876f",
+            "listing": "route2_ggml_graph_compute_thread.isra.0.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "ggml_graph_plan",
+            "address": "0x1a310",
+            "size": 2864,
+            "bytes_sha256": "bb28a9578f999e7d37bfb0d220f8337359cfb11e64e5a0703d77e58adc9be4e9",
+            "listing": "route2_ggml_graph_plan.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "quantize_row_q8_K",
+            "address": "0x106690",
+            "size": 5,
+            "bytes_sha256": "0f627f24003b82aa4e253a469e0b55f45ac8e833b1beb987b57270e25d652bc5",
+            "listing": "route2_quantize_row_q8_K.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          }
+        ]
+      },
+      "libggml-base": {
+        "sha256": "048cd0e7b854a896ef4dd9b0acbf171dbb72e77be349b7effdba06a5842f6f8a",
+        "text_sha256": "9dccb85733fb3014c5a239ace5035cd440f4174512829a28794e8a3a29e2e626",
+        "text_size_bytes": 603991,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "quantize_row_q8_K_ref",
+            "address": "0x87770",
+            "size": 2304,
+            "bytes_sha256": "2db7ae09c57938d5b0682c1b1a0332a406f1166f266788e10fe187cb5d146ce6",
+            "listing": "route2_quantize_row_q8_K_ref.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          }
+        ]
+      }
+    },
+    {
+      "variant": "q8",
+      "libggml-cpu": {
+        "sha256": "6dab8d4f4c2ce9af684c43467ae54e1a02df634836efe79804388c4976c392c9",
+        "text_sha256": "93a3531923c54031fa340a764093e597aba1d14c25afb0fdedc0b1f28f9e323d",
+        "text_size_bytes": 1021891,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "ggml_graph_compute_thread.isra.0",
+            "address": "0x1c770",
+            "size": 8617,
+            "bytes_sha256": "c1988209b6f675ee85e630f898a1711f6af69b59fd6640a1e917fdfdf40375a7",
+            "listing": "q8_ggml_graph_compute_thread.isra.0.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "ggml_graph_plan",
+            "address": "0x1a3d0",
+            "size": 2792,
+            "bytes_sha256": "53cd99316d88ca664b49280af9446b5f141081b1024d19d3d489935ed8916fe3",
+            "listing": "q8_ggml_graph_plan.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          },
+          {
+            "symbol": "quantize_row_q8_K",
+            "address": "0x106220",
+            "size": 789,
+            "bytes_sha256": "557f9c70cd10917e77f911c7d84b70926cbebc27dc39ed0a6bc36666953068de",
+            "listing": "q8_quantize_row_q8_K.asm",
+            "key_refs": [],
+            "vcvtps2dq": true,
+            "has_min_load": false
+          }
+        ]
+      },
+      "libggml-base": {
+        "sha256": "50507bb5bb4034de4b4707cfcf4c0621595e777647a649b096d5cf21eb3ddf3d",
+        "text_sha256": "e0b932167fc7176ff8e433e9e849bf4f6b8ebf7fac894aa29d0dbcd924e4bc37",
+        "text_size_bytes": 603991,
+        "asan_symbols_present": false,
+        "functions": [
+          {
+            "symbol": "quantize_row_q8_K_ref",
+            "address": "0x87770",
+            "size": 2304,
+            "bytes_sha256": "ae86039f300049c504615937d50b4389a5fe116fbc4825beb0a46adf6d9bdac5",
+            "listing": "q8_quantize_row_q8_K_ref.asm",
+            "key_refs": [],
+            "vcvtps2dq": false,
+            "has_min_load": false
+          }
+        ]
+      }
+    }
+  ]
+}

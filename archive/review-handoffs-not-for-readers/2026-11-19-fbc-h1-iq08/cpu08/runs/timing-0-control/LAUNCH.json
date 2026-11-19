@@ -1,0 +1,44 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "/home/codex/projects/llm-lab/moe-implementation-20261026/release/without_thp.py",
+    "numactl",
+    "--physcpubind=0-11",
+    "--interleave=0,1",
+    "/home/codex/projects/llm-lab/be05-followup-20261119/cpu08/real_ffn",
+    "/home/codex/projects/llm-lab/be05-followup-20261119/cpu08/runs/timing-0-control/SPEC.json",
+    "/home/codex/projects/llm-lab/be05-followup-20261119/cpu08/runs/timing-0-control"
+  ],
+  "environment": {
+    "LD_LIBRARY_PATH": "/home/codex/projects/llm-lab/be05-followup-20261119/cpu08/control/runtime:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+    "LD_PRELOAD": "",
+    "OMP_DYNAMIC": "FALSE",
+    "OMP_THREAD_LIMIT": "12",
+    "OMP_MAX_ACTIVE_LEVELS": "1",
+    "GGML_CPU_IQ_ROW_LOCAL": "0"
+  },
+  "spec": {
+    "name": "timing-0-control",
+    "mode": "control",
+    "stage": "timing",
+    "cells": [
+      1,
+      6,
+      5
+    ],
+    "threads": [
+      12
+    ],
+    "samples": 5,
+    "loops": 8
+  },
+  "design_sha256": "5e3814ad15bc80d83dd1bb3c88c492462e41bbec94c3794cbbbf8b80fa9241dc",
+  "CPU_sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+  "base_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+  "runner_sha256": "2f8ea503b1c2fa19409e6210653a62e1a323e084417d329eecb2b9827c3991f7",
+  "build_sha256": "0f9879c1bead3a0975c6058f69ab4a9ec5bf16398a99dd50ae3a95d7fd0352a1",
+  "probe_sha256": "2ff1bd5eb024a1b3a4353664063a5e70abfcf9601fbd2dc44885dd39fbca7d6e",
+  "guard_sha256": "ae8f58d2cf9e70847ce219bb35fd8ac77544fdc0e435987b31316c11b904c5ed",
+  "reserve_GiB": 64,
+  "budget_seconds": 600
+}

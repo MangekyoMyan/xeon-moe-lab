@@ -1,0 +1,65 @@
+MUL_MAT_ID workspace圧縮案: 原ソースの独立レビュー
+2026-11-18 JST / 実装前・読取のみ
+
+対象
+固定入力 source_repo/accepted/overlays/ggml/src/ggml-cpu/ggml-cpu.c。
+関連: vendor/llama.cpp/ggml/src/ggml.c、ggml-cpu/tiled/tiled.cpp,h。
+子の新しい差分・ベンチ結果はまだ読んでいない。ビルド、計時、GPU/実機操作は行っていない。
+
+暫定判断
+count/prefix/fillでルート表をO(E*P)予約からO(P+E)予約へ圧縮することに、原ソース上の本質的な障害は見つからない。
+ただし、未使用のE*P全域を現実装が毎回読み書きするわけではない。割当サイズ削減率を速度向上率へ変換してはいけない。
+新実装とplannerが一致し、expert内の行順を保存するなら、各dotと4/2/1/tiled内の計算順は維持できる。
+
+1. 原実装の根拠
+ggml-cpu.c:1486: MMID_MATRIX_ROW(e,r) = matrix_rows[e * ids.ne0 * ids.ne1 + r]。
+1488-1491: mmid_row_mappingは int32 i1, int32 i2 の8 bytes。
+1728-1729: n_ids=ids.ne0、n_as=src0.ne2。
+1731-1748: quantized input (必要時)、int64 counts[E]、mapping[E*P]、cache-line padded atomic[E]、64-byte aligned tiled scratchの順。
+1790-1808: ith==0だけがcountsをzeroし、iid1外側・id内側の安定した順序でgroupingする。
+1796: ids.nb0とids.nb1を使う。非contiguous idsを許容する。
+1800-1802: ID -1はmappingへ入れず、その出力slotだけzeroにする。
+1805: mappingはexpert IDではなく {selected slot id, token iid1}。同じexpertを複数slotで使っても別entry。
+1811-1817: atomic counterのresetはworkerごとにe=ith,ith+nth,...と分担する。一つのbarrierでgrouping/quantization/atomic初期化の完了を共有する。
+1822-1830: 各workerがEを走査し、counts[e]==0をskip。tiledへはそのexpertの連続mappingの先頭を渡す。
+1846-1855: NUMAや小さいchunk数で静的分割へ切替。圧縮案単独ではこの方針を変える必要がない。
+1875-1896: AVX1 MXFP4 4/2/1経路と通常chunkはいずれも同じmappingを参照。
+3069-3089: planner側にもE*P予約の独立した計算がある。実行側と同時変更が必須。
+3223-3227: graphのwork_sizeは各nodeのcurの最大値にthread paddingを加えた値。各層の節約量を全層分単純に足してRAM節約と呼ばない。
+
+2. 守るべき不変条件
+P=ids.ne0*ids.ne1、c[e]=有効ID eの出現回数、offset[0]=0、offset[e+1]=offset[e]+c[e]。
+総有効entry数=offset[E]<=P。-1はc/offsetへ入れない。
+fillは元と同じiid1外側・slot内側の順で、各expert内のmapping順を保つ。
+countとfillのcursorを混同しない。fill後にcountsを読むcallerへ同じc[e]を見せる。
+mapping.i1は選択slotでありexpert番号ではない。入力broadcastは mapping.i1 % src1.ne1、出力はmapping.i1そのもの。
+各mappingは連続したint32のpair。tiledがexpert_rows[2*r], [2*r+1]として読む契約を維持する。
+counts/offsetのint64 alignment、atomicのCACHE_LINE_SIZE alignment、tiled scratchの64-byte alignment、plannerの余裕を維持する。
+shared tableの作成はbarrier前に完了。ワーク領域に古い値が残っていても、次のcallの全c/offset/cursorを更新する。
+
+3. 数量として証明できること
+E=384、top-k=6、T=1024なら旧mapping予約は384*6*1024*8=18,874,368 bytes (18 MiB)。
+P entryだけなら49,152 bytes (48 KiB)。追加offset[E+1]をint64で持つなら3,080 bytes。
+ただしcounts、atomic、入力量子化、tiled scratchは別に残る。これはmapping部分の比較であり、実graph peakや速度の比較ではない。
+T=1では旧mapping18,432 bytesに対し新mapping48 bytes。offset追加まで数えると、この部分の純削減は約15 KiB。
+旧コードはcounts[E]だけをmemsetし、mappingは有効P件だけを書き込む。大きい予約のほとんどは穴であり、毎回18 MiBを消去する実装ではない。
+
+4. 新しい差分が来たら優先して見る条件
+A. 全IDが-1、1個だけ有効、同一expertへのP個集中、同一token内の同一expert重複。
+B. ids.nb0/nb1が標準でないlayout。src1.ne1=1のbroadcastと、ne1=top-kの非broadcast。
+C. 同じworkspaceで連続callし、ルート分布と-1位置を変更する。結果領域を事前に非zeroで埋め、zero slotの残骸を検出。
+D. expertごとの有効行数1/2/3/4/5/15/16/17など、MXFP4 cols2/cols4とchunk端を跨ぐ条件。
+E. threads=1と複数、nthが出力行/chunk数を上回る場合。prefixの圧縮以外で分配やatomicを変えていないか。
+F. src1型が既にvec_dot_typeのときとF32量子化が必要なとき。planner/実行のlayoutを両方確認。
+G. 実際にtiledが選択される型・cne1・buildと、use_ref/fallbackを分ける。Ivy版で通らない分岐を試験済みとしない。
+
+5. 圧縮案とは別の、既存ソースの注意点
+tiled.cpp:605-642のggml_tiled_supportedでは、type switchの対応型で直ちにreturn true、defaultでreturn falseする。
+その後のsrc1型と非contiguous Q8_Kのチェック (634-640) は到達不能に見える。
+従って非contiguousな既成Q8_Kでtiledを強制した場合など、baselineから失敗する可能性がある。
+これは今回の圧縮案に由来する欠陥とは扱わない。実行確認は未実施。新旧差の試験がそこで失敗したらbaselineにも同条件を適用して切り分ける。
+
+6. 適用範囲
+ggml_compute_forwardはggml_cpu_extra_compute_forwardが処理した場合、通常MUL_MAT_IDへ入らない (1918-1921)。
+plannerもggml_cpu_extra_work_sizeが成功した場合、通常のE*P予約分岐へ入らない (3026)。
+従って、CPU backend全形式に同じ節約が生じるとは限らない。対象実機が通常/compact/tiledのどこを通るかが必要。

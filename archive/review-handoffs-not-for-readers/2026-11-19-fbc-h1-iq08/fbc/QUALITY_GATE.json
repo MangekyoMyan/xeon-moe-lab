@@ -1,0 +1,2825 @@
+{
+  "passed": true,
+  "case_hashes": {
+    "text_cache_budget_ja": {
+      "all_65_FBC_byte_equal": true,
+      "sha256": "35d028fed9fa08bbe8f304c598ced362ff466aff176ecf407133c0a1870bbd64",
+      "last_row_sha256": "6d86ea4de763b5838c13c6e9efa59403ab8245a10560d539795623c354814065"
+    },
+    "code_stable_grouping_python": {
+      "all_65_FBC_byte_equal": true,
+      "sha256": "077eefd33928bfbec340162c5b5e54c2bbad9e4ac3ae72bc23f38a7a33d69d01",
+      "last_row_sha256": "aeff3df688d7110b0c44549c44897e1ab6c485b1279ac525b5aba155316fa471"
+    }
+  },
+  "graphs": {
+    "text_cache_budget_ja": {
+      "original_F_B_equal": true,
+      "original_node_counts": {
+        "F": 4866,
+        "B": 4866,
+        "C": 4797
+      },
+      "placement": {
+        "F": {
+          "scheduled_split_headers": [
+            {
+              "index": 0,
+              "backend": "CPU",
+              "inputs": 0,
+              "printed_inputs": ""
+            },
+            {
+              "index": 1,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [embd (reshaped) (  20K)] [inp_pos (   0K)] [leaf_14 (   0K)] [attn_inp_kq_mask (   1K)]"
+            },
+            {
+              "index": 2,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-0 (reshaped) (  20K)] [ffn_moe_topk-0 (   0K)]"
+            },
+            {
+              "index": 3,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-0 ( 120K)] [engram_rows-1 (  24K)]"
+            },
+            {
+              "index": 4,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-1 (reshaped) (  20K)] [ffn_moe_topk-1 (   0K)]"
+            },
+            {
+              "index": 5,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [ffn_moe_down-1 ( 120K)] [dsv4_csa_state_read_idxs (   0K)] [dsv4_csa_state_write_pos (   0K)] [dsv4_csa_state_write_idxs (   0K)] [dsv4_csa_state_persist_src_idxs (   0K)] [dsv4_csa_state_persist_dst_idxs (   0K)] [dsv4_csa_kq_mask (   0K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 6,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-2 (reshaped) (  20K)] [ffn_moe_topk-2 (   0K)]"
+            },
+            {
+              "index": 7,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-2 ( 120K)]"
+            },
+            {
+              "index": 8,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-3 (reshaped) (  20K)] [ffn_moe_topk-3 (   0K)]"
+            },
+            {
+              "index": 9,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-3 ( 120K)]"
+            },
+            {
+              "index": 10,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-4 (reshaped) (  20K)] [ffn_moe_topk-4 (   0K)]"
+            },
+            {
+              "index": 11,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-4 ( 120K)]"
+            },
+            {
+              "index": 12,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-5 (reshaped) (  20K)] [ffn_moe_topk-5 (   0K)]"
+            },
+            {
+              "index": 13,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-5 ( 120K)]"
+            },
+            {
+              "index": 14,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-6 (reshaped) (  20K)] [ffn_moe_topk-6 (   0K)]"
+            },
+            {
+              "index": 15,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-6 ( 120K)]"
+            },
+            {
+              "index": 16,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-7 (reshaped) (  20K)] [ffn_moe_topk-7 (   0K)]"
+            },
+            {
+              "index": 17,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-7 ( 120K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 18,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-8 (reshaped) (  20K)] [ffn_moe_topk-8 (   0K)]"
+            },
+            {
+              "index": 19,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-8 ( 120K)]"
+            },
+            {
+              "index": 20,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-9 (reshaped) (  20K)] [ffn_moe_topk-9 (   0K)]"
+            },
+            {
+              "index": 21,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-9 ( 120K)]"
+            },
+            {
+              "index": 22,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-10 (reshaped) (  20K)] [ffn_moe_topk-10 (   0K)]"
+            },
+            {
+              "index": 23,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-10 ( 120K)]"
+            },
+            {
+              "index": 24,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-11 (reshaped) (  20K)] [ffn_moe_topk-11 (   0K)]"
+            },
+            {
+              "index": 25,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-11 ( 120K)]"
+            },
+            {
+              "index": 26,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-12 (reshaped) (  20K)] [ffn_moe_topk-12 (   0K)]"
+            },
+            {
+              "index": 27,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-12 ( 120K)]"
+            },
+            {
+              "index": 28,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-13 (reshaped) (  20K)] [ffn_moe_topk-13 (   0K)]"
+            },
+            {
+              "index": 29,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-13 ( 120K)] [engram_rows-14 (  24K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 30,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-14 (reshaped) (  20K)] [ffn_moe_topk-14 (   0K)]"
+            },
+            {
+              "index": 31,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-14 ( 120K)]"
+            },
+            {
+              "index": 32,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-15 (reshaped) (  20K)] [ffn_moe_topk-15 (   0K)]"
+            },
+            {
+              "index": 33,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-15 ( 120K)]"
+            },
+            {
+              "index": 34,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-16 (reshaped) (  20K)] [ffn_moe_topk-16 (   0K)]"
+            },
+            {
+              "index": 35,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-16 ( 120K)]"
+            },
+            {
+              "index": 36,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-17 (reshaped) (  20K)] [ffn_moe_topk-17 (   0K)]"
+            },
+            {
+              "index": 37,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-17 ( 120K)]"
+            },
+            {
+              "index": 38,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-18 (reshaped) (  20K)] [ffn_moe_topk-18 (   0K)]"
+            },
+            {
+              "index": 39,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-18 ( 120K)]"
+            },
+            {
+              "index": 40,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-19 (reshaped) (  20K)] [ffn_moe_topk-19 (   0K)]"
+            },
+            {
+              "index": 41,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [ffn_moe_down-19 ( 120K)] [dsv4_hca_state_read_idxs (   0K)] [dsv4_hca_state_write_pos (   0K)] [dsv4_hca_state_write_idxs (   0K)] [dsv4_hca_state_persist_src_idxs (   0K)] [dsv4_hca_state_persist_dst_idxs (   0K)] [dsv4_hca_kq_mask (   1K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 42,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-20 (reshaped) (  20K)] [ffn_moe_topk-20 (   0K)]"
+            },
+            {
+              "index": 43,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-20 ( 120K)]"
+            },
+            {
+              "index": 44,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-21 (reshaped) (  20K)] [ffn_moe_topk-21 (   0K)]"
+            },
+            {
+              "index": 45,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-21 ( 120K)]"
+            },
+            {
+              "index": 46,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-22 (reshaped) (  20K)] [ffn_moe_topk-22 (   0K)]"
+            },
+            {
+              "index": 47,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-22 ( 120K)]"
+            },
+            {
+              "index": 48,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-23 (reshaped) (  20K)] [ffn_moe_topk-23 (   0K)]"
+            },
+            {
+              "index": 49,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-23 ( 120K)] [cand_pin (view) (   0K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 50,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-24 (reshaped) (  20K)] [ffn_moe_topk-24 (   0K)]"
+            },
+            {
+              "index": 51,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-24 ( 120K)]"
+            },
+            {
+              "index": 52,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-25 (reshaped) (  20K)] [ffn_moe_topk-25 (   0K)]"
+            },
+            {
+              "index": 53,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-25 ( 120K)]"
+            },
+            {
+              "index": 54,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-26 (reshaped) (  20K)] [ffn_moe_topk-26 (   0K)]"
+            },
+            {
+              "index": 55,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-26 ( 120K)]"
+            },
+            {
+              "index": 56,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-27 (reshaped) (  20K)] [ffn_moe_topk-27 (   0K)]"
+            },
+            {
+              "index": 57,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-27 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 58,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-28 (reshaped) (  20K)] [ffn_moe_topk-28 (   0K)]"
+            },
+            {
+              "index": 59,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-28 ( 120K)]"
+            },
+            {
+              "index": 60,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-29 (reshaped) (  20K)] [ffn_moe_topk-29 (   0K)]"
+            },
+            {
+              "index": 61,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-29 ( 120K)]"
+            },
+            {
+              "index": 62,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-30 (reshaped) (  20K)] [ffn_moe_topk-30 (   0K)]"
+            },
+            {
+              "index": 63,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-30 ( 120K)]"
+            },
+            {
+              "index": 64,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-31 (reshaped) (  20K)] [ffn_moe_topk-31 (   0K)]"
+            },
+            {
+              "index": 65,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-31 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 66,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-32 (reshaped) (  20K)] [ffn_moe_topk-32 (   0K)]"
+            },
+            {
+              "index": 67,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-32 ( 120K)]"
+            },
+            {
+              "index": 68,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-33 (reshaped) (  20K)] [ffn_moe_topk-33 (   0K)]"
+            },
+            {
+              "index": 69,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-33 ( 120K)]"
+            },
+            {
+              "index": 70,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-34 (reshaped) (  20K)] [ffn_moe_topk-34 (   0K)]"
+            },
+            {
+              "index": 71,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-34 ( 120K)]"
+            },
+            {
+              "index": 72,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-35 (reshaped) (  20K)] [ffn_moe_topk-35 (   0K)]"
+            },
+            {
+              "index": 73,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-35 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 74,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-36 (reshaped) (  20K)] [ffn_moe_topk-36 (   0K)]"
+            },
+            {
+              "index": 75,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-36 ( 120K)] [out_ids (   0K)]"
+            }
+          ],
+          "post_allocation_splits": 76,
+          "trace_file": "text_cache_budget_ja-graph-post.json"
+        },
+        "B": {
+          "scheduled_split_headers": [
+            {
+              "index": 0,
+              "backend": "CPU",
+              "inputs": 0,
+              "printed_inputs": ""
+            },
+            {
+              "index": 1,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [embd (reshaped) (  20K)] [inp_pos (   0K)] [leaf_14 (   0K)] [attn_inp_kq_mask (   1K)]"
+            },
+            {
+              "index": 2,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-0 (reshaped) (  20K)] [ffn_moe_topk-0 (   0K)]"
+            },
+            {
+              "index": 3,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-0 ( 120K)] [engram_rows-1 (  24K)]"
+            },
+            {
+              "index": 4,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-1 (reshaped) (  20K)] [ffn_moe_topk-1 (   0K)]"
+            },
+            {
+              "index": 5,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [ffn_moe_down-1 ( 120K)] [dsv4_csa_state_read_idxs (   0K)] [dsv4_csa_state_write_pos (   0K)] [dsv4_csa_state_write_idxs (   0K)] [dsv4_csa_state_persist_src_idxs (   0K)] [dsv4_csa_state_persist_dst_idxs (   0K)] [dsv4_csa_kq_mask (   0K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 6,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-2 (reshaped) (  20K)] [ffn_moe_topk-2 (   0K)]"
+            },
+            {
+              "index": 7,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-2 ( 120K)]"
+            },
+            {
+              "index": 8,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-3 (reshaped) (  20K)] [ffn_moe_topk-3 (   0K)]"
+            },
+            {
+              "index": 9,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-3 ( 120K)]"
+            },
+            {
+              "index": 10,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-4 (reshaped) (  20K)] [ffn_moe_topk-4 (   0K)]"
+            },
+            {
+              "index": 11,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-4 ( 120K)]"
+            },
+            {
+              "index": 12,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-5 (reshaped) (  20K)] [ffn_moe_topk-5 (   0K)]"
+            },
+            {
+              "index": 13,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-5 ( 120K)]"
+            },
+            {
+              "index": 14,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-6 (reshaped) (  20K)] [ffn_moe_topk-6 (   0K)]"
+            },
+            {
+              "index": 15,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-6 ( 120K)]"
+            },
+            {
+              "index": 16,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-7 (reshaped) (  20K)] [ffn_moe_topk-7 (   0K)]"
+            },
+            {
+              "index": 17,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-7 ( 120K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 18,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-8 (reshaped) (  20K)] [ffn_moe_topk-8 (   0K)]"
+            },
+            {
+              "index": 19,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-8 ( 120K)]"
+            },
+            {
+              "index": 20,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-9 (reshaped) (  20K)] [ffn_moe_topk-9 (   0K)]"
+            },
+            {
+              "index": 21,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-9 ( 120K)]"
+            },
+            {
+              "index": 22,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-10 (reshaped) (  20K)] [ffn_moe_topk-10 (   0K)]"
+            },
+            {
+              "index": 23,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-10 ( 120K)]"
+            },
+            {
+              "index": 24,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-11 (reshaped) (  20K)] [ffn_moe_topk-11 (   0K)]"
+            },
+            {
+              "index": 25,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-11 ( 120K)]"
+            },
+            {
+              "index": 26,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-12 (reshaped) (  20K)] [ffn_moe_topk-12 (   0K)]"
+            },
+            {
+              "index": 27,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-12 ( 120K)]"
+            },
+            {
+              "index": 28,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-13 (reshaped) (  20K)] [ffn_moe_topk-13 (   0K)]"
+            },
+            {
+              "index": 29,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-13 ( 120K)] [engram_rows-14 (  24K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 30,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-14 (reshaped) (  20K)] [ffn_moe_topk-14 (   0K)]"
+            },
+            {
+              "index": 31,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-14 ( 120K)]"
+            },
+            {
+              "index": 32,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-15 (reshaped) (  20K)] [ffn_moe_topk-15 (   0K)]"
+            },
+            {
+              "index": 33,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-15 ( 120K)]"
+            },
+            {
+              "index": 34,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-16 (reshaped) (  20K)] [ffn_moe_topk-16 (   0K)]"
+            },
+            {
+              "index": 35,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-16 ( 120K)]"
+            },
+            {
+              "index": 36,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-17 (reshaped) (  20K)] [ffn_moe_topk-17 (   0K)]"
+            },
+            {
+              "index": 37,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-17 ( 120K)]"
+            },
+            {
+              "index": 38,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-18 (reshaped) (  20K)] [ffn_moe_topk-18 (   0K)]"
+            },
+            {
+              "index": 39,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-18 ( 120K)]"
+            },
+            {
+              "index": 40,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-19 (reshaped) (  20K)] [ffn_moe_topk-19 (   0K)]"
+            },
+            {
+              "index": 41,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [ffn_moe_down-19 ( 120K)] [dsv4_hca_state_read_idxs (   0K)] [dsv4_hca_state_write_pos (   0K)] [dsv4_hca_state_write_idxs (   0K)] [dsv4_hca_state_persist_src_idxs (   0K)] [dsv4_hca_state_persist_dst_idxs (   0K)] [dsv4_hca_kq_mask (   1K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 42,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-20 (reshaped) (  20K)] [ffn_moe_topk-20 (   0K)]"
+            },
+            {
+              "index": 43,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-20 ( 120K)]"
+            },
+            {
+              "index": 44,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-21 (reshaped) (  20K)] [ffn_moe_topk-21 (   0K)]"
+            },
+            {
+              "index": 45,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-21 ( 120K)]"
+            },
+            {
+              "index": 46,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-22 (reshaped) (  20K)] [ffn_moe_topk-22 (   0K)]"
+            },
+            {
+              "index": 47,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-22 ( 120K)]"
+            },
+            {
+              "index": 48,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-23 (reshaped) (  20K)] [ffn_moe_topk-23 (   0K)]"
+            },
+            {
+              "index": 49,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-23 ( 120K)] [cand_pin (view) (   0K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 50,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-24 (reshaped) (  20K)] [ffn_moe_topk-24 (   0K)]"
+            },
+            {
+              "index": 51,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-24 ( 120K)]"
+            },
+            {
+              "index": 52,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-25 (reshaped) (  20K)] [ffn_moe_topk-25 (   0K)]"
+            },
+            {
+              "index": 53,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-25 ( 120K)]"
+            },
+            {
+              "index": 54,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-26 (reshaped) (  20K)] [ffn_moe_topk-26 (   0K)]"
+            },
+            {
+              "index": 55,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-26 ( 120K)]"
+            },
+            {
+              "index": 56,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-27 (reshaped) (  20K)] [ffn_moe_topk-27 (   0K)]"
+            },
+            {
+              "index": 57,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-27 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 58,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-28 (reshaped) (  20K)] [ffn_moe_topk-28 (   0K)]"
+            },
+            {
+              "index": 59,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-28 ( 120K)]"
+            },
+            {
+              "index": 60,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-29 (reshaped) (  20K)] [ffn_moe_topk-29 (   0K)]"
+            },
+            {
+              "index": 61,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-29 ( 120K)]"
+            },
+            {
+              "index": 62,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-30 (reshaped) (  20K)] [ffn_moe_topk-30 (   0K)]"
+            },
+            {
+              "index": 63,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-30 ( 120K)]"
+            },
+            {
+              "index": 64,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-31 (reshaped) (  20K)] [ffn_moe_topk-31 (   0K)]"
+            },
+            {
+              "index": 65,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-31 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 66,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-32 (reshaped) (  20K)] [ffn_moe_topk-32 (   0K)]"
+            },
+            {
+              "index": 67,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-32 ( 120K)]"
+            },
+            {
+              "index": 68,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-33 (reshaped) (  20K)] [ffn_moe_topk-33 (   0K)]"
+            },
+            {
+              "index": 69,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-33 ( 120K)]"
+            },
+            {
+              "index": 70,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-34 (reshaped) (  20K)] [ffn_moe_topk-34 (   0K)]"
+            },
+            {
+              "index": 71,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-34 ( 120K)]"
+            },
+            {
+              "index": 72,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-35 (reshaped) (  20K)] [ffn_moe_topk-35 (   0K)]"
+            },
+            {
+              "index": 73,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-35 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 74,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-36 (reshaped) (  20K)] [ffn_moe_topk-36 (   0K)]"
+            },
+            {
+              "index": 75,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-36 ( 120K)] [out_ids (   0K)]"
+            }
+          ],
+          "post_allocation_splits": 76,
+          "trace_file": "text_cache_budget_ja-graph-post.json"
+        },
+        "C": {
+          "scheduled_split_headers": [
+            {
+              "index": 0,
+              "backend": "CPU",
+              "inputs": 0,
+              "printed_inputs": ""
+            },
+            {
+              "index": 1,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [embd (reshaped) (  20K)] [inp_pos (   0K)] [leaf_14 (   0K)] [attn_inp_kq_mask (   1K)]"
+            },
+            {
+              "index": 2,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-0 (reshaped) (  20K)] [ffn_moe_topk-0 (   0K)]"
+            },
+            {
+              "index": 3,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-0 ( 120K)] [engram_rows-1 (  24K)]"
+            },
+            {
+              "index": 4,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-1 (reshaped) (  20K)] [ffn_moe_topk-1 (   0K)]"
+            },
+            {
+              "index": 5,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [xeon_hot_ffn_1 ( 120K)] [dsv4_csa_state_read_idxs (   0K)] [dsv4_csa_state_write_pos (   0K)] [dsv4_csa_state_write_idxs (   0K)] [dsv4_csa_state_persist_src_idxs (   0K)] [dsv4_csa_state_persist_dst_idxs (   0K)] [dsv4_csa_kq_mask (   0K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 6,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-2 (reshaped) (  20K)] [ffn_moe_topk-2 (   0K)]"
+            },
+            {
+              "index": 7,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_2 ( 120K)]"
+            },
+            {
+              "index": 8,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-3 (reshaped) (  20K)] [ffn_moe_topk-3 (   0K)]"
+            },
+            {
+              "index": 9,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_3 ( 120K)]"
+            },
+            {
+              "index": 10,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-4 (reshaped) (  20K)] [ffn_moe_topk-4 (   0K)]"
+            },
+            {
+              "index": 11,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_4 ( 120K)]"
+            },
+            {
+              "index": 12,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-5 (reshaped) (  20K)] [ffn_moe_topk-5 (   0K)]"
+            },
+            {
+              "index": 13,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_5 ( 120K)]"
+            },
+            {
+              "index": 14,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-6 (reshaped) (  20K)] [ffn_moe_topk-6 (   0K)]"
+            },
+            {
+              "index": 15,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_6 ( 120K)]"
+            },
+            {
+              "index": 16,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-7 (reshaped) (  20K)] [ffn_moe_topk-7 (   0K)]"
+            },
+            {
+              "index": 17,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [xeon_hot_ffn_7 ( 120K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 18,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-8 (reshaped) (  20K)] [ffn_moe_topk-8 (   0K)]"
+            },
+            {
+              "index": 19,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_8 ( 120K)]"
+            },
+            {
+              "index": 20,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-9 (reshaped) (  20K)] [ffn_moe_topk-9 (   0K)]"
+            },
+            {
+              "index": 21,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-9 ( 120K)]"
+            },
+            {
+              "index": 22,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-10 (reshaped) (  20K)] [ffn_moe_topk-10 (   0K)]"
+            },
+            {
+              "index": 23,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_10 ( 120K)]"
+            },
+            {
+              "index": 24,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-11 (reshaped) (  20K)] [ffn_moe_topk-11 (   0K)]"
+            },
+            {
+              "index": 25,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_11 ( 120K)]"
+            },
+            {
+              "index": 26,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-12 (reshaped) (  20K)] [ffn_moe_topk-12 (   0K)]"
+            },
+            {
+              "index": 27,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-12 ( 120K)]"
+            },
+            {
+              "index": 28,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-13 (reshaped) (  20K)] [ffn_moe_topk-13 (   0K)]"
+            },
+            {
+              "index": 29,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [xeon_hot_ffn_13 ( 120K)] [engram_rows-14 (  24K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 30,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-14 (reshaped) (  20K)] [ffn_moe_topk-14 (   0K)]"
+            },
+            {
+              "index": 31,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_14 ( 120K)]"
+            },
+            {
+              "index": 32,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-15 (reshaped) (  20K)] [ffn_moe_topk-15 (   0K)]"
+            },
+            {
+              "index": 33,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_15 ( 120K)]"
+            },
+            {
+              "index": 34,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-16 (reshaped) (  20K)] [ffn_moe_topk-16 (   0K)]"
+            },
+            {
+              "index": 35,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_16 ( 120K)]"
+            },
+            {
+              "index": 36,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-17 (reshaped) (  20K)] [ffn_moe_topk-17 (   0K)]"
+            },
+            {
+              "index": 37,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_17 ( 120K)]"
+            },
+            {
+              "index": 38,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-18 (reshaped) (  20K)] [ffn_moe_topk-18 (   0K)]"
+            },
+            {
+              "index": 39,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-18 ( 120K)]"
+            },
+            {
+              "index": 40,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-19 (reshaped) (  20K)] [ffn_moe_topk-19 (   0K)]"
+            },
+            {
+              "index": 41,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [xeon_hot_ffn_19 ( 120K)] [dsv4_hca_state_read_idxs (   0K)] [dsv4_hca_state_write_pos (   0K)] [dsv4_hca_state_write_idxs (   0K)] [dsv4_hca_state_persist_src_idxs (   0K)] [dsv4_hca_state_persist_dst_idxs (   0K)] [dsv4_hca_kq_mask (   1K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 42,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-20 (reshaped) (  20K)] [ffn_moe_topk-20 (   0K)]"
+            },
+            {
+              "index": 43,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_20 ( 120K)]"
+            },
+            {
+              "index": 44,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-21 (reshaped) (  20K)] [ffn_moe_topk-21 (   0K)]"
+            },
+            {
+              "index": 45,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-21 ( 120K)]"
+            },
+            {
+              "index": 46,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-22 (reshaped) (  20K)] [ffn_moe_topk-22 (   0K)]"
+            },
+            {
+              "index": 47,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_22 ( 120K)]"
+            },
+            {
+              "index": 48,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-23 (reshaped) (  20K)] [ffn_moe_topk-23 (   0K)]"
+            },
+            {
+              "index": 49,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-23 ( 120K)] [cand_pin (view) (   0K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 50,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-24 (reshaped) (  20K)] [ffn_moe_topk-24 (   0K)]"
+            },
+            {
+              "index": 51,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-24 ( 120K)]"
+            },
+            {
+              "index": 52,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-25 (reshaped) (  20K)] [ffn_moe_topk-25 (   0K)]"
+            },
+            {
+              "index": 53,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-25 ( 120K)]"
+            },
+            {
+              "index": 54,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-26 (reshaped) (  20K)] [ffn_moe_topk-26 (   0K)]"
+            },
+            {
+              "index": 55,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-26 ( 120K)]"
+            },
+            {
+              "index": 56,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-27 (reshaped) (  20K)] [ffn_moe_topk-27 (   0K)]"
+            },
+            {
+              "index": 57,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-27 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 58,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-28 (reshaped) (  20K)] [ffn_moe_topk-28 (   0K)]"
+            },
+            {
+              "index": 59,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_28 ( 120K)]"
+            },
+            {
+              "index": 60,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-29 (reshaped) (  20K)] [ffn_moe_topk-29 (   0K)]"
+            },
+            {
+              "index": 61,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_29 ( 120K)]"
+            },
+            {
+              "index": 62,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-30 (reshaped) (  20K)] [ffn_moe_topk-30 (   0K)]"
+            },
+            {
+              "index": 63,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-30 ( 120K)]"
+            },
+            {
+              "index": 64,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-31 (reshaped) (  20K)] [ffn_moe_topk-31 (   0K)]"
+            },
+            {
+              "index": 65,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-31 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 66,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-32 (reshaped) (  20K)] [ffn_moe_topk-32 (   0K)]"
+            },
+            {
+              "index": 67,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-32 ( 120K)]"
+            },
+            {
+              "index": 68,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-33 (reshaped) (  20K)] [ffn_moe_topk-33 (   0K)]"
+            },
+            {
+              "index": 69,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_33 ( 120K)]"
+            },
+            {
+              "index": 70,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-34 (reshaped) (  20K)] [ffn_moe_topk-34 (   0K)]"
+            },
+            {
+              "index": 71,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-34 ( 120K)]"
+            },
+            {
+              "index": 72,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-35 (reshaped) (  20K)] [ffn_moe_topk-35 (   0K)]"
+            },
+            {
+              "index": 73,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [xeon_hot_ffn_35 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   1K)] [attn_inp_kq_mask (reshaped) (   1K)]"
+            },
+            {
+              "index": 74,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-36 (reshaped) (  20K)] [ffn_moe_topk-36 (   0K)]"
+            },
+            {
+              "index": 75,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [xeon_hot_ffn_36 ( 120K)] [out_ids (   0K)]"
+            }
+          ],
+          "post_allocation_splits": 76,
+          "trace_file": "text_cache_budget_ja-graph-post.json"
+        }
+      },
+      "scope": "Pre-original DAG;post-allocation/optimization metadata. Debugsplit listing before CUDAoptimizer and rounded/truncated labels; not hardware transfer byte/time measurement."
+    },
+    "code_stable_grouping_python": {
+      "original_F_B_equal": true,
+      "original_node_counts": {
+        "F": 4866,
+        "B": 4866,
+        "C": 4797
+      },
+      "placement": {
+        "F": {
+          "scheduled_split_headers": [
+            {
+              "index": 0,
+              "backend": "CPU",
+              "inputs": 0,
+              "printed_inputs": ""
+            },
+            {
+              "index": 1,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [embd (reshaped) (  20K)] [inp_pos (   0K)] [leaf_14 (   0K)] [attn_inp_kq_mask (   0K)]"
+            },
+            {
+              "index": 2,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-0 (reshaped) (  20K)] [ffn_moe_topk-0 (   0K)]"
+            },
+            {
+              "index": 3,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-0 ( 120K)] [engram_rows-1 (  24K)]"
+            },
+            {
+              "index": 4,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-1 (reshaped) (  20K)] [ffn_moe_topk-1 (   0K)]"
+            },
+            {
+              "index": 5,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [ffn_moe_down-1 ( 120K)] [dsv4_csa_state_read_idxs (   0K)] [dsv4_csa_state_write_pos (   0K)] [dsv4_csa_state_write_idxs (   0K)] [dsv4_csa_state_persist_src_idxs (   0K)] [dsv4_csa_state_persist_dst_idxs (   0K)] [dsv4_csa_kq_mask (   0K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 6,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-2 (reshaped) (  20K)] [ffn_moe_topk-2 (   0K)]"
+            },
+            {
+              "index": 7,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-2 ( 120K)]"
+            },
+            {
+              "index": 8,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-3 (reshaped) (  20K)] [ffn_moe_topk-3 (   0K)]"
+            },
+            {
+              "index": 9,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-3 ( 120K)]"
+            },
+            {
+              "index": 10,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-4 (reshaped) (  20K)] [ffn_moe_topk-4 (   0K)]"
+            },
+            {
+              "index": 11,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-4 ( 120K)]"
+            },
+            {
+              "index": 12,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-5 (reshaped) (  20K)] [ffn_moe_topk-5 (   0K)]"
+            },
+            {
+              "index": 13,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-5 ( 120K)]"
+            },
+            {
+              "index": 14,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-6 (reshaped) (  20K)] [ffn_moe_topk-6 (   0K)]"
+            },
+            {
+              "index": 15,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-6 ( 120K)]"
+            },
+            {
+              "index": 16,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-7 (reshaped) (  20K)] [ffn_moe_topk-7 (   0K)]"
+            },
+            {
+              "index": 17,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-7 ( 120K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 18,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-8 (reshaped) (  20K)] [ffn_moe_topk-8 (   0K)]"
+            },
+            {
+              "index": 19,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-8 ( 120K)]"
+            },
+            {
+              "index": 20,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-9 (reshaped) (  20K)] [ffn_moe_topk-9 (   0K)]"
+            },
+            {
+              "index": 21,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-9 ( 120K)]"
+            },
+            {
+              "index": 22,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-10 (reshaped) (  20K)] [ffn_moe_topk-10 (   0K)]"
+            },
+            {
+              "index": 23,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-10 ( 120K)]"
+            },
+            {
+              "index": 24,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-11 (reshaped) (  20K)] [ffn_moe_topk-11 (   0K)]"
+            },
+            {
+              "index": 25,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-11 ( 120K)]"
+            },
+            {
+              "index": 26,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-12 (reshaped) (  20K)] [ffn_moe_topk-12 (   0K)]"
+            },
+            {
+              "index": 27,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-12 ( 120K)]"
+            },
+            {
+              "index": 28,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-13 (reshaped) (  20K)] [ffn_moe_topk-13 (   0K)]"
+            },
+            {
+              "index": 29,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-13 ( 120K)] [engram_rows-14 (  24K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 30,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-14 (reshaped) (  20K)] [ffn_moe_topk-14 (   0K)]"
+            },
+            {
+              "index": 31,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-14 ( 120K)]"
+            },
+            {
+              "index": 32,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-15 (reshaped) (  20K)] [ffn_moe_topk-15 (   0K)]"
+            },
+            {
+              "index": 33,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-15 ( 120K)]"
+            },
+            {
+              "index": 34,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-16 (reshaped) (  20K)] [ffn_moe_topk-16 (   0K)]"
+            },
+            {
+              "index": 35,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-16 ( 120K)]"
+            },
+            {
+              "index": 36,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-17 (reshaped) (  20K)] [ffn_moe_topk-17 (   0K)]"
+            },
+            {
+              "index": 37,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-17 ( 120K)]"
+            },
+            {
+              "index": 38,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-18 (reshaped) (  20K)] [ffn_moe_topk-18 (   0K)]"
+            },
+            {
+              "index": 39,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-18 ( 120K)]"
+            },
+            {
+              "index": 40,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-19 (reshaped) (  20K)] [ffn_moe_topk-19 (   0K)]"
+            },
+            {
+              "index": 41,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [ffn_moe_down-19 ( 120K)] [dsv4_hca_state_read_idxs (   0K)] [dsv4_hca_state_write_pos (   0K)] [dsv4_hca_state_write_idxs (   0K)] [dsv4_hca_state_persist_src_idxs (   0K)] [dsv4_hca_state_persist_dst_idxs (   0K)] [dsv4_hca_kq_mask (   0K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 42,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-20 (reshaped) (  20K)] [ffn_moe_topk-20 (   0K)]"
+            },
+            {
+              "index": 43,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-20 ( 120K)]"
+            },
+            {
+              "index": 44,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-21 (reshaped) (  20K)] [ffn_moe_topk-21 (   0K)]"
+            },
+            {
+              "index": 45,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-21 ( 120K)]"
+            },
+            {
+              "index": 46,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-22 (reshaped) (  20K)] [ffn_moe_topk-22 (   0K)]"
+            },
+            {
+              "index": 47,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-22 ( 120K)]"
+            },
+            {
+              "index": 48,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-23 (reshaped) (  20K)] [ffn_moe_topk-23 (   0K)]"
+            },
+            {
+              "index": 49,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-23 ( 120K)] [cand_pin (view) (   0K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 50,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-24 (reshaped) (  20K)] [ffn_moe_topk-24 (   0K)]"
+            },
+            {
+              "index": 51,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-24 ( 120K)]"
+            },
+            {
+              "index": 52,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-25 (reshaped) (  20K)] [ffn_moe_topk-25 (   0K)]"
+            },
+            {
+              "index": 53,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-25 ( 120K)]"
+            },
+            {
+              "index": 54,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-26 (reshaped) (  20K)] [ffn_moe_topk-26 (   0K)]"
+            },
+            {
+              "index": 55,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-26 ( 120K)]"
+            },
+            {
+              "index": 56,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-27 (reshaped) (  20K)] [ffn_moe_topk-27 (   0K)]"
+            },
+            {
+              "index": 57,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-27 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 58,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-28 (reshaped) (  20K)] [ffn_moe_topk-28 (   0K)]"
+            },
+            {
+              "index": 59,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-28 ( 120K)]"
+            },
+            {
+              "index": 60,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-29 (reshaped) (  20K)] [ffn_moe_topk-29 (   0K)]"
+            },
+            {
+              "index": 61,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-29 ( 120K)]"
+            },
+            {
+              "index": 62,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-30 (reshaped) (  20K)] [ffn_moe_topk-30 (   0K)]"
+            },
+            {
+              "index": 63,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-30 ( 120K)]"
+            },
+            {
+              "index": 64,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-31 (reshaped) (  20K)] [ffn_moe_topk-31 (   0K)]"
+            },
+            {
+              "index": 65,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-31 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 66,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-32 (reshaped) (  20K)] [ffn_moe_topk-32 (   0K)]"
+            },
+            {
+              "index": 67,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-32 ( 120K)]"
+            },
+            {
+              "index": 68,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-33 (reshaped) (  20K)] [ffn_moe_topk-33 (   0K)]"
+            },
+            {
+              "index": 69,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-33 ( 120K)]"
+            },
+            {
+              "index": 70,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-34 (reshaped) (  20K)] [ffn_moe_topk-34 (   0K)]"
+            },
+            {
+              "index": 71,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-34 ( 120K)]"
+            },
+            {
+              "index": 72,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-35 (reshaped) (  20K)] [ffn_moe_topk-35 (   0K)]"
+            },
+            {
+              "index": 73,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-35 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 74,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-36 (reshaped) (  20K)] [ffn_moe_topk-36 (   0K)]"
+            },
+            {
+              "index": 75,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-36 ( 120K)] [out_ids (   0K)]"
+            }
+          ],
+          "post_allocation_splits": 76,
+          "trace_file": "code_stable_grouping_python-graph-post.json"
+        },
+        "B": {
+          "scheduled_split_headers": [
+            {
+              "index": 0,
+              "backend": "CPU",
+              "inputs": 0,
+              "printed_inputs": ""
+            },
+            {
+              "index": 1,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [embd (reshaped) (  20K)] [inp_pos (   0K)] [leaf_14 (   0K)] [attn_inp_kq_mask (   0K)]"
+            },
+            {
+              "index": 2,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-0 (reshaped) (  20K)] [ffn_moe_topk-0 (   0K)]"
+            },
+            {
+              "index": 3,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-0 ( 120K)] [engram_rows-1 (  24K)]"
+            },
+            {
+              "index": 4,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-1 (reshaped) (  20K)] [ffn_moe_topk-1 (   0K)]"
+            },
+            {
+              "index": 5,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [ffn_moe_down-1 ( 120K)] [dsv4_csa_state_read_idxs (   0K)] [dsv4_csa_state_write_pos (   0K)] [dsv4_csa_state_write_idxs (   0K)] [dsv4_csa_state_persist_src_idxs (   0K)] [dsv4_csa_state_persist_dst_idxs (   0K)] [dsv4_csa_kq_mask (   0K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 6,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-2 (reshaped) (  20K)] [ffn_moe_topk-2 (   0K)]"
+            },
+            {
+              "index": 7,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-2 ( 120K)]"
+            },
+            {
+              "index": 8,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-3 (reshaped) (  20K)] [ffn_moe_topk-3 (   0K)]"
+            },
+            {
+              "index": 9,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-3 ( 120K)]"
+            },
+            {
+              "index": 10,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-4 (reshaped) (  20K)] [ffn_moe_topk-4 (   0K)]"
+            },
+            {
+              "index": 11,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-4 ( 120K)]"
+            },
+            {
+              "index": 12,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-5 (reshaped) (  20K)] [ffn_moe_topk-5 (   0K)]"
+            },
+            {
+              "index": 13,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-5 ( 120K)]"
+            },
+            {
+              "index": 14,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-6 (reshaped) (  20K)] [ffn_moe_topk-6 (   0K)]"
+            },
+            {
+              "index": 15,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-6 ( 120K)]"
+            },
+            {
+              "index": 16,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-7 (reshaped) (  20K)] [ffn_moe_topk-7 (   0K)]"
+            },
+            {
+              "index": 17,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-7 ( 120K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 18,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-8 (reshaped) (  20K)] [ffn_moe_topk-8 (   0K)]"
+            },
+            {
+              "index": 19,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-8 ( 120K)]"
+            },
+            {
+              "index": 20,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-9 (reshaped) (  20K)] [ffn_moe_topk-9 (   0K)]"
+            },
+            {
+              "index": 21,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-9 ( 120K)]"
+            },
+            {
+              "index": 22,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-10 (reshaped) (  20K)] [ffn_moe_topk-10 (   0K)]"
+            },
+            {
+              "index": 23,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-10 ( 120K)]"
+            },
+            {
+              "index": 24,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-11 (reshaped) (  20K)] [ffn_moe_topk-11 (   0K)]"
+            },
+            {
+              "index": 25,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-11 ( 120K)]"
+            },
+            {
+              "index": 26,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-12 (reshaped) (  20K)] [ffn_moe_topk-12 (   0K)]"
+            },
+            {
+              "index": 27,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-12 ( 120K)]"
+            },
+            {
+              "index": 28,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-13 (reshaped) (  20K)] [ffn_moe_topk-13 (   0K)]"
+            },
+            {
+              "index": 29,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-13 ( 120K)] [engram_rows-14 (  24K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 30,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-14 (reshaped) (  20K)] [ffn_moe_topk-14 (   0K)]"
+            },
+            {
+              "index": 31,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-14 ( 120K)]"
+            },
+            {
+              "index": 32,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-15 (reshaped) (  20K)] [ffn_moe_topk-15 (   0K)]"
+            },
+            {
+              "index": 33,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-15 ( 120K)]"
+            },
+            {
+              "index": 34,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-16 (reshaped) (  20K)] [ffn_moe_topk-16 (   0K)]"
+            },
+            {
+              "index": 35,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-16 ( 120K)]"
+            },
+            {
+              "index": 36,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-17 (reshaped) (  20K)] [ffn_moe_topk-17 (   0K)]"
+            },
+            {
+              "index": 37,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-17 ( 120K)]"
+            },
+            {
+              "index": 38,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-18 (reshaped) (  20K)] [ffn_moe_topk-18 (   0K)]"
+            },
+            {
+              "index": 39,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-18 ( 120K)]"
+            },
+            {
+              "index": 40,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-19 (reshaped) (  20K)] [ffn_moe_topk-19 (   0K)]"
+            },
+            {
+              "index": 41,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [ffn_moe_down-19 ( 120K)] [dsv4_hca_state_read_idxs (   0K)] [dsv4_hca_state_write_pos (   0K)] [dsv4_hca_state_write_idxs (   0K)] [dsv4_hca_state_persist_src_idxs (   0K)] [dsv4_hca_state_persist_dst_idxs (   0K)] [dsv4_hca_kq_mask (   0K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 42,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-20 (reshaped) (  20K)] [ffn_moe_topk-20 (   0K)]"
+            },
+            {
+              "index": 43,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-20 ( 120K)]"
+            },
+            {
+              "index": 44,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-21 (reshaped) (  20K)] [ffn_moe_topk-21 (   0K)]"
+            },
+            {
+              "index": 45,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-21 ( 120K)]"
+            },
+            {
+              "index": 46,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-22 (reshaped) (  20K)] [ffn_moe_topk-22 (   0K)]"
+            },
+            {
+              "index": 47,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-22 ( 120K)]"
+            },
+            {
+              "index": 48,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-23 (reshaped) (  20K)] [ffn_moe_topk-23 (   0K)]"
+            },
+            {
+              "index": 49,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-23 ( 120K)] [cand_pin (view) (   0K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 50,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-24 (reshaped) (  20K)] [ffn_moe_topk-24 (   0K)]"
+            },
+            {
+              "index": 51,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-24 ( 120K)]"
+            },
+            {
+              "index": 52,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-25 (reshaped) (  20K)] [ffn_moe_topk-25 (   0K)]"
+            },
+            {
+              "index": 53,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-25 ( 120K)]"
+            },
+            {
+              "index": 54,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-26 (reshaped) (  20K)] [ffn_moe_topk-26 (   0K)]"
+            },
+            {
+              "index": 55,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-26 ( 120K)]"
+            },
+            {
+              "index": 56,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-27 (reshaped) (  20K)] [ffn_moe_topk-27 (   0K)]"
+            },
+            {
+              "index": 57,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-27 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 58,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-28 (reshaped) (  20K)] [ffn_moe_topk-28 (   0K)]"
+            },
+            {
+              "index": 59,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-28 ( 120K)]"
+            },
+            {
+              "index": 60,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-29 (reshaped) (  20K)] [ffn_moe_topk-29 (   0K)]"
+            },
+            {
+              "index": 61,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-29 ( 120K)]"
+            },
+            {
+              "index": 62,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-30 (reshaped) (  20K)] [ffn_moe_topk-30 (   0K)]"
+            },
+            {
+              "index": 63,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-30 ( 120K)]"
+            },
+            {
+              "index": 64,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-31 (reshaped) (  20K)] [ffn_moe_topk-31 (   0K)]"
+            },
+            {
+              "index": 65,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-31 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 66,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-32 (reshaped) (  20K)] [ffn_moe_topk-32 (   0K)]"
+            },
+            {
+              "index": 67,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-32 ( 120K)]"
+            },
+            {
+              "index": 68,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-33 (reshaped) (  20K)] [ffn_moe_topk-33 (   0K)]"
+            },
+            {
+              "index": 69,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-33 ( 120K)]"
+            },
+            {
+              "index": 70,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-34 (reshaped) (  20K)] [ffn_moe_topk-34 (   0K)]"
+            },
+            {
+              "index": 71,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-34 ( 120K)]"
+            },
+            {
+              "index": 72,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-35 (reshaped) (  20K)] [ffn_moe_topk-35 (   0K)]"
+            },
+            {
+              "index": 73,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-35 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 74,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-36 (reshaped) (  20K)] [ffn_moe_topk-36 (   0K)]"
+            },
+            {
+              "index": 75,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-36 ( 120K)] [out_ids (   0K)]"
+            }
+          ],
+          "post_allocation_splits": 76,
+          "trace_file": "code_stable_grouping_python-graph-post.json"
+        },
+        "C": {
+          "scheduled_split_headers": [
+            {
+              "index": 0,
+              "backend": "CPU",
+              "inputs": 0,
+              "printed_inputs": ""
+            },
+            {
+              "index": 1,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [embd (reshaped) (  20K)] [inp_pos (   0K)] [leaf_14 (   0K)] [attn_inp_kq_mask (   0K)]"
+            },
+            {
+              "index": 2,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-0 (reshaped) (  20K)] [ffn_moe_topk-0 (   0K)]"
+            },
+            {
+              "index": 3,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_moe_down-0 ( 120K)] [engram_rows-1 (  24K)]"
+            },
+            {
+              "index": 4,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-1 (reshaped) (  20K)] [ffn_moe_topk-1 (   0K)]"
+            },
+            {
+              "index": 5,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [xeon_hot_ffn_1 ( 120K)] [dsv4_csa_state_read_idxs (   0K)] [dsv4_csa_state_write_pos (   0K)] [dsv4_csa_state_write_idxs (   0K)] [dsv4_csa_state_persist_src_idxs (   0K)] [dsv4_csa_state_persist_dst_idxs (   0K)] [dsv4_csa_kq_mask (   0K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 6,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-2 (reshaped) (  20K)] [ffn_moe_topk-2 (   0K)]"
+            },
+            {
+              "index": 7,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_2 ( 120K)]"
+            },
+            {
+              "index": 8,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-3 (reshaped) (  20K)] [ffn_moe_topk-3 (   0K)]"
+            },
+            {
+              "index": 9,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_3 ( 120K)]"
+            },
+            {
+              "index": 10,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-4 (reshaped) (  20K)] [ffn_moe_topk-4 (   0K)]"
+            },
+            {
+              "index": 11,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_4 ( 120K)]"
+            },
+            {
+              "index": 12,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-5 (reshaped) (  20K)] [ffn_moe_topk-5 (   0K)]"
+            },
+            {
+              "index": 13,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_5 ( 120K)]"
+            },
+            {
+              "index": 14,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-6 (reshaped) (  20K)] [ffn_moe_topk-6 (   0K)]"
+            },
+            {
+              "index": 15,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_6 ( 120K)]"
+            },
+            {
+              "index": 16,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-7 (reshaped) (  20K)] [ffn_moe_topk-7 (   0K)]"
+            },
+            {
+              "index": 17,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [xeon_hot_ffn_7 ( 120K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 18,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-8 (reshaped) (  20K)] [ffn_moe_topk-8 (   0K)]"
+            },
+            {
+              "index": 19,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_8 ( 120K)]"
+            },
+            {
+              "index": 20,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-9 (reshaped) (  20K)] [ffn_moe_topk-9 (   0K)]"
+            },
+            {
+              "index": 21,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-9 ( 120K)]"
+            },
+            {
+              "index": 22,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-10 (reshaped) (  20K)] [ffn_moe_topk-10 (   0K)]"
+            },
+            {
+              "index": 23,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_10 ( 120K)]"
+            },
+            {
+              "index": 24,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-11 (reshaped) (  20K)] [ffn_moe_topk-11 (   0K)]"
+            },
+            {
+              "index": 25,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_11 ( 120K)]"
+            },
+            {
+              "index": 26,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-12 (reshaped) (  20K)] [ffn_moe_topk-12 (   0K)]"
+            },
+            {
+              "index": 27,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-12 ( 120K)]"
+            },
+            {
+              "index": 28,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-13 (reshaped) (  20K)] [ffn_moe_topk-13 (   0K)]"
+            },
+            {
+              "index": 29,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [xeon_hot_ffn_13 ( 120K)] [engram_rows-14 (  24K)] [dsv4_csa_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 30,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-14 (reshaped) (  20K)] [ffn_moe_topk-14 (   0K)]"
+            },
+            {
+              "index": 31,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_14 ( 120K)]"
+            },
+            {
+              "index": 32,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-15 (reshaped) (  20K)] [ffn_moe_topk-15 (   0K)]"
+            },
+            {
+              "index": 33,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_15 ( 120K)]"
+            },
+            {
+              "index": 34,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-16 (reshaped) (  20K)] [ffn_moe_topk-16 (   0K)]"
+            },
+            {
+              "index": 35,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_16 ( 120K)]"
+            },
+            {
+              "index": 36,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-17 (reshaped) (  20K)] [ffn_moe_topk-17 (   0K)]"
+            },
+            {
+              "index": 37,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_17 ( 120K)]"
+            },
+            {
+              "index": 38,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-18 (reshaped) (  20K)] [ffn_moe_topk-18 (   0K)]"
+            },
+            {
+              "index": 39,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-18 ( 120K)]"
+            },
+            {
+              "index": 40,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-19 (reshaped) (  20K)] [ffn_moe_topk-19 (   0K)]"
+            },
+            {
+              "index": 41,
+              "backend": "CUDA0",
+              "inputs": 9,
+              "printed_inputs": ": [xeon_hot_ffn_19 ( 120K)] [dsv4_hca_state_read_idxs (   0K)] [dsv4_hca_state_write_pos (   0K)] [dsv4_hca_state_write_idxs (   0K)] [dsv4_hca_state_persist_src_idxs (   0K)] [dsv4_hca_state_persist_dst_idxs (   0K)] [dsv4_hca_kq_mask (   0K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 42,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-20 (reshaped) (  20K)] [ffn_moe_topk-20 (   0K)]"
+            },
+            {
+              "index": 43,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_20 ( 120K)]"
+            },
+            {
+              "index": 44,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-21 (reshaped) (  20K)] [ffn_moe_topk-21 (   0K)]"
+            },
+            {
+              "index": 45,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-21 ( 120K)]"
+            },
+            {
+              "index": 46,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-22 (reshaped) (  20K)] [ffn_moe_topk-22 (   0K)]"
+            },
+            {
+              "index": 47,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_22 ( 120K)]"
+            },
+            {
+              "index": 48,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-23 (reshaped) (  20K)] [ffn_moe_topk-23 (   0K)]"
+            },
+            {
+              "index": 49,
+              "backend": "CUDA0",
+              "inputs": 4,
+              "printed_inputs": ": [ffn_moe_down-23 ( 120K)] [cand_pin (view) (   0K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 50,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-24 (reshaped) (  20K)] [ffn_moe_topk-24 (   0K)]"
+            },
+            {
+              "index": 51,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-24 ( 120K)]"
+            },
+            {
+              "index": 52,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-25 (reshaped) (  20K)] [ffn_moe_topk-25 (   0K)]"
+            },
+            {
+              "index": 53,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-25 ( 120K)]"
+            },
+            {
+              "index": 54,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-26 (reshaped) (  20K)] [ffn_moe_topk-26 (   0K)]"
+            },
+            {
+              "index": 55,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-26 ( 120K)]"
+            },
+            {
+              "index": 56,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-27 (reshaped) (  20K)] [ffn_moe_topk-27 (   0K)]"
+            },
+            {
+              "index": 57,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-27 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 58,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-28 (reshaped) (  20K)] [ffn_moe_topk-28 (   0K)]"
+            },
+            {
+              "index": 59,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_28 ( 120K)]"
+            },
+            {
+              "index": 60,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-29 (reshaped) (  20K)] [ffn_moe_topk-29 (   0K)]"
+            },
+            {
+              "index": 61,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_29 ( 120K)]"
+            },
+            {
+              "index": 62,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-30 (reshaped) (  20K)] [ffn_moe_topk-30 (   0K)]"
+            },
+            {
+              "index": 63,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-30 ( 120K)]"
+            },
+            {
+              "index": 64,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-31 (reshaped) (  20K)] [ffn_moe_topk-31 (   0K)]"
+            },
+            {
+              "index": 65,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [ffn_moe_down-31 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 66,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-32 (reshaped) (  20K)] [ffn_moe_topk-32 (   0K)]"
+            },
+            {
+              "index": 67,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-32 ( 120K)]"
+            },
+            {
+              "index": 68,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-33 (reshaped) (  20K)] [ffn_moe_topk-33 (   0K)]"
+            },
+            {
+              "index": 69,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [xeon_hot_ffn_33 ( 120K)]"
+            },
+            {
+              "index": 70,
+              "backend": "CPU",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-34 (reshaped) (  20K)] [ffn_moe_topk-34 (   0K)]"
+            },
+            {
+              "index": 71,
+              "backend": "CUDA0",
+              "inputs": 1,
+              "printed_inputs": ": [ffn_moe_down-34 ( 120K)]"
+            },
+            {
+              "index": 72,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-35 (reshaped) (  20K)] [ffn_moe_topk-35 (   0K)]"
+            },
+            {
+              "index": 73,
+              "backend": "CUDA0",
+              "inputs": 3,
+              "printed_inputs": ": [xeon_hot_ffn_35 ( 120K)] [dsv4_hca_kq_mask (reshaped) (   0K)] [attn_inp_kq_mask (reshaped) (   0K)]"
+            },
+            {
+              "index": 74,
+              "backend": "XEON_HOT_FFN",
+              "inputs": 2,
+              "printed_inputs": ": [ffn_norm-36 (reshaped) (  20K)] [ffn_moe_topk-36 (   0K)]"
+            },
+            {
+              "index": 75,
+              "backend": "CUDA0",
+              "inputs": 2,
+              "printed_inputs": ": [xeon_hot_ffn_36 ( 120K)] [out_ids (   0K)]"
+            }
+          ],
+          "post_allocation_splits": 76,
+          "trace_file": "code_stable_grouping_python-graph-post.json"
+        }
+      },
+      "scope": "Pre-original DAG;post-allocation/optimization metadata. Debugsplit listing before CUDAoptimizer and rounded/truncated labels; not hardware transfer byte/time measurement."
+    }
+  },
+  "runs": {
+    "F": {
+      "path": "/home/codex/projects/llm-lab/be05-followup-20261119/fbc/runs/quality-F",
+      "manifest_sha256": "eb7f36166b3ce9ef800b0396760832b611b72bfb0929c8c95c68f71c46cbce79"
+    },
+    "B": {
+      "path": "/home/codex/projects/llm-lab/be05-followup-20261119/fbc/runs/quality-B",
+      "manifest_sha256": "24e9b21957a6f1bce8c46c339209679ccdc57ccf377337c30b61d88350a3e6fd"
+    },
+    "C": {
+      "path": "/home/codex/projects/llm-lab/be05-followup-20261119/fbc/runs/quality-C",
+      "manifest_sha256": "2d388dd4917410f8d1c264676f027284401bada73a652800a31a2708b4c8f10a"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "command": [
+    "g++",
+    "-O3",
+    "-std=c++17",
+    "-march=ivybridge",
+    "-mtune=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-frounding-math",
+    "-fopenmp",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+    "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/probe_wrapper.cpp",
+    "-L/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/control/runtime",
+    "-L/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+    "-Wl,--no-as-needed",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-ldl",
+    "-o",
+    "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/q8_probe"
+  ],
+  "provided_probe_unchanged": true,
+  "adaptation": "Compile unchanged prefix before supplied main as q8_cases.inc; own main validates providers and returns0 explicitly.",
+  "sources": {
+    "q8_probe.cpp": "c27e419d0b484162a73d5ee9ab45e5290f41a5303a454becda6668554feff9b2",
+    "q8_cases.inc": "ee9962a449d1ae183034d38b0dd7565ec271f849f305ae408be204839d2fda47",
+    "probe_wrapper.cpp": "81561cd8100ed3367576dbe6eb938024ce74233698447d2a021f0b7b10854b75"
+  },
+  "binary_sha256": "678a2ce2fe4943e7b756e3a865f6f26f64e9030bf723441723ec7981fc8049a0"
+}

@@ -1,0 +1,30 @@
+{
+  "command": [
+    "g++",
+    "-O3",
+    "-std=c++17",
+    "-march=ivybridge",
+    "-mtune=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-fopenmp",
+    "-Wall",
+    "-Wextra",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+    "-I/home/codex/projects/llm-lab/exploration-20261112/row-local",
+    "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/real_ffn.cpp",
+    "-L/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/control/runtime",
+    "-L/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+    "-Wl,--no-as-needed",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-ldl",
+    "-o",
+    "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/real_ffn"
+  ],
+  "source_sha256": "dedcc8b849638530cb5047d87ceb699bb241ff99853dd96f3748e9d308a74ebd",
+  "binary_sha256": "497174c49b3e28635efca853fbb34678e4f427e551a7eae0032cc3337a3866c4"
+}

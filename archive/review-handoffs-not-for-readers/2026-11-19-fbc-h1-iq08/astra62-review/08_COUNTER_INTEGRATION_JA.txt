@@ -1,0 +1,32 @@
+08 の quality 専用経路カウンタ提案　2026-11-19
+
+iq08_quality_counts.cpp と iq08_quality_counts.h が一組の提案。通常 CPU や 08 の対象 object に組み込む必要はない。実機でのコンパイル・実行は親担当が行う。
+
+ライブラリと呼び出し
+
+・g++ で C++17 の独立 shared library を作る。必要な外部 include は実機の hybrid/engine/ggml/include。-shared -fPIC -O2 -march=ivybridge -mno-avx2 -mno-fma -fvisibility=hidden と -ldl でよい。ggml や 08 CPU を直接リンクする必要はない。外部 ABI は元の C 名を保つ 2 フックと xeon_iq08_quality_snapshot_v1 の 3 個。
+
+・両 quality process にだけ同一の絶対パスを LD_PRELOAD で渡す。実機 33a9 には 08 の二つの関数がない。スナップショットは観測済みポインタを読むだけで、未実行のシンボルを引かない。フック自体が初めて呼ばれた際に RTLD_NEXT で元関数を解決する。
+
+・caller ではヘッダを含め、dlsym(RTLD_DEFAULT, "xeon_iq08_quality_snapshot_v1") で関数を取得する。quality では非 null と dladdr でテスト用ライブラリの canonical path を確認する。timing では明示的な空の LD_PRELOAD と関数不在を検査する。テスト用ライブラリを caller の直接依存にすると timing にもロードされるため、dlsym 経由で使用する。
+
+・quality の第 3 warmup graph の直前・直後で、同一スレッドから snapshot(&value,sizeof(value)) が 1、abi_version が 1 となることを確認する。既存の第 3 warmup 末尾の output() で元 capture と照合する。ここでは 1 回の synchronous CPU graph に対する 2 スナップショットを使う。カウンタは単調加算なので差分を取る。新しい graph や初期化中の呼出しは増えない。
+
+・packer、selector、各型で selector が返した実際の dot の各 binding は dso_path とロード基底からの offset を返す。各 non-null path を canonical 化し、SPEC の CPU provider と一致することを確認して保存する。実際の fold 呼び出しは selector の戻り値を通る。型ごとに同一関数を返すことをワーカ間で照合し、nrc=1 の dot が完了した時だけ 1 行と数える。selector の呼出し回数は独立の項目。複数行を一度に扱う呼出し、未知の型の selector は該当カウンタで検出する。
+
+1 graph の期待値
+
+                                 cell1       cell5       cell6
+08 folded prep blocks               94          94           0
+08 folded dot rows, IQ2_S         23040           0           0
+08 folded dot rows, IQ3_XXS       25600       27648           0
+08 folded dot rows, IQ3_S             0       30720           0
+08 folded dot rows, total         48640       58368           0
+08 other_nrc/other_selector           0           0           0
+33a9 の上記全項目                    0           0           0
+
+gate/up は K=5120 と入力列 1 個ずつ、down は K=2304 と入力列 6 個。12 worker の実装が各入力列で全員から pack を呼ぶ場合、IQ セルの pack_calls は 12+12+6×12=96、うち empty_pack_calls は down の (12−9)×6=18。チェックの本体は実ブロック数 94 と型別実行行数。将来の呼出し粒度変更から算術の違いを推定しない。MX セルの差分がゼロでも、先行する IQ セルがあれば最後に観測済みの binding 情報は残る。MX で個々の prepare/fast/fallback を直接計数する機能はこの二フックの範囲外。
+
+小さい追加数値照合を行う場合
+
+今回の 3 実入力は default rounding の F32 を通る。特に 08 の符号補正が扱う -128 を Ivy 上で確実に検査したい場合、candidate DSO 内で 3 型それぞれ従来 compact dot と folded dot の同一 packed weight、同一 Q8_K に対する F32 出力 4 bytes を比べる。Q8_K を直接構成し、各 32 要素 group の低位側・高位側の両方に -128 と近傍 -127、0、127 を置く。既存の cache owner/lookup が返した正規の compact weight を使い、両重み符号と両 scale が現れる固定の短い例を選ぶ。1 block の直接呼出しは端数処理と graph の fallback には及ばないため、必要なら -128 無し block を並べた 2-block dot にする。F32→Q8 の通常参照変換はスケールを -127/max としており、その出力だけで意図した -128 が現れたとは仮定しない。raw Q8 を graph に与えた既存 VM probe の prequantized 行は fold_input が false で、folded 内積のこの分岐を直接踏む試験にはならない。既に予定された実入力・12T の合否は元 capture 全 byte と比較する。

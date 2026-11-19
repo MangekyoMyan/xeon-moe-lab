@@ -1,0 +1,46 @@
+04実機試験を受けた採否と優先順位
+GPT-6.2 Astra / max　2026-11-18　対象commit be05f5fb10438e83ff0201deef2ddfd21bf4a111
+
+04を数値適合済みの候補として保管し、通常CPUは33a9e346…を維持する。共有実機の次の本線には、固定したproviderでF/B/Cを1巡し、続いて既存のH1主要2セルを比べる作業を選ぶ。CPU候補の次は新08。08の現行移植、数値照合と12物理スレッド限定試験の準備は先に進められる。04追加診断の実行は現時点で不要。計時の順序依存を調べる必要が生じたときの予備は、同じ対照DSO内での順序A/A比較1件に絞る。
+
+相談1　04の保留と、新08の実入力比較
+
+賛成する。今回の対照CPUは現用DSOのバイト列を再現し、候補の変更はQ8_K変換に限られた。変換4丸め・計41,376ブロックの参照との全バイト一致に加え、実入力の6 expert出力も保存captureと一致した。通常decodeに対応する12物理スレッドの局所graphでは、cell1が候補/対照1.023623、短縮0/4組。cell5は1.009443、短縮1/4組。運用へ追加する価値をこの条件で示せなかったと読む。四つの組から将来のすべての負荷での遅延を認定する根拠は得られない。
+
+新08はcompact expertの内積自体を変更する。gate/upは各2,304出力行、downは5,120出力行、6 expert合計で58,368回の行内積に当たる。このうちfolded入力に対応する静的な行数は、実際の登録表を使うとcell1が48,640、cell5が58,368、MXFP4のcell6は0。VMのIQ3_XXS・3 worker・合成down・5/6での0.841547は、実機へ1回持ち込む理由にはなる。実機の各型や2 NUMAでの率は未測定である。04や09を加えず、時計内の追加準備・lookupを含む08単独の効果を比較できる。
+
+「CPU候補として08が次」と「共有実機の次の重い測定」は区別したい。08を早く試せる利点は今回のfixtureを再利用できる点にある。全体では以前の実T1で並列化の効果が課題間で変わり、bankを保持する費用とcustom経路を通す費用のどちらを削る価値があるかが残っている。04の見送りでその比較中のCPUを固定できる。F/B/Cの1巡の後、差が揺れても既存H1のcell1（331/85）、cell4（78/100）へ進める。08の成績を両試験の開始条件にしない。後で08を通常採用する場合にだけ、CPU残仕事が変わった構成で分担の価値を改めて評価する。
+
+相談2　04を掘るなら何を一つ測るか
+
+現時点では追加の実機枠を割かない。既存記録から、IQの1 graphにつき、gateとupは同じxを各20ブロック、downは6入力を各9ブロック量子化すると分かる。計94ブロックである。実ソースのworker分割を適用した呼出し数は次の通り。
+
+  worker数   0ブロックcall   1ブロックcall   2ブロックcall   総call
+       12              18              62              16        96
+       24              98              94               0       192
+
+対照はbaseの参照関数へのjmp。04の実機逆アセンブルでは、空の呼出しでも候補のレジスタ退避とMXCSR丸め確認を経てブロック数の分岐へ達する。零件の固定費は仮説になる。同じgraphのIQ重み×入力は論理的に6×(2×2,304×20＋5,120×9)＝829,440ブロック。選択して使うcompactとnativeの重みサイズの合計はcell1で111,605,760 B、cell5で119,439,360 B、cell6で112,803,840 B。これらはソース、寸法、登録から求めた仕事量であり、実DRAM転送量、critical path時間、時間の上限を表す数値ではない。ゲート・アップの共有入力、小さいdown入力、重みを繰り返し読む内積では、単体の5.6～5.9倍をgraph短縮率へ代入できない。
+
+最小化するなら、既存control CPUと同じfixture実行ファイルを使い、graphのworker数を24に固定してcell1と6を先頭/後段に入れ替えるA/Aを選ぶ。保存時刻にすでにある順序との関連を、04が入っていない条件で再現できるかを問える。IQの初期packingは元実装どおり12 workerなので、測るものは先頭/後段の実行文脈全体である。仕様をLIMITED_EXPERIMENTS_JA.txtの後半に記した。A/Aで差が出ても、過去の04の差のうち何割がその原因だったかは決まらない。
+
+独立検討では「変換アルゴリズムを替えるだけでcell1/24が短くなるか」という別の問いに対し、両実装を一つの診断DSOに収めて同一プロセス・同一graph上の関数選択を反転し、MXにも同じラベルを付ける案を考えた。この方法はQ8の寄与を直接問える利点がある一方、新しい診断コードと選択経路が要る。今回の実行予定には含めず、再開判断がその直接因果に掛かるときの考え方として残す。
+
+相談3　fixtureと計時の条件
+
+04の採否を取り消すような取り違えは見つからなかった。cell1/5のIQ型に対してQ8_K、cell6のMXFP4に対してQ8_0が選ばれる。3例とも384 expertの実GGUF、同じordered top6、保存x、clamp=10、射影ごとの実compact membershipを使う。元captureでidsの第2次元strideは1,536 B、fixtureの連続6要素では24 Bだが、T=1で読むのはiid1=0の行だけで、第1次元strideはどちらも4 B。今回の6 IDのアドレス式は一致する。
+
+時間は各expertのgate/up・clamped SwiGLU・down完了まで。fixtureのDAG作成、初期packing、出力読取りは計時外である。呼出し口はggml_backend_graph_computeで、保存CPUバックエンド実装では通常のggml_graph_planを各呼出しで作成する。必要なscratchは不足時に拡大し、同じgraphをウォームアップ後に計時する。重みの加重merge、GPU、外側scheduler、生成全体は別の境界である。実operandsの共有とローカル演算の結果は確認できたが、実サービスは120 GiB級のcompact ownerを持ち、モデルをmmap+mlockする。fixtureは一度に対象cellの選択expertだけを登録する。interleaveはプロセスの指定条件であり、既存file pageの物理配置の測定値ではない。独立に確認できるworker receiptは計時後の別OpenMP領域のものである。
+
+保存した時刻には実行順との関連がある。各プロセスの5 sample中央値を取り、対照/候補両方を含めた4プロセスずつを表示する。
+
+  cell1       cell順1→5→6、各12→24     cell順6→5→1、各24→12
+  12 worker       3.725～3.870 ms          3.123～3.277 ms
+  24 worker       3.816～6.902 ms          2.961～3.218 ms
+
+cell1/24の四つの対応比は順方向0.689、0.834と逆方向0.990、0.920だった。cellの位置、現在のteamサイズに入る前の処理、初回のOpenMP team拡大などが一緒に変わる。原因の指名はできない。各対の対照/候補には同じ順が使われ、対応付けは正しい。cell6/24にも0.954188、短縮4/4組、範囲0.756991～0.996474の差があった。MXの差をIQから引く補正、初回プロセスや不利なsampleを落とす再集計は不要である。08の最初の計時を12 workerのみとすれば、24 workerへの遷移を示す必要がなくなる。
+
+根拠と再計算
+
+今回のCONSULT_PRO_JA.txt、RESULTS_JA.txt、HARDWARE.json、q8-avx1/real_ffn.cpp、FFN_DESIGN.json、runs-v2/timing-*/RUN.json、control/candidate-Q8-disassembly.txt、BUILD.jsonを参照。元captureは2026-11-17-parallel-pilot/capture/runs/20261117T052657Z-U1024-3483cb75のCAPTURE.jsonとLAUNCH_MANIFEST.json。CPU callerは現行保存ggml-cpu.cのtype traits、MUL_MAT_IDとOpenMP graph compute。CPUバックエンドは保存されたsparse-cache系ggml-cpu.cppのggml_backend_cpu_graph_compute。08はfd810追補の08-current-mixed.patchで、SHA-256はcad2e24dea2bc3bfa8d3dc1dd43c2d7930159889dbd49c4f2c4dda4052cbd6a3。
+
+inspect_order_and_work.pyは標準Pythonで、FFN_ANALYSIS.jsonを使わず8本のRUN.jsonの時刻と実重みrecordから順序別範囲、全4比、論理仕事量を算出する。引数に展開した2026-11-18-q8-k-avx1のディレクトリを渡す。結果をORDER_AND_WORK.jsonに保存した。今回は保存資料の解析と次の実験設計を行った。実機再実行、新しい性能値、通常APIへの変更はない。

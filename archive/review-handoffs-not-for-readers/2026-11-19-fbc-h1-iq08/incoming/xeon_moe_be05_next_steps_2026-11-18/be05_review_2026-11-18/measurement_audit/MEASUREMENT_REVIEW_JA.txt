@@ -1,0 +1,170 @@
+be05・実機04局所試験の独立測定監査
+2026-11-18 JST
+対象commit: be05f5fb10438e83ff0201deef2ddfd21bf4a111
+担当: /root/be05_measurement_audit
+
+判断
+
+今回のコードと保存データから、結果を捨てて試験をやり直す必要があるような決定的な条件の取り違えは見つからなかった。
+実機12物理threadの対象2条件で採用に進む利益が示されず、04を保留する判断は妥当である。
+24 logical threadの一部改善を、Q8_K変換の効果だけに帰属できないという実機側の判断も支持する。
+
+追加で、process内の順序と時間の揺れに強い関連が見えた。
+各processで最初に置いたfixtureの24thread測定は、8processすべてで5sampleの最大/最小が2.478～2.862倍だった。
+後続fixtureの24thread測定16件では、その比の中央値は1.100倍だった。
+これは既存全sampleを用いた事後的な記述であり、原因を特定したものでも、有利なsampleだけを残す根拠でもない。
+新08など次の局所比較で、process初期状態・fixture順・thread数変更を扱う手がかりになる。
+
+実施した範囲
+
+real_ffn.cpp、run_ffn.py、prepare_ffn.py、build_q8.py、analyze_ffn.py、保存sourceと設計・build記録を読んだ。
+独自に audit_saved_ffn.py を作成し、提供された分析scriptは実行・importせず、保存JSON/F32/時刻を再計算した。
+モデル・engine・DSO・実機APIの実行、build、性能の再計時は行っていない。
+通常API復帰やロードされたlibraryの現物は実機側の記録を読む範囲であり、このVMから実機を確認したとは書かない。
+
+1. 全データの独立再計算
+
+10成功processのRUN/SPEC/LAUNCH、run manifest130項目を照合した。
+public exportでhealth.jsonがguard-health.jsonへ改名された点を対応付けた。
+server-config.jsonはLAUNCHに保存されたcommand/environmentから、元write関数と同じJSON表現を作ってhashを照合した。
+保存された各stageのmanifest自身のSHAもSTATE-v2の記録と一致した。
+
+元captureは成功run 20261117T052657Z-U1024-3483cb75 の固定git blobから読み取った。
+必要なCAPTURE.json、RESULTS_SHA256、cell1/5/6のx・IDs・routing weights・downを、元manifestへ照合した。
+IDsのbinary内容とJSONのordered top6も一致した。routing weightsは時計に含まれず、今回は読取同定のみである。
+
+全60出力fileは、対応する元captureのdown出力と直接全byte一致した。
+1fileは5120×6=30,720 F32、計1,843,200 F32、すべてfiniteだった。
+各sample末尾のoutput FNV64も、実byteから独自に計算して一致した。
+これは3固定入力を繰り返した出力であり、60個の独立したモデル入力ではない。
+
+timingは8process×3cell×2thread×5sample=240sample、各8graphで1,920graph calls。
+開始/終了差は全件正、sample順・condition順に重なりがなく、process間のguard start/finishも重なっていない。
+10個のchild PIDも別であった。各processの5sample中央値、同じcondition順の4対応組、
+候補/対照比、その中央値・短縮組数・範囲は全6条件でFFN_ANALYSIS.jsonと一致した。
+
+  cell/thread    4組の候補/対照比                              中央値       短縮
+  1 / 12         1.005296  1.049320  1.022773  1.024473         1.023623      0/4
+  1 / 24         0.689240  0.990448  0.833917  0.920230         0.877073      4/4
+  5 / 12         1.003785  1.020348  0.997636  1.015100         1.009443      1/4
+  5 / 24         0.976813  1.033628  0.974479  1.029042         1.002928      2/4
+  6 / 12         0.976870  0.906832  1.002465  0.994358         0.985614      3/4
+  6 / 24         0.996474  0.993901  0.914475  0.756991         0.954188      4/4
+
+対は(control,candidate)=(0,1),(3,2),(5,4),(6,7)。ABBA BAABのうち、各対のcell/thread順も同じである。
+4対すべてを保持した。240sampleや1,920callsを独立した240/1,920対と扱っていない。
+機械可読の独立結果はINDEPENDENT_RECALCULATION.json、全sampleはINDEPENDENT_TIMING_SAMPLES.csv。
+
+2. 比較対象・計算内容の整合
+
+2.1 実行物
+
+build_q8.pyは現在のarch/x86/quants.cを複製し、candidateだけに04を適用する。
+元compile databaseの算術flagsを維持し、元の他objectを再利用してlinkする。
+controlの無変更objectと元object、control CPUと通常稼働CPUがbyte一致したという実機記録を確認した。
+このVMにはその実機ELF実体がないので、こちらがELF bytesを直接再比較したという主張ではない。
+
+RUNのfrom_float/CPU/cache providerは各SPECのCPUへ、baseは共通baseへ対応した。
+LAUNCHのCPU/base/binary/spec/design/runner hash、FFN_BUILDのsource hashも一致する。
+controlは通常CPU33a9e346…、candidateはeb05a18e…、baseは2e13b370…。
+前回のVM current CPUや、旧F/P実験の診断CPUと比較対象を混同していない。
+
+2.2 入力とcache
+
+入力は保存F32 x、T=1、global IDs6個、clamp=保存値。元の384expert tensor形状を保つ。
+gate/upはK5120/M2304、downはK2304/M5120で、graphは3 projectionとclamped SwiGLUからなる。
+各projectionのtype/shape、ordered native byte記録、選択compact列は全processで一致した。
+captureのmaskとSPEC内のCPU plan、実lookupの確認処理も整合する。
+
+cell1(layer7)はIQ2_S gate/up、IQ3_XXS down、全projection5/6 compact。
+cell5(layer13)はIQ3_XXS gate/up、IQ3_S down、全projection6/6 compact。
+cell6(layer28)はMXFP4×3、compactなし。現在のtype traitではQ8_0を使い、04のQ8_Kは通らない。
+
+元GGUF全体のfile mmapを使うが、compactとして登録するのは必要なexpertだけである。
+512MiBのowner budget、64GiB reserve、packing12thread、row-local無効という設定を維持する。
+120GiB全cacheの配置、全モデルのcache圧力、長寿命ownerを再現する測定ではない。
+実GGUF shardはVMへ提供されていないため、native weightの実byteそのものの再hashは行っていない。
+RUNに記録された各expertの元byte FNV・offset・sizeが全processで同じであることを検証した。
+
+2.3 時計
+
+real_ffn.cppはggml_backend_graph_computeを8回連続で呼ぶ区間をsteady_clockで測る。
+F32→Q8変換、cache lookup、ID処理、同期、内積、clamped activation、出力までを含む。
+GGUF初期化、cache packing、graph作成、出力コピー/finite検査/memcmp/hashは時計外。
+routing weight乗算・6expert加重merge、attention、主scheduler、GPU、API、samplingは含まない。
+従って測定をモデルFFN全体やtoken/sと呼ばない、という実機側の説明は正確である。
+
+3warmup後の最後の出力と、各sample8callsの最後の出力を検査する。
+全1,920callを個別に保存/照合したものではない。60fileは各condition/processの最後の保存物である。
+算術不一致を検出しやすい実入力の回帰試験にはなっているが、回答品質を測る試験ではない。
+
+2.4 thread/NUMA
+
+HARDWARE.jsonからCPU0..11は両socketの12物理coreを一つずつ、CPU0..23はそのSMT込み24logical CPUと再確認した。
+SPECのT1を24threadで計算した条件であり、24thread条件をprefillと呼んでいない。
+without_thp、numactlのCPU0..23 bindとnode0,1 interleave、strict pool0..threads−1の指定は記録とコードに存在する。
+OpenMP関連設定とLD_PRELOADなしもLAUNCHへ保存されている。
+
+worker receiptは各conditionの計時後に作る別OpenMP regionのCPU/TIDである。
+全receiptは期待するCPU集合とthread数に一致したが、各graph中の全瞬間のaffinity traceではない。
+interleaveの指定だけで、既存file-backed page cacheのページが今回全て再配置されたとは言えない。
+この点は原報告が既に限界として記録しており、隠れた条件取り違えとは扱わない。
+
+3. 新しく確認した、順序と揺れの関連
+
+以下は元の4対集計を変更せず、全240sampleの時刻から追加した記述である。
+5sampleはそれぞれ8callsの平均時間なので、ここでの最大/最小は「個々のtoken/graphの最大/最小」ではない。
+
+process0/1/4/5はcell順1→5→6、thread順12→24。
+process2/3/6/7はcell順6→5→1、thread順24→12。
+どちらもcandidate/controlの両方が含まれ、単純な片側だけの順序偏りにはなっていない。
+
+24threadのsample最大/最小比:
+  各processの最初のfixture8件: 範囲2.478～2.862、中央値2.721。
+  それ以外のfixture16件: 範囲1.019～2.170、中央値1.100。
+
+特にcell1/24を最初のfixtureとして測ったprocess0/1/4/5は、最大/最小が2.67、2.79、2.61、2.76。
+同じcell1/24を最後に測ったprocess2/3/6/7は、1.10、1.19、1.10、1.02。
+逆順では最初に置いたcell6/24が2.79、2.86、2.48、2.68になる。
+従って「IQ2の特殊性」や「candidateにだけ起こる現象」として整理するより、
+process初期状態・fixture順・thread数切替などと結び付いた変動を疑う材料になる。
+
+ここから原因を確定することはできない。
+fixture順とthread順を同時に反転しているため、この二要因やpool履歴を独立に識別していない。
+memory residency、OpenMPの起動/待機状態、OS/監視処理、コード配置等の寄与も未分離である。
+3warmupが不足していると断定したり、遅い最初のsampleを捨てたり、MX差をIQ結果から差し引いたりしない。
+cell1/12の0/4短縮という事実も、この記述で好都合に取り消さない。
+
+4. 次の比較へ反映する最小限の助言
+
+04を今保留する採否は、この監査を受けても変えなくてよい。
+数値・現行基準・providerの対応は整合しており、未確認の大きな取り違えを直すために全試験を繰り返す必要は見つからない。
+
+新08の局所試験をする場合は、12物理threadを主条件として事前に固定し、
+現行controlとの同じ実入力/cell/projection membershipの比較を維持する。
+24threadは12threadの代わりに良い値を選ぶ用途には使わず、別条件として扱う。
+phase/conditionの順序と全sample時刻を今回同様に保存することで、この初期状態との関連も追える。
+
+測定状態だけを一つ調べるなら、同じcontrol DSO・同じcapture・同じthread数で、
+対象fixtureを先頭/後段へ置く対照は反証可能である。これなら04のコード効果を混ぜずに順序関連を調べられる。
+ただし今回の24thread結果だけで、この追加調査を08やF/B/C→H1の必須前提にする必要はない。
+問題は「04を絶対に速くする方法を探す」ことより、次の採否が測定の大きな変動に左右されないかである。
+
+再現方法
+
+  python3 audit_saved_ffn.py --source ../source --capture capture_reference --out reproduced.json
+
+Python標準ライブラリのみ。公開sourceディレクトリはbe05 archiveの相対構造で用意する。
+出力JSONに、読んだ152ファイルのサイズとSHAを記録した。添付capture_referenceは必要な3cellの原本だけを収録する。
+元repoのincoming全体の再検査や、過去VM試行の再実行はこの監査範囲ではない。
+
+出典
+
+固定公開ルート:
+https://github.com/MangekyoMyan/xeon-moe-lab/tree/be05f5fb10438e83ff0201deef2ddfd21bf4a111/archive/review-handoffs-not-for-readers/2026-11-18-q8-k-avx1
+
+同ルートのq8-avx1/real_ffn.cpp、FFN_DESIGN.json、FFN_BUILD.json、BUILD.json、
+runs-v2/*/RUN.json、SPEC.json、LAUNCH.json、RESULTS_SHA256.json、guard-health.json、*.f32。
+run_ffn.py、prepare_ffn.py、build_q8.py、HARDWARE.json。
+analyze_ffn.pyとFFN_ANALYSIS.jsonは結果の照合先として読み、実行/importしていない。
+元captureの固定公開パスはcapture_reference/SOURCE_IDENTITIES.jsonに記載した。

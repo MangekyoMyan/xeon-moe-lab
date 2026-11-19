@@ -1,0 +1,80 @@
+be05実機結果を受けた次の作業 — 統合引き継ぎ
+2026-11-18 JST
+対象: be05f5fb10438e83ff0201deef2ddfd21bf4a111
+作成: 親レビュー + 明示指定GPT-6.2 Astra / max + 独立測定監査 + 並列化優先順位レビュー
+
+最初に読む結論
+
+04 Q8_K AVX1は数値適合済みの候補として保管し、通常採用を保留する。
+次の共有実機の重い計測はF/B/Cを1巡、その後に既存H1の主要2セル。
+新08-current-mixedの現行移植・数値照合・12物理スレッド限定比較の準備は並行して進める。
+08の成績をF/B/CやH1の開始条件にしない。04の追加試験は今は開始しない。
+09は引き続き保留。04/09を新08へ重ねない。03はこの二本の後に再判断する。
+
+この文書とMAIN_NEXT_BE05_JA.txtが今回の優先順位である。
+previous_handoff/以下は前回までの原本であり、その「次は04」等の作業指定は今回の実機結果で完了・更新された。
+古い未実施提案を自動で全て実行するリストとして読まない。
+
+読む順番
+
+1. USER_REPORT_BE05_JA.txt
+   万華鏡にゃんさん向け。何を測って何が分かり、なぜ次が並列化なのかを用語付きで説明。
+
+2. MAIN_NEXT_BE05_JA.txt
+   実機メイン向け。相談3点への回答、F/B/C→H1、新08、停止条件、返却物。
+
+3. ROOT_REVIEW_BE05_JA.txt
+   親の証拠区分、再集計結果、順序との関連、時計とメモリ条件の限界。
+
+4. ASTRA62_OBSERVATIONS_BE05_JA.txt
+   今回6.2/maxに任せた範囲、実際に貢献した点、メインが確認すべき点。
+   ASTRA62_REVIEW_BE05_JA.txtは6.2独立レビュー原文の、単独閲覧用の同一byteコピー。
+
+5. NEXT_EXPERIMENTS_BE05.json
+   未実行の作業順と固定条件。実行済みと取り違えないためstatusを付けた。
+
+新しい証拠の位置
+
+be05_review_2026-11-18/
+  source/                         固定commitの新規資料208ファイル。incoming/は重複回避のため除く。
+  SOURCE_IDENTITIES.json           各ファイルのGit blob SHA、SHA256、サイズ。
+  parent_recompute.py              親が別に書いた読み取り専用の時刻・仕事量再計算。
+  PARENT_RECOMPUTATION.json         上記結果。
+  parent_recheck/                  独立監査スクリプトを親が読み、再実行した結果。
+  measurement_audit/               全出力・計時の独立監査、元capture3セル、再現スクリプト。
+  astra62_decision/                明示指定6.2/maxの独立判断、限定試験仕様、再計算。
+  parallel_priority/              追加分担のコードとF/B/C・H1の優先順位レビュー。
+
+前回分
+
+previous_handoff/xeon_moe_fd810_followup_2026-11-18/
+前回渡したZIPの726ファイルを全byte一致で同梱。この中にそれ以前の統合400ファイルも含む。
+前回ZIP自体をZIPの中へ入れた形式ではなく、展開済み原本をまとめた形式。
+最新のこのZIPだけ渡せば、今回と前回までの引き継ぎがそろう。
+
+08の実機移植元:
+previous_handoff/xeon_moe_fd810_followup_2026-11-18/astra62_next/08-current-mixed.patch
+SHA256 cad2e24dea2bc3bfa8d3dc1dd43c2d7930159889dbd49c4f2c4dda4052cbd6a3
+
+既存F/B/C案とH1 plan:
+previous_handoff/xeon_moe_fd810_followup_2026-11-18/previous_handoff/
+xeon_moe_combined_handoff_2026-11-18/validation3_review_2026-11-18/
+同ディレクトリのASTRA_NEXT_JA.txt、plans/README_JA.txt、H1_*.plan、proposals/を参照。
+パス途中の改行はこの説明での折り返しであり、実パスには改行を含まない。
+
+今回こちらで行ったこと
+
+固定Git資料の読取、実装レビュー、保存F32・全生時刻の照合、独立再計算、次の試験仕様作成。
+新しいengine build、実機ベンチ、通常API操作、GitHub書込、一般回答品質評価は行っていない。
+API復帰・実機library一致は公開receiptを読んだ範囲であり、このVMが現在の実機を直接確認したものではない。
+
+検査
+
+展開先で次を実行すると全ファイルのサイズ・SHA256を照合する。
+  python3 verify_package.py
+
+FILES_SHA256.jsonは自身を除いた全ファイルを列挙する。
+source/内にある元exportのmanifestはincoming/も含む過去export全体の記録であり、
+今回の統合ZIPの完全性確認にはトップのverify_package.pyとFILES_SHA256.jsonを使う。
+全ての再計算スクリプトは標準Pythonによる保存データ読取であり、engineや実機を起動しない。
+

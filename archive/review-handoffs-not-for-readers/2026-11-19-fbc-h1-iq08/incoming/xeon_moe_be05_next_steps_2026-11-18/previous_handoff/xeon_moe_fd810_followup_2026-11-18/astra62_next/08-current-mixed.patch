@@ -1,0 +1,219 @@
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -1510,6 +1510,7 @@
+     const bool src1_cont,
+     const void * wdata,
+     const void * compact_data,
++    const void * folded_rhs,
+     const void * mx_rhs,
+     const size_t mx_stride,
+     const uint64_t mx_safe_mask) {
+@@ -1518,7 +1519,7 @@
+ 
+     const enum ggml_type type = src0->type;
+ 
+-    ggml_vec_dot_t const vec_dot = compact_data ? (type == GGML_TYPE_IQ2_S ? xeon_iq2s_compact_dot : type == GGML_TYPE_IQ3_S ? xeon_iq3s_compact_dot : xeon_iq3_compact_dot) : type_traits_cpu[type].vec_dot;
++    ggml_vec_dot_t const vec_dot = compact_data && folded_rhs ? xeon_iq_input_dot(type) : compact_data ? (type == GGML_TYPE_IQ2_S ? xeon_iq2s_compact_dot : type == GGML_TYPE_IQ3_S ? xeon_iq3s_compact_dot : xeon_iq3_compact_dot) : type_traits_cpu[type].vec_dot;
+     enum ggml_type const vec_dot_type = type_traits_cpu[type].vec_dot_type;
+     const size_t weight_stride = compact_data ? (size_t)(ne00/256)*144 : nb01;
+     const char * weight_data = compact_data ? (const char *) compact_data : src0_cur;
+@@ -1551,6 +1552,9 @@
+                     ? (i11      + i12*ne11)*row_size
+                     : (i11*nb11 + i12*nb12));
+ 
++                if (compact_data && folded_rhs) {
++                    src1_col = (const char *) folded_rhs + (i11 + i12*ne11)*(ne10/256)*XEON_IQ_INPUT_BLOCK_BYTES;
++                }
+                 float * dst_col = (float *) ((char *) dst->data + (i1*nb1 + i2*nb2));
+ 
+                 const void * prepared = mx_rhs && ((mx_safe_mask >> i11) & 1)
+@@ -1768,6 +1772,14 @@
+     void * mx_rhs = mx_shape ? incr_ptr_aligned(&wdata_cur, mx_stride*ne11, 64) : NULL;
+     uint8_t * mx_flags = mx_shape ? incr_ptr_aligned(&wdata_cur, ne11*nth, sizeof(int64_t)) : NULL;
+ 
++    const void * const * compact_experts = (!params->use_ref && (type == GGML_TYPE_IQ3_XXS || type == GGML_TYPE_IQ2_S || type == GGML_TYPE_IQ3_S) && ids->ne[1] == 1)
++        ? xeon_iq3_cache_lookup_experts_v2(src0) : NULL;
++
++    const bool fold_input = compact_experts && src1->type == GGML_TYPE_F32;
++    const size_t iq_blocks = ne10/256;
++    char * folded_rhs = fold_input ?
++        incr_ptr_aligned(&wdata_cur, iq_blocks*ne11*XEON_IQ_INPUT_BLOCK_BYTES, 16) : NULL;
++
+     GGML_ASSERT(params->wsize >= (size_t)((char *) wdata_cur - (char *) params->wdata));
+ 
+     if (src1->type != vec_dot_type) {
+@@ -1805,6 +1817,16 @@
+             }
+         }
+ #endif
++    }
++
++    if (fold_input) {
++        const size_t first = (ith*iq_blocks)/nth;
++        const size_t end = ((ith+1)*iq_blocks)/nth;
++        for (int64_t input = 0; input < ne11; ++input) {
++            const size_t block = input*iq_blocks + first;
++            xeon_iq_input_from_q8((const char *) params->wdata + block*ggml_type_size(vec_dot_type),
++                folded_rhs + block*XEON_IQ_INPUT_BLOCK_BYTES, end-first);
++        }
+     }
+ 
+     if (mx_enabled) {
+@@ -1860,9 +1882,6 @@
+             if (safe) mx_safe_mask |= UINT64_C(1)<<input;
+         }
+     }
+-
+-    const void * const * compact_experts = (!params->use_ref && (type == GGML_TYPE_IQ3_XXS || type == GGML_TYPE_IQ2_S || type == GGML_TYPE_IQ3_S) && ids->ne[1] == 1)
+-        ? xeon_iq3_cache_lookup_experts_v2(src0) : NULL;
+ 
+     for (int cur_a = 0; cur_a < n_as; ++cur_a) {
+         const int64_t cne1 = matrix_row_counts[cur_a];
+@@ -1940,7 +1959,7 @@
+                     dst, src0, src1, ids, cur_a,
+                     ir0_start, ir0_end, ir1_start, ir1_end,
+                     src0_cur, matrix_rows, row_size, src1_cont, wdata,
+-                    compact_data, mx_enabled ? mx_rhs : NULL, mx_stride, mx_safe_mask
++                    compact_data, folded_rhs, mx_enabled ? mx_rhs : NULL, mx_stride, mx_safe_mask
+                 );
+             }
+ 
+@@ -3140,6 +3159,11 @@
+                             cur = GGML_PAD(cur, sizeof(int64_t));
+                             cur += src1->ne[1]*n_tasks;
+                         }
++                        if (ids->ne[1] == 1 && src1->type == GGML_TYPE_F32 && (src0->type == GGML_TYPE_IQ3_XXS ||
++                                src0->type == GGML_TYPE_IQ2_S || src0->type == GGML_TYPE_IQ3_S)) {
++                            cur = GGML_PAD(cur, 16);
++                            cur += ((size_t) src1->ne[0]/256)*src1->ne[1]*XEON_IQ_INPUT_BLOCK_BYTES;
++                        }
+                     } break;
+                 case GGML_OP_OUT_PROD:
+                     {
+--- a/xeon-local/iq3-cache.cpp
++++ b/xeon-local/iq3-cache.cpp
+@@ -21,6 +21,7 @@
+ 
+ #include "compact-kernel.inc"
+ #include "iq-small-kernels.inc"
++#include "folded-input.inc"
+ #include "placement.inc"
+ static_assert(sizeof(compact_block)==sizeof(iq_compact_block), "shared compact stride");
+ 
+--- a/xeon-local/iq3-cache.h
++++ b/xeon-local/iq3-cache.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ #include "ggml.h"
++#include "ggml-cpu.h"
+ #include <stddef.h>
+ #include <stdint.h>
+ 
+@@ -17,6 +18,10 @@
+ const void * const * xeon_iq3_cache_lookup_experts_v2(const struct ggml_tensor * tensor);
+ uint64_t xeon_iq3_cache_hits_v1(void);
+ size_t xeon_iq3_cache_total_v1(void);
++#define XEON_IQ_INPUT_BLOCK_BYTES 400
++void xeon_iq_input_from_q8(const void * input, void * output, size_t count);
++ggml_vec_dot_t xeon_iq_input_dot(enum ggml_type type);
++
+ void xeon_iq3_compact_dot(int n, float * s, size_t bs, const void * x, size_t bx, const void * y, size_t by, int nrc);
+ #ifdef __cplusplus
+ }
+--- /dev/null
++++ b/xeon-local/folded-input.inc
+@@ -0,0 +1,94 @@
++// A code byte holds one sign bit for each half of a 32-value group.
++struct folded_group {
++    uint8_t signs[16];
++    uint8_t magnitude[2][16];
++};
++
++struct folded_block {
++    folded_group group[8];
++    float d;
++    uint8_t has_min;
++    uint8_t padding[11];
++};
++static_assert(sizeof(folded_block) == XEON_IQ_INPUT_BLOCK_BYTES, "input stride");
++
++static inline void fold_q8_block(const block_q8_K & q, folded_block & dst) {
++    dst.d = q.d;
++    __m128i any_magnitude = _mm_setzero_si128();
++    for (int g = 0; g < 8; ++g) {
++        auto & group = dst.group[g];
++        const __m128i lo = _mm_loadu_si128(reinterpret_cast<const __m128i *>(q.qs + 32*g));
++        const __m128i hi = _mm_loadu_si128(reinterpret_cast<const __m128i *>(q.qs + 32*g + 16));
++        const __m128i sign_lo = _mm_and_si128(_mm_srli_epi16(lo, 4), _mm_set1_epi8(0x08));
++        const __m128i sign_hi = _mm_and_si128(hi, _mm_set1_epi8(-128));
++        _mm_storeu_si128(reinterpret_cast<__m128i *>(group.signs), _mm_or_si128(sign_lo, sign_hi));
++        const __m128i a0 = _mm_abs_epi8(lo);
++        const __m128i a1 = _mm_abs_epi8(hi);
++        _mm_storeu_si128(reinterpret_cast<__m128i *>(group.magnitude[0]), a0);
++        _mm_storeu_si128(reinterpret_cast<__m128i *>(group.magnitude[1]), a1);
++        any_magnitude = _mm_or_si128(any_magnitude, _mm_or_si128(a0, a1));
++    }
++    dst.has_min = _mm_movemask_epi8(any_magnitude) != 0;
++}
++
++template<ggml_type type>
++static void folded_dot(int n, float * result, size_t, const void * weights, size_t, const void * input, size_t, int nrc) {
++    GGML_ASSERT(nrc == 1 && n%QK_K == 0);
++    constexpr bool xxs = type == GGML_TYPE_IQ3_XXS;
++    constexpr bool two = type == GGML_TYPE_IQ2_S;
++    using weight_block = std::conditional_t<xxs, compact_block, iq_compact_block>;
++    const auto * w = static_cast<const weight_block *>(weights);
++    const auto * x = static_cast<const folded_block *>(input);
++    const __m128i lut = xxs ? _mm_setr_epi8(4,12,20,28,36,44,52,62,-4,-12,-20,-28,-36,-44,-52,-62)
++                       : two ? _mm_setr_epi8(8,25,43,0,0,0,0,0,-8,-25,-43,0,0,0,0,0)
++                             : _mm_setr_epi8(1,3,5,7,9,11,13,15,-1,-3,-5,-7,-9,-11,-13,-15);
++    const __m128i mask = _mm_set1_epi8(15);
++    __m256 acc = _mm256_setzero_ps();
++    for (int b = 0; b < n/QK_K; ++b) {
++        __m128i lo = _mm_setzero_si128();
++        __m128i hi = _mm_setzero_si128();
++        for (int g = 0; g < 8; ++g) {
++            const folded_group & group = x[b].group[g];
++            const __m128i qs = _mm_loadu_si128(reinterpret_cast<const __m128i *>(w[b].qs + 16*g));
++            const __m128i sign = _mm_loadu_si128(reinterpret_cast<const __m128i *>(group.signs));
++            const __m128i a0 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(group.magnitude[0]));
++            const __m128i a1 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(group.magnitude[1]));
++            __m128i codes = _mm_xor_si128(qs, sign);
++            if (x[b].has_min) {
++                // psignb(-128, +/-weight) is -128 for either sign of the original weight.
++                const __m128i force_lo = _mm_and_si128(_mm_srli_epi16(a0, 4), _mm_set1_epi8(8));
++                const __m128i force_hi = _mm_and_si128(a1, _mm_set1_epi8(-128));
++                codes = _mm_or_si128(codes, _mm_or_si128(force_lo, force_hi));
++            }
++            const __m128i q0 = _mm_shuffle_epi8(lut, _mm_and_si128(codes, mask));
++            const __m128i q1 = _mm_shuffle_epi8(lut, _mm_and_si128(_mm_srli_epi16(codes, 4), mask));
++            int scale0, scale1;
++            if constexpr (xxs) {
++                scale0 = scale1 = w[b].scale[g];
++            } else {
++                scale0 = iq_scale<two>(w[b].scales, g, 0);
++                scale1 = iq_scale<two>(w[b].scales, g, 1);
++            }
++            lo = _mm_add_epi32(lo, _mm_madd_epi16(_mm_maddubs_epi16(a0, q0), _mm_set1_epi16(scale0)));
++            hi = _mm_add_epi32(hi, _mm_madd_epi16(_mm_maddubs_epi16(a1, q1), _mm_set1_epi16(scale1)));
++        }
++        const __m256i ints = _mm256_insertf128_si256(_mm256_castsi128_si256(lo), hi, 1);
++        acc = _mm256_add_ps(acc, _mm256_mul_ps(_mm256_set1_ps(w[b].d*x[b].d), _mm256_cvtepi32_ps(ints)));
++    }
++    *result = (xxs ? 0.25f : two ? 0.125f : 1.f)*iq_hsum(acc);
++}
++
++ggml_vec_dot_t xeon_iq_input_dot(enum ggml_type type) {
++    switch (type) {
++        case GGML_TYPE_IQ3_XXS: return folded_dot<GGML_TYPE_IQ3_XXS>;
++        case GGML_TYPE_IQ2_S:   return folded_dot<GGML_TYPE_IQ2_S>;
++        case GGML_TYPE_IQ3_S:   return folded_dot<GGML_TYPE_IQ3_S>;
++        default:                GGML_ABORT("unsupported compact weight type");
++    }
++}
++
++void xeon_iq_input_from_q8(const void * input, void * output, size_t count) {
++    const auto * src = static_cast<const block_q8_K *>(input);
++    auto * dst = static_cast<folded_block *>(output);
++    for (size_t b=0;b<count;++b) fold_q8_block(src[b], dst[b]);
++}

@@ -1,0 +1,39 @@
+再現と既存結果の照合
+
+保存結果の再集計はGPU、モデル、C++ビルドを使わずに実行できる。Python 3.8以降でこのディレクトリに入り、空の要約先を渡す。
+
+  python3 summarize.py raw /tmp/xeon-mixed-09-check
+  diff -r summary /tmp/xeon-mixed-09-check
+
+すべての.bin.gzを展開し、SHA-256、graph単位の長さ・offset・FNV-1a、同じ入力の3版の全バイト、準備ブロック・呼出し回数・worker丸め・MXFP4生存を照合する。raw/timing.csvから3版の全180プロセスの中央値を再計算し、対応するseed・実行順・出力hash・実行物SHAを検査する。個別processの中央値と比はsummary/process-triplets.csv、条件別の代表値・範囲・短縮組数はsummary/timing-summary.csvにある。
+
+CPU VMでゼロから再現する
+
+  1. Linux x86-64とAVX1/SSSE3/F16Cに対応したCPU、Python 3.8以降、CMake、make、GCC/G++、OpenMP、git、binutils、tasksetを用意する。一時ディレクトリにソースを構築する。既に保存した実機環境やサービスの起動コマンドは使わない。
+
+  2. repoは公開xeon-moe-labの固定37f6390c9a5bc594658127651e204ab11420cd71を展開した作業木で、vendor/llama.cpp、accepted、scriptsが必要。保存された現行CPUソースも同じcommitのarchiveからgit showする。inputs.jsonのSHAを準備時に全件チェックする。採用済みエンジンだけの再構成パッケージをrepoにした場合は、同commitの全対象git blobを持つ別checkoutをarchiveとして渡せる。
+
+  3. この資料のディレクトリから実行する。変数は実際の絶対パスに置き換える。workとraw_outは新しい名前を使う。CMakeがPATHの外にある場合はCMAKE_BINにその絶対パスを設定する。
+
+  repo=/absolute/path/to/xeon-moe-lab-at-37f6390
+  archive="$repo"
+  work=/absolute/path/to/fresh/xeon-mixed09-build
+  raw_out=/absolute/path/to/fresh/xeon-mixed09-results
+  archive_evidence=/absolute/path/to/fresh/xeon-mixed09-build-evidence
+  bash build_three.sh "$repo" "$archive" "$work" 5
+  bash build_probes.sh "$work"
+  unset GGML_CPU_TILED_MM GGML_CPU_TILED_MM_FORCE OMP_NUM_THREADS GOMP_SPINCOUNT OMP_WAIT_POLICY
+  python3 run_trials.py numeric "$work" "$raw_out"
+  python3 run_trials.py timing "$work" "$raw_out"
+  python3 summarize.py "$raw_out" "$raw_out/summary"
+  python3 capture_build.py "$work" "$archive_evidence"
+
+  4. 構成は別々のsrc-current/build-current、src-08/build-08、src-09/build-09を使う。3版ともテスト実行ではcurrentのlibggml-baseだけをリンク時SONAMEから解決する。各processで関数のdladdrと/proc/self/mapsを照合する。計時入力の範囲、CPU番号、順序、round数、sample・loop数はprotocol.jsonにある。今回のVMのcpusetは0–8。別ホストで許可CPUが異なる場合はprotocolのaffinityとrun_trials.pyの数値用「2-4」、capture_build.pyの代表照合用「2」を対応させ、変更内容をその環境の結果に記録する。
+
+差分を読む順番
+
+  08-current-mixed.patchをinputs.jsonと同一の現行保存ソースを所定のディレクトリへ配置した隔離作業木のrootで適用すると08になる。ggml/src/ggml-cpu/ggml-cpu.cとxeon-localのcacheヘッダ/実装・folded-input.incが対象。06の既存packed kernelを用い、08の同じQ8_Kからのprepareとexpert別dispatchを現行版へ移植した。以前の06/08パッチを先に重ねない。09-selected-input-only.patchはこの08が必要であり、変更箇所はggml-cpu.cの入力列選択だけ。各patchはgit apply --checkを通してから適用する。実機の実ファイルが別々の作業ディレクトリにある場合は、prepare_variant.pyと入力SHA表を照合して、隔離ビルドの実レイアウトに対応付ける。
+
+  3版のCPU ELFはVM作業領域で作った。配布物のbuild-evidenceには識別用SHA、関連translation unitのcompile command・object SHA、link command、Q8 wrapperの逆アセンブル、ロード先、ビルドログを入れた。VMのELF実体はこの配布ディレクトリの対象外。実機のビルドではその実験で使ったファイルのSHAを記録する。
+
+計時中は計数DSOを外す。重い計時を同時起動しない。VMのreserve=0、owner packing 1 thread、GGML_CPU_IQ_ROW_LOCAL=0、合成入力と7 expertは、VMにこの単一operatorを載せるための条件。通常APIを置換するコマンドはこの手順に含まれない。

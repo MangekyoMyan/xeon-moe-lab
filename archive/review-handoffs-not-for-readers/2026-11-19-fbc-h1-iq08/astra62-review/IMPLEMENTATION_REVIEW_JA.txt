@@ -1,0 +1,33 @@
+F/B/C、H1、08の実装前照合　2026-11-19
+
+F/B/Cの固定入力とカウンタ
+
+実機にある新しい fbc/CASES.json の SHA-256 は 0458b7a358d0eb3a0c289eb1a1aa9903ee0bb972158acc64abbf0952f472d746。元の gpu-workspace-20261117/PILOT_TOKENS.json の SHA は 44a9f673a7928b30f29a11fd741c96fa5b2faf526b89a82bc448aa13ff32596f。両訓練例の prefix と 65 個の参照 ID は parallel-pilot-20261117/integrated/CASES.json の index 2、5 とも一致した。JA は prefix 272、最初の T1 の絶対位置 272、Python は 240、240。先頭 64 入力の i32 little-endian SHA は JA が e7199d5b1929cb06a95f8443ce83e48673423c228dd73be429dfefbcf9e2f39c、Python が 7335603e65a997790df3b2459fe2ee117350dc5501cd3d67dcabaf32e641b28a。prefix の最終位置の logits と続く 64 入力の logits で 65×129,280 の F32、各ファイル 33,612,800 bytes となる。
+
+original35 の非空層は 1,2,3,4,5,6,7,8,10,11,13,14,15,16,17,19,20,22,28,29,33,35,36。validation3 の validate_calls は件数が 23 かだけを検査する。今回の C は、各層の差分をこの集合に照合すると誤った 23 層も検出できる。C は準備前に一度 C を選択し、準備 4 T1、対象 prefix、各対象 64 T1 の境界で独立にスナップショットを採る。対象 64 T1 では該当各層 calls=64, hist[0]=64, hist[1..6]=0、その他は全て 0。対象 prefix の差は全て 0。状態生成中の reserve、自然な graph reuse、T1 のカーネル実行は異なるので、C の builds の増加量を 23×64 に固定しない。
+
+B の State は通常の initialize 全体を完了した後に ready となる。元実装の initialize 内で CPU graph、GPU graph・weight、専用 CPU pool と三つの pinned 領域を確保している。B は mode setter を通さず、初期 snapshot から終了まで全層の custom builds/calls/hist がゼロであることを実データで残す。元 run の実値は GPU native 475,453,440 bytes、GPU bank allocation 475,457,024 bytes。120 GiB は CPU compact の設定予算であり、同じ CPU plan での実割当は 127,401,984,000 bytes（118.65234375 GiB）、80 tensors、19,200 projections。元値は integrated/runs/20261117T054816Z-CSP-U1024-2ff29532/server.stderr.log の 3334、5422 行。F は snapshot API の戻り 0 で bank 不在を区別できる。
+
+F/B の weighted tail は llama-graph.cpp で xeon_hot_used が false のため、専用 GPU pin へ入らない。B の追加 backend 自体は実 placement に影響し得る。fbc-engine/route37/llama-context.cpp の actual build → alloc_graph の両側で元 DAG・割当後の tensor を対応付ける方式と、quality だけの既存 split debug で照合できる。graph reserve や reuse を強制する必要はない。各対象の prefix 直後の自然な初回 T1 について正規化列と scheduler の実割当を採り、後の 63 T1 や別の KV 形状まで観測したとは扱わない。op の subtype/数値は op 名・次元・依存と併せて残す。カスタム op の関数と userdata のアドレスは process 固有なので、識別に使うのは kind、layer、n_tasks。詳細は上位ディレクトリの FBC_TRACE_DESIGN_REVIEW.txt。
+
+H1 の caller と集計
+
+既存の parallel-pilot-20261117/replay/operator_replay.h は hot-backend.cpp を TU に直接 include し、driver.cpp で context 作成後に試験用 bank を明示生成する。旧 83bfeefe… libllama と 602a6578… CPU、2e13b370… base、45f6b7d8… CUDA の固定組で四回行えば二重 bank は生じない。統合 libllama に入れ替える場合は、元モデル側の自動 bank と caller 側の明示 bank のどちらが owner かを先に解決する。runtime の compact_metadata は dladdr と各射影・各 expert の実 lookup を照合し、終了後にも再読する。
+
+H1_COMPACT は SHA 389c151881c9315f34a45ddca39f277efdcda1e792f2ba36364f27d295d04e69、H1_NONCOMPACT は 4cfc84a0f30a1c30d8e3fcf20810ee673ea6fd7550bbd41d0426968fbce6d486。cell 0..7 の H は順に COMPACT [0,1,2,3,1,1,1,2]、NONCOMPACT [0,1,2,2,1,1,1,2]。cell1 の GPU slot は 5/4（global 331/85）、cell4 は 0/3（78/100）。両 plan の全層で count と量子化型と容量が等しい。P 対 O の各 cold slot は個別に一致する。元 capture の projections との完全一致を残し、primary の 3 射影ごとに 331/78 の pointer 有、85/100 の pointer 無を判定できる。
+
+各 process は 8 セルについて first-use 4 mode、warmup 4 周、12 balanced block×4 mode を保存/実行する。定常値は 384/run、計 1,536、first-use は別に 32/run、計 128。元 analyze.py の paired に C−P がないため、同じ block の C と P の差を直接出す。S−P も同じ block で計算する。各 process の中央値と分布を保持し、primary 2 セルは別々に読む。P の join は CPU 完了後の残待ち。S の join は CPU 計算前に入り、その値を残待ちに含めない。いずれも GPU の全期間を計測するイベントは持っていない。
+
+08 の移植と経路確認
+
+08_OBJECT_RECIPE.json に実機の元 9 ソース、全 12 hunk の適合、適用後の各 SHA、2 TU の compile command 参照、実機 link 入力 22 件を記録した。準備中の source・object の読み取りと、メモリ内での厳密な hunk 照合のみを行った。既存 3 ファイルの適用後 SHA は同梱 archived 08 の SHA と一致した。4 つ目は新規 folded-input.inc であり、追加内容の SHA を計算した。
+
+元の compile 先は mx-prepack/backend/ggml-cpu.c と row-local/iq3-cache.cpp。新 08 の staged header を両 compile command の include 順序の先頭に置く。元の sparse-cache にも同名の古いヘッダがある。Ivy flags、-fno-fast-math、-ffp-contract=off、C の -DXEON_MX_PREPACK=1 を保存する。MX の variants.candidate.link の 2 object のみを切り替える。元 link 時の base の SHA は 274230a8…、実行時の正しい base は 2e13b370… で、共通 SONAME により両者を区別する。03/04/09 はこの 2 TU に含めない。新旧 2 TU の __FILE__ は control の再現時に元ソースパスへ対応付けることで、元 object とのバイト比較が可能になる。
+
+同梱 count_paths.cpp の xeon_iq_input_dot の counter は関数選択の回数。内積の実行行数を計数する場合は、返された型別の関数ポインタの呼出しを quality 専用 interposer で数える。単一 graph の予測は cell1 が fold 94 blocks、48,640 folded rows、9,728 native IQ rows。cell5 が 94、58,368、0。cell6 の fold は 0 で、元の MX RHS 分岐を別に検査できる。もとの real_ffn には各条件で 3 warmup があり、quality sample・loop も実行するため、counter の reset/read を明示した単独 compute の両側に置くか、実行 graph 数を乗じて照合する。計時 process の LD_PRELOAD と診断 counter は外す。graph-plan の scratch は gate/up/down の合計 37,600 bytes とせず、実際の ggml_graph_plan(graph,12,pool).work_size を時計外で両 arm について保存する。
+
+F/B/C の新しいビルドに対する再確認
+
+親が作成した caller の SHA は 364883466b6933df93cfdc955a326586e99e2f47b808356d77e0bd40700e6db2、driver.cpp は 89504fed7980da566f89c875a2c562c39a75b94a2db2fa99dd11f57691a0750e、DESIGN.json は b6eaaa07fcb57aaba0b466bd5613d60bfdf5e752cc55e9d5c8858bb77dd06453。新 libllama は f7fdfd5838f64e30a07059e7f010eba7a21b3a61b643c798c604324111df39de。この版の BUILD が挙げる全 source と driver、本体を含む四つの DSO の SHA をファイルから再計算した。B の ready 項目、F の snapshot 不成立、C の厳密な層別 H0 差分、compact lookup provider の CPU provider との一致、quality 限定の graph 取得・marker、6 個の timing process と後半反転を照合した。historical H1 の plan・全 capture global ID・primary 各射影 lookup の再計算は H1_PLAN_RECHECK.json にある。
+
+このレビューで実機ビルド、モデルのロード、API 操作、ベンチを実行していない。新 F/B/C が動いた際の provider・品質・経路・時間は各実行の receipt で確認する。

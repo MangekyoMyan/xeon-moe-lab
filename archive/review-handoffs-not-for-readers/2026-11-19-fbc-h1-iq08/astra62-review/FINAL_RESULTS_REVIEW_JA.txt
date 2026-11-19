@@ -1,0 +1,60 @@
+be05 実機結果の独立監査　2026-11-19 JST
+
+F/B/C の 2 入力とも、保持済み bank を通して全 expert を CPU で計算する C は、同じ bank を保持して元 graph を使う B より遅かった。H1 は、対象 2 セルで CPU 非 compact の expert を GPU に渡す方が局所 C−P 短縮の大きい結果を再現した。08 は入力・数値・実行経路の照合に合格した。2 主要セルで実行順をまたいで方向が保たれるという事前条件を満たさず、今回の一巡で保留する判断に同意する。
+
+監査範囲
+
+親側の verify・analyze スクリプトを呼ばず、保存した整数ナノ秒、teacher-forced ID、F32 ファイル、graph metadata、元ログ、二つの bank plan、ライブラリとリンク入力から再計算した。F/B/C 9、H1 4、08 10 の全 23 process で、health の child_returncode=0、別 PID、同一 boot ID、記録された運転時間帯の非重複を確認した。各 run manifest の参照先をファイルから再ハッシュした件数は F/B/C 111、H1 208、08 100、合計 419。各 run の RESULTS_SHA256.json 自身の SHA も各 STATE と一致した。モデル起動、API への照会・変更、ビルド、ベンチの再実行はしていない。
+
+1　F/B/C
+
+全 arm の libllama=f7fdfd58…、CPU=602a6578…、base=2e13b370…、CUDA=45f6b7d8… を backing file、provider receipt、対象 16 symbol と実 scheduler の graph_compute provider で照合した。40 層の host/CUDA 配置は元の GPU 37–39、CPU compact 予算は 120 GiB、実割当は 127,401,984,000 B。B/C の bank は ready、native payload 475,453,440 B、GPU bank allocation 475,457,024 B。B は準備から最終時点まで custom builds/calls/各 H bin がゼロ。C は 4 T1 準備後と各対象 prefix 後を分離し、各対象 64 T1 で plan の非空 23 層それぞれ calls=64、H0=64、他の H と非対象層はすべて 0。
+
+訓練 JA prefix 272、Python prefix 240 と各 64 入力の ID・位置・65 個の next target は固定ファイルと全 run で一致。各 arm の 65×129,280 F32 をバイト比較した。両訓練例で F=B=C、finite。JA のファイル SHA は 35d028fed9fa08bbe8f304c598ced362ff466aff176ecf407133c0a1870bbd64、Python は 077eefd33928bfbec340162c5b5e54c2bbad9e4ac3ae72bc23f38a7a33d69d01。6 個の timing process の各最終行も該当 quality の最終行と一致した。
+
+両ケースとも対象 prefix 直後の第 1 T1 で、F/B の元 DAG 4,866 node は出力ファイル全体で一致。割当後も F/B の最終 node 順、元の依存に紐づく全 tensor 記録は同一で、各 4,695 node が CUDA0/CUDA0、171 が CPU/CUDA_Host。B の scheduler は host buffer 564,898,144 B を XEON_HOT_FFN の欄に計上し、CPU 欄は 0。F では同じ量が CPU 欄にある。これだけで物理 NUMA 配置を特定できない。C は 4,797 node で、23 個の dedicated custom node を確認した。ASCII marker 間の生ログから、全 6 trace で split 0..75 の連番と割当後の 76 を突き合わせた。F/B は CPU 38、CUDA 38、C は CPU 15、専用 23、CUDA 38。割当前後の同じ node・入力番号を対応付けると、同じ型・次元・stride の別 tensor に変わる入力辺は F/B 458、C 389。各 arm の重複を除いた copy tensor は 147 で、split の入力件数の総和とも合う。これは選択した第 1 T1 の scheduler 記録で、転送の実バイト・所要時間は計っていない。
+
+6 fresh の順は F/B/C/C/B/F、後半は Python→JA。各 process・case の全 64 個の decode 開始から logits ready までの差を平均し、同じ半巡内で引いた。計 768 T1。
+
+                  B−F 前半     B−F 後半     B−F 平均     C−B 前半     C−B 後半     C−B 平均  （ms/T1）
+  JA             −0.646323    −1.235278    −0.940801    +0.541318    +1.795467    +1.168392
+  Python         −0.293754    +1.379479    +0.542862    +1.117614    +0.339612    +0.728613
+
+最後と最初の F の block 平均差は JA −1.229932 ms、Python +2.497769 ms。C−B の四つの正値は custom・private CPU・copy・外側の配置と同期を合わせた観測で、各要因の寄与率は出ない。B−F は入力・半巡によって符号が変わる。各 arm・case の独立した process 数は 2。先の quality 集計中断は raw stderr の不正 UTF-8 によるもので、保存済み出力は同一。ASCII の parser 回復前後で品質 run は増えていない。
+
+2　同一予算 H1
+
+4 fresh の plan 順は compact / noncompact / noncompact / compact。独立 caller 所有 bank の旧 libllama=83bfeefe… と CPU/base/CUDA の固定組を確認した。全層の runtime membership を plan に戻し、実 tensor の射影別 native bytes で再積算した。各 35 experts、23 非空層、475,453,440 B、実 GPU bank allocation 475,457,024 B。層別 count・型は等しい。cell0–7 の H は compact [0,1,2,3,1,1,1,2]、noncompact [0,1,2,2,1,1,1,2]。cell3 の H3/H2 は別の仕事量。
+
+各 run の全 8 セル・4 mode の 128 個の出力ファイル（各 6×5,120 F32）は finite。O=C=元 capture、同一 partition 内 S=P。全 150 cold slot の P=O を直接バイト比較し、各 plan の 2 process 間では各セルの O/C/S/P も一致した。主要セルで partition をまたいだ P の違いは、cell1 の slots 4,5、cell4 の slots 0,3 に限定された。GPU expert は 331/85 および 78/100 で、3 射影とも 331/78 に compact pointer、85/100 に noncompact を確認した。保存済み参照計算 cell3/6 の 8 ファイルも finite で、同じセルの参照は四つの process で一致した。
+
+各セル 12 balanced block の入力 ready から出力 ready までを mode ごとに読み、同じ block の C−P と S−P の中央値を求めた。定常 1,536 観測、first-use は別の 128。主要セルの全 8 条件（2 セル×4 process）で C−P は各 12/12 block が正だった。
+
+  cell / plan               C−P の process 中央値 2 個（ms）      S−P の process 中央値 2 個（ms）
+  cell1 compact                     0.233662, 0.241368               −0.003666, −0.003832
+  cell1 noncompact                  0.597912, 0.572154               +0.005098, +0.004757
+  cell4 compact                     0.226147, 0.200692               +0.017509, −0.022683
+  cell4 noncompact                  0.531626, 0.530852               +0.012564, +0.012732
+
+「約 2.5 倍」は各 plan の二つの process 中央値の平均を取った C−P 短縮量の比で、cell1 が 2.46314、cell4 が 2.48918。P の処理速度そのものやモデル全体の倍率には換算できない。H>0 の S は CPU 開始前に join 完了、P は CPU 終了後に join 開始となる時刻順を確認した。P の join はその時点での残待ち。既存 training5 の生 route（5×64×37 層）を改めて数え、L7 の 331/85=102/2 回、L35 の 78/100=128/1 回。非 compact の 1 回当たり局所短縮と、この低頻度 expert の通常 bank への採用は別の判断になる。
+
+3　08
+
+実機 control CPU は現行の 33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3 と byte 一致、candidate は a2211850ee0d34ebbe431ae520b9b451a727f5c7bb12caa865de6c1323f54f77。両方の最終 ELF、変更した ggml-cpu.c と iq3-cache.cpp の各 object、20 個の共通リンク入力をファイルから再ハッシュした。共通の x86 quants object を保持し、実際の両 ELF を静的逆アセンブルして quantize_row_q8_K が quantize_row_q8_K_ref@plt に分岐することも再確認した。実行時 base は 2e13b370…、各 process の CPU/cache/from_float provider は指定 arm と合う。
+
+捕捉済み x・ordered ID・元 down、384 expert の射影形状、live plan と compact mask、全 run 間の対象 native weight の記録を照合した。subset owner で cell1 は 5/6、cell5 は 6/6、MX の cell6 は 0。30 個の保存出力（各 30,720 F32）はすべて元 capture と byte 一致、finite。3 warmup の最後と各 8-call sample の最後で照合する設計なので、960 graph の各出力を保存したものとして数えない。
+
+両 quality の同一 interposer、各 timing の空 LD_PRELOAD、caller の関数不在ガード、0..11 の 12 worker receipt、THP 無効 wrapper、node0/1 interleave を確認。quality の既存第 3 warmup の一回で、08 の IQ 各セルは pack 96 呼出し（うち 18 空）・94 blocks。実 folded 行数 [IQ2_S,IQ3_XXS,IQ3_S] は cell1 [23040,25600,0]、cell5 [0,27648,30720]、cell6 [0,0,0]。対応する selector 呼出しは [120,400,0]、[0,144,480]、[0,0,0]。control はすべて 0。cache の実 weight 6 射影例による -128 有無 2 block と四丸めの直接比較 24 件はすべて同じ finite F32。IQ の実 graph plan scratch は両セルとも 6,354,240→6,375,840 B（+21,600 B）、MX は両 arm 70,536 B。計時中の backend graph_compute は引き続き自分の planning を含む。
+
+8 timing process で、各セル 5 sample の各 8 graph 合計を 1 graph 当たりに換算し、その中央値を対応組で比較した。120 raw sample、960 timed graph。時間比 B/A は下のとおり。組は固定順 A→B、B→A、B→A、A→B。各セルは組内で同じ位置にある。
+
+  cell         組1        組2        組3        組4        中央値     短縮数     A−B 中央値（ms/graph）
+  1          0.924907   0.990769   0.809622   0.989603   0.957255      4/4             0.154809
+  5          0.938012   1.036260   0.976735   0.979069   0.977902      3/4             0.063902
+  6 MX       1.031034   0.990111   0.985741   0.932366   0.987926      3/4             0.034033
+
+cell1 の先頭は組 1 と 3、末尾は組 2 と 4。cell5 の先頭は組 2 と 4 で、candidate 先行の組 2 では +0.111094 ms の遅延となる。片方だけに強い結果や実行順で変わる結果を救済しないという事前仕様に照らすと、全体速度・品質試験へ進む条件は整っていない。MX も共通 planner/caller を通り、値を主要セルから差し引く根拠はない。今回の保留判定は局所結果の一巡によるもので、08 が一般に遅いという推定には使えない。
+
+4　復帰記録
+
+FBC quality、FBC timing、H1、08 の四つの復帰 receipt と各 API window を確認した。最終 receipt の元 API は PID 176350、health=ok、monitor/notify active、警報なし。記録されている通常の 4 DSO と config の backing file の SHA を read-only で再計算した。通常設定への採用、04/09/03 の追加計測、08 の全モデル試験は今回の運転記録に含まれない。復帰状態はこの保存時点の記録である。

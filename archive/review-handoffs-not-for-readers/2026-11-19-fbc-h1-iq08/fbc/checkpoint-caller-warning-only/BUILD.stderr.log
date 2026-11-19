@@ -1,0 +1,10 @@
+/home/codex/projects/llm-lab/be05-followup-20261119/fbc/driver.cpp: In function ‘int main(int, char**)’:
+/home/codex/projects/llm-lab/be05-followup-20261119/fbc/driver.cpp:126:13: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  126 |             for(auto t:pr)need(t>=0&&t<nv,"prefix token");for(auto t:co)need(t>=0&&t<nv,"target token");
+      |             ^~~
+/home/codex/projects/llm-lab/be05-followup-20261119/fbc/driver.cpp:126:59: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  126 |             for(auto t:pr)need(t>=0&&t<nv,"prefix token");for(auto t:co)need(t>=0&&t<nv,"target token");
+      |                                                           ^~~
+/home/codex/projects/llm-lab/be05-followup-20261119/fbc/driver.cpp:160:14: warning: variable ‘load_bytes’ set but not used [-Wunused-but-set-variable]
+  160 |         auto load_bytes=[&](const std::string &name){std::ifstream f(out/name,std::ios::binary);need(bool(f),"output read");return std::vector<char>((std::istreambuf_iterator<char>(f)),{});};
+      |              ^~~~~~~~~~

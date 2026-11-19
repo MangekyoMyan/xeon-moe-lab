@@ -1,0 +1,47 @@
+{
+  "scope": "Textual application check only, to copies of current saved runtime source. No patch applied, no compile/model execution.",
+  "inputs": {
+    "ggml/src/ggml-cpu/ggml-cpu.c": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c",
+      "sha256": "e8fdf3d424463f9852fa774d9de6057dce35855a872936bda87d12d3d756e3a8"
+    },
+    "ggml/src/ggml-cpu/arch/x86/quants.c": {
+      "path": "/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/arch/x86/quants.c",
+      "sha256": "a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7"
+    },
+    "xeon-local/iq3-cache.cpp": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/row-local/iq3-cache.cpp",
+      "sha256": "2e1dde95812671f12eacdddb83e181154db1927907933f71478221f006ecc15e"
+    },
+    "xeon-local/iq3-cache.h": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/row-local/iq3-cache.h",
+      "sha256": "7db88449073d5e60274f9414acecf5916eb2ceb6aa52161f5a19093b0a4550b8"
+    }
+  },
+  "checks": [
+    {
+      "patch": "03-route-selected.patch",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error: patch failed: ggml/src/ggml-cpu/ggml-cpu.c:1819\nerror: ggml/src/ggml-cpu/ggml-cpu.c: patch does not apply\n"
+    },
+    {
+      "patch": "04-q8k-avx1.patch",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "patch": "06-compact-signed-byte.patch",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error: patch failed: ggml/src/ggml-cpu/ggml-cpu.c:1505\nerror: ggml/src/ggml-cpu/ggml-cpu.c: patch does not apply\nerror: patch failed: xeon-local/iq3-cache.cpp:21\nerror: xeon-local/iq3-cache.cpp: patch does not apply\n"
+    },
+    {
+      "patch": "07-combined-corrected.patch",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error: patch failed: ggml/src/ggml-cpu/ggml-cpu.c:1505\nerror: ggml/src/ggml-cpu/ggml-cpu.c: patch does not apply\nerror: patch failed: xeon-local/iq3-cache.cpp:21\nerror: xeon-local/iq3-cache.cpp: patch does not apply\n"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "recorded_utc": "2026-11-18T01:42:54.161786+00:00",
+  "default_vs_pinned_engine_diff": [],
+  "shared_source_only_input": true,
+  "historical_sources_not_initially_supplied": true,
+  "additional_material_requests": [
+    {
+      "recorded_utc": "2026-11-18T02:23:34.125675+00:00",
+      "request_ja": "実経路の代表的expert weight形状、CPU実効スレッド数/NUMA、compact適用先のみ。",
+      "response_path": "astra62_max_trial/additional_materials/STATIC_RUNTIME_01.json",
+      "response_sha256": "a1d3af5b279993e5f562529072f89bc721971a93030b9fc5259268d23ed5c1b8",
+      "phase": "after first ideas frozen and first timing completed",
+      "historical_ideas_or_performance_included": false
+    },
+    {
+      "recorded_utc": "2026-11-18T02:29:41.689782+00:00",
+      "request_ja": "混在compact dispatchを確認するための型/関数宣言とMUL_MAT_ID箇所のみ。",
+      "response_path": "astra62_max_trial/additional_materials/source_02",
+      "response_manifest_sha256": "d340036465e86256bf22f486ba8c98e03b50b07834b53fee17c6a99a8b5f9e58",
+      "phase": "after initial ideas, independent baseline patches and two timing rounds",
+      "historical_ideas_or_performance_included": false,
+      "source_role": "route37 diagnostic source derived from mx-prepack release-candidate-a; not asserted live runtime identity",
+      "transformation": "comments blanked while preserving line count; code and declarations unchanged"
+    }
+  ],
+  "parent_review_feedback": [
+    {
+      "recorded_utc": "2026-11-18T02:31:04.994545+00:00",
+      "phase": "after two timing rounds and source-only initial work fixed",
+      "feedback_ja": "親の独立レビューがFE_DOWNWARD F32→Q8_Kで-128を生成し、旧compactとfoldedの算術差を再現。子へ反例を渡し適用条件の再検討を依頼。過去最適化の開示ではないが、以後の修正は親の指摘後の成果として扱う。",
+      "files": [
+        {
+          "path": "astra62_max_trial/additional_materials/review_feedback_03/FOLDED_ROUNDING_PROBE.csv",
+          "sha256": "0ae92467f1b867d2f711b7e9981296466b0722658e72b64fd4fdcc52773a1c4c"
+        },
+        {
+          "path": "astra62_max_trial/additional_materials/review_feedback_03/FOLDED_ROUNDING_RECEIPT.json",
+          "sha256": "3699b5cae85df7219cd8415539b3e6e511b47adddddd3c37c518ef905e8283ff"
+        },
+        {
+          "path": "astra62_max_trial/additional_materials/review_feedback_03/folded_rounding_probe.cpp",
+          "sha256": "f7b8b431526702176d87dd7e2ac746437b341040555ff16ac36d940c8b883017"
+        }
+      ]
+    },
+    {
+      "recorded_utc": "2026-11-18T02:37:47.994722+00:00",
+      "phase": "after first two timing rounds",
+      "feedback_ja": "初期候補3のcounter初期化の表現を元コードに照らして再確認依頼。初期化はith/nthで分担され全worker合計E、後段の全E走査はworkerごと、という親の読みを通知。初期メモは不変で訂正を追記するよう依頼。"
+    },
+    {
+      "recorded_utc": "2026-11-18T03:09:11.936406+00:00",
+      "phase": "post-correction provisional build audit",
+      "feedback_ja": "親が暫定iqsafe/combosafe CPU DSOのSHA同一を通知。子は共有incremental buildのtimestampによる反映漏れを疑い、その個別比較を保留。最終03/04/06/07を別source/buildで再構成し880行の最終計時と全出力再検証を実施。",
+      "provisional_duplicate_sha256": "a471171256eb7e98d49752ff7b4181da9c5bb74f67700a6a59455cfda8087fbc",
+      "final_status": "separate final DSO features and hashes verified; see final_feature_audit and RUN_MANIFEST"
+    }
+  ],
+  "completed_utc": "2026-11-18T03:09:11.936421+00:00",
+  "candidate_final_outputs_sha256sums": "e1efc9a3531c42314922c851f6fc6458c81319419c14f1a7b4dd0e7c888a9c72",
+  "initial_source_files_verified_unchanged": 4014
+}

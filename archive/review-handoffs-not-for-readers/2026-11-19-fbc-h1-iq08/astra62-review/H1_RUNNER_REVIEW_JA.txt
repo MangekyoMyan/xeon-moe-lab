@@ -1,0 +1,13 @@
+H1 実行前の caller・runner 照合　2026-11-19
+
+h1/operator_replay.h、driver.cpp、run_h1.py、verify_h1.py、元 replay の同一箇所・実行定義を読んだ。親担当が修正した verify_h1.py の SHA は 737c4fadd82c9e2cccaf788170ba6e018fc75ce32f4910923725d10dd02dffb7、run_h1.py は 2ce4c50a2a3c48022d015ae94183f9ea16a80dc3ac2135beb854280f88c886e3。この時点で H1 のビルド・実行は行っていない。
+
+最初の verifier は 12 block の 3 番目と 4 番目の mode 順を取り違えていた。C++ の実表は [0,1,3,2], [1,2,0,3], [2,3,1,0], [3,0,2,1] で、文字列 OCSP に当てると OCPS, CSOP, SPCO, POSC。この 4 組を 3 周する。修正版がこの順と一致することを確認した。
+
+runner は旧 operator replay 側の四つの DSO と比較して SHA と provider を固定する。83bfeefe… libllama は追加 bank を自動生成せず、caller が明示生成した一つを使う。全 4 fresh の順は COMPACT, NONCOMPACT, NONCOMPACT, COMPACT。各 plan と期待 JSON は BUILD の対象で、run ごとに SHA を再確認する。旧データの BANK_DESIGN.json は比較元 original35 の説明を残す。今回の active plan は LAUNCH の実パス・SHA と REPLAY に出る全層の membership から特定できる。
+
+修正後は CPU cache lookup の canonical provider・全 projection の 6-slot mask と元 capture を比較し、実際に選ばれた GPU global ID と各セルの割当を C++ で検査する。親の verifier は計算に使った State の全 40 層の member 群、初期化層、空の CPU 層を plan text と照合する。primary L7 では 331/85、L35 では 78/100 がそれぞれ三つの projection で予定どおりの compact 有無になる。GPU に送られる slot が変わるため、cold-slot の比較は各 process の P と同じ process の O で実施する。
+
+元 runner にあった二つの API unit の停止確認、総 RAM/利用可能 RAM/mlock、V100 UUID と PCI バスの確認は修正版に戻った。共通 supervisor は GPU 150 W/ECC・温度・fan・使用中 process と運転中のメモリを検査する。H1 の 4 run が使う provenance と計時の境界、first-use、warmup、12 定常 block、capture との byte 照合は元 operator のまま。
+
+集計では同一 block の C−P、S−P を各 12 個残し、四つの process を別々に示す。S は GPU join が CPU 計算前、P は CPU 計算後。primary の H1 は hot が 1、cold が 5 なので両 mode とも CPU 区間が存在する。保存時刻から S.join_end <= S.cpu_begin と P.cpu_end <= P.join_begin を直接照合できる。P の join は残待ちで、S の待ちも GPU 全体のイベント時刻を表さない。計時外の file-backed output に問題があれば比較はその process で止まる。

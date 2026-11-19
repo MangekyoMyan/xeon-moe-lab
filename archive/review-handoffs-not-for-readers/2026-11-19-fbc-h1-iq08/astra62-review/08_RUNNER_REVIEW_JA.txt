@@ -1,0 +1,25 @@
+08 の実入力 caller・runner・集計のソース照合　2026-11-19
+
+対象は新しい prepare_08_probe.py、cpu08/real_ffn.cpp、build_08.py、build_08_probe.py、run_08.py、verify_08.py、analyze_stages.py。ビルド、モデルの読出し、サービス操作、数値実行、速度計測を行わず、テキストと保存済み設計を検査した。
+
+入力と provider
+
+旧 runner が持つ 7 GGUF shard の size/mtime 照合が移植初版で抜けていた。修正版の pins は毎回 shard の stat を保存値と比較し、frequency19200.plan の digest と全 tensor の expert 配列を読み直して SPEC の cpu_plan と照合する。capture の manifest と全ファイルも検査する。実際のモデル weight は read-only mapping で各射影の名前、型、次元、offset/範囲、六つの native expert の FNV64 を記録し、全選択 expert の compact pointer を実 lookup で確かめる。実行環境は両 arm とも base 2e13…、12 physical worker、outer CPU mask 0..11、node 0/1 interleave、row-local 0。
+
+実機 probe が include する ggml-common.h は元 CPU compile tree のものと SHA-256 0061131b615c5721fc88a78feeb22c1f8c450f1c2646a317d80796a653bf595c で一致し、ggml-cpu.h も 316279e004cdeb8e6ef78599acb602bf79a8abdf897fed9fd1914808c1518c6e で同一。block_q8_K の内訳は F32 d、256 個の i8、16 個の i16 で、同ヘッダに 292 B の static_assert がある。
+
+修正後の build_08.py は SHA ba2aad00dd578edff3aec32f3f9ef42ab7b54d09bbfb17c833cb858e48aa91bd。全 08 post-source の SHA、一つずつ置き換える 2 object、control object と control CPU の元 byte 列、quantize_row_q8_K_ref へ向かう wrapper を検査する。real_ffn.cpp は 819ab5a9520a728454af52a9a7e4d5c31c880109160724f54c7fa23488e8e381。直接テストは legacy 関数についても実 cache provider と一致することを要求して記録する。run_08.py の SHA は 2f8ea503b1c2fa19409e6210653a62e1a323e084417d329eecb2b9827c3991f7。
+
+直接数値照合と実 graph の経路
+
+candidate の quality に限り、実 cache table の先頭選択 expert の先頭行から 2 weight block を読む。第 1 Q8_K block は各 32 要素の両半分に -128 を含み、第 2 block は -127 に置換する。400 B×2 の aligned buffer を使い、3 射影×4 丸めを IQ 2 セルで比較する。計 24 回は実 weight 6 例に対する丸め条件の繰返し。d は 1 で、量子化 wrapper の丸め評価や多数の model 入力の品質調査はこの直接照合の対象外。各比較で finite と F32 の全 4 bytes が一致するかを確かめ、最後に元の丸めへ戻す。
+
+直接テストは Fixture の構築中、graph の warmup より前に終わる。quality 用 interposer の累積カウンタでは第 3 warmup の直前直後の差だけを使うため、直接テストの pack/dot 呼出しも前 2 warmup も実 graph 数に入らない。各型の実行行数順は IQ2_S、IQ3_XXS、IQ3_S。cell1 [23040,25600,0]、cell5 [0,27648,30720]、cell6 [0,0,0]。IQ 各 94 blocks、MX 0。MX が先行 IQ の binding を引き継ぐことも、差分計算では問題にならない。計時プロセスは空の LD_PRELOAD であり、snapshot 関数が見つからないことを caller が検査する。
+
+scratch と速度の境界
+
+第 1 warmup より前に同じ graph、12 スレッド、同じ pool に対して ggml_graph_plan の work_size を読む。各 timed fixture.compute() の下では元 backend の ggml_backend_cpu_graph_compute が改めて ggml_graph_plan を呼ぶ。計時項目は graph compute のままで、事前に作った plan を流用する経路に変わっていない。08 の IQ gate/up/down で増える span は 8,000、8,000、21,600 B。全 graph は各 node の最大 scratch と worker の pad を含むため、実際の work_size を比較する。MX の fold が 0 でも caller と planner の共通コードを通る。
+
+固定順と計算式
+
+quality は A/B 各 1 fresh、timing は A/B/B/A/B/A/A/B。pair の cell 順は [1,6,5]、[5,6,1]、[1,6,5]、[5,6,1]。1 セルあたり 3 warmup、5 sample×8 graph のため、8 process の計時計算は 960 graph。3 warmup の末尾と全 sample 末尾で元の down と比較する。各 process の五つの (end−begin)/calls を ms にして中央値を取り、(0,1),(3,2),(5,4),(6,7) の (control,candidate) で B/A、利益 A−B を求める処理と一致する。既存 FBC の前半・後半ごとの B−F と C−B、H1 の同一 block の C−P と S−P および P の CPU 後 join も式と添字を再確認した。これらは計時前に確認した計算式であり、まだ新 08 の数値結果を表さない。

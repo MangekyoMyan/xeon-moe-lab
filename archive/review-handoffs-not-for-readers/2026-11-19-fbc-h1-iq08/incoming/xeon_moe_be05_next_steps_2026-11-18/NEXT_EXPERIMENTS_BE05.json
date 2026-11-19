@@ -1,0 +1,285 @@
+{
+  "title": "be05を受けた次の作業仕様",
+  "date_jst": "2026-11-18",
+  "source_commit": "be05f5fb10438e83ff0201deef2ddfd21bf4a111",
+  "status": "proposed_not_executed_in_this_review",
+  "decision": {
+    "q8_04": "hold_not_adopted_no_additional_test_now",
+    "heavy_real_machine_measurements": [
+      "F_B_C_one_pass",
+      "existing_H1_two_primary_cells",
+      "08_fixed_12T_one_pass_when_ready_without_blocking_FBC_H1"
+    ],
+    "parallel_preparation": [
+      "08_current_port",
+      "08_numerical_and_path_validation",
+      "FBC_B_implementation_and_guards"
+    ],
+    "held_candidates": [
+      "09",
+      "03_pending_results_of_main_two_tracks"
+    ],
+    "forbidden_stacking_in_08": [
+      "04",
+      "09",
+      "03",
+      "old_08_mixed_dispatch",
+      "old_07"
+    ],
+    "real_machine_heavy_work": "serialize_per_main_agent_schedule"
+  },
+  "providers": {
+    "normal_cpu_sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+    "held_04_cpu_sha256": "eb05a18ebbc1ffbab9346a86fc58f36796355eb9de7e7283f2931ef87f23b920",
+    "runtime_base_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+    "fbc_h1_note": "The prior diagnostic CPU 602a... is not normal CPU 33a9...; pin one provider set per comparison and rerun all arms."
+  },
+  "fbc": {
+    "status": "pending",
+    "arm_meanings": {
+      "F": "same_new_diagnostic_llama_no_bank_original_main_graph",
+      "B": "bank_private_backend_pool_pinned_warmup_held_original_main_graph",
+      "C": "same_hold_custom_23_layers_all_selected_experts_CPU_executed_H0"
+    },
+    "B_configuration": "context_fixed_has_bank_true_uses_custom_false_not_set_mode_B",
+    "provider_requirement": "same_new_diagnostic_llama_CPU_CUDA_base_for_all_arms",
+    "cases": [
+      "existing_training_JA",
+      "existing_training_Python"
+    ],
+    "t1_calls_per_case": 64,
+    "fresh_process_sequence": [
+      "F",
+      "B",
+      "C",
+      "C",
+      "B",
+      "F"
+    ],
+    "case_order_reverse_in_second_half": true,
+    "timed_calls": 768,
+    "process_replicates_per_arm_case": 2,
+    "quality": "65 fixed-input rows finite and F=B=C byte equality; normalized original F/B DAG plus actual placement/splits/copy",
+    "clock": "decode_start_to_logits_output_ready",
+    "interpreted_differences": {
+      "B_minus_F": "holding_initialization_backend_presence_placement_compound",
+      "C_minus_B": "custom_private_CPU_copy_outer_placement_synchronization_compound"
+    },
+    "stop": "one_valid_pass_then_H1_even_if_effect_ambiguous",
+    "protocol_document": "MAIN_NEXT_BE05_JA.txt",
+    "bank_plan": "original35",
+    "bank_native_bytes": 475453440,
+    "original_GPU_layers": [
+      37,
+      38,
+      39
+    ],
+    "CPU_compact_GiB": 120,
+    "C_path_check": "counter_delta_after_preparation_only_selected_23_layers"
+  },
+  "h1": {
+    "status": "pending",
+    "primary_cells": [
+      {
+        "cell": 1,
+        "layer": 7,
+        "compact_expert": 331,
+        "noncompact_expert": 85
+      },
+      {
+        "cell": 4,
+        "layer": 35,
+        "compact_expert": 78,
+        "noncompact_expert": 100
+      }
+    ],
+    "experts_per_plan": 35,
+    "native_bytes_per_plan": 475453440,
+    "sequence": [
+      "COMPACT",
+      "NONCOMPACT",
+      "NONCOMPACT",
+      "COMPACT"
+    ],
+    "retain_all_8_cells": true,
+    "cell3_caveat": "H3_vs_H2_not_matched_work_no_all_cell_mean",
+    "quality": [
+      "O_equals_C",
+      "S_equals_P_within_partition",
+      "cold_slots_equal"
+    ],
+    "cross_partition_P_byte_equality_required": false,
+    "metrics": [
+      "C_minus_P_local_offload_gain",
+      "S_minus_P_overlap_gain",
+      "join_residual_not_full_GPU_time"
+    ],
+    "adoption_caveat": "85_and_100_low_frequency_mechanism_only_not_immediate_bank_adoption",
+    "runtime_compact_check": "per_projection_cache_lookup_331_78_compact_85_100_noncompact_receipt"
+  },
+  "cpu_08": {
+    "status": "prepare_in_parallel",
+    "patch": "previous_handoff/xeon_moe_fd810_followup_2026-11-18/astra62_next/08-current-mixed.patch",
+    "patch_sha256": "cad2e24dea2bc3bfa8d3dc1dd43c2d7930159889dbd49c4f2c4dda4052cbd6a3",
+    "baseline": "normal_33a9_CPU_reference_Q8_K",
+    "candidate": "only_new_08_current_mixed_port",
+    "capture": "20261117T052657Z-U1024-3483cb75",
+    "cells": [
+      1,
+      5,
+      6
+    ],
+    "primary_cells": [
+      1,
+      5
+    ],
+    "graph_threads": [
+      12
+    ],
+    "CPU_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "tokens": 1,
+    "quality_processes": 2,
+    "comparison_pairs": [
+      {
+        "order": [
+          "A",
+          "B"
+        ],
+        "cell_order": [
+          1,
+          6,
+          5
+        ]
+      },
+      {
+        "order": [
+          "B",
+          "A"
+        ],
+        "cell_order": [
+          5,
+          6,
+          1
+        ]
+      },
+      {
+        "order": [
+          "B",
+          "A"
+        ],
+        "cell_order": [
+          1,
+          6,
+          5
+        ]
+      },
+      {
+        "order": [
+          "A",
+          "B"
+        ],
+        "cell_order": [
+          5,
+          6,
+          1
+        ]
+      }
+    ],
+    "fresh_timing_processes": 8,
+    "warmup_graphs_per_cell": 3,
+    "samples_per_cell": 5,
+    "calls_per_sample": 8,
+    "timed_graph_calls": 960,
+    "clock": "ggml_backend_graph_compute_including_plan_quantization_lookup_barriers_dots_activation",
+    "folded_blocks_by_projection": [
+      20,
+      20,
+      54
+    ],
+    "folded_span_bytes_by_projection": [
+      8000,
+      8000,
+      21600
+    ],
+    "folded_span_sum_is_not_concurrent_peak": true,
+    "folded_rows_by_cell": {
+      "1": 48640,
+      "5": 58368,
+      "6": 0
+    },
+    "control_caveat": "MX has no folded input but passes changed shared planner/caller; do not subtract MX ratio.",
+    "screening": "One pass. Only repeated improvements in both primary cells stable across arm/cell order justify separate model-level quality and speed. Otherwise hold without posthoc condition search.",
+    "full_protocol": "be05_review_2026-11-18/astra62_decision/LIMITED_EXPERIMENTS_JA.txt"
+  },
+  "optional_order_AA": {
+    "status": "not_scheduled_optional_only",
+    "purpose": "test_first_vs_later_context_without_04",
+    "not_a_direct_04_causal_test": true,
+    "baseline": "existing_control_33a9",
+    "graph_threads": [
+      24
+    ],
+    "IQ_initial_packing_threads": 12,
+    "orders": {
+      "P": [
+        1,
+        6
+      ],
+      "R": [
+        6,
+        1
+      ]
+    },
+    "sequence": [
+      "P",
+      "R",
+      "R",
+      "P"
+    ],
+    "warmup_graphs_per_cell": 3,
+    "samples_per_cell": 5,
+    "calls_per_sample": 8,
+    "timed_graph_calls": 320,
+    "measures": [
+      "sample_max_over_min",
+      "process_median_ms",
+      "first_later_ratio",
+      "all_raw_samples"
+    ],
+    "not_a_dependency_for": [
+      "FBC",
+      "H1",
+      "08"
+    ],
+    "close_after_one_pass": true
+  },
+  "scope": {
+    "performed_in_this_review": [
+      "fixed_source_reads",
+      "code_review",
+      "saved_binary_comparison",
+      "raw_timing_recomputation",
+      "experiment_design"
+    ],
+    "not_performed": [
+      "new_engine_build",
+      "new_real_machine_benchmark",
+      "normal_API_change",
+      "GitHub_write",
+      "general_quality_evaluation"
+    ]
+  }
+}

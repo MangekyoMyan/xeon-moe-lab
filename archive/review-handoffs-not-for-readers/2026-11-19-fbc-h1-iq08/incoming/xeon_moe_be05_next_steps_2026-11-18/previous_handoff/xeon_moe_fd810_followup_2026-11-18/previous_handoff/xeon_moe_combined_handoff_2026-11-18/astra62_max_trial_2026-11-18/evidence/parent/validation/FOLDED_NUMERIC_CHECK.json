@@ -1,0 +1,40 @@
+{
+  "status": "pass",
+  "scope": "Independent prepared-field check and legacy compact dot vs new dot; no timing; no complete model",
+  "CPU_DSO_sha256": "a32c1dd7a50c9eed6124ac223fa943a9d309ab66e136529c2134981cb42f9c54",
+  "base_DSO_sha256": "0cacc663d14215adc9e40c351ee84e0814ed3bf70852d64b7bb5574ec0aa2708",
+  "seed": 621811,
+  "prepared_blocks_checked": 672,
+  "dot_outputs_byte_equal": 1344,
+  "legacy_output_sha256": "079cbd003dd0725eab295562fd7075275ed5d7668c5a53c42b3e0aaff28f07a8",
+  "new_output_sha256": "079cbd003dd0725eab295562fd7075275ed5d7668c5a53c42b3e0aaff28f07a8",
+  "per_type": [
+    {
+      "type": "IQ3_XXS",
+      "legacy_new_dot_byte_equal_cases": 448
+    },
+    {
+      "type": "IQ2_S",
+      "legacy_new_dot_byte_equal_cases": 448
+    },
+    {
+      "type": "IQ3_S",
+      "legacy_new_dot_byte_equal_cases": 448
+    }
+  ],
+  "input_patterns": [
+    "zero",
+    "normal",
+    "equal positive/negative extrema",
+    "alternating extrema",
+    "sparse",
+    "small finite",
+    "large finite"
+  ],
+  "limitations": [
+    "Uses unchanged legacy compact functions in the candidate DSO",
+    "Synthetic compact blocks can exceed native codebook combinations",
+    "Prequantized minus128 fallback is not exercised by this direct F32 test",
+    "Does not establish latest runtime speed or model quality"
+  ]
+}

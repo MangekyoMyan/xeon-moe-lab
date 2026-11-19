@@ -1,0 +1,123 @@
+親の反例提示後の修正版レビュー — 06 / 07 snapshot
+作成日: 2026-11-18 UTC
+担当: /root/max_trial_independent_reviewer
+
+1. 結論
+
+06-compact-signed-byte.patch / 07-combined-corrected.patch は、rounding mode によって旧 compact へ戻す修正ではない。生成済み Q8 の実値に -128 が含まれるかを block ごとに記録し、その lane の folded dot で元の PSIGNB の wrap を再現する修正である。
+
+この方針では、F32 入力の folded 選択条件や shared workspace stride が worker の rounding mode に依存しない。従って、懸念していた「worker ごとの丸め状態により400-byteと292-byteの異なる配置を使う」という新しい問題は、この修正には導入されていない。
+
+静的には -128 補正の符号位置、他 lane への非干渉、has_min の初期化、3 IQ 型への適用を確認し、具体的な欠陥を発見しなかった。指摘時と同じ direct 反例を固定した新 DSO で再実行し、4 rounding mode すべてで旧 compact と新 folded の出力 byte が一致した。
+
+通常 nearest の経路にも処理は増えている。prepare では flag 集約、dot では flag load と条件分岐が追加される。新 DSO の逆アセンブルでは3種の dot すべてに、各256要素 block につき has_min load が1回、8 group 分の test + je が残っていた。補正前の通常 nearest の計時を修正版の速度として流用してはいけない。
+
+このレビュー時点では候補実装者の graph rounding 試験の最終結果を受領していない。当担当の実行確認は direct function 比較であり、graph dispatch や多 worker の実行確認を代替しない。
+
+2. snapshot と同一性
+
+記録: round3_snapshot/SNAPSHOT.json
+採取: 2026-11-18 02:40:05.503005 UTC
+
+06-compact-signed-byte.patch
+11200 bytes
+SHA256 623fa736121d67e105aea0c3485f9d30dfc90c60c41a8b3dfdfa94db88aef457
+
+07-combined-corrected.patch
+26048 bytes
+SHA256 2bad41439602527129aecd3d66883116dda6df669fcc3a093203307944aecc48
+
+両 patch を初期 source_repo/vendor/llama.cpp + accepted/overlays の reviewer 所有複写へ適用した。git apply --check と git apply は成功。復元結果は観測した work/iq-safe と work/combined-safe の対応全ファイルの SHA256 と一致した。候補実装者のソースは変更していない。
+根拠: round3_snapshot/RECONSTRUCTION.json と SOURCE_AND_ASSEMBLY_CORRELATION.json
+固定ソース: round3_snapshot/06_reconstruction/ と 07_reconstruction/
+
+両者の xeon-local/folded-input.inc は同じ内容:
+SHA256 9933e433c4e22a1cf1dcd25fa541a4a5bfa632ce581fe66e6433d22e2ba47c61
+
+07 と指摘前05の ggml-cpu.c の違いは、prequantized 入力についてのコメントのみだった。route/workspace、folded 選択、量子化入力の配置、planner、同期は今回変わっていない。07 の x86 quants.c も04/05と同一で、SHA256 は603f06f60c1595159b08e0497aae8bc266aeb1ac2c9810d1dd661dc88bd6cdc2。
+
+以下の行番号は 07_reconstruction/ 内のファイル。06 の folded-input.inc は同じ行番号で読める。
+
+3. -128 の修正内容を独立に確認した理由
+
+xeon-local/folded-input.inc 7–13:
+従来の padding[12] の1 byte を has_min に使い、padding を11 bytesへ減らした。group 384 bytes + d 4 bytes + has_min 1 byte + padding 11 bytes =400 bytes。static_assert も400を確認する。
+
+15–31:
+Q8 の lo/hi の abs byte を OR 集約し、movemask でいずれかの最上位 bit が立っているかを見る。signed byte の abs 結果で最上位 bit が立つのは元値 -128 の場合のみ。従って has_min は「この block に -128 があるか」を正しく表す。has_min は全 block に対して必ず0または1を書き、過去の padding 内容を読んで判断するわけではない。
+
+65–73:
+通常は weight code の sign bit と input sign bit を XOR して符号を入力側から重み側へ移す。has_min がある block では、magnitude の high bit から各 lane の補正 bit を作り、低 nibble の sign bit (bit3) と高 nibble の sign bit (bit7) を OR で立てる。
+
+低 nibble 側の expression は (a0 >> 4) & 0x08。16-bit shift だが、mask 後に残る各 byte の bit3 は同じ元 byte の bit7であり、隣 byte の値に依存しない。高 nibble 側は a1 & 0x80。abs が0…127の lane はどちらの force bit も0となり、同じ block に -128 があっても他の lane の符号は変わらない。
+
+旧 compact dot は abs(weight) × PSIGNB(input, weight) を計算する。input=-128 は weight が正でも負でも PSIGNB 後が -128 となる。修正版は magnitude=128 と強制負符号の weight を掛けるため、同じ積 -128×abs(weight) になる。weight=0 のコードがあっても、正負いずれの LUT 値も0なので積は0のまま。
+
+-128 以外では通常の符号移し替えと一致する。従って各 lane の積が元 compact の積と一致するという形で補正を説明できる。整数 pair sum、scale 適用、FP32 lane 累積と水平和の順番は今回の修正で変えていない。
+
+これは旧 compact 算術の再現を目的とした修正である。旧経路での -128 negation wrap を残すため、数学的な参照値への近さが改善したという意味ではない。
+
+4. 適用範囲と共有 workspace
+
+ggml-cpu.c 1717–1727:
+引き続き compact cache が利用でき、use_ref でなく、対象 IQ 型、token 数1、src1=F32 の条件で folded を使う。prequantized Q8 入力は旧 compact のまま。今回 prequantized 入力を新経路へ広げたわけではない。
+
+folded-input.inc 90–96:
+IQ3_XXS / IQ2_S / IQ3_S が同じ補正を共有する。実値の -128 を見るため、入力の丸め方や Q8 の生成理由で補正の成否が変わらない。ただし当担当の DSO 実行 fixture は IQ3_XXS の1 block のみであり、3型すべてを実行したと主張しない。
+
+has_min は各変換済み block と同じ400-byte領域内へ書かれる。既存の block 分割で変換する worker が flag も書き、既存 barrier の後に読む。同じ block を読む worker は同じ flag を受け取る。rounding による新たな row_size / nbw0 / pointer offset 分岐は追加されていない。
+
+worker 間で丸め環境を異ならせた時の計算結果全体の再現性を保証する試験は今回行っていない。ただし、この修正に rounding-dependent layout 問題を理由に差戻す根拠は見つからない。
+
+5. direct 反例の再実行
+
+指摘時の folded_rounding_probe.cpp からビルド済みの同一 probe を再利用した。各候補 DSO とその ggml 依存 DSO を reviewer 所有 snapshot へコピーし、コピー前後で元 DSO hash の不変を確認した。LD_LIBRARY_PATH を snapshot へ向け、CPU DSO は snapshot の絶対パスで dlopen した。同じ環境で ldd は snapshot 内の libggml-base.so.0 を指した。
+
+証跡:
+round3_snapshot/FOLDED_ROUNDING_RETEST_RECEIPTS.json
+round3_snapshot/FOLDED_ROUNDING_IQSAFE.csv
+round3_snapshot/FOLDED_ROUNDING_COMBOSAFE.csv
+round3_snapshot/LDD_iqsafe.txt
+round3_snapshot/LDD_combosafe.txt
+
+fixture は前回と同じ、F32 x[0]=0.1f、残り0、表現可能な IQ3_XXS compact block の全 code=0x8、d=1、scale=1。
+
+mode             Q8[0]   old output bits   fixed output bits   一致
+FE_TONEAREST      -127    bdcccccd          bdcccccd            yes
+FE_DOWNWARD       -128    3dce69a1          3dce69a1            yes
+FE_UPWARD         -126    bdcb2ffa          bdcb2ffa            yes
+FE_TOWARDZERO     -127    bdcccccd          bdcccccd            yes
+
+全4 mode で quantize_row_q8_K と quantize_row_q8_K_ref も byte 一致した。両 snapshot 名で実行 exit0、stderr 空。
+
+ただし、重要な同一性上の注意がある。この時点で観測した lib-iqsafe と lib-combosafe の CPU DSO は byte 同一だった:
+SHA256 a471171256eb7e98d49752ff7b4181da9c5bb74f67700a6a59455cfda8087fbc
+
+一方、work/iq-safe と work/combined-safe の ggml-cpu.c はそれぞれ06/07へ一致する別内容だった。DSO の両名称をもって2つの別実装を独立に検証したとは数えない。direct dot の補正は両 patch に共通なので、その共通部分への証拠として扱う。各名称の DSO がどの全 source/config からビルドされたかの厳密な対応付けは、このレビューでは確定していない。
+
+6. 通常経路の命令増
+
+source 15–31:
+入力を各 output row で再量子化する追加ではない。元からある入力変換の際、abs byte の OR 集約と movemask / flag 書込みが1 block ごとに増える。
+
+source 66–70:
+has_min=0 なら符号補正の AND/OR は実行しないが、flag 判定は必要になる。
+
+実測した新 DSO の機械語:
+folded_dot<IQ3_XXS> (enum18)、folded_dot<IQ2_S> (enum21)、folded_dot<IQ3_S> (enum22) はいずれも g loop が8 group分展開されている。block の offset0x184 (=388) から flag を1回 load し、各 group に同じ flag の test + je が1組ずつ、合計8組ある。通常 has_min=0 でもこの判定は通る。prepare には vpor の集約、vpmovmskb、test、setne による flag 書込みを確認した。
+
+逆アセンブルと集計:
+round3_snapshot/disassembly_from_float.txt
+round3_snapshot/disassembly_type_18.txt
+round3_snapshot/disassembly_type_21.txt
+round3_snapshot/disassembly_type_22.txt
+round3_snapshot/DISASSEMBLY_NOTES.json
+round3_snapshot/SOURCE_AND_ASSEMBLY_CORRELATION.json
+
+この命令増をそのまま実機の latency 増率へ換算してはいない。条件予測、命令発行、重み帯域などの制約次第で影響が違うため、修正版 DSO の通常 nearest の再計時で判断する。旧 patch/DSO の良い時間と、修正版の正しさの試験だけを組み合わせて、修正版の性能が確定したとはしない。
+
+7. 本書の境界
+
+これは親が反例を提示した後の新 snapshot のレビューであり、初回の独立発想・自己検証の成果へ遡って加算しない。
+当担当は修正コードを書いておらず、候補実装者に直接連絡していない。エンジン全体の build や性能計測も行っていない。今回新たに実行したのは既存の最小 direct probe の再適用と DSO の読取・逆アセンブルである。
+graph rounding 試験、正常 nearest の修正版計時、各 build label と source の対応は親・候補実装者の別証跡で補う必要がある。

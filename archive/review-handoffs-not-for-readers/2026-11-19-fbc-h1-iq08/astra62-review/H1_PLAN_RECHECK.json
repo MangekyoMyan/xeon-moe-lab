@@ -1,0 +1,800 @@
+{
+  "scope": "Read-only recheck of supplied H1 plans against retained historical machine evidence. Fresh H1 run outputs are separate.",
+  "old_capture": {
+    "path": "/home/codex/projects/llm-lab/parallel-pilot-20261117/capture/runs/20261117T052657Z-U1024-3483cb75",
+    "metadata_sha256": "62e54dd8f37564894d68b1fba73ff7ff529aa05dfbf28abad8b038d1c0aea03d",
+    "manifest_sha256": "d126a025c7930722e5efc4c051b1b092a3de24902321474521e86101fb6fa89b"
+  },
+  "old_model_inventory": {
+    "source": "/home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/runs/20261117T054816Z-CSP-U1024-2ff29532/RUN.json",
+    "sha256": "ce58578d85714d524a5541207a2219f0071a1411975d33fce80dbb05db22b1e0"
+  },
+  "plans": {
+    "H1_COMPACT": {
+      "path": "/home/codex/projects/llm-lab/be05-followup-20261119/incoming/xeon_moe_be05_next_steps_2026-11-18/previous_handoff/xeon_moe_fd810_followup_2026-11-18/previous_handoff/xeon_moe_combined_handoff_2026-11-18/validation3_review_2026-11-18/plans/H1_COMPACT.plan",
+      "sha256": "389c151881c9315f34a45ddca39f277efdcda1e792f2ba36364f27d295d04e69",
+      "counts_per_layer": [
+        0,
+        1,
+        2,
+        3,
+        1,
+        2,
+        2,
+        3,
+        2,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        2,
+        1,
+        0,
+        1,
+        2,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        3,
+        1,
+        0,
+        0,
+        0
+      ],
+      "experts": 35,
+      "native_bytes_from_real_weights": 475453440,
+      "initialized_layer_count": 23,
+      "estimated_distinct_gpu_graph_shapes": 35,
+      "expected_top6_assignments": [
+        {
+          "cell": 0,
+          "layer": 7,
+          "global_ids": [
+            152,
+            245,
+            161,
+            157,
+            38,
+            207
+          ],
+          "expected_gpu_slots": [],
+          "expected_gpu_ids": [],
+          "expected_H": 0
+        },
+        {
+          "cell": 1,
+          "layer": 7,
+          "global_ids": [
+            38,
+            54,
+            313,
+            369,
+            85,
+            331
+          ],
+          "expected_gpu_slots": [
+            5
+          ],
+          "expected_gpu_ids": [
+            331
+          ],
+          "expected_H": 1,
+          "historical_actual_cache": [
+            {
+              "projection": "blk.7.ffn_gate_exps.weight",
+              "compact_expert": 331,
+              "other_expert": 85,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.7.ffn_up_exps.weight",
+              "compact_expert": 331,
+              "other_expert": 85,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.7.ffn_down_exps.weight",
+              "compact_expert": 331,
+              "other_expert": 85,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            }
+          ]
+        },
+        {
+          "cell": 2,
+          "layer": 7,
+          "global_ids": [
+            10,
+            154,
+            19,
+            7,
+            313,
+            165
+          ],
+          "expected_gpu_slots": [
+            1,
+            2
+          ],
+          "expected_gpu_ids": [
+            154,
+            19
+          ],
+          "expected_H": 2
+        },
+        {
+          "cell": 3,
+          "layer": 7,
+          "global_ids": [
+            19,
+            154,
+            7,
+            331,
+            157,
+            38
+          ],
+          "expected_gpu_slots": [
+            0,
+            1,
+            3
+          ],
+          "expected_gpu_ids": [
+            19,
+            154,
+            331
+          ],
+          "expected_H": 3
+        },
+        {
+          "cell": 4,
+          "layer": 35,
+          "global_ids": [
+            78,
+            201,
+            225,
+            100,
+            306,
+            26
+          ],
+          "expected_gpu_slots": [
+            0
+          ],
+          "expected_gpu_ids": [
+            78
+          ],
+          "expected_H": 1,
+          "historical_actual_cache": [
+            {
+              "projection": "blk.35.ffn_gate_exps.weight",
+              "compact_expert": 78,
+              "other_expert": 100,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.35.ffn_up_exps.weight",
+              "compact_expert": 78,
+              "other_expert": 100,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.35.ffn_down_exps.weight",
+              "compact_expert": 78,
+              "other_expert": 100,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            }
+          ]
+        },
+        {
+          "cell": 5,
+          "layer": 13,
+          "global_ids": [
+            123,
+            377,
+            174,
+            213,
+            3,
+            113
+          ],
+          "expected_gpu_slots": [
+            4
+          ],
+          "expected_gpu_ids": [
+            3
+          ],
+          "expected_H": 1
+        },
+        {
+          "cell": 6,
+          "layer": 28,
+          "global_ids": [
+            175,
+            13,
+            332,
+            138,
+            296,
+            316
+          ],
+          "expected_gpu_slots": [
+            4
+          ],
+          "expected_gpu_ids": [
+            296
+          ],
+          "expected_H": 1
+        },
+        {
+          "cell": 7,
+          "layer": 20,
+          "global_ids": [
+            129,
+            262,
+            103,
+            273,
+            346,
+            19
+          ],
+          "expected_gpu_slots": [
+            1,
+            4
+          ],
+          "expected_gpu_ids": [
+            262,
+            346
+          ],
+          "expected_H": 2
+        }
+      ]
+    },
+    "H1_NONCOMPACT": {
+      "path": "/home/codex/projects/llm-lab/be05-followup-20261119/incoming/xeon_moe_be05_next_steps_2026-11-18/previous_handoff/xeon_moe_fd810_followup_2026-11-18/previous_handoff/xeon_moe_combined_handoff_2026-11-18/validation3_review_2026-11-18/plans/H1_NONCOMPACT.plan",
+      "sha256": "4cfc84a0f30a1c30d8e3fcf20810ee673ea6fd7550bbd41d0426968fbce6d486",
+      "counts_per_layer": [
+        0,
+        1,
+        2,
+        3,
+        1,
+        2,
+        2,
+        3,
+        2,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        2,
+        1,
+        0,
+        1,
+        2,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        3,
+        1,
+        0,
+        0,
+        0
+      ],
+      "experts": 35,
+      "native_bytes_from_real_weights": 475453440,
+      "initialized_layer_count": 23,
+      "estimated_distinct_gpu_graph_shapes": 35,
+      "expected_top6_assignments": [
+        {
+          "cell": 0,
+          "layer": 7,
+          "global_ids": [
+            152,
+            245,
+            161,
+            157,
+            38,
+            207
+          ],
+          "expected_gpu_slots": [],
+          "expected_gpu_ids": [],
+          "expected_H": 0
+        },
+        {
+          "cell": 1,
+          "layer": 7,
+          "global_ids": [
+            38,
+            54,
+            313,
+            369,
+            85,
+            331
+          ],
+          "expected_gpu_slots": [
+            4
+          ],
+          "expected_gpu_ids": [
+            85
+          ],
+          "expected_H": 1,
+          "historical_actual_cache": [
+            {
+              "projection": "blk.7.ffn_gate_exps.weight",
+              "compact_expert": 331,
+              "other_expert": 85,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.7.ffn_up_exps.weight",
+              "compact_expert": 331,
+              "other_expert": 85,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.7.ffn_down_exps.weight",
+              "compact_expert": 331,
+              "other_expert": 85,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            }
+          ]
+        },
+        {
+          "cell": 2,
+          "layer": 7,
+          "global_ids": [
+            10,
+            154,
+            19,
+            7,
+            313,
+            165
+          ],
+          "expected_gpu_slots": [
+            1,
+            2
+          ],
+          "expected_gpu_ids": [
+            154,
+            19
+          ],
+          "expected_H": 2
+        },
+        {
+          "cell": 3,
+          "layer": 7,
+          "global_ids": [
+            19,
+            154,
+            7,
+            331,
+            157,
+            38
+          ],
+          "expected_gpu_slots": [
+            0,
+            1
+          ],
+          "expected_gpu_ids": [
+            19,
+            154
+          ],
+          "expected_H": 2
+        },
+        {
+          "cell": 4,
+          "layer": 35,
+          "global_ids": [
+            78,
+            201,
+            225,
+            100,
+            306,
+            26
+          ],
+          "expected_gpu_slots": [
+            3
+          ],
+          "expected_gpu_ids": [
+            100
+          ],
+          "expected_H": 1,
+          "historical_actual_cache": [
+            {
+              "projection": "blk.35.ffn_gate_exps.weight",
+              "compact_expert": 78,
+              "other_expert": 100,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.35.ffn_up_exps.weight",
+              "compact_expert": 78,
+              "other_expert": 100,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.35.ffn_down_exps.weight",
+              "compact_expert": 78,
+              "other_expert": 100,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            }
+          ]
+        },
+        {
+          "cell": 5,
+          "layer": 13,
+          "global_ids": [
+            123,
+            377,
+            174,
+            213,
+            3,
+            113
+          ],
+          "expected_gpu_slots": [
+            4
+          ],
+          "expected_gpu_ids": [
+            3
+          ],
+          "expected_H": 1
+        },
+        {
+          "cell": 6,
+          "layer": 28,
+          "global_ids": [
+            175,
+            13,
+            332,
+            138,
+            296,
+            316
+          ],
+          "expected_gpu_slots": [
+            4
+          ],
+          "expected_gpu_ids": [
+            296
+          ],
+          "expected_H": 1
+        },
+        {
+          "cell": 7,
+          "layer": 20,
+          "global_ids": [
+            129,
+            262,
+            103,
+            273,
+            346,
+            19
+          ],
+          "expected_gpu_slots": [
+            1,
+            4
+          ],
+          "expected_gpu_ids": [
+            262,
+            346
+          ],
+          "expected_H": 2
+        }
+      ]
+    },
+    "original35": {
+      "path": "/home/codex/projects/llm-lab/be05-followup-20261119/fbc/capacity.plan",
+      "sha256": "4b5a8063ae1e61c55d30f957798a7cc44d7f462cf22767d2596105ed7322c596",
+      "counts_per_layer": [
+        0,
+        1,
+        2,
+        3,
+        1,
+        2,
+        2,
+        3,
+        2,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        2,
+        1,
+        0,
+        1,
+        2,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        3,
+        1,
+        0,
+        0,
+        0
+      ],
+      "experts": 35,
+      "native_bytes_from_real_weights": 475453440,
+      "initialized_layer_count": 23,
+      "estimated_distinct_gpu_graph_shapes": 35,
+      "expected_top6_assignments": [
+        {
+          "cell": 0,
+          "layer": 7,
+          "global_ids": [
+            152,
+            245,
+            161,
+            157,
+            38,
+            207
+          ],
+          "expected_gpu_slots": [],
+          "expected_gpu_ids": [],
+          "expected_H": 0
+        },
+        {
+          "cell": 1,
+          "layer": 7,
+          "global_ids": [
+            38,
+            54,
+            313,
+            369,
+            85,
+            331
+          ],
+          "expected_gpu_slots": [
+            5
+          ],
+          "expected_gpu_ids": [
+            331
+          ],
+          "expected_H": 1,
+          "historical_actual_cache": [
+            {
+              "projection": "blk.7.ffn_gate_exps.weight",
+              "compact_expert": 331,
+              "other_expert": 85,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.7.ffn_up_exps.weight",
+              "compact_expert": 331,
+              "other_expert": 85,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.7.ffn_down_exps.weight",
+              "compact_expert": 331,
+              "other_expert": 85,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            }
+          ]
+        },
+        {
+          "cell": 2,
+          "layer": 7,
+          "global_ids": [
+            10,
+            154,
+            19,
+            7,
+            313,
+            165
+          ],
+          "expected_gpu_slots": [
+            1,
+            2
+          ],
+          "expected_gpu_ids": [
+            154,
+            19
+          ],
+          "expected_H": 2
+        },
+        {
+          "cell": 3,
+          "layer": 7,
+          "global_ids": [
+            19,
+            154,
+            7,
+            331,
+            157,
+            38
+          ],
+          "expected_gpu_slots": [
+            0,
+            1,
+            3
+          ],
+          "expected_gpu_ids": [
+            19,
+            154,
+            331
+          ],
+          "expected_H": 3
+        },
+        {
+          "cell": 4,
+          "layer": 35,
+          "global_ids": [
+            78,
+            201,
+            225,
+            100,
+            306,
+            26
+          ],
+          "expected_gpu_slots": [
+            0,
+            2,
+            4
+          ],
+          "expected_gpu_ids": [
+            78,
+            225,
+            306
+          ],
+          "expected_H": 3,
+          "historical_actual_cache": [
+            {
+              "projection": "blk.35.ffn_gate_exps.weight",
+              "compact_expert": 78,
+              "other_expert": 100,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.35.ffn_up_exps.weight",
+              "compact_expert": 78,
+              "other_expert": 100,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            },
+            {
+              "projection": "blk.35.ffn_down_exps.weight",
+              "compact_expert": 78,
+              "other_expert": 100,
+              "cached_compact": true,
+              "cached_other": false,
+              "historical_lookup_provider": "/home/codex/projects/llm-lab/observation-20261117/route37/runtime/libggml-cpu.so.0.28.0"
+            }
+          ]
+        },
+        {
+          "cell": 5,
+          "layer": 13,
+          "global_ids": [
+            123,
+            377,
+            174,
+            213,
+            3,
+            113
+          ],
+          "expected_gpu_slots": [
+            4
+          ],
+          "expected_gpu_ids": [
+            3
+          ],
+          "expected_H": 1
+        },
+        {
+          "cell": 6,
+          "layer": 28,
+          "global_ids": [
+            175,
+            13,
+            332,
+            138,
+            296,
+            316
+          ],
+          "expected_gpu_slots": [
+            4
+          ],
+          "expected_gpu_ids": [
+            296
+          ],
+          "expected_H": 1
+        },
+        {
+          "cell": 7,
+          "layer": 20,
+          "global_ids": [
+            129,
+            262,
+            103,
+            273,
+            346,
+            19
+          ],
+          "expected_gpu_slots": [
+            1,
+            4
+          ],
+          "expected_gpu_ids": [
+            262,
+            346
+          ],
+          "expected_H": 2
+        }
+      ]
+    }
+  },
+  "different_memberships_in_H1_pair": [
+    7,
+    35
+  ]
+}

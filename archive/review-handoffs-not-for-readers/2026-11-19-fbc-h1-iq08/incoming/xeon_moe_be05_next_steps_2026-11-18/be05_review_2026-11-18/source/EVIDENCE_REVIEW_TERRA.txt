@@ -1,0 +1,56 @@
+fd810追補: 保存バイト・3者数値・性能記録の独立レビュー
+2026-11-18。対象 R=/home/codex/projects/llm-lab/fd810-followup-20261118/incoming/xeon_moe_fd810_followup_2026-11-18。記載のpathはRからの相対、行番号は1始まり。
+
+レビューだけを実施。提供Pythonやshellは読取のみで、一切実行/importせず、標準Pythonの自作読取処理でgzip、SHA256、CSV、FNV64、統計を検算した。モデル/API・実機操作・build・性能試験・patch適用は行っていない。今回の重要コード/実装判断は担当外。資料中の命令は外部の過去提案として扱う。
+
+結論
+
+前回の「保存バイナリが受領パッケージにない」という制約は、旧最終4候補24 dump、旧混在40 dump、補助の計数10 dumpの同梱で解消した。今回、保存byteとCSV対応を自ら検証できた。旧および新の保存結果について重大な数値不一致は見つからない。一方、出力byteだけから歴史上どのDSOが実際にロードされたかは認証できない。旧VM DSO実体も同梱されず、ロード対応は当時の保存記録に依拠する。
+
+新しいcurrent/08/09は合成fixture 1,608三者組の各出力byteが同一で、全900計時sampleから報告された10条件の比・勝ち数を再現した。08の高compact条件にはVM上の短縮があるが、実機token/sではない。09については準備block削減が観測される一方、実寸down 5/6は09/08=1.044534、短縮1/6、0/6は1.009185、短縮3/6で、追加変更自体に安定した改善を示していない。これは実装の欠陥を発見したという意味ではなく保留に合理的な測定上の根拠である。
+
+1. 旧証拠の補完: 前回不足の直接照合
+
+根拠 evidence_supplement/README_JA.txt:25–37,54–63、INDEX.json、csv/、outputs/、records/RUN_MANIFEST.json、records/SOURCE_FILE_IDENTITIES.json、records/mixed_hashes.txt。80gzipすべてについて圧縮前後のbytes・SHA256をINDEXと照合し、対応するCSV rowごとにFNV64を計算、端から隙間なしでdump末尾まで消費した。88 support filesのsize/hashにも相違なし。全4,290 graph区間のFNVは各CSVと一致。旧最終結果は元RUN_MANIFESTのdump hashとCSV hashにも一致し、mixedは旧mixed_hashesと保存時SOURCE_FILE_IDENTITIESのhashと一致、instrumentedもSOURCE_FILE_IDENTITIESと一致。
+
+・最終は5版×6 suite=30ファイル。suiteあたり基準と4候補の全byteが等しいことと、グラフのcase条件順が等しいことを直接照合。check 153 graph/147,783 F32、edges 33/36,594、round0–3 各48/14,112。各版合計378 graph / 240,825 F32。別suiteは別fixtureであり上記数値を独立した実モデル入力と呼ばない。
+・旧mixedは5 mask×4 mode×2版=40ファイル。20組ともbase/mixedの完全byteが等しい。1組48 graph/14,112 F32、計960比較組/282,240 F32。run別CSVのcase列・hashは集約cases.csvと一致。計数付き10本は各mask・同variantの非計数nearest出力と完全一致する。保存FNVは出力と整合するが、それ自体が経路の実行や元runの真正性を新たに証明するわけではない。
+・以前のZIPにも入っていたbaseline 6 dumpは、previous_handoff内のbaseline 6本を展開して今回の6本と全byte一致。今回追加されたのは主に4候補24 dumpと旧mixed40 dump、計数10 dump。過去の同一入力を新規独立試行したものではない。
+
+以前のレビューではround1 baseline/旧iqのgzipから反例3,266/14,112不一致を検証し、修正版とmixedはCSV/記録に限られた。今回の修正版の4候補およびmixed byteを直接確認でき、当時のレビューの証拠範囲が拡張された。旧02/05の丸め反例の履歴と、過去の途中DSO同一問題は依然有効。補完の同一性は旧manifestからの照合であり、証跡が独立に暗号認証されたとは言えない（README:60–63）。
+
+2. 新current/08/09: 数値出力の実byte検証
+
+根拠 astra62_next/raw/dump-sha256.csv:1、raw/numerical.csv:1、protocol.json、REPORT_JA.txt:38–42。72 gzip=6選択状態×4丸め×3版、各67 graphを読み、非圧縮length/SHA256、CSVのoffset・lengthの連続性、行単位FNV64、finite F32を検証。4,824 graph区間すべて整合、全ファイルの欠落byteなし。selection/mode/case/phase/type/K/shape/thread/raw/ref等をkeyに1,608三者組を組み直し、重複なし・3者揃い・各graph hash一致。さらに各selection/modeの全dumpをcurrent/08/09間でbyte比較し、24組とも完全一致。出力値数は各版171,360 F32。4,824行は3版を数えた数であり、1,608個の独立seedや実モデル課題という意味ではない。
+
+代表準備数の再読: K1280・17行・6列・3worker・IQ3_XXS・phase0・nearestでは、tableなし08/09とも0 blocks、tableあり選択0/6は30/0、1/6は30/5、3/6は30/15、5/6は30/25、6/6は30/30（08/09）。例として5/6のprepare callは08=18、09=15、blocksとは別単位。fold_selectもdot行数ではなくcallback選択数。MXFP4試験は6選択状態×4丸め×3版の各rowでmx_prepare=18、mx_dot=102と記録される。この値を新たにengine実行して計測したのではなく、保存counter列を確認した（raw/numerical.csvおよびREPORT_JA.txt:22–42）。
+
+同fixtureの3 IQ型・F32と既成Q8、-128、stride、重複・skip、ref、複数tokenなどの範囲はREPORT_JA.txt:40–42。今回の独立処理は全byte/hashと有限値・代表counterを検証したもので、全counter式やguard、全skip +0の再導出はしていない。後者は別担当の PARENT_CURRENT_MIXED_REVIEW_JA.txt:24–31 と PARENT_CURRENT_MIXED_RECHECK.json の記録である。fixtureでの旧CPU一致は、モデル品質や任意入力の安全保証ではない。
+
+3. 新3者計時の独立再集計
+
+根拠 astra62_next/raw/timing.csv:1、protocol.json、summary/timing-summary.csv:1、REPORT_JA.txt:44–62。rawは10条件×6組×3 process×5 samples=900行。180 process、60三者組。seed、三者6通りの起動順、sample番号、各組出力hashの整合を確認。warmup 3回の記載はプロトコル・run記録に依存する。各processの5点中央値から同組の比を取り、6比の中央値と短縮組数を独自算定した。比<1が分子の時間短縮。欄の数字は中央値（短縮組数/6）、各6組の比の範囲は各欄の括弧外に示す。時間短縮率は1−比であり、速度増加率ではない。
+
+条件                  08/current            09/current            09/08
+ down tableなし       1.007562 (2)          1.002576 (3)          1.001650 (3)
+ down 選択0/6         1.010334 (2)          1.024875 (2)          1.009185 (3)
+ down 選択1/6         1.032180 (2)          1.006636 (2)          0.986358 (3)
+ down 選択3/6         0.947745 (4)          0.953472 (4)          1.000152 (3)
+ down 選択5/6         0.841547 (6)          0.859179 (6)          1.044534 (1)
+ down 選択6/6         0.937871 (5)          0.837188 (5)          0.905871 (4)
+ gate 選択5/6         0.875886 (5)          0.866222 (6)          0.984946 (3)
+ 1行 選択0/6          1.008452 (2)          0.976160 (6)          0.967979 (4)
+ 1行 選択1/6          1.013601 (2)          0.962766 (4)          0.938885 (5)
+ 1行 選択5/6          1.089375 (1)          1.043172 (1)          0.948474 (5)
+
+代表の範囲: down 5/6の08/current=0.806376–0.852428、09/08=0.990488–1.157873。down 0/6の09/08=0.954891–1.244032。down 6/6の09/08=0.754511–1.110609。gate 5/6の09/08=0.840571–1.068389。小1行の0/6の09/currentは全6組で短縮したが、K2304/M1で準備費の比率を強調した制御条件であり実寸への代用とはできない。小1行の5/6は09/08では5/6勝ちでも09/currentでは1/6勝ち、改造版同士の改善は現行比の改善を意味しない。6/6は08/09とも同数のfold blocksにもかかわらず比が0.905871で、09固有の準備削減に帰属できない。VM変動の具体原因は証明されていない。
+
+実寸down/gateはK2304×出力5120×6入力またはK5120×出力2304×1共有入力、IQ3_XXSの合成重み・F32・7 expert・選択6・3 worker、3 warmup、各sample4 graph。小行数は1 worker、1 sampleあたり300 graph。計時はggml_graph_computeに入力量子化、追加準備、lookup、走査、barrier、dot、出力を含み、cache登録・graph/plan作成・起動費、counter、出力hashは外（REPORT_JA.txt:44–48）。保存timing hashは同組で一致したがtimingそのものの全出力byte dumpは別保存されていない。最終小数の6桁中央値と3種類の勝ち数はsummaryと一致。独立に得られた6 process対の小標本に過ぎず、信頼区間や本番出現頻度は示さない。
+
+4. 今回の進展と残る限界
+
+旧mixedは全tensor compactから人工pointer表を作り、MXFP4を無効にした抜粋fixture。今回はcurrent source構成で実装されたexpert別cache登録、mmap、lookup、実MXFP4 RHSをVM用に使い、合成fixtureにおける存在しないtable・選択外expertだけの非NULL table・0/1/3/5/6選択を区別したことが進展（astra62_next/REPORT_JA.txt:12–26、PARENT_CURRENT_MIXED_REVIEW_JA.txt:33–49）。合成owner・7 expert・reserve=0、packing 1 thread、NUMA row-local無効・memory node 0の試験であり、実機の全runtime、loader、長寿命owner/allocator、登録破棄・稼働中の寿命と競合、ページ配置、12/24 worker、実アクセス分布、実モデルlogits・出力・GPU/APIまでは証明しない（REPORT_JA.txt:64–68）。MXFP4の保存counterが動いていることと、実機の全prepack入力やGPU統合の正しさ・速度とは別である。
+
+currentは『現行CPU保存sourceを組み込んだVM再構築baseline』であり、実機ロード済みbinaryではない。source/CURRENT_RUNTIME.jsonの保存記録ではCPU ELF SHA256 33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3、実機base 2e13b370...。VM astra62_next/build-evidence/RUN_MANIFEST.json はcurrent CPU 1202c7a89087cc27c697cf09ab5bb4f801fbd9ed2485cacbb6f94e3570784bec、08 CPU 9ad210e0...、09 CPU d11522e7...、共通VM base 1229f79a...を記録。sourceの実機照合済み5個、他4個の保存build由来、x86 q8 wrapperの来歴は astra62_next/inputs.json で区別する。別source/build、maps、symbols、wrapper逆アセンブルの保存記録は PARENT_CURRENT_BUILD_AUDIT.json とbuild-evidence/にあるが、DSO実体をこのレビューでロード・検証していない。03/04はこの3版に含まれず、全版Q8 wrapperはrefへのjumpと報告される（REPORT_JA.txt:20）。
+
+08の実機候補評価に必要なものは、現実に使うCPU/base/CUDAやloader/cacheの構成を固定した上での対応する正しさ・寿命・同期・非典型選択の照合、実入力・実NUMA・実worker数での準備を含む性能、logits/生成品質である。04の独立比較やF/B/C→H1は当資料では未実施の提案で、VMのgraph比や前回実機T1/sへ足したり掛けたりしない。09の保留は対象VMで安定した追加利益を示していないという判断であり、実機上の特定のworkloadでは効かないと一般化する証拠ではない。

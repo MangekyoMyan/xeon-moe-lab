@@ -1,0 +1,354 @@
+F/B/C trace design review — 2026-11-19
+
+Scope: read-only source review for the parent implementation. No code edit, build,
+model load, API operation, or benchmark was performed. This file is the only
+artifact written by this review. CPU602a remains the diagnostic CPU; base/CUDA
+remain fixed; all arms must use the same new diagnostic libllama.
+
+RECOMMENDATION
+
+Keep libggml-base unchanged. Put a bounded, explicitly armed metadata recorder in
+the common new libllama at the actual process_ubatch build/allocation boundary.
+Capture the original graph before scheduler allocation, then capture final node
+order, placement, allocated buffer types and source-edge replacements after
+allocation. Use existing GGML_SCHED_DEBUG=2 in diagnostic-only processes for the
+actual split boundaries and split-input lists that have no public getter.
+
+Do not use an eval callback, route collection, ggml_set_output, a synthetic graph
+cut, a second split/allocate pass, or LLAMA_GRAPH_REUSE_DISABLE for this trace.
+Those are unnecessary; some directly change graph execution/fusion. Preserve the
+existing built-in expert-copy and realloc callbacks, which are normal scheduler
+behavior rather than a new observer.
+
+The resulting record can establish original F/B DAG equality and report actual
+allocated placement/split/copy edges for a selected successful decode. It cannot
+measure transfer duration or identify every async-versus-sync runtime branch.
+Label scheduled copies and logical tensor bytes accordingly. A debug log is not
+a transfer-time measurement or proof of exact DMA byte volume.
+
+SOURCE IDENTITIES AND ABBREVIATIONS
+
+LCTX = /home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/route37/llama-context.cpp
+  SHA256 7b8829337f935c713959ca176848fd8946c7da185bee3bbacb2243577b76ea4a
+BASE = /home/codex/projects/llm-lab/gpu-stream-20261103/ggml-backend.cpp
+  SHA256 002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd
+BASE_DSO = /home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0
+  SHA256 2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558
+HOT = /home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/hot-backend.cpp
+  SHA256 270b7f6f4398f5d1978026bebc18e129614956d028414a98daf76f91374a881c
+GRAPH = /home/codex/projects/llm-lab/parallel-pilot-20261117/integrated/llama-graph.cpp
+SRC = /home/codex/projects/llm-lab/deepseek41-bringup-20261101/source
+CUDA = /home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/ggml-cuda.cu
+  SHA256 2cdc72370dcb884fcbac85cf2757ef1259265c5181558b1e1eb933157a72d3d0
+
+Hashes above were read during this review. BASE_DSO's dynamic symbol table was
+also read: the public scheduler getters listed below, graph node accessors,
+ggml_graph_print/dump_dot, and ggml_log_get/set are exported. No DSO was executed.
+Line references apply to these old source files, before the parent's new edits.
+
+1. EXACT HOOK LOCATIONS
+
+LCTX:1535 process_ubatch is the correct boundary for actual evaluated graphs.
+LCTX:1542 already has route37_rebuilt, usable as a build/reuse fact without opening
+the route recorder. LCTX:1550 selects the normal reuse path; 1561–1588 is rebuild.
+
+Original snapshot: after model.build_graph(gparams) at LCTX:1571, after the null
+check at 1575–1579, and before ggml_backend_sched_alloc_graph at 1581. This is the
+unmodified main graph for F/B, with application placement pins already applied.
+Serialize metadata or deep-copy metadata values here. Retaining only ggml_tensor
+pointers or a shallow ggml_cgraph copy is insufficient: allocation mutates the
+same tensors and the node-array contents.
+
+Allocated snapshot: after successful alloc_graph at LCTX:1581–1585 and before
+set_inputs at 1590–1595. Record nodes by original stable ID as well as their final
+post-optimization execution-array index. Keep the internal pointer-to-original-ID
+map alive only until this snapshot is complete; never emit pointer addresses.
+
+Completion receipt: LCTX:1603 submits the graph; return status is checked at
+1614–1617. The caller's ordinary logits acquisition/synchronization establishes
+output-ready completion. A metadata hook should not insert a tensor readback or
+extra synchronization. Record the selected decode's return and normal output
+completion separately from graph allocation success.
+
+Do not hook the reserve graph at LCTX:2706. That is a sizing/reservation graph,
+not the actual selected T1. Initialization and vision warmup also create/split
+graphs; tag scope explicitly rather than selecting the first log in the process.
+
+Minimal implementation shape: a separate trace translation unit/header with an
+extern C arm/take-or-finish API and a disabled-by-default, one-shot request keyed
+by context plus caller tag. Two narrow call sites in process_ubatch are enough
+for pre/post snapshots. An optional entry/reuse receipt can reject an armed
+request that did not observe a fresh original graph. Keep this outside the
+llama_context object layout if convenient, avoiding unnecessary header/ABI edits.
+The request must not affect can_reuse, node flags, placement, or scheduler APIs.
+When disabled, the hook returns immediately; all F/B/C timing arms have the same
+new libllama with no armed request and no debug environment.
+
+2. WHY THE PRE-ALLOCATION SNAPSHOT IS NECESSARY
+
+BASE:1486 split_graph is a mutating operation, despite its public API being
+described as splitting without allocation. It frees/recreates the scheduler
+context (1498–1500), assigns a graph UID (1505), assigns placement, rewrites
+dependencies, and invokes backend graph optimization.
+
+BASE:1795–1815 creates destination copy tensors and replaces node->src[j] with
+the selected copy. The duplicate carries layout but is a new GGML_OP_NONE tensor;
+its original source cannot be reconstructed generally by following src pointers.
+Its name is formatted as backend#source#copy at 1801; names are not a safe identity
+mechanism because tensor names have finite storage and debug prints truncate.
+
+BASE:1894–1898 makes split views and calls backend graph_optimize. The split
+view shares the original node array (SRC/ggml/src/ggml.c:7630–7642). The pinned
+CUDA optimizer really can reorder that array: CUDA:5109 uses std::rotate for
+the shared-expert fusion pattern. Thus pre-index i and post-index i need not be
+the same tensor, even though split array boundaries remain in the same range.
+
+BASE:1934–1974 adds input-copy and allocation-lifetime dependency nodes to a
+separate allocator graph. Those internal allocation nodes are not extra original
+main-DAG operations and should not be mixed into the normalized F/B graph.
+
+3. EXISTING PUBLIC API COVERAGE
+
+SRC/ggml/include/ggml.h:2939–2942 provides ggml_graph_n_nodes and node access.
+SRC/ggml/include/ggml.h:690–713 exposes op, type, ne[4], nb[4], op_params, flags,
+src[] and view_src/view_offs. Traverse all graph nodes, their source closure and
+view-source closure to record the executed dependency DAG using public API only.
+
+There is no public graph-leaf-array/count getter in this revision. A source
+closure includes all leaves used by the DAG, but not disconnected/unconsumed
+input leaves. State this scope if using public access only. If a complete leaf
+inventory is desired, reading the already pinned ggml_cgraph layout from
+SRC/ggml/src/ggml-impl.h:341–358 inside libllama is a local private-header
+dependency, not a reason to rebuild base. The graph structure must remain
+read-only; do not reimplement or inspect private scheduler layout.
+
+SRC/ggml/include/ggml-backend.h:348–359 gives scheduler backend enumeration,
+n_splits, n_copies, scheduler buffer type/size, and tensor backend assignment.
+Buffer name/type/usage/hostness accessors are available at header:57–70.
+BASE:2436–2488 implements these getters. There is no public split range or
+split-input getter. n_copies is the pipeline-copy-slot count, NOT the number of
+copy transfers or copy tensors in a token.
+
+Record for each backend its semantic name, device name/type, selected buffer
+type, allocated scheduler bytes, and separately the provider receipt. Preserve
+the raw backend enumeration as an audit fact, but exclude indices from F/B DAG
+comparison. B/C add XEON_HOT_FFN before CPU (LCTX:460–464), shifting CPU's index.
+Backend counts therefore need not match F. A backend's presence does not prove
+that an operation ran there; use each node's assignment.
+
+Allocated tensor buffer type and execution backend are different concepts:
+XEON_HOT_FFN is an ACCEL dispatcher with CUDA-host buffer type and accepts host
+buffers (HOT:209–218). CPU-compatible host buffers need not imply a copy. Do not
+derive copy counts simply by counting edges whose backend names differ.
+
+4. GGML_SCHED_DEBUG=2: WHAT IT DOES AND DOES NOT DO
+
+BASE:2234–2235 reads GGML_SCHED_DEBUG once when a scheduler is created. Changing
+the environment just before a later decode does not toggle an existing scheduler.
+Set it before diagnostic context creation and omit it entirely in timing runs.
+
+BASE:1823–1825 calls print_assignments only when split_graph runs. This is after
+cross-backend source rewrites and before backend optimization/allocation.
+BASE:1417–1453 prints:
+  - each split's ordinal, backend name and input list;
+  - the original graph-array index for each printed node;
+  - op description, truncated node/source names, rounded tensor byte sizes;
+  - node/source backend lookup, use count, COMPUTE flag.
+Views/reshapes/permutations/transposes are skipped as printed node lines
+(1435–1436), though they remain in the graph. Names are truncated to 20 chars
+in node/source rows and byte sizes are rounded down to K/M at 1407–1413.
+The assignment-cause field is empty in this build: SET_CAUSE is disabled by
+#if 0 at 1318–1325. Do not promise placement reasons from this output.
+
+There is no debug-triggered reset, no forced graph rebuild and no eval callback
+activation in this code. Graph reuse is controlled independently by
+LLAMA_GRAPH_REUSE_DISABLE at LCTX:380–386 and the normal reuse test at 1550.
+Debug nevertheless is not literally free of side effects: it formats/logs and
+queries rewritten sources with get_tensor_backend. That getter uses
+ggml_hash_find_or_insert (BASE:1251–1252,2482–2488), so unknown copy tensors can
+be inserted into the scheduler hash with backend ID still -1. No graph placement
+or compute-dispatch policy is changed by that query, but diagnostics remain
+separate from timing and carry the ordinary finite/byte-equality checks.
+
+The copied source's public getter/debug row may say NULL even after allocation.
+The scheduler tracks copies through a separate tensor-copy table; it does not
+assign all copies through hv_tensor_backend_ids. Use the consumer backend and
+allocated copy buffer type to describe the copy destination. Prefer querying
+get_tensor_backend only on original tensors already assigned by the scheduler;
+do not add unnecessary lookups of synthetic copies in the new hook.
+
+Logging: GGML_LOG_DEBUG is not compiled away by NDEBUG
+(SRC/ggml/src/ggml-impl.h:122). The default ggml logger writes directly to stderr
+(SRC/ggml/src/ggml.c:314–318). If the common application logger is installed, it
+filters DEBUG: SRC/common/log.cpp:548–564 maps it to verbosity 5. Ensure logging
+is enabled for the selected trace, e.g. existing --log-verbosity 5 in the
+diagnostic process; no new tensor-evaluation callback is needed.
+
+5. ISOLATING ONE ACTUAL T1 WITHOUT FORCING REBUILD
+
+Use the existing prepared trajectory: common preparation input + four T1,
+ordinary sync, KV clear, selected training-case prefix, then arm the first T1
+after that prefix. Prefix and T1 have different token input shapes, which are
+part of graph-reuse compatibility (SRC/src/llama-graph.cpp:128–139,1414–1443).
+LCTX:2604–2609 selects graph-result slots by whether outputs exist, not by T1 vs
+prefill. Require the trace receipt to say rebuilt=true; do not assume it silently.
+
+Tag the request with arm, case, case-prefix identity, teacher-forced step, token
+position, n_tokens=1, n_outputs=1, sequence identity, and process/run identity.
+Emit begin/end markers around the selected decode and associate the pre/post
+snapshot with the same request ID. If logging uses its asynchronous common
+queue, put markers through the same logger or flush that queue at boundaries
+(SRC/common/log.cpp:543–546); mixing unflushed queued logs with raw fprintf
+markers can misattribute a scheduler dump.
+
+A process-wide GGML_SCHED_DEBUG=2 also formats earlier reservation/prefill graphs.
+Keep the complete raw process log, then extract only the marked selected T1 for
+comparison. Existing logger verbosity may be enabled only around that diagnostic
+call to reduce saved noise, but it does not disable scheduler formatting outside
+the window. A bounded per-call metadata hook itself can be strictly one-shot.
+
+On an unexpectedly reused T1, report original_snapshot_missing/reused, not a
+fabricated original graph reconstructed from already rewritten pointers. Either
+retain the snapshot from the naturally created generation or select the intended
+first T1 after the fixed prefix. Never call reset/split/allocate just to make the
+debug output appear. A single selected T1 is evidence for that graph generation;
+it does not prove all 64 calls used identical shapes/placements. Existing observed
+position-boundary rebuilds should remain a stated limitation, or be covered by
+a small bounded trace per naturally rebuilt T1 generation in quality only.
+
+6. NORMALIZED ORIGINAL GRAPH FORMAT AND COMPARISON PITFALLS
+
+Use two separate artifacts: original_dag and allocated_schedule. Exclude address,
+data pointer, buffer pointer, extra pointer, graph UID, scheduler backend index,
+and allocator size from the original-DAG equality key.
+
+Assign N0..Nn in original graph-array order before allocation. Resolve source
+edges using those IDs. Assign external tensor IDs deterministically by ordered
+first occurrence while traversing src slots and view_src. Serialize original
+node order plus every source slot, including null slots, so source permutation,
+sharing and duplicated-vs-reused subexpressions cannot disappear. Preserve full
+weight/input leaf names as semantic labels: two same-shaped weights must not
+be made interchangeable by giving whichever is encountered first the same ID.
+Duplicate or anonymous names require occurrence/structural identity, not a map
+that silently overwrites equal strings. Internally pointer keys are suitable for
+identity, but never sort by pointer or use addresses in normalized output.
+
+At minimum save op enum/name, dtype, all four ne dimensions, ordered source IDs,
+view_src ID, and view offset. Save all four nb strides, relevant flags, and
+semantic op parameters too; shape alone misses layout, view offsets, scaling,
+clamp, precision and unary/GLU subtype changes. Capture full untruncated names
+for review. Stable numerical op parameters may be encoded as exact bit patterns.
+
+Do not blindly hash an entire tensor struct or all op_params for every op.
+CUSTOM/MAP_CUSTOM ops contain function/userdata pointers and possibly struct
+padding (SRC/ggml/src/ggml.c:6261–6266); C's HOT custom node stores a Layer pointer
+and marker function (HOT:248). For these, record symbolic custom kind, layer and
+meaningful non-pointer parameters, or explicitly exclude address fields. F/B
+should have no XEON_HOT_FFN custom nodes; require that fact. An unrecognized
+pointer-bearing parameter format should be reported, not silently ignored.
+
+Do not remove original GGML_OP_CPY, VIEW or other nodes merely because the
+scheduler also introduces copies. Original copy/view operations are semantics.
+Do not compare op/shape histograms as if they were DAG equality. Do not use the
+scheduler debug print as the normalized graph: it omits views, truncates names,
+loses exact layouts/bytes, and is already after dependency replacement.
+
+Match the same case, token position, sequence state, n_outputs and memory state.
+KV-dependent view offsets and dimensions are meaningful and should not be
+normalized away. Keep raw input IDs and ordinary 65-row byte equality separate;
+a graph metadata hash does not prove the tensor data were equal.
+
+If identical construction yields equal ordered normalized records, that is a
+strong direct F/B equality check. If records differ only in independent node
+order, preserve the difference and optionally compare structural DAGs; do not
+sort all nodes into a bag just to make the check pass. C is recorded but is not
+required to share F/B's DAG.
+
+7. ALLOCATED PLACEMENT, SPLITS AND COPY RECORD
+
+Use the original pointer-to-ID map to record final graph order after allocation.
+For each original node, save final backend name/device and buffer name/type,
+hostness, flags and layout. Save the complete scheduler inventory and n_splits,
+n_copies. Parse split boundaries from the marked debug log using its pre-
+optimization node indices; map both pre/post node IDs within each split range.
+Do not merge adjacent same-backend splits: BASE:1744–1765 can split again on
+incompatible weight inputs even without a backend transition.
+
+For each original source slot whose pointer changed, record original source ID,
+consumer ID/slot, new copy ID, source execution/backend/storage, destination
+consumer backend, allocated copy buffer type, logical ggml_nbytes and layout.
+Deduplicate copy objects by internal identity; several consumer edges can share
+one copy. Preserve consumer edge multiplicity in a separate list. Verify every
+changed pointer is a compatible copy layout or explicitly report another
+optimizer mutation rather than labeling all changes as a copy by assumption.
+This pinned CUDA optimize path reorders graph nodes, so compare pointers attached
+to each original tensor, not current array indices, when deriving changed edges.
+
+The debug split input list is the actual scheduler list selected at allocation;
+BASE:2160–2168 calls copy_input once per listed input, non-host-weight inputs
+first and host weights last. A successful decode confirms the selected splits
+were submitted without a scheduler failure. The logs still do not expose the
+runtime choice in copy_input:
+  - user inputs use immediate synchronized copy (2101–2109);
+  - other inputs wait on destination reuse (2112–2117);
+  - host weights may be handled by the existing expert-copy callback (2119–2122);
+  - otherwise async copy may fall back to synchronization and ordinary copy
+    (2124–2134).
+The built-in callback can copy only selected expert ranges plus padding
+(LCTX:2810–2891), so tensor nbytes is not actual uploaded bytes. Do not replace
+that callback with a recorder or return false merely to observe it.
+
+No extra base hook is justified for the requested diagnostic if the above record
+is labeled accurately. If a later task truly requires each copy call's return,
+async/fallback choice, or byte-range execution receipt, public getters plus debug
+are insufficient. That would require narrow instrumentation at the actual copy
+sites and a new frozen provider comparison, or a separately scoped profiler.
+It is not necessary to obtain the present F/B DAG and allocated-schedule evidence.
+
+8. C AND B SPECIFIC CHECKS
+
+B retains State/private backends/pool/pinned memory/warmups but xeon_hot_build
+must return nullptr before custom-node creation and trial_builds increment
+(HOT:242–249). Because GRAPH:2329–2330 falls through to the original expert DAG
+and GRAPH:2508–2509 pins the weighted tail only when xeon_hot_used, B should have
+no custom nodes and no added tail pin. Verify this through original DAG equality
+and the separate build/call counters, not by requiring equal backend counts.
+
+C follows HOT:180, which overwrites the partition with all six CPU expert IDs
+and sets executed hot=0 regardless of matched membership. HOT:182 copies input
+and IDs into the private CPU graph; HOT:192 executes the private CPU graph and
+copies its full output. With D=5120 and TOP=6, the explicit logical API bytes per
+custom call are 20,480 input + 24 IDs + 122,880 output = 143,384 bytes. This is a
+source-derived logical-copy inventory, not measured copy cost or DMA volume.
+The if(hot) branches at HOT:184–194 skip private GPU submission/join/scatter for
+C. Private graph construction and weight upload remain initialization work.
+
+Outer scheduler trace does not show inside a custom node. If a dynamic C copy
+receipt is wanted, a one-shot metadata/counter record next to the existing
+private CPU set/compute/get calls in HOT:182,192 can report those calls without
+new synchronization, graph cuts, route IDs, or timings. The same new libllama
+must contain this disabled hook in every arm. Existing per-layer call/hist
+deltas should prove the 23 selected layers ran with executed H=0.
+
+Do not use a new eval callback even if it always declines tensor data:
+BASE:2171–2206 has a different callback execution path; accepting nodes slices
+the split and synchronizes between slices. The callback-free branch submits the
+whole split at 2171–2175. The prior weighted-tail fusion sensitivity makes this
+distinction material.
+
+ACCEPTANCE FOR THE TRACE ITSELF
+
+- Same common new libllama and pinned CPU602a/CUDA/base identities in F/B/C.
+- Trace/debug only in quality/diagnostic execution; timing process environment
+  and request state explicitly show no active collector/debug/eval callback.
+- Selected actual T1 identified; pre-allocation capture exists; rebuilt/reused
+  status and ordinary decode/output completion are recorded.
+- F and B original normalized records compare equal, with zero HOT custom nodes;
+  B bank retained/ready/payload and custom builds/calls=0 separately verified.
+- Allocated placement and split/copy evidence kept even if F/B differ there;
+  C custom graph has its own record and expected per-layer executed H=0.
+- Copy units/scope are explicit; no timing or total DMA bytes inferred from logs.
+- A one-T1 trace is not described as proof covering later rebuild generations.
+
+No pending action is owned by this reviewer. Parent owns implementation and all
+decisions about model/API operations and measurement execution.

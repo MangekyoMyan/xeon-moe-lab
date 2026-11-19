@@ -1,0 +1,134 @@
+現行CPU移植08・選択入力準備09への親レビュー
+2026-11-18 JST
+
+採否
+
+08-current-mixed は、現行CPU保存ソースへ移植して実機試験へ進められる候補になった。
+特にcompact比率の高い条件で検討価値がある。ただし通常APIへの即採用という結論ではない。
+09-selected-input-only は追加採用を保留する。不要なfold準備の削減は確認できたが、
+実際の行列サイズを使ったVMのoperator時間を安定して短縮する証拠にはならなかった。
+次の実機作業の第一候補は引き続き04単独、並列化の本線はF/B/C→既存2cellのH1とする。
+
+1. 親が実際に確認したこと
+
+08/09の全差分、現行caller/cache、ggml_mul_mat_idの形状制約、probe、経路counter、
+build/実行スクリプト、測定の区間を読んだ。別担当の静的レビューも全文を読んだ。
+現行保存CPU5ファイルのSHAと再構築currentの同一性を確認し、実際の3 CPU DSO、
+共通base、compile_commands、Q8_K wrapperの逆アセンブルも直接読み取った。
+
+親が別に作った verify_current_mixed_saved.py で、新しい保存dumpとCSVを独立に再集計した。
+6.2側の集計プログラムを呼び出したものではない。結果は PARENT_CURRENT_MIXED_RECHECK.json。
+DSO/source/flagsの親確認は PARENT_CURRENT_BUILD_AUDIT.json。
+親自身が新しいengine実行や別の性能計時を重ねたわけではない。
+
+保存データで確認できた範囲:
+  72gzip = 6 cache状態 × 4丸め × 3実装。
+  1ファイル67 graph、3実装の対応する1,608組、各実装171,360 F32出力。
+  全dumpのSHA256、4,824 graph範囲のFNV64、対応する全byteが一致。
+  4,824は同じ入力を3版で計算した範囲数であり、独立4,824課題ではない。
+  全fixture出力の有限性、skipされたslotの+0、入力列の準備block/call数、
+  native/旧compactのcallback回数、fold selectorの有無、準備workerの丸めmode、
+  MXFP4の準備/内積callbackを保存値から独立確認した。
+
+2. 現行移植で進んだことと、その境界
+
+以前の08は関数抜粋によるmixed fixtureだった。今回の08は現在の保存CPU sourceを組み込み、
+実際のexpert単位cache登録、lookup、mmapによる確保、MXFP4 RHS処理をリンクした。
+全tensorがcompactという古い前提へ戻していない。異なるexpertをnativeとcompactへ分けられる。
+通常Q8_Kを保持し、compact expertだけ追加の400 bytes/block入力表現を読む。
+raw Q8、use_ref、複数token、MXFP4の既存経路は残っている。
+
+3armともIvy Bridge命令設定、AVX1、no AVX2/no FMA。Q8_K wrapperは参照関数へjumpするまま。
+04や03を同時に入れた比較ではない。kernelをincludeするiq3-cache.cppには
+-fno-fast-math / -ffp-contract=offが付くが、全base/CPU objectへの同一追加指定とは書かない。
+
+ここでcurrentと呼ぶものは現行CPU保存ソースを再構築した比較基準である。
+実機が現在ロードするCPU/base binaryそのものではなく、モデル全体・GPU・通常APIの統合でもない。
+実機のallocator/NUMA/lifetime全条件の検証まで済んだという意味ではない。
+VMはXeon Platinum 8573C、9 logical CPU可視、今回の計時は1/3worker、NUMA row-local無効。
+実機の双Ivy Bridge・12/24worker・現在のメモリ配置への倍率の外挿は行わない。
+
+3. 09の正しさと仕事量
+
+T=1の各入力列について、それを使うslotをids->nb[0]に沿って調べる。
+現在のslot % ne11という入力対応と一致し、共有入力・broadcast・重複expertを扱える。
+同じworkerが量子化したblock範囲をfoldするので、既存barrier前に他workerの未完成入力を読まない。
+空のblock担当ではID走査もfold呼出しも省く。既存barrierへの参加は省かない。
+
+同じgraph/scratchでrouteが切り替わるfixtureでも一致した。-1 slot、非連続IDと入力、
+raw Q8、ref、2tokenを含む。no_tableはlookup自体NULL、only_off_routeはtableが非NULLで
+今回のtop6にはcompactがない状態であり、この二つを分けて試している。
+
+代表例 K1280 / 出力17行 / 入力6列 / 3worker / IQ3_XXS / phase0:
+
+  cache状態                  08の準備block    09の準備block
+  tableなし                         0                  0
+  tableあり・選択0/6                30                  0
+  選択1/6                          30                  5
+  選択3/6                          30                 15
+  選択5/6                          30                 25
+  選択6/6                          30                 30
+
+通常のF32→Q8_K変換とscratch予約は削減していない。09の効果は追加fold準備に限る。
+共有gateはcompactが一つでもあれば共有1列を準備するので、5/6のときに5/6列へ減る話ではない。
+各active workerによるID確認の費用が加わる。callbackのfold_selectはdot計算回数ではなく、
+folded関数を選んだ回数である。
+
+4. 速度の再集計
+
+10条件 × 6組 × 3process × 5sample = 900保存sample。
+各組はcurrent/08/09の同じseedで、三者の実行順6通りを一巡している。
+180process、60三者組であり、900独立比較とは数えない。
+各process内の5sample中央値から対応組ごとの時間比を作り、その6比の中央値を記す。
+したがって表の比は、別々の全体中央値同士を割った値とは限らない。
+
+計時はggml_graph_computeの反復であり、入力変換、fold準備、ID処理、同期、内積を含む。
+cache構築やthreadpool生成等の起動費用はwarmup前。計時にcounter用LD_PRELOADは入れない。
+時間計測中の出力hashは同じ組で一致したが、その全出力binaryを別保存した試験ではない。
+
+実down形状 K2304 / M5120 / 入力6列 / 3worker、合成IQ3_XXS重み:
+
+  compact選択     08/current    09/current    09/08      09が08より短縮
+  tableなし        1.007562      1.002576     1.001650       3/6
+  0/6              1.010334      1.024875     1.009185       3/6
+  1/6              1.032180      1.006636     0.986358       3/6
+  3/6              0.947745      0.953472     1.000152       3/6
+  5/6              0.841547      0.859179     1.044534       1/6
+  6/6              0.937871      0.837188     0.905871       4/6
+
+1未満が時間短縮。全条件の組別結果・範囲はastra62_next/summary/と親JSONに残した。
+08/currentの5/6は6組すべて短縮し、比の範囲0.806376～0.852428、中央値で約15.8%短縮。
+09/currentにも改善はあるが、09/08の5/6では約4.45%延び、短縮1/6に留まる。
+6/6では08と09の準備量が同じなのに09/08が0.905871になる。この差を、
+不要準備を省いたことの因果的証拠として使えない。配置・実行状態等の寄与は分離していない。
+
+共有gate K5120 / M2304 / 入力1列 / 3worker / 5/6:
+  08/current=0.875886、短縮5/6。09/current=0.866222、短縮6/6。
+  09/08=0.984946、短縮3/6。この条件の09は準備列を減らしていない。
+
+M=1の小形状でも09/08だけを採用根拠にしない。
+  5/6では09/08=0.948474でも、09/current=1.043172、現行より短縮したのは1/6。
+  改造版同士の改善と、元の現行基準を上回ることが異なる具体例である。
+
+5. 判断への反映
+
+08の高compact条件は実機比較へ進める価値がある。低compact率、少ない出力行、
+gate/down、IQ型ごとに採否が異なり得る。今回の性能試験の重み型はIQ3_XXSであり、
+数値試験のIQ3_S/IQ2_Sまで同じ速度効果を確認したわけではない。
+
+09は正しさを損なう具体的な欠陥を今回発見したから保留するのではない。
+追加の分岐と判定処理を採用するだけの安定した全operator利益が示されていないためである。
+今すぐ通常経路へ足さず、反例を含む候補として残す。09を試し続けることを
+04やF/B/C→H1の開始条件にしない。実機で準備費用が支配的という別の証拠が出たら再検討できる。
+
+08の実機試験も、まず現在のCPUを固定した単独比較にする。04を先に評価・採る場合は、
+04込みの固定基準と08追加を新しい対として記録する。異なるCPU変更の効果を足し合わせない。
+モデル全体のtoken/s、回答品質、言語の混在、UI表示の2token周期を、この試験で解決したとは書かない。
+
+再検算
+
+  python3 verify_current_mixed_saved.py astra62_next
+
+標準Pythonのみ。保存ファイルを読むだけで、モデルやDSOは実行しない。
+同梱PARENT_CURRENT_MIXED_RECHECK.jsonは親がこの別実装を実行した結果。
+実機側の原文・固定source来歴はsource/以下、6.2の原報告はastra62_next/REPORT_JA.txt。

@@ -1,0 +1,143 @@
+実機側の主担当アストラへ: validation3の受領判断と次の2本
+2026-11-18 JST
+対象: 37f6390c9a5bc594658127651e204ab11420cd71
+
+0. 受領判断
+
+報告された速度・数値指標・H・生成長/終了理由は、保存rawから再現できた。
+初回768 T1とPython-onlyの探索的追加256 T1は分離する。Python追試は約+0.8077%で初回約+0.8016%に近いが、新しい課題での確認ではない。
+今回の3変種は2 family。Pだけの明確な課題不正解は保存回答で見つからないが、一般品質同等・通常API採用とは判定しない。
+Fは実験libllamaのhot無効であり、新しく測定したproductionバイナリではない。
+S=P全65行byte一致は3例で成立。これをCPU/GPU算術同一と読まない。
+
+このレビューが勧める次の実機作業は以下の2本だけ。既存の権限、guard、復帰手順を維持して進める。
+同一実機の速度ベンチを複数agentから同時に走らせない。解析・設計の分担は並行にできる。
+
+1. 先に一度、F/B/Cで追加経路の費用を分ける
+
+目的:
+  約2msという旧trainingのC−Fを純copy時間だと決めつけず、保持/初期化/配置とcustom実行を分ける。
+  この1巡で原因が絞れなければ追加分解を際限なく続けず、項目2へ進む。
+
+実装:
+  同一の新しい診断libllamaをF/B/Cすべてに使用する。CPU/CUDA/base provider、original35 planは維持。
+  F: hot無効、追加bankなし、元のmain graph。
+  B: original35 bank、private backend/pool、pinned領域、warmupを保持し、mainは元graph。
+  C: Bと同じ保持、custom23層を通るが全6 expertをCPUへ戻す。
+  Bはcompute modeではなくcontext構築時の固定条件。set_mode('B')を新たに呼ばない。
+  前回incomingの optional_dormant_bank_original_graph.patch は未適用の提案。今回もビルド済みとは扱わない。
+  callerでは has_bank と uses_custom を分ける。現callerのF/SP/P専用guard、mode選択、23層call検査をそのままBへ流用しない。
+
+実行前の証拠:
+  Stateの初期化・bank payload=475453440 bytes・元GPU37–39・CPU compact120GiBを照合。
+  F/Bの元graphをop、shape、依存関係で正規化して照合し、placement、actual splits/copiesも記録する。
+  BにXEON_HOT_FFN backendが残ること自体は想定内。backend数のF/B一致は要求しない。
+  B custom builds/calls=0、Cは選択23層だけを通ることを確認。
+  F/B/Cの同じ固定入力で全65行finite、F=B=C byte一致をquality gateにする。
+  一致しなければ性能比較へ進めず、どの出力から変化したか調べる。期待値のために数値を書き換えない。
+
+測定範囲:
+  既存trainingの text_cache_budget_ja と code_stable_grouping_python、各固定64 T1。
+  既存training ID/参照軌道を使う。今回のvalidation3向けに入力や配置を調整しない。
+  各processで同じ準備用入力と4 T1、同期、KV clear、対象prefix再入力を行い、準備後からcountを採る。
+  F/B/C/C/B/Fのfresh process順を実行前に固定。前半JA→Python、後半Python→JA。
+  2例×64×6process=768 timed calls。先頭も外れ値も保持。
+  timingは既存と同じ decode開始→logits取得によるoutput-readyまで。
+  qualityの全logits保存、callback、route collector、詳細debugは計時外。
+  古いFと新しいB/Cだけを比較する構成にしない。反復は各arm/case2 blockで、精密な分布推定とは呼ばない。
+
+判断:
+  B−Fはbank/pool/追加backend/初期化・配置を持つ複合差。純VRAM保持費用ではない。
+  C−Bはcustom実行、private CPU graph、copyと外側配置/同期の複合差。H0だけの費用ではない。
+  B≈F、C>Bが2例で一貫すればcustom側へ絞る。外側copy/placementとprivate CPU区間を次の1箇所で切る。
+  B−Fが主要なら保持・初期化・配置を見る。先にcopyを消さない。
+  差がdriftに埋もれたら「0」と断定せず保留。今回の1巡を保存し、項目2へ進む。
+  過去の2msや新しい恣意的な割合を採用閾値にしない。変動と方向の再現性を併記する。
+
+新engine build前にできる補助診断:
+  現baseのGGML_SCHED_DEBUG=2でF/Cの短い実T1を各1回記録し、actual splitsとcopy経路を確認できる。
+  Cは元engineに実装済み。必要ならcallerのみの変更。Bはlibllama変更が必要。
+  debugはGPU完了時刻やcopy時間を測る道具ではない。速度結果に混ぜない。
+  source上の同期はallocatorの再利用等を保護する。実際に通る分岐を確認せず削除しない。
+
+2. 次に、同じtop6のGPU担当を変える時間価値の小実験
+
+発見:
+  公開CPU planで、original35中のIQ projection slotsは95/95 compact対象。
+  残り10 projection slotsはMXFP4。非compact IQと混同しない。
+  runtime lookupでmembershipとplan identityを照合した上で、CPUで遅い仕事をGPUへ渡す余地を測る。
+  GPUへ渡す頻度だけでなく、CPU残仕事が何ms減るかを見る。
+
+既存入力で安く確認できる2cell:
+  現APIに任意active-maskはない。同じbankに両候補を入れるとH2になるので、固定した2planを使う。
+  plans/H1_COMPACT.plan と plans/H1_NONCOMPACT.plan をofflineで準備・検査済み。実機では未実行。
+  層ごとの個数・型・native bytes・初期化形状が同じで、membershipだけが異なる診断用plan。
+  総35expert、475453440 native bytes。original35の新しい採用案ではない。
+  layer7はCOMPACT=[19,154,331]、NONCOMPACT=[19,85,154]。
+  layer35はCOMPACT=[0,1,78]、NONCOMPACT=[0,1,100]。0/1は対象top6外の形状合わせ用。
+  その他の層はoriginal35のまま。H1_PLAN_VERIFICATION.jsonに全8cellのHとhashを記録した。
+  cell1 layer7 IDs=[38,54,313,369,85,331]
+    compact331を1個GPUへ送る案と、非compact85を1個送る案を同じx/top6で比較。
+  cell4 layer35 IDs=[78,201,225,100,306,26]
+    compact78対非compact100。
+  O/C/S/Pを使い、主要2cellでH1×2partitionを比較する。各cellのx/top6/weights/clampは固定。
+  COMPACT→NONCOMPACT→NONCOMPACT→COMPACTのfresh process順を先に固定。
+  同一bankとは呼ばず、同一allocation形状・予算と表記する。各process内C−P等とprocess間変動を併記する。
+  既存replayの全8cell/35expert guardを維持し、上記2cellを事前指定primaryにする。
+  engine DSOsは維持可能。runnerのplan/hash期待値は具体的に更新し、検証を単に無効化しない。
+  callerの固定文字列Original35は診断名へ直し、必要なら表示・pinのみcallerを再buildする。
+  この2つは機序試験。training頻度は331:85=102:2、78:100=128:1で、85/100のbank採用を意味しない。
+
+配置候補に近い追加2cell（必要な場合だけ）:
+  trainingで非compactのlayer3/expert147は78回、layer7/expert270は77回。
+  既存C++ trainingの最初16 T1を元baselineで再現すれば、
+    decode_call1 / pos241 / layer3: [330,257,13,153,147,61]
+    decode_call15 / pos255 / layer7: [270,335,173,19,357,32]
+  を捕捉できる見込み。原routeと一致することを先に照合する。
+  前者147対compact13、後者270対compact19のH1を比較する。
+  現8cellにはこのxが保存されていない。新captureを行った事実と観測on/off同一性を記録する。
+  既知のproducer pointer→CPU gate→GPU drain/read方式を守り、callbackでfusionを変えない。
+  この追加2cell用のH1 planは上記の既存2cell用planとは別に作る。147/270用の実行済みplanはまだない。
+  2partitionで層ごとの個数・型・容量・初期化形状を揃えた固定診断planを凍結し、予算/guardを暗黙に超えない。
+  同じbankでactive-maskを切り替える方式は新実装。最初の診断には採用しない。
+  孤立replayならhot-backend.cppをcallerへincludeするためcallerだけの新実装も可能だが、統合公開APIならlibllama側の変更が必要。
+
+数値と計時:
+  fixture O=捕捉baseline、O=C、各partition内S=P、cold slot一致を先に確認。
+  GPU担当が異なる2partitionのP同士へbyte一致は要求しない。
+  同じx、ordered top6、weights、clampを固定。CPUcompactはprojectionごとに記録。
+  全体のC−PとS−Pを重視する。join待ち時間をGPU全所要時間として使わない。
+  GPU完了時刻が必要になった場合だけevent/traceを足し、診断overheadを速度値へ混ぜない。
+  同一Hでも残るCPU expertが違えば時間が違う。H1の係数をH2/H3へ単純に倍掛けしない。
+
+配置の選定:
+  既存training5のordered top6を保持し、型、compact/noncompact、CPU残仕事、GPU待ち、active層数を扱う。
+  候補は1案だけを凍結して統合へ進める。current validation3に再選定して新しい独立成績と呼ばない。
+  残りvalidation2は候補の反証、holdout5は最終固定構成の確認へ残す。
+  validation3を再利用する場合は回帰確認という扱いにする。
+
+8層案は現段階では未採用:
+  23→8層、35→36expert、native453.427734→458.261719MiB。
+  trainingのhit数比: JA78.94%、EN84.32%、mixed98.10%、Python91.67%、C++117.02%。
+  合計90.90%だけで判断しない。同一hit集合の維持率ではないし、速度の測定値でもない。
+  日本語で失うhitの時間価値と15層分の追加経路節約を比べて初めて候補になる。
+
+3. 品質と利用体験の扱い
+
+S=Pはこの3例の並列追加で数値差を検出しなかった証拠。GPUへ担当を移す算術差の無害性までは示さない。
+固定参照の平均NLL、最大logit差、top1一致率を一般品質の合格閾値にしない。
+今回F/Pの自然回答は全3例で分岐した。JA Fのみ1024 IDでlength。内容、完結、言語を別欄に残す。
+JA F/P両方が中国語。frozen inputはsystem messageなし。Open WebUIの実際のrequest/templateは今回測っていない。
+明示的日本語指示の診断をするなら新case名・同じF/P条件を用い、元6回答を置換しない。
+2トークンずつ見える件は未解決。decode完了、server送信、SSE受信、描画を区別して別診断する。
+SSE chunk数を生成token数にしない。異なる機械のmonotonic時計をそのまま引き算しない。
+
+4. 6.2の分担
+
+GPT-6 Astraを実機の主担当に維持し、6.2へは読み取り監査、候補比較、報告文の点検を任せる。
+設定・計測順・採否・復帰の管理は主担当に残す。子の結論だけでなくraw/差分/実行記録を読む。
+ASTRA62_SUBAGENT_CONTRACT_JA.txtを必要な対象パスと出力先で具体化して渡せる。
+今回は実機側モデルの変更やBの実装をこちらで行ったものではない。
+
+根拠の詳細:
+ENGINE_REVIEW_JA.txt、hotpath/HOTPATH_REVIEW_JA.txt、parent/PARENT_INDEPENDENT_RECOMPUTATION.json。

@@ -1,0 +1,98 @@
+実機側メインへ: fd810の受領確認を受けた次の実装・比較
+2026-11-18 JST
+受領資料の固定commit: fd810448288929991a74b61208e64821f4ba7654
+
+判断
+
+今回のROOT_REVIEWは資料の受領・現行構成との照合であり、新しいbuild/性能計測/通常APIへの採用はまだ行われていません。その区別を維持したまま、次は04 Q8_K AVX1を現在のCPU上の独立候補として具体化する段階です。F/B/C→既存2cellのH1という並列化本線も保持します。
+
+この文書は、実機側の既存承認と作業範囲に沿って具体化する担当案です。日常的な可逆作業でユーザー確認を増やす意図はなく、通常API等の権限を新しく拡大する文書でもありません。
+
+1. 比較基準の呼び方を明確にする
+
+稼働基準:
+  ROOT_REVIEW/CURRENT_RUNTIMEで確認された通常CPUはmx-prepack/release-candidate-a、SHA256 33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3。
+  expert単位compactとMXFP4 RHS準備がある。対応source/kernel・symbolには、新しいIQ folded入力やIQ-RHSの呼出しが確認されていない。
+
+保留実験:
+  iq-abs/iq-rhs等の過去実験、およびoriginal35を使う追加GPU分担実験。存在することと、通常APIへの採用済みを同一視しない。
+
+新しい候補:
+  03/04/06+08、および今回の6.2が扱う混在準備の小差分。
+
+前回こちらの「現在のiq-abs/iq-rhs等と比較」という表現は、採用状態を十分に区別していませんでした。通常稼働基準との比較を第一にし、必要なら保留実験との比較を別欄で行う、という意味へ訂正します。ROOT_REVIEWで基本compact kernelがVM初期入力と一致すると確認されたことは06の関連性を強めますが、呼出し側や実機の速度まで同一にはしません。
+
+2. 04を先に一つ完成させる
+
+6.2 Astra/maxへ任せる担当の例:
+
+「現在使われているx86 quants.cを基準に04を別source/buildへ適用し、現行CPU構成と比較可能な候補を作る。旧公開本体全体へ戻さない。既存の無変更objectやCPU/base/llama/CUDAの関係を記録し、差分はQ8_K wrapperに限定する。数値対照と実際の12/24workerの演算全体を比較し、差分・build/実行対応・raw・不利な条件を返す。」
+
+現行対応sourceのSHAはa01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7。04のgit apply --check通過は実機側で確認済みですが、build/数値/速度が通ったという意味ではありません。稼働libraryを上書きせず候補を分け、既存の実機手順で評価します。
+
+コードが異なる候補ごとにsource/buildを分ける。基準と候補に対応するobject flags、provider、library SHA、起動コマンドを記録する。過去の一時的な06/07同一DSO問題を繰り返さないための管理です。同じコードで条件を変えるF/B/Cの各armに不要な別実装を入れる要求ではありません。
+
+ビルド確認の焦点:
+  対象は__AVX__が有効、__AVX2__が無効の経路。Ivy Bridgeで使用する命令・既存の浮動小数点設定を守る。新しいwrapperに意図した経路が入り、比較相手が現在の参照呼出しであることを確認する。ファイル名だけで変更済みと判定しない。
+
+数値確認の焦点:
+  同じ実際のbase参照と比較する。最大絶対値で正負が同率の場合の選び方、zero、0/1/2 blockを含む長さ、既存の丸め/fallbackを既存probeから利用できる。変換単体の比較に加えて、F32→Q8_K→内積を通る代表operatorで出力を確認する。
+  既存probeの範囲を確認して重複した巨大suiteを作らない。現在のcompiler/providerや移植差分から具体的な懸念が出たときに追加する。非nearestの一致は参照fallbackを含むので、高速経路が全丸め方式で動いたとは書かない。
+
+3. 小さく分割された呼出しを、性能比較へ反映する
+
+現行ggml-cpu.c 1798～1803では、Q8_Kの256値blockをworkerで分割してfrom_floatへ渡します。入力1行あたりの静的な分担は次のとおりです。
+
+K5120 / 12worker: 全20block。4workerが1block、8workerが2block。
+K5120 / 24worker: 全20block。4workerが0block、20workerが1block。
+K2304 / 12worker: 全9block。3workerが0block、9workerが1block。
+K2304 / 24worker: 全9block。15workerが0block、9workerが1block。
+
+これは保存sourceから計算した分担で、liveの関数呼出し回数や所要時間を観測した値ではありません。入力行が複数あれば同じ分割の呼出しが各行で生じます。
+
+大きなKをまとめて量子化したVM単体の5.6～5.9倍だけでは、実機での価値を判定できません。短いcallの固定費、worker同期、重み側の計算が残ります。通常のdecode 12worker、batch/prefillで使う24workerの文脈を分け、実際の入力/重み/ordered expert、同じ準備込みの全operator境界で対照を取ります。
+
+最初は既存の実入力・実重みfixtureを再利用し、対象IQ型とK/M、compact/nativeの実経路を記録する。基準と候補の順序を交互にし、全組と悪化例を保持する。十分な局所的効果を確認できた候補だけ、固定入力のモデル実行と通常の生成へ進める。単体の倍率をtoken/sへ換算しない。
+
+4. 並列化の本線は固定providerの対照として維持する
+
+F/B/Cは前回のASTRA_NEXT_JA.txtどおり同じ新しい診断libllamaで、追加保持とcustom経路の複合費用を切り分けます。Bをset_mode('B')で追加する設計ではありません。既存training2例・F/B/C/C/B/Fの一巡を使い、今回のvalidation3に再調整しません。
+
+H1は事前指定したcell1(layer7:331対85)、cell4(layer35:78対100)を主比較にします。全8cellのうちcell3はH3対H2なので、全8cellを同じ仕事量の対として一括平均しません。85/100は機序確認用、頻出147/270の追加captureは別の未実施作業です。
+
+同じF/B/CまたはH1の比較の途中に04を入れず、その比較のCPU/CUDA/base等を固定してください。04が採用候補になった後の分担評価は、新しい基準として別に対応を記録します。解析・準備は並行可、共有実機の重いbuildと計時はメインが予定を調整します。
+
+H0のGPU提出/joinを省く分岐は既にあります。poll=0だけからpthread sleep/wakeupを主因と決めず、private CPUのOpenMP buildと実際の区間を確認します。既存のallocator保護同期等を、原因を確かめる前に削る提案ではありません。
+
+5. 06+08と今回の追加候補の位置づけ
+
+基本compact kernelは現在の通常CPUにも関連します。一方、全tensor compactを仮定した06をexpert単位pointer表へそのまま適用することはできません。03/06/07の直接適用失敗は基準の差を示すもので、アイデアの性能上の否定ではありません。
+
+こちらの6.2/maxは今回、現行CPU保存ソースを組み込んで3構成を別buildし、実cache登録/lookup・MXFP4 prepackを使うoperatorまで通しました。
+  current: 現行CPU保存ソースを再構築した基準。
+  08-current-mixed: 通常Q8_Kを残し、expert単位でfolded入力を使う現行移植。
+  09-selected-input-only: 08の上で、今回のcompact expertが使う入力列だけ追加準備。
+04と03はこの比較に含めていません。共通baseはこのVMでbuildしたもので、実機のロード済みbinaryそのものではありません。
+
+3構成の1,608対応組・各171,360 F32は全byte一致。親も別の読取プログラムで保存出力と全counterを再集計しました。性能は900sample=10条件×6三者組×3process×5sampleで、全比・勝ち数を親が再集計しました。
+
+採否は、08を高compact率条件での実機試験候補、09の追加採用は保留です。
+down寸法K2304/M5120、合成IQ3_XXS、5/6 compact、3workerでは08/currentの対応組時間比中央値0.841547、6/6組短縮。09/08は1.044534、短縮1/6でした。選択0/6の09/08も1.009185、短縮3/6に留まり、準備削減を演算全体の安定した短縮へ結び付ける証拠がありません。
+
+09は保存された反例を含む候補として残し、今の本線へ足しません。08については実機の実重み・実入力・通常worker/NUMAで、準備込みの全operatorを比較する価値があります。全型・全混在率で速いとはまだ言えません。今回の全結果はastra62_next/REPORT_JA.txtとPARENT_CURRENT_MIXED_REVIEW_JA.txtを参照してください。
+
+08/09の評価を04やF/B/C→H1の開始待ち条件にしないでください。04の最初の対照へ同時に入れず、04採用後に08を試すなら04込みの固定基準との別対照にします。
+
+6. 保存出力の補完
+
+実機側が「受領ZIPでは新候補・混在の全binaryを直接比較できない」と記した点は正確です。こちらの元VMに保存物が残っていたため、evidence_supplementとして最終30dump、混在40dump、計数版10dumpを追加します。各元ファイルを読み、当時のhashへ照合したものです。新しい推論結果や、過去実行の再生成として扱いません。
+
+標準Pythonだけの読取スクリプトで全出力とCSVの対応を確認できます。この保存出力補完だけでDSO実体、実機移植、cache allocator/lifetime、MXFP4 prepack、性能、一般品質まで補完されたわけではありません。今回新しく行った現行CPU移植の検証は、別のastra62_next/に記録しています。
+
+出典
+
+受領レポート: source/ROOT_REVIEW_JA.txt、CURRENT_RUNTIME.json、CURRENT_Q8_WRAPPER.txt、CURRENT_CPU_SYMBOLS.txt、PATCH_PREFLIGHT.json、SOURCE_RECONCILIATION.json、EVIDENCE_REVIEW_TERRA.txt。
+現行source: source/current_cpu/ggml-cpu.c と SOURCE_IDENTITY.json。固定Git commitから取得し、実機側receiptのSHAへ一致確認。
+親の静的再計算: PARENT_SOURCE_AUDIT.json。
+04の独立レビュー: Q8_ADOPTION_REVIEW_JA.txt。
+並列化の詳細: 既送付統合資料のvalidation3_review_2026-11-18/ASTRA_NEXT_JA.txt、plans/README_JA.txt。

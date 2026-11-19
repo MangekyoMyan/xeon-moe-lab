@@ -1,0 +1,58 @@
+MUL_MAT_ID圧縮案: 差分の暫定独立レビュー
+2026-11-18 JST / 読取のみ
+
+対象版
+outputs/01-route-workspace.patch
+SHA256: 959de8495baec9874f84f1f92c71bccd9dc5dc7fb27953417b2fa0ddb4882b69
+サイズ: 8960 bytes
+01:50:42 UTCに親側へ複製した版。差分はまだ更新され得る。
+事前レビューを基に、実際の変更とplanner・全参照先を照合した。ビルド・計時・実機操作は行っていない。
+
+結論
+この版の差分について、具体的な正しさの欠陥は見つからなかった。
+予約サイズをO(E*P)からO(P+E)へ縮める変更として局所的であり、dotやkernelの算術には触れていない。
+これは読取による判断で、実行時の全条件を通した保証ではない。子のgraph_plan/compute試験は別途読む必要がある。
+
+実装上の良い点
+1. 既存のint64 counts[E]をmatrix_row_ends[E]へ再利用し、別のoffset[E+1]を増やさない。
+2. count→start cursor→endの順に変換し、最後はend[e]-end[e-1]からc[e]を復元する。
+3. IDの二巡はともにtoken外側・selected slot内側で、ids.nb[0]/nb[1]を維持する。
+4. -1は一巡目で対応出力をzeroにし、二巡目でmappingへ入れない。同一expertの複数slotは別entryを残す。
+5. 通常、MXFP4 cols2、MXFP4 cols421の全3chunkへ、expert-localなmapping先頭を渡す変更が揃う。
+6. tiledへ渡すものも同じexpert-local mappingで、int32 pairのABIを変更しない。
+7. 原コードのquantization、atomic初期化、barrier、NUMA・chunking、compact lookup、全kernel選択は維持する。
+8. 実行側とplanner側のmatrix_rows予約から同じn_as因子を外している。alignment順は変更していない。
+9. 旧MMID_MATRIX_ROWとmatrix_row_countsは作業ソースに残っていない。
+
+書込先の境界と行順の証明
+c[e]を有効expert eの出現回数、s[e]=sum(c[j], j<e)とする。
+prefixの終了時にmatrix_row_ends[e]=s[e]。
+二巡目でexpert eが出るたびにその位置へmappingを書き、値を1増やす。従って終了時の値はs[e]+c[e]。
+この値は次expertのstartと一致する。空expertではs[e]のままで、隣接end差は0となる。
+全書込領域は互いに重ならない [s[e], s[e]+c[e])。総有効件数<=Pなので、P件予約の範囲内にある。
+二巡目が旧実装と同じtoken/slot順なので、各expert内のmapping順も同じ。重複expertを誤ってcoalesceしていない。
+
+メモリ量の補足
+この実装では追加offset配列を作らないため、mapping部分の削減は正確に (E-1)*P*8 bytes。
+E=384、k=6、T=1024なら18,825,216 bytes (17.953125 MiB)削減。
+T=1なら18,384 bytes削減。
+plannerの最終padding等を含むgraph peak削減は別に記録する必要がある。
+原実装が触るmappingも有効P件なので、予約削減率をメモリアクセス削減率や速度向上率に置き換えない。
+
+まだ実行確認していない項目
+事前レビューの-1/重複/stride/broadcast、ルートを変えた連続call、複数thread、4/2/1端、既成量子化入力、tiled/fallback。
+これらは差分に不具合が見つかったという意味ではない。子の実行記録と照合して確認済み/残件を分ける。
+元のtiled_supportedに見える到達不能チェックはこの差分の変更箇所ではない。
+
+再現物の扱い
+make_route.pyは元の文字列を前提にした生成スクリプトで、適用済みソースへ繰り返し実行する用途ではない。
+引継ぎでは、固定baselineとpatchまたは生成元の対応を明記し、実機最新版へ無条件に文字列置換しない。
+今回の確定したファイル対応はroute_patch_snapshot/FINAL_SOURCE_CORRELATION.jsonに記録した。
+
+再現物の照合で判明した補足
+現在のwork/engineは、子のIQ入力fold案を既に含む可変作業木であり、route差分の原本ではなかった。
+正しい原本は初期accepted overlayのggml-cpu.c (SHA256 d1b06e0a8e13e6e08f86d13190edf147a51dab4e4447a5c5f1a3fe2b16b88499)。
+これとwork/routeのggml-cpu.c (094363d4dbbf0cd7a49ecdc520af0d8648d0e5cd71cf0600070e8c09d4c161ef) のGNU diff -uは、提出されたroute patchとbyte一致した。
+最初のPython difflibによるdiff文字列比較はhunk構成がGNU diffと異なり不一致になった。これはpatchが違うソースを表すという証拠ではないため、GNU diffで確認して訂正した。
+SOURCE_CORRELATION.jsonとPATCH_BASE_CORRECTION.jsonは途中の照合記録であり、最終判定にはFINAL_SOURCE_CORRELATION.jsonを使う。
+既にビルド済みのbaseline DSOの由来を、後で編集されたwork/engineの現在内容だけから推定しないこと。

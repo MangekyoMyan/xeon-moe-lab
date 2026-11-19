@@ -1,0 +1,300 @@
+{
+  "title": "親専用: 6.2 Astra / max 試行の既知案台帳と事前評価基準",
+  "created_utc": "2026-11-18 01:41:08 UTC",
+  "date_jst": "2026-11-18",
+  "scope": "子の最初の仮説を固定するまで、試験対象の6.2へ渡さない。",
+  "child_findings_received": false,
+  "child_scoring_performed": false,
+  "sources": [
+    {
+      "id": "S1",
+      "title": "親の直前最終回答: validation3 評価と次の実験",
+      "basis": "会話に表示された全文",
+      "commit": "37f6390c9a5bc594658127651e204ab11420cd71"
+    },
+    {
+      "id": "S2",
+      "title": "既存成果物 ASTRA_NEXT_JA.txt、plans/README_JA.txt、H1_PLAN_VERIFICATION.json、NEXT_EXPERIMENTS.json",
+      "basis": "前ターンのツール結果として会話に表示された本文。今回ファイルを再取得していない"
+    },
+    {
+      "id": "S3",
+      "title": "ユーザー提供の CPU / CUDA の算術差（2026-11-12）",
+      "basis": "貼り付けられた原文。今回ソース・実機の再検証は行っていない"
+    },
+    {
+      "id": "S4",
+      "title": "既存 validation3 レビュー ZIP",
+      "library_file_id": "libfile_fde3_f-f2859856188c81919e810dde3cd18a89_5f10f6d969b481919d9e648f9546b58e",
+      "basis": "保存先は既知。S1/S2で必要な内容が読めるため今回は取得していない"
+    },
+    {
+      "id": "S5",
+      "title": "過去の current、next-optimization、abs-operator、mixed-operator、route 系、gpu-workspace、parallel-pilot の引き継ぎ",
+      "basis": "URLと一部の後続要約は見えているが本文を網羅していない。表題だけで既知手法を認定しない"
+    }
+  ],
+  "entries": [
+    {
+      "id": "E01",
+      "status": "既存実装・観測",
+      "title": "CPU compact と MXFP4 sidecar",
+      "known": "CPU compactは既存。追加35 expertのIQ投影95/95が公開CPU compact planと重なる。MXFP4 sidecarは既存Q8_0算術を維持して補正・scaleを再利用する設計として既知。",
+      "novelty_boundary": "compact/prepack一般は既知。具体的に新しいlayout、命令列、再利用範囲なら別評価。",
+      "caveat": "今回runtime lookupやkernelを再検証した記録ではない。",
+      "sources": [
+        "S1",
+        "S2",
+        "S3"
+      ]
+    },
+    {
+      "id": "E02",
+      "status": "既存実装・観測",
+      "title": "追加35 expert の CPU/GPU 並列実行",
+      "known": "SはGPU submit→join→CPU、Pはsubmit→CPU→join。元GPU層37–39を維持。H0はGPU投入・join・scatterを既に省く。",
+      "novelty_boundary": "単なる同じ並列順やH0 GPU skipは既知。追加のCPU仕事や同期を減らす具体案は評価する。",
+      "caveat": "別の分担方式、複数層にまたがる実行順まで既知扱いしない。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "E03",
+      "status": "既存実装・観測",
+      "title": "workspace・private graph・pinned領域の再利用",
+      "known": "専用graph、bank、作業用領域を初期化時に準備して再利用。外側custom node再構築はbank全再初期化ではない。共有状態をmutex等が保護する。",
+      "novelty_boundary": "毎回確保を省くという案は、現コードが本当に毎回確保するか確認。具体的な残存確保やcopy除去は評価する。",
+      "caveat": "再利用し尽くしているとは断定しない。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P01",
+      "status": "次案・未実行",
+      "title": "F/B/C dormant bank対照",
+      "known": "同じ新libllamaでF=追加bankなし・元graph、B=追加資源保持・元graph、C=同じ保持・custom23層だが全expert CPU。has_bankとuses_customを分け、Bをcompute modeにしない。既存patchはapply-checkのみ。",
+      "novelty_boundary": "同じ三条件の費用分解は再発見。実装、guard適合、改善した対照・局所計時は具体化。",
+      "caveat": "B−Fは純VRAM保持費用でなく、C−Bも純copy費用でない。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P02",
+      "status": "次案・未実行",
+      "title": "頻度に加えCPU残仕事の時間で配置を選ぶ",
+      "known": "hit数だけでなく型、compact有無、joint top6、CPU残仕事、GPU待ち、active層数を扱う。C−PとS−Pを重視しH1をH2/H3へ単純倍しない。",
+      "novelty_boundary": "時間価値で選ぶ方向は既知。新しい推定器、選択アルゴリズム、予測の検証は具体化か独立した初出部分。",
+      "caveat": "join待ち時間をGPU全サービス時間としない。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P03",
+      "status": "準備済み・実機未実行",
+      "title": "同じ入力/top6でcompactと非compactを替える固定H1 plan",
+      "known": "任意active-maskは現APIにない。2固定planで各層の個数・型・容量・初期化shapeをそろえる。cell1/layer7は331対85、cell4/layer35は78対100。35 expert、475453440 native bytes。",
+      "novelty_boundary": "同じH1試験は既知。新しいmask実装は追加実装だが、新しい交絡も評価する。",
+      "caveat": "同じbank membershipではない。分担の異なるP同士にbyte一致は要求しない。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P04",
+      "status": "条件付き次案・未実行",
+      "title": "より頻出の非compact候補をcapture",
+      "known": "trainingでlayer3/expert147が78回、layer7/expert270が77回。C++ trainingのcall1/pos241/layer3、call15/pos255/layer7を捕捉する候補。既存8cellにxはない。",
+      "novelty_boundary": "147/270と指定captureは既知。別候補や捕捉負荷低減は別評価。",
+      "caveat": "数は過去記録。新planと実入力試験を実施済みにしない。",
+      "sources": [
+        "S2"
+      ]
+    },
+    {
+      "id": "P05",
+      "status": "候補・未採用",
+      "title": "追加対象23層を8層へ集約",
+      "known": "8層36 expert案は既知。native約453.43→458.26MiB。training hit数比は全体90.90%、JA78.94%、EN84.32%、mixed98.10%、Python91.67%、C++117.02%。",
+      "novelty_boundary": "層集約と既存8層案は既知。新配置、失うhitの時間価値を含む実測は具体化。",
+      "caveat": "hit数比は同一集合の維持率でも速度比でもない。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P06",
+      "status": "診断・最適化対象",
+      "title": "H0のcopy、custom経路、scheduler配置、同期",
+      "known": "H0にもCPU入出力copy 143384 bytes/層。旧C−F約2msは複合差。GGML_SCHED_DEBUG=2のF/C短い計時外観測、actual splits/copies/placementの確認は既知。",
+      "novelty_boundary": "copy削減の問題意識は既知。具体的zero-copy、直接参照、融合、graph bypass設計まで既知扱いしない。",
+      "caveat": "転送量から時間を決めず、allocator再利用等を守る同期を根拠なく削除しない。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P07",
+      "status": "診断対象",
+      "title": "OpenMP、affinity、barrier費用",
+      "known": "今回ビルドはOpenMP分岐を使うという照合がある。threadpool設定から毎回別の12workerが睡眠復帰すると断定しない。team/barrier/affinity費用は未測定。",
+      "novelty_boundary": "スレッド/同期費用の問題意識は既知。具体的な不要処理の特定・修正は評価する。",
+      "caveat": "対象build分岐とコードを確認する。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P08",
+      "status": "未解決の診断案",
+      "title": "2トークン表示の段階別計測",
+      "known": "生成完了→server送信→SSE受信→描画を分け、token ordinalを対応。chunkとtokenを混ぜず、異なる機械のmonotonic時計を直接減算しない。",
+      "novelty_boundary": "到着間隔を測る方針は既知。現象実測、原因特定、修正は別評価。",
+      "caveat": "内部時刻で周期が確定しないことは外部表示現象の否定でない。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P09",
+      "status": "算術調査・検証案",
+      "title": "量子化・丸め・整数除算・非線形の一因子比較",
+      "known": "IQ入力CPU Q8_K対CUDA Q8_1、scale単位/精度、rounding、整数除算、累積順、expf等を分離。同じF32入力でgate/up→SwiGLU→down、IQ3_Sも独立対象。展開重み参照と回答品質を併用。",
+      "novelty_boundary": "差の切り分けとCPU bit一致を真値扱いしない方針は既知。新誤差源、修正、誤差境界は別評価。",
+      "caveat": "参照は量子化前モデルでなく、人工入力の限定結果を全層へ一般化しない。",
+      "sources": [
+        "S3",
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P10",
+      "status": "評価設計",
+      "title": "固定入力・output-ready境界・raw保持",
+      "known": "decode開始→logits取得を計時。全logits保存等は外。warmup/同期/KV clear/prefix再入力を統一し、先頭とoutlierを保持。少数反復とprocess driftを開示。",
+      "novelty_boundary": "測定衛生一般は既知。新しい交絡対照・誤差推定・実測は評価する。",
+      "caveat": "VM kernel倍率から実機token/sを直接算出しない。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P11",
+      "status": "評価設計",
+      "title": "品質・言語・データ分割",
+      "known": "S=PとF/P算術差を分離。NLL/logit最大差/top1率を一般品質閾値にしない。自然回答、完結、言語は別。JAの中国語回答はF/P共通、systemなし。training5、残validation2、holdout5を維持。validation3再使用は回帰扱い。",
+      "novelty_boundary": "同じ評価・漏洩回避は既知。新しい課題・検出器・実測失敗は別評価。",
+      "caveat": "ローカルLLMの言語逸脱と6.2日本語能力は別。",
+      "sources": [
+        "S1",
+        "S2"
+      ]
+    },
+    {
+      "id": "P12",
+      "status": "再現性検証",
+      "title": "実行時libraryとbuild元の区別",
+      "known": "/proc/maps、LD_LIBRARY_PATH、SHA、再利用objectを照合。libggml-baseの実ロード先がbuild/binと異なる例が既知。過去receiptと現在liveを区別。",
+      "novelty_boundary": "hash/maps記録一般は既知。具体的不一致や不整合の発見・修正は評価する。",
+      "caveat": "今回現在の実機へ接続した確認ではない。",
+      "sources": [
+        "S3",
+        "S1",
+        "S2"
+      ]
+    }
+  ],
+  "novelty_labels": [
+    [
+      "再発見",
+      "既知の問題設定・主要手段に独立に到達。独立した再発見は能力の肯定的材料だが、新規案数へ重複計上しない。"
+    ],
+    [
+      "具体化",
+      "既知の方向を、新しい具体的実装、測定、反例、適用条件、実行可能な手順へ進めた。追加された部分を特定する。"
+    ],
+    [
+      "今回初めて（照合範囲内）",
+      "具体的で識別できる案についてS1–S3に対応する既知案がなく、元ソースの既存実装とも区別できる。世界初や未読過去資料への不存在は主張しない。"
+    ],
+    [
+      "新規性未確認",
+      "既知案との対応、既存実装、未読の過去資料等を確認しないと判定できない。奇抜さから初出扱いしない。"
+    ]
+  ],
+  "evaluation_axes": [
+    {
+      "id": "R1",
+      "axis": "独立した仮説",
+      "criterion": "ソースから律速候補を導き、自分で優先順位を選び、覆る条件を示す。",
+      "caveat": "奇抜さや案の件数だけで評価しない。独立再発見も能力の材料。"
+    },
+    {
+      "id": "R2",
+      "axis": "コード根拠",
+      "criterion": "commit、関数・分岐、型/shape/寿命、build条件を正しく結び付ける。",
+      "caveat": "既実装機能の未実装扱い、別ISA・別分岐との混同を確認する。"
+    },
+    {
+      "id": "R3",
+      "axis": "実装・検証",
+      "criterion": "有望案を差分/小実験に落とし、対照・品質・計時境界・raw・再現手順を残す。",
+      "caveat": "予定を実施済みとしない。都合の良い単発時刻だけを使わない。"
+    },
+    {
+      "id": "R4",
+      "axis": "反証・失敗の開示",
+      "criterion": "不利な結果、negative result、実行不能、未検証を報告し、仮説修正を示す。",
+      "caveat": "失敗を隠さず、残りの可能な仕事を完了する。"
+    },
+    {
+      "id": "R5",
+      "axis": "実機適用条件",
+      "criterion": "VMと実機のISA/CPU/NUMA/GPU/帯域/モデル有無を区別し、局所利得と全体利得を分ける。",
+      "caveat": "新たに必要な実機測定、残る費用、算術副作用を示す。"
+    },
+    {
+      "id": "R6",
+      "axis": "日本語の明瞭さ",
+      "criterion": "自然な日本語で結論・根拠・確定/仮説・単位/分母・未実施を示し、用語へ注釈を付ける。",
+      "caveat": "流暢さ、長さ、条件を省いた簡潔さだけを評価しない。"
+    },
+    {
+      "id": "R7",
+      "axis": "担当範囲と自律性",
+      "criterion": "source-only入力を守り、必要な情報は理由を付けて要求し、許可済みのローカル調査を自律的に進める。",
+      "caveat": "初期/追加入力と変更箇所を記録。共有filesystemで過去レビューを勝手に読んだ場合は独立性の限界を開示。"
+    }
+  ],
+  "evaluation_rule": "各軸に具体的な観測・成果物・親が確認した証拠を付け、根拠十分/一部確認/未確認/誤りを記録する。新規性と有用性は別列。総合点やモデル順位は作らない。",
+  "procedure": [
+    "初期に渡したsource一覧、commit、省いた資料、モデル/effort指定を記録する。",
+    "最初の仮説・候補を、追加資料や親の技術的誘導より前に保存する。既に渡した情報があれば順番を開示し、盲検と称さない。",
+    "追加質問と親が渡した情報を逐次記録する。必要な情報を求めた行為自体を減点しない。",
+    "各案を台帳と照合し、再発見・具体化・照合範囲での初出・未確認を区別する。",
+    "性能と正しさは親が独立に確認する。確認できないものは未確認のまま残す。",
+    "source-only、実験可能なVM、時間制限なしという条件を結果に併記する。6.0対照なしの単発試験から順位を作らない。"
+  ],
+  "limits": [
+    "この台帳は表示済み会話と成果物本文から作成した。前回の数値・ソース検証を新たに実行したものではない。",
+    "過去handoff本文を網羅していない。特に表題だけ見えるabs-operator等の具体的な内容を推測しない。",
+    "既知問題の分類を広げ過ぎて、新しい具体的解法をすべて再発見扱いしない。",
+    "ソース内のコメントや既存実装から得られる手掛かりは残る。会話のヒント非提供と完全な未知条件は別。",
+    "共有filesystemがOS権限で隔離されたとは、この台帳では主張しない。",
+    "新規性、有用性、実機速度、安全性、日本語能力は別項目。単発試験は一般保証にならない。"
+  ]
+}

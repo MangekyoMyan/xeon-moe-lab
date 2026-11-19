@@ -1,0 +1,93 @@
+04 Q8_K AVX1化の実機移植前レビュー
+2026-11-18 JST / 担当 fd810_q8_adoption_review
+
+結論
+
+今回読んだ04に、実機での独立比較を止める具体的なコード欠陥は見つからなかった。現在のCPUのQ8_K wrapperがrefへ飛ぶという新しい現物記録と、現行callerの関数選択が一致するため、04を最初の狭い実機候補にする判断を支持する。
+
+ただし、実機でのfrom_float呼出しは全Kを各workerが処理する形ではない。K5120/12workerでは1～2 block、K2304/12workerでは0～1 blockを担当する。この粒度での準備と同期を含む演算全体が、単体5.6～5.9倍より採用に直結する確認対象である。
+
+実施したのはソース・差分・既存build記録の読取、保存CSVの確認、整数によるworker分割数の再計算だけ。新規build、候補関数の実行、ベンチ、モデル/API操作は行っていない。
+
+1. 現行のどこへ効く変更か
+
+・新しい実機記録のCURRENT_Q8_WRAPPER.txt 13～14行は、quantize_row_q8_Kからquantize_row_q8_K_ref@pltへのjmpを示す。ROOT_REVIEW_JA.txt 30～35行とPATCH_PREFLIGHT.json 28～32行は、04の適用確認だけが通過し、build・数値・速度は未確認であることを明記している。[S1]
+・現行ggml-cpu.c 363～379行ではIQ3_XXS/IQ3_S/IQ2_Sのvec_dot_typeはQ8_K、406～408行ではQ8_K.from_floatはquantize_row_q8_K。MUL_MAT_IDの1729～1730行でそのfrom_floatを選ぶ。IQ重み自身のfrom_floatがNULLでも、この入力変換の選択を妨げない。[S2]
+・1773～1807行でsrc1がvec_dot_typeと異なるF32のときに変換する。既成Q8_Kの入力はこの箇所を通らない。MXFP4のQ8_0変換は別対象。04はCPUのarch/x86/quants.cだけを変更し、ggml-quants.cのref本体や量子化形式を置換しない。[S2, S3]
+・保存された現行x86/quants.cのSHA256を今回も計算し、PATCH_PREFLIGHTのa01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7に一致した。[S4]
+
+2. 境界条件と実装の読み取り
+
+最大値と符号:
+  positive最大とnegativeの絶対最大をAVXで求め、逆符号で絶対値が同じときだけ先頭から走査する。refはfabsf(x)>amaxというstrict比較で最初の要素を残すので、その規則へ対応している。q8k_max_8の二段のSSE縮約は8lane全てを含む。[S3 11～14、32～58行; S5 2790～2797行]
+
+丸め:
+  MXCSRのroundingがnearest以外なら関数全体をrefへ戻す。高速経路はcvtps_epi32を使い、refのnearest_intは12582912.fとの加算とbit抽出を使う。ここで四つの丸めモードを試したことは、四つ全てでAVX変換を試した意味ではない。過去に出たF32→Q8=-128→foldedの不一致は02/05の後段処理に関する反例であり、それ自体を04の欠陥とは扱わない。[S3 21～23、67～68行; S5 630～634、2806～2809行]
+
+全ゼロ:
+  04はdとqsを書き、bsumsを更新しない。refも同じである。bsumsを任意byteで埋めた出力との一致を狙うこの変更では、独自にbsumsをゼロ埋めする修正を追加する理由はない。[S3 44～47行; S5 2798～2802行]
+
+非有限値・極小値:
+  NaN、Inf、scaleが非有限になるblockはrefを使う。refの結果を保持するための分岐であり、非有限入力の数学的な正常動作やFP例外状態を新しく保証するものではない。[S3 32～42、59～62行]
+
+配置とbsums:
+  入力はloadu、出力もstoreu。16値ごとに32bit整数をpackし、signed byteへ128を加えたunsigned表現のSADから2048を引いて、signedの16値和を作る。blockの型・d・qs・bsumsの配置を変える差分ではない。[S3 65～78行]
+
+今回の静的確認では、これらに新たな出力不一致を示す反例は得ていない。全入力・全コンパイラ・FP例外flagsまでの同一性を証明したという結論ではない。
+
+3. 既存probeが既に確認対象に含めているもの
+
+q8_probe.cpp 58～88行はggml_get_type_traits_cpu(Q8_K)->from_floatを呼び、refと出力の全byteを比べる。0/1/2/3/7/28 block、ずらしたF32入力、出力の前後guard、事前に異なるbyteで埋めた出力を含む。31～56行のpatternには正負zero、正負の同じ絶対最大、半整数近傍、広い有限値、最大float、subnormal、NaN/Infがある。[S6]
+
+保存されたq8-byte-check-isolated.csvとfinal-repro/raw/q8-byte-check.csvは共に、4mode各1,536 calls・10,344 blocks・差0を記録している。これは今回そのCSVを読んだ事実であり、実機での新しい成功結果ではない。[S7]
+
+したがって、実機移植時にゼロ長やtie等をもう一度列挙し直した巨大な新suiteを作る必要はない。現行CPU/baseを使う独立processで既存のbyte比較を再現することを最初の数値確認にできる。FTZ/DAZはこのprobeで明示的に全組合せを切り替えていない。実際のworker設定が既存試行と異なる、またはその状態まで今回の契約へ含める場合に限り、その具体的な設定で追加する。
+
+4. 実機で重要になる呼出し粒度
+
+現行ggml-cpu.c 1798～1803行は、256値block数をnth workerへ分割する。worker iの担当block数は floor((i+1)*blocks/nth)-floor(i*blocks/nth)。その整数式を再計算した。
+
+K       blocks  worker数   1回のfrom_floatへ渡るblock数とworker数
+5120    20      12         1 blockが4worker、2 blocksが8worker
+5120    20      24         0 blockが4worker、1 blockが20worker
+2304    9       12         0 blockが3worker、1 blockが9worker
+2304    9       24         0 blockが15worker、1 blockが9worker
+
+これは各入力行に対するsource上の分割で、実機時間を測った表ではない。前のprobeは0/1/2 blockの正しさを既に含む。一方bench関数はK>0を要求し、K256×16行やK7168×8行を直列に変換するため、実機の多数worker、空の担当、共有準備、既存barrierまで含む性能とは違う。[S2 1798～1803行; S6 66、90～108行]
+
+04の空呼出しにもrounding判定はある。通常入力のAVX化が速いことと、この小さい分割でoperator全体が有利なことは別の観測になる。ここを確かめるために全モデルを最初から何度も回す必要はなく、現行経路の固定入力operatorを普段の12/24workerで比較すればよい。
+
+5. 最小限の実機比較と実行物の同定
+
+A. 現行のCPU構成を保ち、04だけを独立候補にする。
+   03や06を同時に導入しない。現行の対象arch/x86 objectのcompile commandを記録し、同じ関係するflagsで新しいsource/build先へ作る。refを含むbaseは対照のproviderを維持する。以前のVM全体buildを現行runtime全体の代わりに使わない。
+
+B. 新CPUを使うfresh processで、既存q8_probeのfrom_floatとrefの全byte比較を行う。
+   実際にロードしたCPU/baseのpathとhashを結果に結び付ける。quantize_row_q8_KにAVX1本体が入ったことと、from_floatがその実装へ結び付くことを確認する。パッチが適用できた、ELF hashが変わった、という二点だけで実行経路を認定しない。
+
+C. 同じ実重み・同じF32入力・同じordered top6のoperatorで、既存出力との一致と準備込み時間を比較する。
+   現在の12worker、必要ならbatch用途の24workerを使う。ここで対象演算全体の効果を確認してから、固定入力のモデル実行へ進める。既成Q8だけのfixtureではこの変更を通らないため、F32入力であることを記録する。単体の改善しか見えなければ、その範囲を結果として残す。
+
+通常の実装・読取を毎回ユーザー確認へ戻すルールは提案しない。実機側の既存承認と計測予定に従って進める。F/B/CまたはH1の一つの比較中はproviderを固定し、04導入後の結果を導入前の対照へ混ぜない。
+
+6. build条件の具体的な注意
+
+高速分岐の条件は__AVX__ && !__AVX2__。Ivy Bridge対象には合うが、VMでnativeを有効にしてAVX2 buildへ変えると、この関数はref側になる。AVX有効という説明だけでは十分でなく、対象objectの実flagsと出力命令を見る必要がある。[S3 10、19、80～82行]
+
+VM最終q8のcompile_commands.jsonではarch/x86/quants.cは -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3、AVX/F16C等の設定でコンパイルされ、fast-mathを有効にする指定はない。ggml-cpu.c/cppとiq3-cache.cppに付く個別 -fno-fast-math/-ffp-contract=off を、arch/x86/quants.cやbase全objectにも明示指定されたものと読み替えない。[S8]
+
+実機の古いobjectを再利用したlink記録だけでは、新規にコンパイルする04のflags全体が確定しない。特にfinite判定やscale演算に関係する最適化設定を、04の導入と同時に意図せず変えないことが重要である。今回、実機の新しい04 buildができたとは主張しない。
+
+出典の位置
+
+以下は /workspace/scratch/1f624f9ac929/ からの相対path。新受領資料の固定commitは fd810448288929991a74b61208e64821f4ba7654。
+[S1] fd810_review_2026-11-18/source/{ROOT_REVIEW_JA.txt,CURRENT_Q8_WRAPPER.txt,PATCH_PREFLIGHT.json}。
+[S2] fd810_review_2026-11-18/source/current_cpu/ggml-cpu.c。SHA256 e8fdf3d424463f9852fa774d9de6057dce35855a872936bda87d12d3d756e3a8。
+[S3] astra62_max_trial/outputs/04-q8k-avx1.patch。
+[S4] parent_evaluation/prior_inventory/q8k_followup_sources/hybrid_x86_quants.c。元repo pathは同/Q8K_RUNTIME_STATIC_ADDENDUM_JA.txt 67～69行。
+[S5] astra62_max_trial/work/isolated-q8/ggml/src/ggml-quants.c。refの内容は保存された後続ソースとも一致することを既存追補が記録。
+[S6] astra62_max_trial/outputs/q8_probe.cpp。
+[S7] astra62_max_trial/outputs/raw/q8-byte-check-isolated.csv、astra62_max_trial/work/final-repro/raw/q8-byte-check.csv。
+[S8] astra62_max_trial/work/build-isolated-q8/compile_commands.jsonのarch/x86/quants.c/ggml-quants.c項目、同/ggml/src/CMakeFiles/ggml-cpu.dir/flags.make 10～22行、outputs/build_cpu.sh 7～16行、outputs/reproduce.sh 13～27行。
+
+既存報告を読む補助: parent_evaluation/prior_inventory/Q8K_RUNTIME_STATIC_ADDENDUM_JA.txt、parent_evaluation/independent_review/final_feature_audit/FINAL_FEATURE_AUDIT_JA.txt。

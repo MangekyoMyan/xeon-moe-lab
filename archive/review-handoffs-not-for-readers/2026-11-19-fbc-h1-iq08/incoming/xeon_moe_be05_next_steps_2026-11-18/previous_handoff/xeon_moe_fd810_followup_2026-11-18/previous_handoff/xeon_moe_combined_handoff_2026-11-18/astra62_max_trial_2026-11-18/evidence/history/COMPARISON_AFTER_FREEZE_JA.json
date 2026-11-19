@@ -1,0 +1,652 @@
+{
+  "title": "初期案固定後の一次コード照合 — 親専用",
+  "created_utc": "2026-11-18 01:53:04 UTC",
+  "date_jst": "2026-11-18",
+  "commit": "37f6390c9a5bc594658127651e204ab11420cd71",
+  "initial_ideas": {
+    "file": "/workspace/scratch/1f624f9ac929/parent_evaluation/initial_freeze/INITIAL_IDEAS_JA.txt",
+    "sha256": "2d245bd0634d9c21636328fb2e35149ca9fae21b4972b5658f4e3cb9d35042e0",
+    "bytes": 4561
+  },
+  "scope": "固定済みの初期案を一次コードと照合。試験対象の6.2子に連絡・助言していない。読取のみ、build・bench・実機操作なし。初期台帳は変更していない。",
+  "headline": "候補1は入力abs共有という既知方向に対する別の符号表現、候補2は照合した後続CPUにも残るdense route workspaceへの具体案。候補6は部分expert cacheの独立再発見。",
+  "cautions": [
+    "『今回照合範囲で初出』は未読の過去資料・外部文献に同じ案がないという主張ではない。",
+    "初期ソースと後続実装は別。後続に存在しても、子が初期ソースを正しく読んだことは否定されない。",
+    "route37/SOURCE.jsonはmx-prepack release candidate由来を記録する。実機の現在のロード状況をこの作業でlive確認していない。",
+    "今回の分類は初期案の表現に対するもの。後で作られたpatchや測定値の正しさは別の検証が必要。",
+    "ソースに見える命令数・予約容量の差を実行時間の改善率に変換しない。"
+  ],
+  "candidates": [
+    {
+      "number": 1,
+      "title": "入力absと符号の事前準備、packed重みへの1 XOR",
+      "classification": "既存方向の具体化。packed符号XORという核は今回照合した後続コードでは未確認",
+      "original_source_assessment": "採用compact-kernel.incとiq-small-kernels.incは、各32係数で二つのsigned LUT lookupを行い、各出力行でweight absとactivation sign移動を行う。子の出発点はコードと対応している。",
+      "later_implementation": "iq-abs.cppは入力absをprepareで共有するが、dot内で元のsigned入力y0/y1とprepared absの両方を読み、_mm_sign_epi8(q0,y0)、_mm_sign_epi8(q1,y1)を各出力行で行う。対象はiq-abs.hでIQ2_S/IQ3_S。iq-rhsはIQ3_XXSに対する+62 biased LUTと事前pair補正、mx-prepackは+12 biased LUTと補正/FP32 scale再利用であり、いずれもpacked sign XORではない。",
+      "distinct_part": "子は入力の符号をpacked重みのbit3/bit7と対応させて事前準備し、重み1ロードへ1 XORを行ってからLUT lookupする案。符号処理を入力側へ移す目的は既知だが、旧abs dotに残る二つのpsignbを置き換える表現が異なる。IQ3_XXSも含めるなら旧IQ2_S/IQ3_S abs operatorより対象範囲も広い。",
+      "cautions": "初期案だけではbyte同一性や実効速度を未確認。-128、非有限scale、zero、sidecar読込増、準備の償却を検証する必要がある。abs sidecarという言葉だけで完全な再発見としない。全履歴にXOR版がないとは主張しない。",
+      "evidence": [
+        {
+          "alias": "accepted_compact.inc",
+          "lines": [
+            [
+              44,
+              54
+            ],
+            [
+              58,
+              77
+            ]
+          ]
+        },
+        {
+          "alias": "accepted_iqsmall.inc",
+          "lines": [
+            [
+              32,
+              45
+            ],
+            [
+              48,
+              66
+            ]
+          ]
+        },
+        {
+          "alias": "iq_abs.cpp",
+          "lines": [
+            [
+              24,
+              39
+            ],
+            [
+              41,
+              62
+            ]
+          ]
+        },
+        {
+          "alias": "iq_abs.h",
+          "lines": [
+            [
+              33,
+              37
+            ]
+          ]
+        },
+        {
+          "alias": "iq_rhs.cpp",
+          "lines": [
+            [
+              13,
+              26
+            ]
+          ]
+        },
+        {
+          "alias": "iq_math.inc",
+          "lines": [
+            [
+              1,
+              24
+            ]
+          ]
+        },
+        {
+          "alias": "mx_rhs.cpp",
+          "lines": [
+            [
+              17,
+              33
+            ]
+          ]
+        },
+        {
+          "alias": "mx_math.inc",
+          "lines": [
+            [
+              9,
+              24
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "MUL_MAT_IDのルート索引をcount/prefix/fillで圧縮",
+      "classification": "今回照合した採用・後続CPUソースでは未実装。照合範囲内で初出の具体案",
+      "original_source_assessment": "採用コードはmatrix_row_counts[E]に加え、matrix_rows[E][P]を予約する。P=ids->ne[0]*ids->ne[1]。各選択枠は一つのexpertに属し、-1は出力をzeroにしてmappingを追加しないため、有効mapping総数はP以下。",
+      "later_implementation": "mx-prepack/release-candidate-aとそれを元にしたroute37ソースにも、同じE*P mapping予約、MMID_MATRIX_ROWのEごとの固定stride、plannerのE*P積算が残る。今回読んだ後続ソースにprefix offset方式はない。",
+      "distinct_part": "countからoffsetを作り、P個以下のmappingをexpertごとに詰める方式により、mapping領域の上限をE*P件からP件へできる。offset/count等のO(E)補助領域は別に必要。計画側と実行側の同時変更が具体的な提案点。",
+      "cautions": "これは予約量の静的な改善余地で、速度やRSS/メモリ帯域削減の実測ではない。二巡のID読込、重複、-1、stride、各expert内の順序、tiled/four-column経路、align、overflowを確認する。未読履歴・外部文献での新規性は不明。",
+      "evidence": [
+        {
+          "alias": "accepted_cpu.c",
+          "lines": [
+            [
+              1737,
+              1744
+            ],
+            [
+              1789,
+              1808
+            ],
+            [
+              3076,
+              3086
+            ]
+          ]
+        },
+        {
+          "alias": "mx_cpu.c",
+          "lines": [
+            [
+              1752,
+              1759
+            ],
+            [
+              3123,
+              3133
+            ]
+          ]
+        },
+        {
+          "alias": "route_cpu.c",
+          "lines": [
+            [
+              1491,
+              1496
+            ],
+            [
+              1753,
+              1760
+            ],
+            [
+              1826,
+              1845
+            ],
+            [
+              3132,
+              3137
+            ]
+          ]
+        },
+        {
+          "alias": "route_SOURCE.json",
+          "lines": [
+            [
+              1,
+              16
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "小バッチの(slot,出力行tile)を直接分配",
+      "classification": "counter初期化削減は既知方向。全体を平坦化する実行方式は今回照合では同一実装を未確認",
+      "original_source_assessment": "採用コードはith==0がrow_counts全Eをzero化し、atomic counter初期化はcur_a=ith;cur_a<E;cur_a+=nthで分担する。その後の全E走査は各workerが行う。",
+      "later_implementation": "cpu-coordination/active-onlyには、最初に出現したactive expertのcounterだけをith0で初期化する案がある。ただし各workerの全E走査とexpertごとのatomic_fetch_addは残る。route37にも小規模/NUMA条件でchunk数をnthへそろえ、fetch_addを通らない既存分岐がある。",
+      "distinct_part": "子の(slot,連続出力行tile)を全workerへ直接割当てる方式は、active counterのみ初期化する案とは異なる。E走査とexpert別atomicをまとめて減らす具体化候補。",
+      "cautions": "初期文の『全E countersを各workerで初期化』は、全workerがE個ずつ重複初期化する意味なら不正確。合計E個をworker間で分担する、と修正する。NUMA条件では既にdynamic atomicを回避する場合があり、消せる費用は実分岐次第。速度は未測定。",
+      "evidence": [
+        {
+          "alias": "accepted_cpu.c",
+          "lines": [
+            [
+              1789,
+              1791
+            ],
+            [
+              1811,
+              1825
+            ]
+          ]
+        },
+        {
+          "alias": "coord_active_cpu.c",
+          "lines": [
+            [
+              1789,
+              1827
+            ],
+            [
+              1902,
+              1906
+            ]
+          ]
+        },
+        {
+          "alias": "route_cpu.c",
+          "lines": [
+            [
+              1892,
+              1906
+            ],
+            [
+              1951,
+              1955
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "title": "Q8_K入力量子化のAVX1化と既存byte列維持",
+      "classification": "今回照合範囲で初出の具体的kernel候補。実装・同一性・速度は未検証",
+      "original_source_assessment": "vendorのx86/quants.c:505–507はquantize_row_q8_Kからquantize_row_q8_K_refを呼ぶだけである。AVX1実装がこのwrapperにないという指摘は正しい。",
+      "later_implementation": "今回読んだ後続ggml-cpu.cのtype traitもquantize_row_q8_Kを参照する。abs/iq-rhs/mx-prepackは量子化後のsidecar処理で、Q8_K量子化そのもののAVX1置換ではない。",
+      "distinct_part": "最大同値時の符号、丸め、zero block再利用等を含めbyte列維持を目標にしたAVX1化という案。CPU/CUDA間の量子化を揃える以前の診断とは目的・変更箇所が違う。",
+      "cautions": "全ての後続quants objectを照合したわけではない。byte同一性は初期案だけでは証明できない。実モデルでは量子化費用が多数の出力行へ償却されるため、単体倍率を全体速度に置き換えない。",
+      "evidence": [
+        {
+          "alias": "vendor_x86_quants.c",
+          "lines": [
+            [
+              504,
+              507
+            ]
+          ]
+        },
+        {
+          "alias": "route_cpu.c",
+          "lines": [
+            [
+              405,
+              409
+            ]
+          ]
+        },
+        {
+          "alias": "iq_abs.cpp",
+          "lines": [
+            [
+              24,
+              39
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "title": "compactを複数トークン・expertごとの局所batchへ拡張",
+      "classification": "今回照合範囲では未実装の適用条件拡張案。詳細な新規性は未確認",
+      "original_source_assessment": "採用コードのcompact lookupはids->ne[1]==1に制限される。後続route37でも同条件が残る。",
+      "later_implementation": "route37にはexpertごとにtiledへ渡す分岐やMXFP4の複数列処理があるが、それだけで複数トークンcompact IQが実装済みとは言えない。sparse-cacheのcompact dot APIもnrc==1をassertする。",
+      "distinct_part": "expertごとの局所頻度・行数を見て、compact IQを複数トークンへ使う境界を探す点。既存のMXFP4多列処理と型・cache経路を混同しない。",
+      "cautions": "ids条件を外すだけで成立すると判断しない。Q8入力stride、行mapping、tiled選択、入力再利用、sidecar適用条件、メモリ局所性の検証が必要。今回実装・性能確認なし。",
+      "evidence": [
+        {
+          "alias": "accepted_cpu.c",
+          "lines": [
+            [
+              1819,
+              1830
+            ]
+          ]
+        },
+        {
+          "alias": "route_cpu.c",
+          "lines": [
+            [
+              1868,
+              1882
+            ],
+            [
+              1925,
+              1947
+            ]
+          ]
+        },
+        {
+          "alias": "sparse_cache.cpp",
+          "lines": [
+            [
+              195,
+              197
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "title": "expert単位の部分compactと利益/MiBによる予算配分",
+      "classification": "部分expert化・pointer表は後続実装の独立再発見。選択基準の具体化部分は別評価",
+      "original_source_assessment": "採用iq3-cache.cppはggml_nbytes(t)/type_sizeでテンソル全体を加工して一つのdataへ格納する。子が見た初期ソースについての指摘は正しい。",
+      "later_implementation": "sparse-cache/release-v2-aにはadd_selected_v2、selected_count分のみのallocation/変換、expert_ptrs、lookup_experts_v2、shape/type検査、budget/reserve検査がある。route37はそのexpert pointerを参照する。",
+      "distinct_part": "構造変更そのものは後続ですでに具体化済み。子の『traceがあれば限界利益/MiB』は配置評価の方向性として意味があるが、初期案には具体的なscore算出・最適化solver・検証はまだない。GPU配置の時間価値という既知方向とも関連するが、CPU compact予算という対象は区別する。",
+      "cautions": "後続資料を渡していないため、既存部分compactを知らないことを能力失敗にしない。mutex除去は読み出したpointerの寿命・同時freeを別途保証する必要がある。どの選定方式が速いかは未測定。",
+      "evidence": [
+        {
+          "alias": "accepted_cache.cpp",
+          "lines": [
+            [
+              74,
+              110
+            ],
+            [
+              132,
+              139
+            ]
+          ]
+        },
+        {
+          "alias": "sparse_cache.cpp",
+          "lines": [
+            [
+              28,
+              46
+            ],
+            [
+              75,
+              141
+            ],
+            [
+              149,
+              150
+            ],
+            [
+              178,
+              186
+            ]
+          ]
+        },
+        {
+          "alias": "sparse_selection.h",
+          "lines": [
+            [
+              16,
+              24
+            ],
+            [
+              49,
+              84
+            ]
+          ]
+        },
+        {
+          "alias": "route_cpu.c",
+          "lines": [
+            [
+              1868,
+              1878
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "title": "GPU unique expert転送量・warm/cold・待ち時間による閾値調整",
+      "classification": "既存の計測方針の再発見と、対象経路の具体化。現段階は観測案",
+      "original_source_assessment": "llama-moe-cacheにはIDのasync取得後のsynchronizeと連続miss uploadの併合がある。採用ggml-backendにはMXFP4のbatch閾値判定があり、子の記述はこれらのコードと対応する。",
+      "later_implementation": "GPU転送、CPU残仕事、GPU待ち、分担の時間価値を測る方向は既知台帳P02/P06にある。ただし現在のresident hot bankと一般MoE cacheのmiss転送は同じ経路でない。",
+      "distinct_part": "初期ソースにあるcacheと閾値へ観測点を結び付けた点は有用な具体化。新しい閾値やcache方針を発見・実装したという結果はまだない。",
+      "cautions": "VMでGPU転送を代用できないとの認識は妥当。一般cacheの転送が最新実機構成の主要律速と断定しない。cacheに既存のbytes/hits/misses統計があることと、区間別時間が測定済みであることは別。",
+      "evidence": [
+        {
+          "alias": "moe_cache.cpp",
+          "lines": [
+            [
+              555,
+              597
+            ],
+            [
+              604,
+              614
+            ]
+          ]
+        },
+        {
+          "alias": "accepted_backend.cpp",
+          "lines": [
+            [
+              1329,
+              1338
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "alias": "accepted_cpu.c",
+      "path": "accepted/overlays/ggml/src/ggml-cpu/ggml-cpu.c",
+      "bytes": 140748,
+      "lines": 4119,
+      "sha256": "d1b06e0a8e13e6e08f86d13190edf147a51dab4e4447a5c5f1a3fe2b16b88499",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/accepted/overlays/ggml/src/ggml-cpu/ggml-cpu.c"
+    },
+    {
+      "alias": "accepted_cpu.cpp",
+      "path": "accepted/overlays/ggml/src/ggml-cpu/ggml-cpu.cpp",
+      "bytes": 25591,
+      "lines": 727,
+      "sha256": "803c7b6337706bdd6c6907f324e22ece75b0bd4c42487beb00a0b30edc01744b",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/accepted/overlays/ggml/src/ggml-cpu/ggml-cpu.cpp"
+    },
+    {
+      "alias": "accepted_compact.inc",
+      "path": "accepted/overlays/xeon-local/compact-kernel.inc",
+      "bytes": 4013,
+      "lines": 79,
+      "sha256": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/accepted/overlays/xeon-local/compact-kernel.inc"
+    },
+    {
+      "alias": "accepted_iqsmall.inc",
+      "path": "accepted/overlays/xeon-local/iq-small-kernels.inc",
+      "bytes": 4150,
+      "lines": 67,
+      "sha256": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/accepted/overlays/xeon-local/iq-small-kernels.inc"
+    },
+    {
+      "alias": "iq_abs.cpp",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.cpp",
+      "bytes": 4113,
+      "lines": 69,
+      "sha256": "2055a9a91b3f26476e06750c6c9e5651999f3216d554cf4eef370e9da9b82eb5",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.cpp"
+    },
+    {
+      "alias": "iq_abs.h",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.h",
+      "bytes": 1991,
+      "lines": 46,
+      "sha256": "d0f6beb5306f57207345b3312e02677ccb9735d35ebce7cac6dedab1c64825d6",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/iq-abs.h"
+    },
+    {
+      "alias": "abs_cpu.c",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/ggml-cpu.c",
+      "bytes": 146583,
+      "lines": 4228,
+      "sha256": "b87089543cd8da780e7d0a0563c5c4056a4ea40a30dc5a1f17789abeb844e9db",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-abs-operator/ggml-cpu.c"
+    },
+    {
+      "alias": "route_cpu.c",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/ggml-cpu.c",
+      "bytes": 143418,
+      "lines": 4176,
+      "sha256": "ce6a78a1a34c0fe9623a116320b9fad8d1ae0cb83102ba9a4cb8fbd58a473988",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/ggml-cpu.c"
+    },
+    {
+      "alias": "route_SOURCE.json",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/SOURCE.json",
+      "bytes": 832,
+      "lines": 17,
+      "sha256": "6272a6242988f5756fa93377e7b161600d6be57951e09662e5ee07a80f02c6b7",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/SOURCE.json"
+    },
+    {
+      "alias": "route_BUILD.json",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/BUILD.json",
+      "bytes": 8388,
+      "lines": 219,
+      "sha256": "e8322467f2457b14f3782781db755cd09d32110e70e839ae13ec586d4f463f49",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/BUILD.json"
+    },
+    {
+      "alias": "mx_cpu.c",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c",
+      "bytes": 143260,
+      "lines": 4172,
+      "sha256": "e8fdf3d424463f9852fa774d9de6057dce35855a872936bda87d12d3d756e3a8",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c"
+    },
+    {
+      "alias": "sparse_cpu.cpp",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/ggml-cpu.cpp",
+      "bytes": 25813,
+      "lines": 729,
+      "sha256": "a78f95779e0c8cd4bb2177c196118d0b6fb15a5e4f1a29e75531b7df25230f9c",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/ggml-cpu.cpp"
+    },
+    {
+      "alias": "sparse_compact.inc",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/compact-kernel.inc",
+      "bytes": 4013,
+      "lines": 79,
+      "sha256": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/compact-kernel.inc"
+    },
+    {
+      "alias": "vendor_x86_quants.c",
+      "path": "vendor/llama.cpp/ggml/src/ggml-cpu/arch/x86/quants.c",
+      "bytes": 200035,
+      "lines": 4172,
+      "sha256": "777d0a4c1caf0e5b2589e8e77eb376a10691155deb5589d981838f9fef286c52",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/vendor/llama.cpp/ggml/src/ggml-cpu/arch/x86/quants.c"
+    },
+    {
+      "alias": "iq_rhs.cpp",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/release-candidate-a/sources/iq-rhs.cpp",
+      "bytes": 1434,
+      "lines": 30,
+      "sha256": "1c5bdbe5550a8caa43866da134f19d7d2c1d1c89a0cead146fbf9d5fba8a02ec",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/release-candidate-a/sources/iq-rhs.cpp"
+    },
+    {
+      "alias": "iq_rhs.h",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/release-candidate-a/sources/iq-rhs.h",
+      "bytes": 850,
+      "lines": 19,
+      "sha256": "393a6e194044b051ae42d8194d14ffa8b559b0d5ae067648da94f0c6d4c7c891",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/release-candidate-a/sources/iq-rhs.h"
+    },
+    {
+      "alias": "iq_math.inc",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/release-candidate-a/sources/iq-math.inc",
+      "bytes": 1722,
+      "lines": 26,
+      "sha256": "0d66382960acea25f228fcf46096029ee9597d43c964fe67f88e0d57e42e744d",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/iq-rhs/release-candidate-a/sources/iq-math.inc"
+    },
+    {
+      "alias": "mx_rhs.cpp",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.cpp",
+      "bytes": 1829,
+      "lines": 40,
+      "sha256": "1a6ebc4650fd58a6ccabea5fcf3f5fd52d38b6537f0a4ac2c0bfd6b67091123c",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.cpp"
+    },
+    {
+      "alias": "mx_rhs.h",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.h",
+      "bytes": 1197,
+      "lines": 25,
+      "sha256": "06f481d18e0d079b083b905c474de1aaf8db625a3398d7fb6c7bad0a4bbd6d62",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-rhs.h"
+    },
+    {
+      "alias": "mx_math.inc",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-math.inc",
+      "bytes": 3312,
+      "lines": 56,
+      "sha256": "15fc828d91312ed6edbba454e97e26aa546d31db179e5f1b9648406312c79c0b",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/sources/mx-math.inc"
+    },
+    {
+      "alias": "sparse_cache.cpp",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/iq3-cache.cpp",
+      "bytes": 9233,
+      "lines": 210,
+      "sha256": "eb72cc21e98fd243ddb9f63dd38583bb761803ea1ddfb41bb37745e3c2fddf37",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/iq3-cache.cpp"
+    },
+    {
+      "alias": "sparse_cache.h",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/iq3-cache.h",
+      "bytes": 1301,
+      "lines": 32,
+      "sha256": "7db88449073d5e60274f9414acecf5916eb2ceb6aa52161f5a19093b0a4550b8",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/iq3-cache.h"
+    },
+    {
+      "alias": "sparse_modelcache.h",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/model-cache.h",
+      "bytes": 1860,
+      "lines": 40,
+      "sha256": "57fa7568d0a6b2f6410b2afe89f22b8d5c90106b365e078def0d5c984a5876c7",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/model-cache.h"
+    },
+    {
+      "alias": "sparse_policy.h",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/cache-policy.h",
+      "bytes": 457,
+      "lines": 10,
+      "sha256": "fa1cb90467bc0a40a2517eee6cb58c865cdc06c082e8a7abd90daf8c36ffa868",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/cache-policy.h"
+    },
+    {
+      "alias": "sparse_selection.h",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/selection-plan.h",
+      "bytes": 5525,
+      "lines": 109,
+      "sha256": "afad1b28d4d970eb012b766750d52f52176ac1c6d3e0aba296d27598a65c13b9",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/sparse-cache/release-v2-a/sources/selection-plan.h"
+    },
+    {
+      "alias": "coord_active_cpu.c",
+      "path": "archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cpu-coordination/active-only/ggml-cpu.c",
+      "bytes": 140901,
+      "lines": 4121,
+      "sha256": "373214373089d1b05bc448f496bf2b3f4cd1b9357c9e0feb49c992a5d8175ac4",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/archive/review-handoffs-not-for-readers/2026-11-16-current/snapshot/llm-lab/exploration-20261112/cpu-coordination/active-only/ggml-cpu.c"
+    },
+    {
+      "alias": "accepted_cache.cpp",
+      "path": "accepted/overlays/xeon-local/iq3-cache.cpp",
+      "bytes": 6674,
+      "lines": 164,
+      "sha256": "d1e76d68d5b26e627d6d81ea6b3c31959c96666e585044aac41b7ffd02806c7c",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/accepted/overlays/xeon-local/iq3-cache.cpp"
+    },
+    {
+      "alias": "moe_cache.cpp",
+      "path": "vendor/llama.cpp/src/llama-moe-cache.cpp",
+      "bytes": 25907,
+      "lines": 656,
+      "sha256": "2c8dd1c781a7e63c4a0f81547a0ff8f2af427749b59d2c0c8dff19f560446d70",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/vendor/llama.cpp/src/llama-moe-cache.cpp"
+    },
+    {
+      "alias": "accepted_backend.cpp",
+      "path": "accepted/overlays/ggml/src/ggml-backend.cpp",
+      "bytes": 112957,
+      "lines": 2909,
+      "sha256": "002749e65922a0ce87937df09064225940bca793e76032595ba274c87b982ddd",
+      "url": "https://github.com/MangekyoMyan/xeon-moe-lab/blob/37f6390c9a5bc594658127651e204ab11420cd71/accepted/overlays/ggml/src/ggml-backend.cpp"
+    }
+  ]
+}

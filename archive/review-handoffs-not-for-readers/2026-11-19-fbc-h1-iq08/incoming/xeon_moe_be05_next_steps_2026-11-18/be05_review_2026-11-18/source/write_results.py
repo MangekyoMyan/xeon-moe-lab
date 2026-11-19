@@ -1,0 +1,96 @@
+from pathlib import Path
+import json
+R=Path(__file__).resolve().parent
+def read(p):return json.loads((R/p).read_text())
+def main():
+    a=read('q8-avx1/FFN_ANALYSIS.json');restore=read('RESTORED_RUNTIME.json');assert a['passed'] and restore['normal_API_restored']
+    rows=[]
+    for x in a['rows']:
+        rows.append(f"cell{x['cell']} layer{x['layer']} {'/'.join(x['types'])} threads{x['threads']}: 時間比候補/対照={x['median_time_ratio']:.9f}, 時間短縮={x['time_reduction_percent']:+.4f}%, 短縮{x['pairs_faster']}/4組, 比の範囲{x['min_ratio']:.6f}..{x['max_ratio']:.6f}")
+    text='''fd810追補の受領と、04 Q8_K AVX1の実機局所試験
+2026-11-18 JST
+
+結論
+04だけを現行CPUから独立ビルドして実機で試した。数値の確認は通過したが、通常decode相当の12物理スレッドでは対象2例が約0.9～2.4%遅かった。通常APIへの採用は保留する。
+24論理スレッドでは一部が速いが、Q8_Kを使わないMXFP4対照にも差が出た。Q8_K化による一般的な利益と断定しない。全モデル速度試験へは進めず、この一巡を保存して終了した。
+通常APIは元設定・元CPU/llama/CUDA/baseへ復帰している。モデル重み、元ライブラリ、通常設定は変更していない。
+
+追補について新たに確認したこと
+受領ZIPは726ファイル。全manifestを照合し、previous_handoffの400ファイルは前回受領原本とbyte一致。
+前回不足していた保存出力80本が補完された。Terra xhighが圧縮/展開hashと実byteを読み、旧最終候補・混在出力を確認。過去の再生成ではなく保存物の補完として扱う。
+新しいVM試行はcurrent/08-current-mixed/09-selected-input-onlyの3構成。新72dumpの1,608対応組・各版171,360 F32が一致することを独立再照合した。
+900sampleは10条件×6三者組×3process×5sample。08は一部の高compact率条件で有望、09は実寸5/6で08比1.044534、短縮1/6組のため追加採用保留という判断と整合した。
+新08は実cache登録/lookupとMXFP4 prepackを含む保存ソースをVMへ組み込んでおり、前回の代替fixtureから進展している。ただしVMのcurrentは実機DSOそのものではなく、実機NUMA/12～24worker/モデル品質は別の確認。
+旧08-mixed-dispatchと新08-current-mixedは別ファイル。09は新08の上に重ねる差分。旧07の合成版との混用をしない。
+本ターンの実機変更候補は04だけ。新08/09、03、GPU分担F/B/C/H1は実機実行していない。
+
+実行物の同定
+実機: dual E5-2630L v2、12物理/24論理、2 NUMA、512GB。HARDWARE.jsonにCPU0..23の対応を保存。
+稼働CPU/対照: 33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3
+04候補CPU: eb05a18ebbc1ffbab9346a86fc58f36796355eb9de7e7283f2931ef87f23b920
+共通base: 2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558
+無変更sourceのarch/x86/quants.cを同じflagsで再コンパイルすると元objectとbyte一致し、同じ残りobjectを使う再linkも稼働CPUとbyte一致した。
+候補は親が読んだ04 patchのみ。別source/build/runtimeへ作成し、元DSOを上書きしていない。関係する最適化flagsは元のcompile databaseから維持。sourceパス文字列だけ元へ正規化した。
+実行時のfrom_float、CPU backend、cache、baseのproviderを確認。候補wrapperにvcvtps2dqが入り、対照はrefへのjmpであることを逆アセンブルでも確認した。
+この対照は通常CPU33a9であり、前回のF/P統合試験で使用した診断CPU602aと新測定を混ぜていない。
+
+Q8_K変換の数値確認
+提供probeのcheck/bench helper本体を変更せず使用し、呼出しmainだけ親が作成してproviderを照合した。
+4丸め方式×各1,536calls/10,344blocks、候補計41,376blocksで参照と全byte一致。ゼロ長、tie、ずらした入力、出力guard、事前の出力byte、有限極値・非有限等の既存条件を含む。
+非nearestは参照fallbackを含み、4丸めすべてが高速経路という意味ではない。FP例外flagsや全FP環境の同一性の証明ではない。
+変換単体の実機速度は今回測っていない。約5.6～5.9倍は旧VMの別測定であり、今回の演算/モデル速度へ外挿しない。
+
+実重み・実入力の局所演算
+入力は前回の成功capture 20261117T052657Z-U1024-3483cb75 のcell1/5/6。全て同じ既存JA training軌道からの固定operator例で、3個の独立会話ではない。
+cell1: layer7 IQ2_S gate/up＋IQ3_XXS down、3projectionとも5/6 compact。
+cell5: layer13 IQ3_XXS gate/up＋IQ3_S down、3projectionとも6/6 compact。
+cell6: layer28 MXFP4×3、compact対象なし。Q8_0を使い04対象Q8_Kを通らない対照。
+元GGUFをread-only mmapし、元の384expert形状とglobal top6、保存x/clampを維持した。選択expertのnative bytesのFNVを各processで保存し対照と一致を確認。
+CPU planとcaptureのprojection別compact maskを照合し、必要な選択expert分だけ実cache allocatorへ登録した。通常の120GiB全cacheを再現した試験ではない。
+without_thpとnumactl interleave0,1、CPU0..23。12物理または24論理へstrict poolを設定し、計時後worker receiptを保存。24threadsもT=1形状で、prefillワークロードを測ったものではない。
+元fileのpage cache配置は既存状態に依存する。CPU/GPU主graph、長寿命cache、全モデルのメモリ圧力は再現していない。
+
+時計の範囲
+CPUのgate/up、clamped SwiGLU、downにより6expertそれぞれの出力を作るgraph_compute全体。
+毎回のF32→Q8、cache lookup、routing表、barrier、内積、activationを含む。routing weightの乗算・6expert加重merge、attention、主scheduler、GPU、API、samplingは含まない。
+GGUF metadata/mmap、初期cache packing、graph作成、出力の読取/hash/byte検査は時計外。
+従って「各expert内の主要演算」であり、加重mergeを含むモデルFFN全体やtoken/sとは呼ばない。
+
+数値と計時の順序
+まずcontrol/candidateの2quality process、3cells×12/24threadsで保存capture出力と一致を確認。その後、control/candidate/candidate/control/candidate/control/control/candidateの8fresh process。
+各対応pairは同じcell/thread順、前半/後半で順序反転。process内3warmup後、5samples×8graph calls。計240samples、1,920 timed graph calls。全件保持し、良いrunへの置換や追加の探索はしていない。
+出力は3warmupの最後と各sample最後のgraphについて照合。全1,920callを個別にコピー検査した意味ではない。
+成功10processが保存した60出力file、計1,843,200 F32はfiniteかつ元captureと全byte一致。独立Terra監査でも再確認。
+比は各processの5sample中央値から対応pair候補/対照を計算し、4pairの中央値を取る。4pairしかなく精密な母集団推定ではない。
+
+結果（正の時間短縮が改善、負は遅延）
+'''+ '\n'.join(rows)+'''
+
+読み取り
+通常12threadsのIQ2_S/IQ3_XXS混在は0/4pair改善、IQ3_XXS/IQ3_Sは1/4pair改善。現時点で通常構成へ採用する利益を示していない。
+24threadsのcell1は4/4改善だが、MXFP4対照でも4/4改善・比範囲約0.757～0.996。04のQ8変換高速化だけに全差を帰属しない。
+実行期間の変動、ライブラリ内コード配置、thread動作等の寄与はこの試験から未分離。MXの差を単純に差し引いた補正値も作らない。
+4組で候補が恒久的に遅いことを証明したとはしないが、全モデル試験・通常採用へ進める安定した利益は確認できなかった。この段階で保留する。
+
+途中の回復と保護
+最初の数値probe wrapperがmainを別名へ変えたためimplicit return0が失われ、control終了時に失敗した。helperをそのまま取り込み、明示returnするmainへ修正し再確認。元の失敗・警告・sourceは保存。
+最初のFFN qualityはrun directory所有者と、supervisorが下げる子のUIDの不一致で出力保存に失敗。候補やtiming前の段階であり、v2ではLAB ownerに合わせ、全quality/timingを新しい保存先で実行した。
+その直後の復帰は常駐snapshotのGPU使用量条件で拒否された。同時期のguard/後のnvidia-smiはGPU空きを示したため、更新時差と整合する。拒否時snapshotそのものは保存しておらず、停止前のどの値だったかを確定してはいない。
+v2は既存のused<=128MiB判定へ監視記録が追いつくまで最大60秒待つ。保護閾値は緩めていない。温度/ECC異常を理由にした停止は記録されていない。
+既存supervisor、GPU150W/ECC、Standard fan<=70%、RAM reserve64GiBを維持。通常API停止はtry/finallyの範囲に置き、保護stop時は無条件再起動しない。
+'''+f"通常APIはPID{restore['pid']}でhealth ok、元configと4DSO hash一致、監視active・alert/errorなしの復帰receiptを保存した。\n"+'''
+
+次の判断
+04は数値が一致する独立候補として保管し、通常採用は保留。Q8変換そのものの時間やコード配置を追加調査するなら、新しい仮説と別試験として切り出す。
+CPU側で次に有望なのは新08-current-mixedを、今回と同じ現行基準・実入力へ持ち込む比較。09は実寸の安定した利益が未確認なので重ねない。
+F/B/C→H1は別の固定provider比較として維持する。今回の結果を旧CPUによる分担比へ加算しない。未使用validation/holdoutは開いていない。
+
+原本
+incoming/が追補原本。EVIDENCE_REVIEW_TERRA.txtは保存VM出力/計時の独立再確認。ACTUAL_Q8_REVIEW_TERRA.txtは今回の実機試験の独立監査。
+build_q8.py、q8-avx1/BUILD.jsonとcontrol/candidate/source、probe_wrapper.cpp/q8_cases.inc、NUMERIC.json。
+real_ffn.cpp、FFN_BUILD.json、FFN_DESIGN.json、run_ffn.py、runs-v2のSPEC/LAUNCH/RUN/時刻/出力、FFN_ANALYSIS.json、STATE-v2.json。
+旧失敗はq8-avx1/numeric、checkpoint-probe-wrapper-initial、runs/quality-control、checkpoint-runner-attempt1へ保持。
+RESTORED_RUNTIME.jsonとSHARING.json。通常APIの追加変更、モデルdownload、通常設定への採用はなし。
+'''
+    (R/'RESULTS_JA.txt').write_text(text)
+if __name__=='__main__':main()

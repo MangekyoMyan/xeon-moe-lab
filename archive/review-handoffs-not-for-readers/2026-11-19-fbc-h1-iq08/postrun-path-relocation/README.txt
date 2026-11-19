@@ -1,0 +1,1 @@
+Copies of verifier form used during live tests. After tests, a default-None reference-capture path override was added solely for offline relocation of public files. Default behavior and all numeric/ordering checks are unchanged; original run data are never rewritten.

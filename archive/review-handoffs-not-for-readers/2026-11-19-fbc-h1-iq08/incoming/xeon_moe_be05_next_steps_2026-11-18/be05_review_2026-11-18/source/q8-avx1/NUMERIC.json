@@ -1,0 +1,90 @@
+{
+  "passed": true,
+  "runs": [
+    {
+      "mode": "control",
+      "command": [
+        "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/q8_probe",
+        "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/control/runtime/libggml-cpu.so.0.28.0",
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+        "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/numeric-fixed-wrapper/control-providers.json",
+        "check"
+      ],
+      "CPU_sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+      "base_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+      "rows": [
+        {
+          "round_mode": "0",
+          "patterns": "12",
+          "calls": "1536",
+          "blocks": "10344",
+          "unequal_bytes": "0"
+        },
+        {
+          "round_mode": "1024",
+          "patterns": "12",
+          "calls": "1536",
+          "blocks": "10344",
+          "unequal_bytes": "0"
+        },
+        {
+          "round_mode": "2048",
+          "patterns": "12",
+          "calls": "1536",
+          "blocks": "10344",
+          "unequal_bytes": "0"
+        },
+        {
+          "round_mode": "3072",
+          "patterns": "12",
+          "calls": "1536",
+          "blocks": "10344",
+          "unequal_bytes": "0"
+        }
+      ]
+    },
+    {
+      "mode": "candidate",
+      "command": [
+        "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/q8_probe",
+        "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/candidate/runtime/libggml-cpu.so.0.28.0",
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+        "/home/codex/projects/llm-lab/fd810-followup-20261118/q8-avx1/numeric-fixed-wrapper/candidate-providers.json",
+        "check"
+      ],
+      "CPU_sha256": "eb05a18ebbc1ffbab9346a86fc58f36796355eb9de7e7283f2931ef87f23b920",
+      "base_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+      "rows": [
+        {
+          "round_mode": "0",
+          "patterns": "12",
+          "calls": "1536",
+          "blocks": "10344",
+          "unequal_bytes": "0"
+        },
+        {
+          "round_mode": "1024",
+          "patterns": "12",
+          "calls": "1536",
+          "blocks": "10344",
+          "unequal_bytes": "0"
+        },
+        {
+          "round_mode": "2048",
+          "patterns": "12",
+          "calls": "1536",
+          "blocks": "10344",
+          "unequal_bytes": "0"
+        },
+        {
+          "round_mode": "3072",
+          "patterns": "12",
+          "calls": "1536",
+          "blocks": "10344",
+          "unequal_bytes": "0"
+        }
+      ]
+    }
+  ],
+  "scope": "Original check/bench helper bodies unchanged; own provider main. Fourrounding modes, fallbackincluded. Correctness only, not performance."
+}

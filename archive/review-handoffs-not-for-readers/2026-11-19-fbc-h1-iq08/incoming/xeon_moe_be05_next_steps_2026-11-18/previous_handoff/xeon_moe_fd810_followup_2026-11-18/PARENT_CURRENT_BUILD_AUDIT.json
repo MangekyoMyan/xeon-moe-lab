@@ -1,0 +1,143 @@
+{
+  "scope": "Parent static build artifact/source audit. No engine or model executed by this audit.",
+  "variants": {
+    "current": {
+      "cpu_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-current/bin/libggml-cpu.so.0.28.0",
+      "cpu_sha256": "1202c7a89087cc27c697cf09ab5bb4f801fbd9ed2485cacbb6f94e3570784bec",
+      "common_base_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-current/bin/libggml-base.so.0.28.0",
+      "common_base_sha256": "1229f79a41c8cb219c774e50bcc9bd3c4ca050ac88fd94da7502cbb1d4f0c906",
+      "archived_source_sha256": {
+        "ggml/src/ggml-cpu/ggml-cpu.c": "e8fdf3d424463f9852fa774d9de6057dce35855a872936bda87d12d3d756e3a8",
+        "xeon-local/iq3-cache.cpp": "2e1dde95812671f12eacdddb83e181154db1927907933f71478221f006ecc15e",
+        "xeon-local/iq3-cache.h": "7db88449073d5e60274f9414acecf5916eb2ceb6aa52161f5a19093b0a4550b8",
+        "xeon-local/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+        "xeon-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+        "xeon-local/mx-math.inc": "15fc828d91312ed6edbba454e97e26aa546d31db179e5f1b9648406312c79c0b",
+        "xeon-local/mx-rhs.cpp": "1a6ebc4650fd58a6ccabea5fcf3f5fd52d38b6537f0a4ac2c0bfd6b67091123c",
+        "xeon-local/mx-rhs.h": "06f481d18e0d079b083b905c474de1aaf8db625a3398d7fb6c7bad0a4bbd6d62",
+        "xeon-local/placement.inc": "1d02b034b3d94f7f0117266772950d2b8b0f06f7321a314aea0b642f56114fe9"
+      },
+      "quants_sha256": "a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7",
+      "q8_disassembly": "\n/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-current/bin/libggml-cpu.so.0.28.0:     file format elf64-x86-64\n\n\nDisassembly of section .init:\n\nDisassembly of section .plt:\n\nDisassembly of section .plt.got:\n\nDisassembly of section .text:\n\n0000000000107d50 <quantize_row_q8_K>:\n  107d50:\te9 4b df f0 ff       \tjmp    15ca0 <quantize_row_q8_K_ref@plt>\n\nDisassembly of section .fini:\n",
+      "compile_commands": [
+        {
+          "source_suffix": "ggml-cpu/ggml-cpu.c",
+          "command": "/usr/bin/cc -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/ggml-cpu/ggml-cpu.c",
+          "explicit_no_fast_math": true,
+          "explicit_fp_contract_off": true
+        },
+        {
+          "source_suffix": "xeon-local/iq3-cache.cpp",
+          "command": "/usr/bin/c++ -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu++17 -fPIC -Wmissing-declarations -Wmissing-noreturn -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wno-array-bounds -Wextra-semi -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/__/__/xeon-local/iq3-cache.cpp.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/xeon-local/iq3-cache.cpp",
+          "explicit_no_fast_math": true,
+          "explicit_fp_contract_off": true
+        },
+        {
+          "source_suffix": "xeon-local/mx-rhs.cpp",
+          "command": "/usr/bin/c++ -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu++17 -fPIC -Wmissing-declarations -Wmissing-noreturn -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wno-array-bounds -Wextra-semi -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/__/__/xeon-local/mx-rhs.cpp.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/xeon-local/mx-rhs.cpp",
+          "explicit_no_fast_math": true,
+          "explicit_fp_contract_off": true
+        },
+        {
+          "source_suffix": "arch/x86/quants.c",
+          "command": "/usr/bin/cc -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -msse4.2 -mf16c -mavx -fopenmp -o CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/quants.c.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-current/ggml/src/ggml-cpu/arch/x86/quants.c",
+          "explicit_no_fast_math": false,
+          "explicit_fp_contract_off": false
+        }
+      ]
+    },
+    "08": {
+      "cpu_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-08/bin/libggml-cpu.so.0.28.0",
+      "cpu_sha256": "9ad210e0b8464aefcf98f91a281558626fd9943af98365dca08261f271b50a53",
+      "common_base_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-current/bin/libggml-base.so.0.28.0",
+      "common_base_sha256": "1229f79a41c8cb219c774e50bcc9bd3c4ca050ac88fd94da7502cbb1d4f0c906",
+      "archived_source_sha256": {
+        "ggml/src/ggml-cpu/ggml-cpu.c": "f10c89fda42d3537ae64e74da1a9241efdccf36dd5554d6fa58f8c9bdf836704",
+        "xeon-local/iq3-cache.cpp": "d4bd6dc865cf8fefabff7d08ea02b1e2c21a0422680f86032e31029ac49a11dd",
+        "xeon-local/iq3-cache.h": "8dcaac343867d283f000763c63a44283f38448585c7b99e85c168a723eafea28",
+        "xeon-local/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+        "xeon-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+        "xeon-local/mx-math.inc": "15fc828d91312ed6edbba454e97e26aa546d31db179e5f1b9648406312c79c0b",
+        "xeon-local/mx-rhs.cpp": "1a6ebc4650fd58a6ccabea5fcf3f5fd52d38b6537f0a4ac2c0bfd6b67091123c",
+        "xeon-local/mx-rhs.h": "06f481d18e0d079b083b905c474de1aaf8db625a3398d7fb6c7bad0a4bbd6d62",
+        "xeon-local/placement.inc": "1d02b034b3d94f7f0117266772950d2b8b0f06f7321a314aea0b642f56114fe9"
+      },
+      "quants_sha256": "a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7",
+      "q8_disassembly": "\n/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-08/bin/libggml-cpu.so.0.28.0:     file format elf64-x86-64\n\n\nDisassembly of section .init:\n\nDisassembly of section .plt:\n\nDisassembly of section .plt.got:\n\nDisassembly of section .text:\n\n0000000000108210 <quantize_row_q8_K>:\n  108210:\te9 8b da f0 ff       \tjmp    15ca0 <quantize_row_q8_K_ref@plt>\n\nDisassembly of section .fini:\n",
+      "compile_commands": [
+        {
+          "source_suffix": "ggml-cpu/ggml-cpu.c",
+          "command": "/usr/bin/cc -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/ggml-cpu/ggml-cpu.c",
+          "explicit_no_fast_math": true,
+          "explicit_fp_contract_off": true
+        },
+        {
+          "source_suffix": "xeon-local/iq3-cache.cpp",
+          "command": "/usr/bin/c++ -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu++17 -fPIC -Wmissing-declarations -Wmissing-noreturn -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wno-array-bounds -Wextra-semi -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/__/__/xeon-local/iq3-cache.cpp.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/xeon-local/iq3-cache.cpp",
+          "explicit_no_fast_math": true,
+          "explicit_fp_contract_off": true
+        },
+        {
+          "source_suffix": "xeon-local/mx-rhs.cpp",
+          "command": "/usr/bin/c++ -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu++17 -fPIC -Wmissing-declarations -Wmissing-noreturn -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wno-array-bounds -Wextra-semi -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/__/__/xeon-local/mx-rhs.cpp.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/xeon-local/mx-rhs.cpp",
+          "explicit_no_fast_math": true,
+          "explicit_fp_contract_off": true
+        },
+        {
+          "source_suffix": "arch/x86/quants.c",
+          "command": "/usr/bin/cc -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -msse4.2 -mf16c -mavx -fopenmp -o CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/quants.c.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-08/ggml/src/ggml-cpu/arch/x86/quants.c",
+          "explicit_no_fast_math": false,
+          "explicit_fp_contract_off": false
+        }
+      ]
+    },
+    "09": {
+      "cpu_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-09/bin/libggml-cpu.so.0.28.0",
+      "cpu_sha256": "d11522e703341d9bc9b78c32cb87ffb1815f53fe85e8131d2925abfe8f5e5ae3",
+      "common_base_path": "/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-current/bin/libggml-base.so.0.28.0",
+      "common_base_sha256": "1229f79a41c8cb219c774e50bcc9bd3c4ca050ac88fd94da7502cbb1d4f0c906",
+      "archived_source_sha256": {
+        "ggml/src/ggml-cpu/ggml-cpu.c": "5b7f570ed62a51062d3417ffda0f3722c94b17125fdc17a957307d364bb26da9",
+        "xeon-local/iq3-cache.cpp": "d4bd6dc865cf8fefabff7d08ea02b1e2c21a0422680f86032e31029ac49a11dd",
+        "xeon-local/iq3-cache.h": "8dcaac343867d283f000763c63a44283f38448585c7b99e85c168a723eafea28",
+        "xeon-local/compact-kernel.inc": "16481bf4e53fcaf3cdc67eb34cc218dd5a1576d2c9fdfe63194dd51bbcacada1",
+        "xeon-local/iq-small-kernels.inc": "847f6581d34f51fe5183db80653b8d90db4c5e01597ac7450a934a45b3b7c35c",
+        "xeon-local/mx-math.inc": "15fc828d91312ed6edbba454e97e26aa546d31db179e5f1b9648406312c79c0b",
+        "xeon-local/mx-rhs.cpp": "1a6ebc4650fd58a6ccabea5fcf3f5fd52d38b6537f0a4ac2c0bfd6b67091123c",
+        "xeon-local/mx-rhs.h": "06f481d18e0d079b083b905c474de1aaf8db625a3398d7fb6c7bad0a4bbd6d62",
+        "xeon-local/placement.inc": "1d02b034b3d94f7f0117266772950d2b8b0f06f7321a314aea0b642f56114fe9"
+      },
+      "quants_sha256": "a01b2448f3f87325a2594c05528b6f15e5e117b7abfb28fb2714c1ec474bf5f7",
+      "q8_disassembly": "\n/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/build-09/bin/libggml-cpu.so.0.28.0:     file format elf64-x86-64\n\n\nDisassembly of section .init:\n\nDisassembly of section .plt:\n\nDisassembly of section .plt.got:\n\nDisassembly of section .text:\n\n0000000000108450 <quantize_row_q8_K>:\n  108450:\te9 4b d8 f0 ff       \tjmp    15ca0 <quantize_row_q8_K_ref@plt>\n\nDisassembly of section .fini:\n",
+      "compile_commands": [
+        {
+          "source_suffix": "ggml-cpu/ggml-cpu.c",
+          "command": "/usr/bin/cc -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/ggml-cpu/ggml-cpu.c",
+          "explicit_no_fast_math": true,
+          "explicit_fp_contract_off": true
+        },
+        {
+          "source_suffix": "xeon-local/iq3-cache.cpp",
+          "command": "/usr/bin/c++ -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu++17 -fPIC -Wmissing-declarations -Wmissing-noreturn -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wno-array-bounds -Wextra-semi -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/__/__/xeon-local/iq3-cache.cpp.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/xeon-local/iq3-cache.cpp",
+          "explicit_no_fast_math": true,
+          "explicit_fp_contract_off": true
+        },
+        {
+          "source_suffix": "xeon-local/mx-rhs.cpp",
+          "command": "/usr/bin/c++ -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu++17 -fPIC -Wmissing-declarations -Wmissing-noreturn -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wno-array-bounds -Wextra-semi -msse4.2 -mf16c -mavx -fopenmp -fno-fast-math -ffp-contract=off -o CMakeFiles/ggml-cpu.dir/__/__/xeon-local/mx-rhs.cpp.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/xeon-local/mx-rhs.cpp",
+          "explicit_no_fast_math": true,
+          "explicit_fp_contract_off": true
+        },
+        {
+          "source_suffix": "arch/x86/quants.c",
+          "command": "/usr/bin/cc -DGGML_AVX -DGGML_BACKEND_BUILD -DGGML_BACKEND_SHARED -DGGML_F16C -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED -DGGML_SSE42 -DGGML_USE_LLAMAFILE -DGGML_USE_OPENMP -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_cpu_EXPORTS -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/.. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/. -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/ggml-cpu -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/xeon-local -I/workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/../include -march=ivybridge -mtune=ivybridge -mno-avx2 -mno-fma -O3 -DNDEBUG -std=gnu11 -fPIC -Wshadow -Wstrict-prototypes -Wpointer-arith -Wmissing-prototypes -Werror=implicit-int -Werror=implicit-function-declaration -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wdouble-promotion -msse4.2 -mf16c -mavx -fopenmp -o CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/quants.c.o -c /workspace/scratch/1f624f9ac929/fd810_review_2026-11-18/astra62_next/work/trial/src-09/ggml/src/ggml-cpu/arch/x86/quants.c",
+          "explicit_no_fast_math": false,
+          "explicit_fp_contract_off": false
+        }
+      ]
+    }
+  },
+  "three_distinct_cpu_dso": true,
+  "common_base_dso": true,
+  "q8_remains_reference_wrapper": true
+}

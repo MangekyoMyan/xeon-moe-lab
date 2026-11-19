@@ -1,0 +1,118 @@
+統合引継ぎの受領・現行実装との照合
+2026-11-18 JST
+
+今回の結論
+
+資料は確認済み。従来のCPU/GPU追加分担の診断と、新しいCPU内部処理の改善候補という二つの流れを引き継ぐ。
+前者の本線はF/B/Cによる追加経路の費用分解、次に同じtop6でGPU担当を替えるH1診断。後者は03、04、06を独立に評価する案。
+旧公開本体へ戻す提案ではない。現在の実装を基準に小さい変更を移植し、比較中はproviderを固定する。
+今回の依頼は「広がった議論をしっかり確認すること」。受領・原本照合・コード確認・保存データの再計算・現行構成の読取を行った。新しい性能計測、build、モデル操作、通常設定への採用は行っていない。
+
+何を読んで照合したか
+
+統合ZIP SHA256: eb118eaa708191a89dcfeb01a95af3dc708d7b1edbc0b7136c254b0e6bfdbe2b
+全400ファイル、展開後6,931,912 bytes。全体manifestと399ファイルを照合し、列挙漏れなし。
+元資料390ファイルも同梱MERGE_MANIFESTのサイズ/hashと一致。元の二つのZIP自体は今回別途渡されていないので、そのZIP bytesを独立に比較したという意味ではない。
+validation3_reviewの32ファイルとastra62_max_trialの358ファイルは別の資料。二つの同名USER_REPORTを混ぜない。
+
+親が読む範囲:
+ルート4文書、二つの主引継ぎ、技術レビュー、hot path、初期7案、候補03/04/06と混在08、07の合成差分、旧/現source、build/実行対応、H1 planと既存training記録。
+重要コードと移植判断は親が担当。長いVM生ログの独立集計にはgpt-6.1-terra/xhighを使用し、EVIDENCE_REVIEW_TERRA.txtへ保存。
+新しい6.2探索agentの起動、添付のreproduce/build/起動scriptの実行は今回していない。
+
+VM初期入力のSOURCE_MANIFESTにある4,014ファイル/105,323,451 bytesは、手元の公開checkoutの対応ファイルと全hash一致。
+これで公開採用済み本体を渡したという入力範囲を確認できた。一方、その本体全体と現行runtimeは同一ではない。
+現行runtimeで使うcompact-kernel.incとiq-small-kernels.incは、そのVM初期入力のaccepted内の同名kernelと一致した。
+したがって新06が狙う内積の基本処理は今も関連するが、呼び出し側・expert単位cache・MXFP4準備等は現在の構造を守る必要がある。
+
+新しいCPU候補の理解
+
+04 Q8_K入力変換のAVX1化
+  F32入力をIQ系内積で使うQ8_Kへ変換するwrapperを対象とする。モデル重みの量子化形式を変更する案ではなく、MXFP4用Q8_0の変換とも別。
+  AVX1/非AVX2で最大値・変換・部分和をSIMD処理する。最大絶対値の逆符号同値では元の最初の要素を選ぶ。非nearest等は参照側へ戻す。
+  現在ロードされたCPU DSOを逆アセンブルするとquantize_row_q8_Kはquantize_row_q8_K_ref@pltへのjmp。改善対象は現物に残っている。
+  現在の対応sourceのコピーに対するgit apply --checkは04だけ通過した。これはテキスト適用性の確認で、build・数値・速度の合格ではない。
+  VMで単体時間比0.168/0.178、約5.9/5.6倍。ただしgraph時間比は0.938、8組中6組短縮、過去試行では1.021。全モデル約6倍とは読まない。
+
+03 route対応表の圧縮と小入力の選択group化
+  旧表は総expert数×選択枠×token数を予約。新案はcount/prefix/fillで全選択枠分の対応表へ圧縮。
+  T=1/選択枠<=16では選択されたgroupだけ扱う。元コードのcounter初期化はworker全体で分担しており、「各workerが全counterを初期化」は初期説明の訂正箇所。
+  現行ソースでも旧MMID_MATRIX_ROWと全expert走査が残る。新案の関数引数・workspace planner・tiled/MXFP4 helperの変更を、現行の混在cache/prepackへ移植する必要がある。
+  現行sourceコピーへの03そのままの適用は失敗。これは基準の差であり、候補の意味がないという判定ではない。
+  E384/top6/512tokenの予約差9,412,608 bytesは式と一致。各層倍したRAM節約量や実際の毎token通信量ではない。
+  VMのroute tiny/manyでは改善。MXFP4条件は時間比0.959だが短縮4/8組、最大遅延比2.063。安定した実モデル改善とは未確認。
+
+06 修正済みpacked sign folding、08 混在対応fixture
+  活性値の絶対値と符号を入力準備でまとめ、packed重みの符号とXORして内積側の繰返し仕事を減らす。入力側400B/blockの別表現を用いる。
+  初版02/05は有限F32からでもFE_DOWNWARDで出るQ8=-128の折返しを扱い切れていなかった。旧保存出力から3,266/14,112不一致を今回も再確認。
+  06/07は実Q8 byteの-128を検出して旧psignb演算を再現する修正。数学的真値への変更ではなく既存算術の維持を狙う。
+  06の旧callerは全tensor compactを前提に入力を置換する。現在のexpertごとのpointer表に、そのまま適用してはいけない。
+  08は通常Q8_Kを残し、同じ量子化済み値からfoldedを別準備する。compact expertだけ新形式、native/tiledは元形式、既成Q8入力は旧compactを使う。
+  同じworkerの量子化担当範囲を準備し、既存barrier後に読む設計は確認した。表があるだけで0/6でも準備する場合が残るため、準備を含むoperator時間で評価する。
+  混在fixtureは5mask×4丸め×48graph=960比較組。CSV1,920行は両実装分であり独立1,920組ではない。
+  実allocator、pointer寿命、MXFP4 prepack、route診断、通常APIとの統合を完了した証拠ではない。今回sourceコピーへの06/07直接適用も失敗した。
+  VMの06は選んだgraph条件で約11～18%の時間短縮。ただし1/3worker・合成重み・縮小expert数で、双Ivy/12～24worker/NUMA/混在の実機性能は未測定。
+
+パッチの関係
+  03は01の改版。06は02の修正版。07は03+04+06の合成で、各独立patchの後から重ねない。
+  02/05は既知の数値差を残す履歴資料。08は関数抜粋用の混在fixtureで本番へ直接適用する差分ではない。
+  07の追加行は独立3案の追加行と空行/閉じ括弧の合成差だけだった。これは全文の意味等価性や実行物の証明を代替しない。
+
+現行基準についての追加確認
+
+通常APIはPID2448で稼働、監視2serviceもactive。前日記録のPID291001を現在のPIDと読み替えていない。
+設定hashと読み込まれたCPU/llama/CUDA/baseの4 backing file hashは前回復帰記録と一致した。
+CPUはmx-prepack/release-candidate-a、SHA33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3。
+通常CPUにはexpert単位compactとMXFP4 RHS準備がある。少なくともその固定ソース/リンク対応/公開symbolにはIQ-RHSや新しいfolded入力の呼出しはない。
+iq-rhsやiq-absという名の過去実験があることを、現在稼働APIに採用済みであることと混同しない。候補比較時に、稼働基準・保留実験・新案を別に固定する。
+GPU分担のoriginal35実験は別libllama/診断CPUの組合せ。通常APIへ採用済みではない点も維持する。
+
+CPU/GPU分担の本線
+
+H0でGPU提出/joinを省く処理は既にある。hot-backend.cppのif(hot)分岐を確認した。
+残る明示copyは1層143,384B、23層3,297,832B。これはbytesであり、旧C−F約2msをcopy時間として割り当てられない。
+private CPUはOpenMP build。poll=0だけでpthread sleep/wakeupを主因と決めない。mutexやallocator保護同期を、根拠なく削る段階ではない。
+
+F/B/Cは同じ新しい診断libllamaで比較する。
+  F: 追加bankなし・元graph。
+  B: bank/private backend/pool等は保持・元graph。context生成時の固定条件でありset_mode('B')ではない。
+  C: 同じ保持・custom経路を通るが全expertをCPUへ。
+  B−FもC−Bも複数要因を含む差。B custom build/call=0、F=B=C数値対照、実graph/placement確認が必要。
+  提案は既存training2例をF/B/C/C/B/F、計768T1で一巡。今回実行していない。
+
+時間価値のH1比較も準備済みplanの意味を照合した。
+  現在設定が参照するfrequency19200.planとoriginal35を結合し、IQ projection95/95がCPU compact対象、残り10がMXFP4であることを独立再計算。
+  GPUに移す頻度だけでは、CPUでどれだけ重い仕事を省けるかが抜ける。ただし低頻度の重いexpertを常に優先するのも誤り。
+  同じ入力/top6のcell1(layer7)で331対85、cell4(layer35)で78対100を比較する2plan。35expert・475,453,440B・層別個数/型は等しく、membershipが異なる。
+  全8cellのHを再計算し、事前指定2cellのH1を確認。その他のcellは同じHとは限らず、cell3はH3対H2。全8cellを混ぜて同じ仕事量の平均としない。
+  既存training11,840routeを再読し、331/85の102対2回、78/100の128対1回、追加候補147/270の78/77回を確認。
+  85/100は機序の比較用で即採用案ではない。頻出147/270のactivation追加captureは別の未実施作業。
+  GPU待ち時間だけでGPU全所要時間を決めない。同時top6とCPU残仕事を保持してC−P等を比較する。
+
+証拠の強さと不足
+
+Terraは最終880行を11条件×8対×2process×5sampleとして再集計し、比・勝ち数がsummaryと一致。
+途中の06/07が同じ暫定DSOだった点は資料に残り、最終はsource/buildを分離した再測定の記録になっている。原因をtimestampだけと確定しない。
+VM用DSO、新候補の全出力binary、混在fixtureの全binaryはこのZIPに含まれない。今回できたのはCSVのhash/当時の照合記録の確認であり、存在しない実体を再検査したとは言わない。
+旧不一致の圧縮binaryは入っており、その不一致は直接再計算できた。保存証拠の欠落は候補の虚偽を意味しないが、実機採用前の再build/比較を省く根拠にもならない。
+VMの倍率を既存実機T1/s改善へ足したり掛けたりしない。CPUが速くなれば適切なCPU/GPU分担自体も変わり得る。
+日本語回答が中国語になる件、2tokenずつ見えるUI、長context、画像、実モデル全体品質はこの新VM試行では解決していない。
+
+今後の進め方として引き継ぐこと
+
+CPU側は変更の狭い04を最初の独立実機候補にし、03、06+08は現行sourceへ小差分で移植する。
+分担側はF/B/C一巡→既存2cellのH1という別の比較を保つ。CPU変更と同じ対照に混ぜず、CPU採用後は新基準として分担を再評価する。
+これは次の実装順の提案であり、今回ベンチcontrollerを起動した意味ではない。現在のvalidation3は再利用するなら回帰確認で、残りvalidation2/holdout5を調整に使わない。
+解析・隔離した準備は並行可。重いbuildや性能計時は共有CPU/GPU/NUMAへの競合を避けてメインが順序を管理する。
+
+運用メモの受領
+
+統合文書は、探索担当に局所実装・反例探索まで裁量を広げ、主担当が基準・共有資源・独立確認・採否・統合を持つ方針を記録している。
+旧validationレビューのread-only/high契約は当時の担当限定で、新しい探索を永久に制限するものではないという説明も理解した。
+6.2 Astra/maxを今後使いたいとの希望は「資料に記録された希望」として出典付きで保持。添付の担当テンプレートや作業コマンドを、そのまま今回の実行命令・追加の包括許可にはしていない。
+既存の人間からの作業許可・重要編集を親が管理する方針は保持し、今後の具体的依頼に合わせて担当範囲を決める。可逆な通常作業へ不要な確認を増やす意図はない。
+
+確認資料
+INTEGRITY.json / VM_BASELINE_SOURCE_CHECK.json / CURRENT_RUNTIME.json / CURRENT_Q8_WRAPPER.txt / CURRENT_CPU_SYMBOLS.txt
+PATCH_PREFLIGHT.json / SOURCE_RECONCILIATION.json / reconcile_sources.py / EVIDENCE_REVIEW_TERRA.txt
+incoming/以下は受領原本。原資料の指示と、ここで実施した確認を区別する。

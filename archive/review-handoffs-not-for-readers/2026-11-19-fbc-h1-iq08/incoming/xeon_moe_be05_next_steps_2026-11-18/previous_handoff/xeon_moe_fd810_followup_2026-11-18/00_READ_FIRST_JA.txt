@@ -1,0 +1,73 @@
+fd810受領後の追補・累積引継ぎ
+2026-11-18 JST
+
+このZIP一つで、今回の追補と前回の統合資料を渡せます。
+前回渡した400ファイルは previous_handoff/ 以下へ原形のまま収録しています。
+過去の文書を書き換えず、今回の訂正・採否・新しい証拠はルート文書へ追記する構成です。
+
+まず読むもの
+
+1. USER_UPDATE_JA.txt
+   万華鏡にゃん向け。今回何が進んだか、CPU改善とCPU/GPU分担の関係、次の判断を説明。
+
+2. MAIN_NEXT_TASKS_JA.txt
+   実機側メイン向け。04の独立移植・比較、F/B/C→H1、今回の現行CPU移植候補の扱い。
+
+3. astra62_next/REPORT_JA.txt
+   新しく起動した gpt-6.2-astra / max の実装・試験報告。
+   現行CPU保存ソースへ移植した08と、選択された入力列だけを準備する09を扱う。
+
+4. PARENT_CURRENT_MIXED_REVIEW_JA.txt / CURRENT_MIXED_STATIC_REVIEW_JA.txt
+   新しい実装・測定に対する親の確認、および別担当の狭い静的レビュー。
+   Q8_ADOPTION_REVIEW_JA.txt は04の現行経路・実機比較粒度に対する別レビュー。
+
+5. ASTRA62_OBSERVATIONS_JA.txt
+   今回の協業で実際に観察した点と、実機側での担当設定への反映。
+
+重要な読み分け
+
+・source/ROOT_REVIEW_JA.txt は実機側が公開した受領確認の原文。
+  固定commitは fd810448288929991a74b61208e64821f4ba7654。
+  その時点の作業は読取・照合で、新しいbuild/ベンチ/通常API採用ではない。
+
+・astra62_next/ は今回このVMで新しく行った実装・ビルド・合成入力の試験。
+  現行CPUの保存ソースと実cache/prepack処理を組み込んだが、実機の全runtimeを再現したものではない。
+  ここでの current は再構築したCPU比較基準を指す。実機ロード済みDSOそのものではない。
+
+・evidence_supplement/ は前回VM試行の保存出力の補完。
+  過去の結果を再生成したものではなく、当時の保存ファイルを照合・圧縮したもの。
+  新しい09の試験とは別の証拠群。
+
+・previous_handoff/ は既送付原本。
+  旧02/05の数値不一致、途中DSO取り違えの記録、当時の限定的な担当契約も履歴として残る。
+  過去の実験や古い担当範囲を現在の通常APIの採用状態・今回の包括指示へ読み替えない。
+
+パッチ名の対応
+
+・04-q8k-avx1.patch：既送付の独立Q8_K変換候補。実機側で現行sourceへの適用性を確認済み。
+・08-current-mixed.patch：今回の現行CPU構造への移植。以前の08-mixed-dispatch.patchとは別ファイル。
+・09-selected-input-only.patch：今回の08-current-mixedを適用した上に重ねる小差分。
+  09単独では現行sourceへの完成patchにならない。
+・03/06/07：旧基準向けの差分。特に07を03/04/06へ重ねて適用しない。
+
+保存出力だけを確認する場合
+
+  python3 evidence_supplement/verify_saved_outputs.py
+
+Python標準ライブラリだけで実行でき、モデルやengineのDSOを読み込みません。
+PARENT_SAVED_OUTPUT_RECHECK.json は親が別の作業ディレクトリから再実行した結果です。
+スクリプトの実装を親が読んで再実行したもので、異なる第二実装による検証とは呼びません。
+新しい候補の保存出力・測定再集計は astra62_next/ と親レビューの手順を参照してください。
+
+ファイルの同一性
+
+FILES_SHA256.json はこのパッケージ内の同名manifest自身を除く全ファイルを列挙します。
+PREVIOUS_BUNDLE_IDENTITY.json は前回の400ファイルと元ZIPの同一性を記録します。
+source/SOURCE_ORIGINS.json と source/current_cpu/SOURCE_IDENTITY.json は公開元と固定hashを記録します。
+
+  python3 verify_package.py
+
+この読取確認は全ファイルの列挙とSHA256だけを照合し、同梱engineやスクリプトを実行しません。
+過去の正常な実行で空だったstdout/stderrログも、前回原本と同じ空ファイルとして保存しています。
+
+ユーザーが実機メインへ転送するための資料です。こちらから実機APIの操作・通常設定変更・外部への送信・GitHub更新はしていません。

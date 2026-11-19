@@ -1,0 +1,240 @@
+{
+  "created_utc": "2026-11-18T03:04:34.398287+00:00",
+  "title": "混在 compact fixture の親側確認",
+  "phase": "初期独立案凍結後、子の追加要求により requested_source_02 を提供した後の適用・検証",
+  "review_method": [
+    "静的コード照合",
+    "保存 CSV の再集計",
+    "保存 .bin の全バイト・SHA256・各グラフ FNV64 の再照合"
+  ],
+  "new_builds": false,
+  "new_engine_runs": false,
+  "new_performance_measurements": false,
+  "real_machine_access": false,
+  "gpu_execution": false,
+  "contacted_tested_child": false,
+  "verdict": "混在 dispatch の関数単位 fixture は保存結果の範囲で確認できる。実機 runtime への port 完了や性能・全モデル保証とはしない。",
+  "source": {
+    "commit": "37f6390c9a5bc594658127651e204ab11420cd71",
+    "path": "archive/review-handoffs-not-for-readers/2026-11-17-route-observation/route37/ggml-cpu.c",
+    "sha256": "ce6a78a1a34c0fe9623a116320b9fad8d1ae0cb83102ba9a4cb8fbd58a473988",
+    "role": "mx-prepack release-candidate-a から派生した診断用 source。現在 live normal runtime との同一性は未主張。",
+    "ranges": {
+      "mul_mat_id_route37.c": [
+        1491,
+        1958
+      ],
+      "graph_plan_route37.c": [
+        3038,
+        3293
+      ]
+    },
+    "source_02_packet_files_all_identical": true,
+    "base_unmodified_functions_embedded": true,
+    "mixed_functions_equal_exact_in_memory_application_of_08": true,
+    "cpu_sources_equal_outside_function_excerpts": true
+  },
+  "comparison": {
+    "execution_records_total": 1920,
+    "base_records": 960,
+    "mixed_records": 960,
+    "paired_graph_conditions": 960,
+    "duplicate_keys": 0,
+    "missing_pairs": 0,
+    "hash_mismatch_pairs": 0,
+    "stored_binary_pairs": 20,
+    "float_outputs_per_pair": 14112,
+    "float_outputs_total": 282240,
+    "bit_mismatch_float_outputs": 0,
+    "per_graph_float_outputs": 294,
+    "per_run_graphs": 48,
+    "formula": "5 masks × 4 rounding modes × (3 weight types × 2 K × 2 thread counts × 2 input kinds × 2 input patterns) = 960 comparison pairs",
+    "seed_count_in_this_fixture": 1,
+    "seed": "0x871defb",
+    "masks": {
+      "0": 0,
+      "1": 1,
+      "21": 3,
+      "31": 5,
+      "63": 6
+    },
+    "rounding_modes": [
+      "nearest",
+      "downward",
+      "upward",
+      "towardzero"
+    ],
+    "shape": {
+      "types": [
+        "IQ2_S",
+        "IQ3_XXS",
+        "IQ3_S"
+      ],
+      "k": [
+        256,
+        1280
+      ],
+      "rows": 49,
+      "experts": 7,
+      "slots": 6,
+      "tokens": 1,
+      "activation_columns": 3,
+      "threads": [
+        1,
+        3
+      ],
+      "input_types": [
+        "F32",
+        "Q8_K"
+      ],
+      "pad": true,
+      "reference_mode": false,
+      "patterns": [
+        3,
+        6
+      ],
+      "selected_experts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "oracle": "対応する未変更の関数抜粋に対する全バイト一致。rounding サブコマンドは高精度 verify() を呼ばない。",
+    "instrumented_stored_outputs_equal": 10
+  },
+  "path_counter_units": {
+    "native_row_dots": "元 IQ dot の直接呼出回数",
+    "legacy_compact_row_dots": "従来 compact dot の直接呼出回数",
+    "folded_selector_calls": "folded callback を選択する xeon_iq_input_dot の呼出回数。行 dot 回数ではない。",
+    "q8_blocks_prepared": "xeon_iq_input_from_q8 に渡した block 数の合計。関数呼出回数ではない。"
+  },
+  "path_counter_scope": "通常丸め (mode 0)、48 グラフ/run。4 丸め全体の計数ではない。",
+  "path_counts": [
+    {
+      "variant": "base",
+      "mask": 0,
+      "native_row_dots": 14112,
+      "legacy_compact_row_dots": 0,
+      "folded_selector_calls": 0,
+      "q8_blocks_prepared": 0
+    },
+    {
+      "variant": "base",
+      "mask": 1,
+      "native_row_dots": 11760,
+      "legacy_compact_row_dots": 2352,
+      "folded_selector_calls": 0,
+      "q8_blocks_prepared": 0
+    },
+    {
+      "variant": "base",
+      "mask": 21,
+      "native_row_dots": 7056,
+      "legacy_compact_row_dots": 7056,
+      "folded_selector_calls": 0,
+      "q8_blocks_prepared": 0
+    },
+    {
+      "variant": "base",
+      "mask": 31,
+      "native_row_dots": 2352,
+      "legacy_compact_row_dots": 11760,
+      "folded_selector_calls": 0,
+      "q8_blocks_prepared": 0
+    },
+    {
+      "variant": "base",
+      "mask": 63,
+      "native_row_dots": 0,
+      "legacy_compact_row_dots": 14112,
+      "folded_selector_calls": 0,
+      "q8_blocks_prepared": 0
+    },
+    {
+      "variant": "mixed",
+      "mask": 0,
+      "native_row_dots": 14112,
+      "legacy_compact_row_dots": 0,
+      "folded_selector_calls": 0,
+      "q8_blocks_prepared": 216
+    },
+    {
+      "variant": "mixed",
+      "mask": 1,
+      "native_row_dots": 11760,
+      "legacy_compact_row_dots": 1176,
+      "folded_selector_calls": 48,
+      "q8_blocks_prepared": 216
+    },
+    {
+      "variant": "mixed",
+      "mask": 21,
+      "native_row_dots": 7056,
+      "legacy_compact_row_dots": 3528,
+      "folded_selector_calls": 144,
+      "q8_blocks_prepared": 216
+    },
+    {
+      "variant": "mixed",
+      "mask": 31,
+      "native_row_dots": 2352,
+      "legacy_compact_row_dots": 5880,
+      "folded_selector_calls": 240,
+      "q8_blocks_prepared": 216
+    },
+    {
+      "variant": "mixed",
+      "mask": 63,
+      "native_row_dots": 0,
+      "legacy_compact_row_dots": 7056,
+      "folded_selector_calls": 288,
+      "q8_blocks_prepared": 216
+    }
+  ],
+  "mask_31_evidence": {
+    "compact_experts": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "native_experts": [
+      5
+    ],
+    "unselected_expert": 6,
+    "native_row_dots_observed": 2352,
+    "legacy_compact_row_dots_observed": 5880,
+    "folded_selector_calls_observed": 240,
+    "q8_blocks_prepared_observed": 216,
+    "folded_row_dots_inferred_from_nonempty_shapes": 5880,
+    "folded_rows_directly_hooked": false,
+    "explanation": "各 F32 グラフ自体に 5 compact + 1 native が混在する。49 rows を 1/3 workers に分けた chunk は空でなく、selector が返した callback は内積ループで使われる。raw Q8_K グラフは旧 compact を使用する。"
+  },
+  "mask_0_observation": "全 entry が NULL の表でも表自体が存在するため、mixed は 216 blocks を準備し selector は 0。速度影響は未測定。",
+  "replacements": [
+    "実 sparse allocator を導入せず、初期固定版の全 tensor compact cache と mask 付き thread-local pointer 表で混在を作る。",
+    "XEON_MX_PREPACK=0。MXFP4 RHS 関数は abort stub。route 記録は空 stub。",
+    "初期固定 source に関数単位で移植する fixture。現在 live CPU/libggml-base/libllama/CUDA の組合せではない。"
+  ],
+  "not_verified": [
+    "現行実機 runtime への適用・link・load・API 回帰",
+    "本物の sparse cache allocation/budget/registration/lifetime",
+    "MXFP4 prepack、診断本体、scheduler、GPU、CPU/GPU parallel",
+    "実 GGUF・実中間値・全モデル logits・生成文・回答/言語品質",
+    "実用寸法、384 experts、12/24 workers、NUMA、複数 token",
+    "この fixture での skip -1、重複 routing、reference mode、NULL table、動的 cache 入替",
+    "この fixture での NaN/Inf、全 FP 環境、FTZ/DAZ、sanitizer/競合検査",
+    "この混在 fixture の速度、04 Q8_K / route workspace を含む全案統合"
+  ],
+  "assessment_scope": "追加情報への適応と検証の成果。初期 source だけから最新構造を把握した証拠としては加点しない。モデル順位や点数を付けない。",
+  "supporting_files": [
+    "MIXED_FIXTURE_REVIEW_JA.txt",
+    "RECHECK_SAVED_ARTIFACTS.json",
+    "SOURCE_FILE_IDENTITIES.json",
+    "recheck_saved_artifacts.py"
+  ]
+}

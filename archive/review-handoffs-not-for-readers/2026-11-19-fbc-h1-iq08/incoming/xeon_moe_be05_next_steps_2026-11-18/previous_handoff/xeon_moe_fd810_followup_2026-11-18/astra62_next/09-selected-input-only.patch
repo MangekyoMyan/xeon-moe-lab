@@ -1,0 +1,33 @@
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -1713,6 +1713,18 @@
+     return ptr;
+ }
+ 
++// The single-token route uses column slot % n_inputs, including broadcast inputs.
++static bool ggml_mmid_input_has_compact_slot(const struct ggml_tensor * ids, int64_t input, int64_t n_inputs,
++        int64_t n_experts, const void * const * compact_experts) {
++    for (int64_t slot = input; slot < ids->ne[0]; slot += n_inputs) {
++        const int32_t expert = *(const int32_t *) ((const char *) ids->data + slot*ids->nb[0]);
++        if (expert >= 0 && expert < n_experts && compact_experts[expert]) {
++            return true;
++        }
++    }
++    return false;
++}
++
+ static void ggml_compute_forward_mul_mat_id(
+         const struct ggml_compute_params * params,
+               struct ggml_tensor * dst) {
+@@ -1822,7 +1834,10 @@
+     if (fold_input) {
+         const size_t first = (ith*iq_blocks)/nth;
+         const size_t end = ((ith+1)*iq_blocks)/nth;
+-        for (int64_t input = 0; input < ne11; ++input) {
++        for (int64_t input = 0; first < end && input < ne11; ++input) {
++            if (!ggml_mmid_input_has_compact_slot(ids, input, ne11, n_as, compact_experts)) {
++                continue;
++            }
+             const size_t block = input*iq_blocks + first;
+             xeon_iq_input_from_q8((const char *) params->wdata + block*ggml_type_size(vec_dot_type),
+                 folded_rhs + block*XEON_IQ_INPUT_BLOCK_BYTES, end-first);

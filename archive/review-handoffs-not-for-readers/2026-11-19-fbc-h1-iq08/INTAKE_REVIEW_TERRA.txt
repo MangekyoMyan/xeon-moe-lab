@@ -1,0 +1,46 @@
+be05受領時の測定レビュー — F/B/C→H1および08
+2026-11-19
+
+最優先
+
+1. 04の24T cell1の0.877中央値は候補の効果と断定しない。24Tで各process最初のfixtureの5 sample最大/最小は8件全て2.478～2.862、中央値2.721、後続16件は中央値1.100。IQとMX、候補と対照の両方に現れた。fixture順、thread順、pool履歴、経過時間などが同時に変わる事後記述で、原因も04差の寄与率も分からない。初回や遅いsampleを削らず、MX差を差引補正しない。
+2. 12物理Tの候補/対照中央値はcell1 1.023623（短縮0/4）、cell5 1.009443（1/4）。04通常採用利益が示されなかったので保留する。全負荷で恒久的に遅い証明ではない。04追加試験は今回なし。
+3. F/B/Cは同一の新診断llama、CPU、CUDA、baseを全armに固定。旧診断CPU 602a…と通常CPU 33a9…は異なる。旧Fの数字と新B/Cを混ぜない。Bはcontext固定のhas_bank=true / uses_custom=falseであり、存在しないset_mode('B')を呼ばない。Cは準備後のcounter差分で対象23層かつ実行H0を確認。F/Bの元DAG構造に加え実placement/splits/copyを別途記録する。B−F、C−Bはいずれも複合差であり、それぞれ純VRAM保持時間、純copy時間ではない。
+4. 一巡が有効ならF/B/Cが曖昧でもH1へ進む。H1の主比較はcell1 L7の331/85、cell4 L35の78/100。85と100はtraining各2回と1回の低頻度の機序試験なので、単独成功を即bank採用に結び付けない。08の準備や結果をF/B/C/H1の前提としない。
+
+04の保存データの解釈
+
+今回自作の標準ライブラリの短いread-only集計で、添付監査のINDEPENDENT_TIMING_SAMPLES.csvの240行からprocess内5 sample中央値、4組の候補/対照比、および24Tの先頭・後続別max/minを再計算し、資料の全6中央値と順序集計に一致した。CSV自体を元RUNから再導出したことにはならない。添付scriptは実行・importしておらず、model/API/build/bench操作も行っていない。以下の出力照合とprovider等は資料に記録された独立監査の結果として読む。
+
+対応(control,candidate)=(0,1),(3,2),(5,4),(6,7)。中央値はcell1/12 1.023623、cell1/24 0.877073、cell5/12 1.009443、cell5/24 1.002928、cell6/12 0.985614、cell6/24 0.954188。240 sampleや1,920 graph呼出しは独立対ではなく4組が比較単位。24T条件もT=1でprefillではない。cell6はMXFP4で04 Q8_K変換を通らない。
+
+記録上60出力file全てfiniteで元capture downとbyte一致、ただし一つの日本語training軌跡の3入力の反復。全1,920 graph出力を個別検査したわけではなく3 warmupの最後と各8-call sampleの最後を検査している。速度時計はbackend graph_computeの8回を含み、現在はgraph plan、量子化、lookup、ID/row map、barrier、dot、clamped SwiGLUを含む。graph構築、初期packing/scratch、出力hash、routing weightとmerge、attention、scheduler、GPU、API、samplingは時計外。局所graph時間をモデルFFN全体やtoken/sと呼ばない。
+
+実機で選択expert subset ownerを使用、全120GiB ownerや全モデル圧力を再現しない。THP無効、node0/1 interleaveの指定だけでは既存file-backed pageのNUMA実配置は証明されない。worker receiptは計時後の別OpenMP領域であり、全graph中の瞬間的affinity traceではない。固定commit収録側に実機ELF/GGUFはなく、そのbyte/providerや通常API復帰は実機側receiptに依存し、今回のlive観測ではない。
+
+F/B/C: 実測条件と判断
+
+・既存training JA/Pythonの各64 T1を固定。各processは同じ準備入力と4 T1、同期、KV clear、対象prefix再入力を維持。fresh process F/B/C/C/B/F、後半case順反転。2 case×64 T1×6=768 timed calls。case/armあたり2 processの粗い診断で、64 tokenを64独立runとしない。
+・Fはbankなし元graph、Bはoriginal35 bank/private backend/pool/pinned領域/warmup保持の元graph、Cは同じ保持でcustom23層を経由し選択6 expert全CPU。bank native payload 475,453,440B、元GPU layers 37–39、CPU compact120GiBを照合。Bでbank存在/payload/readyとcustom builds/calls=0を別々に検査。
+・qualityで同じ固定入力65行のfinite、F=B=C全byte一致。F/Bのみ元graphのop/shape/依存を正規化し比較、Cのcustom DAGに元DAG一致を要求しない。backend個数はF/B一致の必須要件ではない。実allocation/placement/splits/copyは別途記録する。
+・計時はdecode開始からlogits取得output-ready。大量logits出力、route collector、callback、詳細debugを計時外へ。全raw時刻、遅い値、失敗や各providerを残す。quality/provider/経路が不一致なら性能を結論に使わない。B−Fは保持/初期化/backend存在/配置、C−Bはcustom dispatch/private CPU/copy/外側配置/同期を含む。差の大きさを個別原因の測定値にしない。
+
+H1: 実測条件と判断
+
+・cell1 layer7 compact331 対 noncompact85、cell4 layer35 compact78 対 noncompact100。二つのplanとも35 expert、475,453,440 native bytes、層別個数・型・初期化形状を揃え、membershipを変える。各射影の実cache lookupで331/78がcompact、85/100が非compactであるreceiptを確保し、callerのplan/hash/shape期待値を新値へ更新する。guard削除で代用しない。同一bankに両候補を入れるとH2で、未実装active maskは仮定しない。
+・COMPACT/NONCOMPACT/NONCOMPACT/COMPACTのfresh process順、同じx/ordered top6/weight/clamp/provider。既存全8 cellを保持するが主比較はcell1/4。cell3は片方H3、他方H2で仕事量が揃わず全8 cellを対比較として平均しない。
+・O=C、各partition内S=P、cold slot一致を検査。異なるGPU担当のpartition間P同士のbyte一致は要求しない。C−Pは同bank同cellの局所offload利得、S−Pは同partitionでの重なりの利得。joinはCPU終了後の残待ちでGPU全所要時間ではない。H1利得をH2/H3へ倍掛けしない。
+
+08を分離して後に実施する場合の提案仕様
+
+・別候補として通常CPU 33a9…/runtime base 2e13…を新しい対照にし、新08-current-mixedのみを移植。04/09/03、旧08/07は重ねない。04 build scriptはx86/quants.c objectだけの差替えなので08用として流用できない。ggml-cpu.c、iq3-cache実装とheader・依存、Ivy命令/算術flags、実providerを確認する。
+・元capture 20261117T052657Z-U1024-3483cb75のcell1/5/6、元384 expert形状、x/top6/clamp/射影別compact、subset owner、THP無効、interleave、row-local無効。T=1、strict CPU0..11、12 physical Tのみを固定。A/B各1 quality processで3 cellのcapture出力byte/finiteとweight/ID/providerを確認し、08実経路は計時外で確認。計時DSOに診断counterを残さない。
+・各対応組のarm/cell順は A→B [1,6,5]、B→A [5,6,1]、B→A [1,6,5]、A→B [5,6,1]。8 fresh process、各cell 3 warmup、5 sample×8 graph、計960 graph。各process中央値→各4組B/A、セル別全4比・中央値・ms差・短縮数・範囲を報告し、先頭/後段とarm先後も示す。旧04 controlの時刻を代用しない。
+・08は共通planner/callerも変更するため、foldなしMXでも候補全体の差は生じ得る。MX比を差引しない。5/6対6/6は層・量子化型・活性も異なるためcompact率だけの因果比較ではない。両主要cellで反復短縮し順序と対照変動を併記して説明できる場合のみモデル品質・全体速度の別試験へ。それ以外は一巡で保留、後付け24Tや条件選別で救済しない。小標本の選別条件は統計的有意の証明ではない。
+・20/20/54 block、8,000/8,000/21,600Bは射影別の静的準備量。37,600Bは累計であり同時scratch peakではない。94対829,440などの静的仕事数も時間割合ではない。
+
+承認と出典の区別
+
+上記のF/B/C→H1、08、任意A/Aは受領資料が提示する計画・推奨であり、それ自体は人間による新たな承認や実施済み記録ではない。実施権限・運用条件は親が人間の既存指示に基づき判断する。今回の親からの依頼範囲は資料の読取とread-only再集計であり、04追加試験はしない。
+
+主な資料: incoming/xeon_moe_be05_next_steps_2026-11-18/ROOT_REVIEW_BE05_JA.txt、MAIN_NEXT_BE05_JA.txt、NEXT_EXPERIMENTS_BE05.json、be05_review_2026-11-18/measurement_audit/MEASUREMENT_REVIEW_JA.txt と INDEPENDENT_TIMING_SAMPLES.csv、parallel_priority/REPORT_JA.txt、astra62_decision/LIMITED_EXPERIMENTS_JA.txt。原報告のsource commit be05f5fb10438e83ff0201deef2ddfd21bf4a111。
