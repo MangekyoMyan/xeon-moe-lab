@@ -1,0 +1,218 @@
+{
+  "source_sha256": "06ee5e80047891079e21be66227410763bf0034500f301dc46ebb7f55ffe14b9",
+  "command": [
+    "g++",
+    "-I/home/codex/projects/llm-lab/exploration-20261112/sparse-cache",
+    "-O3",
+    "-std=c++17",
+    "-march=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-ffp-contract=off",
+    "-fopenmp",
+    "-I/home/codex/projects/llm-lab/iq-cache-next-20261103",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/include",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+    "/home/codex/projects/llm-lab/ecc9-simplification-20261119/astra-review/compact_quality.cpp",
+    "-L/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/runtime",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/runtime",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-ldl",
+    "-o",
+    "/home/codex/projects/llm-lab/ecc9-simplification-20261119/compact-check/compact_quality"
+  ],
+  "executable_sha256": "3dec169f20caaf47b879a12687b8eb5dce7d8735c2e45ecd8caca237ac3b0104",
+  "arms": {
+    "control": {
+      "cpu_sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+      "base_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+      "raw_sha256": "b6ded02e30d04ce570704216db11b4b16c450926d28038b38fba72bce0e95121",
+      "command": [
+        "/usr/bin/python3",
+        "/home/codex/projects/llm-lab/moe-implementation-20261026/release/without_thp.py",
+        "numactl",
+        "--physcpubind=0-11",
+        "--interleave=0,1",
+        "/home/codex/projects/llm-lab/ecc9-simplification-20261119/compact-check/compact_quality",
+        "/home/codex/projects/llm-lab/ecc9-simplification-20261119/build/control/libggml-cpu.so.0.28.0",
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+        "/home/codex/projects/llm-lab/ecc9-simplification-20261119/compact-check/control.f32"
+      ],
+      "checks": [
+        {
+          "type": "iq2_s",
+          "k": 5120,
+          "rows": 2304,
+          "expert_count": 3,
+          "selected": [
+            2,
+            0
+          ],
+          "routes": [
+            0,
+            1,
+            2
+          ],
+          "compact_bytes": 13271040,
+          "resident_pages_by_node": [
+            1620,
+            1620
+          ],
+          "graphs": 5,
+          "confirmed_compact_slots": 2,
+          "confirmed_native_slots": 1
+        },
+        {
+          "type": "iq3_s",
+          "k": 5120,
+          "rows": 2304,
+          "expert_count": 3,
+          "selected": [
+            2,
+            0
+          ],
+          "routes": [
+            0,
+            1,
+            2
+          ],
+          "compact_bytes": 13271040,
+          "resident_pages_by_node": [
+            1620,
+            1620
+          ],
+          "graphs": 5,
+          "confirmed_compact_slots": 2,
+          "confirmed_native_slots": 1
+        },
+        {
+          "type": "iq3_xxs",
+          "k": 5120,
+          "rows": 2304,
+          "expert_count": 3,
+          "selected": [
+            2,
+            0
+          ],
+          "routes": [
+            0,
+            1,
+            2
+          ],
+          "compact_bytes": 13271040,
+          "resident_pages_by_node": [
+            1620,
+            1620
+          ],
+          "graphs": 5,
+          "confirmed_compact_slots": 2,
+          "confirmed_native_slots": 1
+        },
+        {
+          "pass": true,
+          "types": 3,
+          "graphs": 15,
+          "finite_f32_saved": 103680
+        }
+      ]
+    },
+    "ordinary": {
+      "cpu_sha256": "2626bb83f17b40506d1e2397a151c33fcb5b2568a60e3f8259404ecdd1e82ae4",
+      "base_sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558",
+      "raw_sha256": "b6ded02e30d04ce570704216db11b4b16c450926d28038b38fba72bce0e95121",
+      "command": [
+        "/usr/bin/python3",
+        "/home/codex/projects/llm-lab/moe-implementation-20261026/release/without_thp.py",
+        "numactl",
+        "--physcpubind=0-11",
+        "--interleave=0,1",
+        "/home/codex/projects/llm-lab/ecc9-simplification-20261119/compact-check/compact_quality",
+        "/home/codex/projects/llm-lab/ecc9-simplification-20261119/build/ordinary/libggml-cpu.so.0.28.0",
+        "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+        "/home/codex/projects/llm-lab/ecc9-simplification-20261119/compact-check/ordinary.f32"
+      ],
+      "checks": [
+        {
+          "type": "iq2_s",
+          "k": 5120,
+          "rows": 2304,
+          "expert_count": 3,
+          "selected": [
+            2,
+            0
+          ],
+          "routes": [
+            0,
+            1,
+            2
+          ],
+          "compact_bytes": 13271040,
+          "resident_pages_by_node": [
+            1620,
+            1620
+          ],
+          "graphs": 5,
+          "confirmed_compact_slots": 2,
+          "confirmed_native_slots": 1
+        },
+        {
+          "type": "iq3_s",
+          "k": 5120,
+          "rows": 2304,
+          "expert_count": 3,
+          "selected": [
+            2,
+            0
+          ],
+          "routes": [
+            0,
+            1,
+            2
+          ],
+          "compact_bytes": 13271040,
+          "resident_pages_by_node": [
+            1620,
+            1620
+          ],
+          "graphs": 5,
+          "confirmed_compact_slots": 2,
+          "confirmed_native_slots": 1
+        },
+        {
+          "type": "iq3_xxs",
+          "k": 5120,
+          "rows": 2304,
+          "expert_count": 3,
+          "selected": [
+            2,
+            0
+          ],
+          "routes": [
+            0,
+            1,
+            2
+          ],
+          "compact_bytes": 13271040,
+          "resident_pages_by_node": [
+            1620,
+            1620
+          ],
+          "graphs": 5,
+          "confirmed_compact_slots": 2,
+          "confirmed_native_slots": 1
+        },
+        {
+          "pass": true,
+          "types": 3,
+          "graphs": 15,
+          "finite_f32_saved": 103680
+        }
+      ]
+    }
+  },
+  "outputs_byte_equal": true
+}

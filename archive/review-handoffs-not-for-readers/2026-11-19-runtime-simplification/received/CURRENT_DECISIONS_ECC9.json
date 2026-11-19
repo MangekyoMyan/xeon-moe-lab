@@ -1,0 +1,94 @@
+{
+  "date_jst": "2026-11-19",
+  "source_commit": "ecc9af41d42c031856b7dfcf52012c5450a52563",
+  "normal_runtime_evidence": "Saved INITIAL_RUNTIME and RESTORED_SHARED_PREFIX_TRIAL receipts; no live observation by this review.",
+  "normal_config_sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+  "normal_four_dso_sha256": {
+    "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+    "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26",
+    "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0",
+    "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+  },
+  "normal_frequency_plan_sha256": "cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6",
+  "compact_budget_bytes": 128849018880,
+  "compact_used_bytes": 127401984000,
+  "latest_experiment": {
+    "name": "shared-prefix",
+    "status": "completed_not_adopted_close_current_candidate",
+    "candidate_base_sha256": "c586449d1f06819062656502f192d2e1ec2aa3d79869b07d8406fe1394251b7e",
+    "timing_calls": 512,
+    "independent_processes": 4,
+    "ja_time_change_percent": 2.0863900535680093,
+    "python_time_change_percent": -0.9410082770734293,
+    "general_hardware_or_software_limit_proven": false,
+    "production_adoption": false
+  },
+  "next_work": {
+    "goal": "current manifest/entrypoint and smallest isolation of normally disabled row-local",
+    "sequence": [
+      "identify normal four libraries, model/config/plan and recovery",
+      "unchanged CPU two-translation-unit control with other three libraries fixed",
+      "minimal row-local experiment isolation and relevant regression checks"
+    ],
+    "requires_full_cuda_or_four_dso_rebuild_before_cpu_cleanup": false,
+    "new_speedup_required": false,
+    "intentional_performance_regression_authorized_by_this_review": false,
+    "status": "recommendation_prepared_not_implemented"
+  },
+  "preserve": [
+    "IQ compact mechanism and miss fallback",
+    "MXFP4 input preparation reuse",
+    "CUDA stable ID sorting",
+    "existing synchronization, ownership and failure cleanup",
+    "model functionality and supported workload profile"
+  ],
+  "separate_into_profiles": [
+    "model-dependent frequency plan",
+    "RAM/VRAM budget and CPU/GPU placement",
+    "threads/NUMA/batch/offload settings"
+  ],
+  "not_automatically_reopened": [
+    "shared-prefix rescue",
+    "03",
+    "147/270",
+    "04/08/09",
+    "hot expert bank"
+  ],
+  "model_review": {
+    "requested_model": "gpt-6.2-astra",
+    "requested_reasoning_effort": "max",
+    "resolved_identity_independently_verified": false,
+    "parent_review_performed": true,
+    "source_units_error_corrected": true
+  },
+  "actions_in_this_environment": {
+    "model_runs": 0,
+    "engine_builds": 0,
+    "engine_mutations": 0,
+    "github_writes": 0,
+    "real_machine_operations": 0
+  },
+  "planned_hardware_change": {
+    "source": "User stated after ecc9 review",
+    "status": "planned_not_installed",
+    "current_cpu": "Intel Xeon E5-2630L v2 x2",
+    "target_cpu": "Intel Xeon E5-2697 v2 x2",
+    "old_total_physical_logical": [
+      12,
+      24
+    ],
+    "target_total_physical_logical": [
+      24,
+      48
+    ],
+    "new_hardware_benchmarks_performed": false,
+    "current_runtime_values_are_not_target_defaults": true,
+    "addendum": "CPU_UPGRADE_E52697V2_ADDENDUM_JA.txt",
+    "next_review_after_install": [
+      "actual topology and memory setup",
+      "physical/logical worker mapping and bounds",
+      "CPU/GPU placement and crossover",
+      "compact capacity and selection cost"
+    ]
+  }
+}

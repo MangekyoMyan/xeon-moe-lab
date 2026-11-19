@@ -1,0 +1,36 @@
+現行CPUの実体、row-local隔離、CPU交換時に読み直す箇所
+2026-11-19。親の実機操作と別にソース・既存ELF・比較用の生データを照合した。
+
+1. 通常バイナリの出自と差分
+
+11/12のexploration-20261112/build_sparse_cpu.pyはcache ABIの登録を含む。build_row_local.py 10–17行はiq3-cache.cppのobjectだけを交換する。build_mx_backend.pyはそのrow-local linkを引き継ぎ、通常採用されたMXのC objectとRHS objectを加える。CPU33aのreleaseフォルダだけを見るとrow-localのソースは欠ける。11/19のbe05-followup-20261119/build_08.pyはこの経路からC本体とcache C++の2TUを取り出し、絶対ソースパスを既存のパスに対応させて再現した。照合対象に同日の08候補は入っていない。
+
+当日の親がbuild_cpu.pyで作ったcontrolは既存の33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3とbyte一致した。通常向け候補は2626bb83f17b40506d1e2397a151c33fcb5b2568a60e3f8259404ecdd1e82ae4。歴史的receiptの23項目には出力ELF自身を含む。今回のlinkは入力22個を記録し、21個が同一ファイル・同一hash。残る1個がcache TU。C本体は7e63a157…、従来のcache TUは984cafce…。CPU linkのbase入力は274230a8…、現在の動的ロード先のbaseは2e13b370…。共有ライブラリのリンク時入力と実行時providerをそれぞれ識別する。全4ライブラリをソースから再構築したものではない。
+
+実行版CPUのC側ggml-cpu.cにはGGML_CPU_IQ_ROW_LOCALもGGML_CPU_IQ_AUDIT_DIRも登場しない。22入力を検査し、この2文字列は従来cache.oに各1個のみ。稼働していた4DSOのbacking fileでも、CPU以外は双方0個。通常でのNUMA分割はC側ggml_is_numa()を使う。
+
+比較用cache C++は従来controlからplacement.incのinclude、owner内options、mmap直後bind、publish直前auditの4行だけを除き、std::exceptionの宣言元を明示した。旧sparse-cache TUとの差になっていたcreate失敗のstd::exception表示は保存された。compile依存・ELF文字列・元ソースへの逆patchを照合している。ローカルシンボルの位置や外側のwrapper内の相対参照は動く。3種類の内部dot関数とOpenMP pack workerの計5,950バイトはコンパイル後のobject内でそれぞれ一致した。20箇所の再配置について関数内offset、種別、symbol、addend、参照する定数の内容も一致した。全コードの機械語一致を主張するものではない。ELFサイズは1,433,136→1,413,848バイト。モデルRAM使用量の差は別に測る。
+
+2. 登録・実行・破棄
+
+行数はbe05-followup-20261119/cpu08/control/source/xeon-local/iq3-cache.cppによる。62–68行でhostのWEIGHTS buffer、IQ型、shapeとcontiguousを確認する。78–117行で選択IDの範囲・重複、budget・64GiB reserve・全owner合計上限、page切り上げ、未登録のsourceを検査する。mmapした領域はentryのunique_ptrとmunmap destructorの管理下に入る。120–145行でメタデータを先にreserveし、OpenMP static pack終了後にoriginal expert IDからpacked slotを指す表を作る。登録・所有者への移動・bytes計上の順序を維持している。例外時は未publishのentryが領域を解放する。loaderは指定planの非空行でstatus!=1または最終bytes不一致を例外にする（sparse-cache/llama-model.cpp 2113–2124行）。
+
+158–165行のfreeはregistry_mutexを保持して該当ownerのsourceを消し、合計を引いてからownerを破棄する。183–192行のlookupは同じmutexの下でsource、shape、stride、typeを検査する。返した表とpacked pointerはownerが存続する間だけ有効。グラフが参照中の同時freeを許可するAPIにはしていない。llama-model.cpp 1274–1298行はmodel impl destructor本体でcompact.clear()、expert_dma.clear()を行い、その後メンバーのmmapやbufferが破棄される。
+
+ggml-cpu.c 1864–1877行では通常IQのT1でtableを取得し、実行対象の元expert IDごとにnonnullならcompact、nullならnative経路となる。1519–1524、1939–1944行で重みpointerとstrideを切り替える。対象外token幅はnative。hits_v1はtable取得単位で増える。選択expertが実際に通った個数の計測には使えない。
+
+3. 比較用の確認
+
+親がcompact_quality.cppを各CPUで実行した。対象は自前の重みだけを持つhost GGML graph。3量子化型ごとに5120×2304、3 experts、selected=[2,0]、route=[0,1,2]。各型で5 graph（native reference、通常mixed、元の全expert scaleを0化、free後、同一sourceアドレスで再登録後）。通常mixedは全値referenceと同一。元重みを0にしてもselected 2個は元のビット列を保持し、hole 1個だけ0に変化した。free後は3個とも0、元のマッピングの先頭・最終ページはmincoreでENOMEM、同一sourceアドレスでの再登録でも0。各型13,271,040バイト・3,240ページについて、全域のVMA実効方針interleave:0-1と各物理ページのnode交互配置を確認。両アーム各型1,620ページずつ両nodeに載った。両アーム各103,680 F32・414,720バイトの生出力はbyte一致。verify_operator_and_objects.pyは各列を独立に再読した。結果はOPERATOR_AND_OBJECTS_RECHECK.json。
+
+既存のsparse-cache/test-sparse.cppには範囲・重複ID、budget/reserve、複数owner、T1のcached source改変に対する検査もある。sparse-cache/test-model.cppと約4.7MiBのfixture.ggufでは5回のllama load→decode→unload、部分/全/空plan間のlogitsと各解放時のtotal=0を検査できる。これらはソースを確認した追加候補であり、この一巡に実行したと数えない。古いテスト実行ファイルのRUNPATHは旧CPUディレクトリを含む。
+
+現行frequency19200.planでは80行すべて非空。19,200個の選択投影、11,520個の穴が80×384の登録表内にある。IQ3_XXSは58表13,766個、IQ2_Sは14表3,454個、IQ3_Sは8表1,980個。gate28表・up28表は各5120×2304、down24表は2304×5120。いずれもpacked投影あたり6,635,520バイト、合計127,401,984,000バイト。全モデルのloading/所属表、バッファ解放、warm prefill、通常T1のABBAは別の比較であり、ここでのgraph結果から推定しない。
+
+4. CPU交換に際してプロファイルから分離する値
+
+現機の12物理/24論理、generation12/prefill24、両strict mask 0xffffff、外側physcpubind=0–23・NUMA interleave=0,1、OMP_THREAD_LIMIT=24は保存済み旧機条件。ggml-cpu.c 2942–2961、3579–3585、3648–3666行ではstrict時にmask内のCPUを番号順に各workerへ割り当て、OpenMPが実際に作ったteam数を使う。旧機の12-workerは最初のset bit 12個を使う。新機で同じ整数番号が各socketの物理coreにどう対応するかは実topologyで決める。
+
+llama1d1のmodel-cache.h 27–37行はcreate(bytes,64GiB,12)。CPU33aのowner guardは1..12で、値はcache展開時OpenMP worker数に使う。decode teamの上限とは別であり、交換後に-t24を試すだけならこの2箇所の変更は不要。row-localの実験source placement.inc 19–49、67–79行は4KiB page、CPU0–5/node0・CPU6–11/node1の12異なる物理core、両node許可、process THP disable、特定のgate/up形状・名前、固定stride/halfを前提とする。追加されたCPUが同時に存在しても先頭12個が条件どおりならチェックを通りうる。実験側のlaunch_guard.pyはさらにstrict maskや利用可能なCPU・planを制約する。通常起動にこのguardの移植は不要。
+
+ggmlのNUMAフラグがfalseかつ同じexpertにT1入力1列、5120出力行のdown projectionでは、初期chunkが80個×64行。実team 12なら80>=48で動的配分、24なら80<96で24分割に変わる。gate/upの2304出力行は初期36個なので12/24どちらでもworker数分割。ggml内部NUMA=trueなら別分岐。Linuxのメモリ・インターリーブとggmlのstrategyは別の設定。旧機での12・24の結果から新機の24物理・48論理の速度は決まらない。新CPUの実機測定と取り付けは行っていない。

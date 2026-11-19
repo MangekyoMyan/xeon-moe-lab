@@ -1,0 +1,89 @@
+CPU交換予定を受けた補足：E5-2630L v2×2 → E5-2697 v2×2
+2026-11-19 JST
+
+位置付け
+
+ユーザーが交換予定のCPUを明示した。現在は電源交換等の事情で未実施。ecc9の測定は旧E5-2630L v2×2の記録であり、新CPUの実測として読み替えない。本補足は既存の簡素化方針を更新する条件整理で、新機での性能試験や交換作業を実施した報告ではない。
+
+判断
+
+CPU/GPUの配置・閾値・スレッド数・compactの追加RAM配分を再較正する十分な理由がある。旧機での採否は旧profileの証拠として保存する。演算の正しさ、条件に合うISA/量子化kernel、失敗原因の記録は引き継ぐ。新機の旧案を全部自動再試験する必要はない。
+
+Intel公式仕様の比較
+
+                         E5-2630L v2×2         E5-2697 v2×2
+物理コア合計              12                   24
+論理スレッド合計          24                   48
+CPU当たりベース周波数     2.40 GHz             2.70 GHz
+最大Turbo                 2.80 GHz             3.50 GHz
+CPU当たりL3 cache         15 MB                30 MB
+CPU当たりメモリchannel    4                    4
+対応メモリの上限          DDR3-1600            DDR3-1866
+CPU当たり公称最大帯域     51.2 GB/s            59.7 GB/s
+QPIリンク転送レート       7.2 GT/s             8 GT/s
+CPU当たりTDP              60 W                 130 W
+世代/命令拡張             Ivy Bridge EP/AVX    Ivy Bridge EP/AVX
+
+最大Turboを全コア継続時の周波数として使わない。公称最大帯域の差は約16.6%だが、既存DIMMの速度・構成・BIOS等が同じなら実メモリ速度が上がるとは限らない。物理コア数×周波数から推論倍率を決めない。旧機が帯域を使い切れていない場合には、増えたcoreにより実効帯域の利用率が伸びる余地もあり、公称帯域比を全体高速化の上限として扱うこともできない。
+
+両者は同世代。AVX2/VNNIが新たに使える交換ではない。現在のSSSE3/AVX向け数値処理は適用条件を確認しつつ継承候補となる。
+
+TDPの2CPU合計は120→260Wになる。これは壁コンセントの消費電力やCPUの最大消費電力そのものではない。交換時は電源だけでなく、そのマザーボード/BIOSの130W CPU対応、給電、CPU冷却も確認する。現在のマザーボード・電源型番を本補足では確認しておらず、特定構成の互換性や必要なPSU定格を断定しない。
+
+なぜGPUへの割当てが変わるか
+
+CPU単独で終える時間と、GPU側の演算・転送・提出・同期を含めた時間の関係が変わるため。CPUが速くなれば、転送や管理を追加してまでGPUへ送る利益が小さくなる仕事があり得る。新CPUなら一部をCPUへ戻す方が全体で速い可能性がある。
+
+ただし、GPU負荷を減らすこと自体を目標にしない。GPU常駐重みを使う仕事と、重み/入力を転送する仕事、decode T1とprefillを分ける。並列経路では両側の残り仕事と待ち合わせが重要。CPU増強でhost提出費用等も変わり得るため、GPU関連費用を全て定数とも置かない。生成時間と必要な入力処理を最小化する配置を選ぶ。
+
+CPU compactの価値も再評価対象
+
+現compactは重みを先に展開し、decode時の計算を減らす一方、追加RAMと展開済みデータの読出しを使う。新CPUでは演算側とDRAM/NUMA側が同じ倍率で変わらないので、旧機の118.65234375GiBの使い方・配分が新機でも最適とは限らない。
+
+同じモデル・入力で得たexpert頻度は再利用可能な資料として保持する。一方、頻度に対して何ms省けるか、どの型/層の展開が有利かは新ハードの費用で再評価する。頻度記録が全て無効になったとも、同じplanが最適のままとも決めない。
+
+6.2と親が確認した、移行に関係する実装上の3点
+
+1. 旧24論理と新24物理を区別する。
+
+ecc9の通常相当harnessのLAUNCH.jsonは生成12/prefill24、physcpubind=0-23、strict mask双方0xffffff、OMP_THREAD_LIMIT=24。これを新機へ無条件にコピーしない。実際のsocket/core/SMT sibling番号を照合し、両socketの物理coreへ意図どおり配置する。
+
+新機で最初に比較する候補として24物理coreは自然だが、最適と実測済みという意味ではない。48論理での試験は必要な場合に別に行い、マスクとOpenMP上限も揃える。旧24論理で不利だったことを新24物理の不利へ流用しない。
+
+通常CPUのMUL_MAT_IDは実team数を用いる。T1・5120出力行、ggml内部NUMA=falseという条件では、64行×80chunkとnth*4の判定により、12workerと24workerで分割方式まで変わる。NUMA=trueでは別分岐。OSのnumactl interleaveとggml内部NUMAフラグを同一視しない。単なるクロック倍率・core数倍率だけの比較にはならない。
+
+2. compactの12固定はロード時の生成worker数。
+
+現llama1d1のmodel-cache.hはcreate(bytes,64GiB,12)とliteralで呼ぶ。CPU33a相当sourceはthreads>12を拒否し、その値を重みをcompactへ展開するOpenMPで使う。
+
+生成設定を-t24へ変えても、このcreateの引数へ24が渡るわけではない。「decodeは12スレッドまでしか動かない」とは言わない。初期展開自体を24化する場合に限ってcallerとguardの両方を検討する。移行前に全ての12という定数を24へ置換しない。
+
+3. row-localは旧topology専用の任意処理。
+
+CPU0–5=node0、CPU6–11=node1、12個の異なる物理core、4KiBページ、固定行列等を仮定する。新機の番号によってチェックが拒否する場合と、先頭12個だけでチェックを通る場合があるため、CPU数増だけで必ず失敗するとも断定しない。通常は無効なので、新機でも通常の配置を基準にし、これを有効化して持ち込む必要はない。前の指示書の最小隔離方針を維持する。
+
+実機メインへの適用
+
+交換前：現構成・旧profileを保存し、共通機構とハード別の値を分ける。通常無効の特殊導線を整理する。新CPUで無効になり得る旧機の微細な閾値調整を優先しない。現在の正常APIを未来の設定へ先に変更しない。
+
+交換後：実topology・メモリ設定・持続クロックを確認し、同じモデル/実行物/計測境界の移行基準を作る。必要なCPU番号の修正は記録する。まずCPU worker数と配置を整え、その後CPU/GPU分担・offload閾値・compact配分を一要因ずつ見直す。decodeとprefillを区別する。未使用validation/holdoutを試行錯誤用に消費しない。
+
+旧shared-prefixの不採用は旧機/現モデルの現候補に対する結果。新CPUでCPU区間が縮むと重ねられる時間も変わるので、交換だけで救済されるとは置かない。新profileで大きな直列区間が観測される等の新しい根拠がある場合だけ再検討する。
+
+出典
+
+Intel E5-2630L v2公式仕様：
+https://www.intel.com/content/www/us/en/products/sku/75791/intel-xeon-processor-e52630l-v2-15m-cache-2-40-ghz/specifications.html
+Intel E5-2697 v2公式仕様：
+https://www.intel.com/content/www/us/en/products/sku/75283/intel-xeon-processor-e52697-v2-30m-cache-2-70-ghz/specifications.html
+Intel E5 v2 datasheet vol.1（メモリ、Turbo、TDPの意味）：
+https://www.intel.com/content/dam/www/public/us/en/documents/datasheets/xeon-e5-v2-datasheet-vol-1.pdf
+
+実装根拠は固定commit ecc9af41d42c031856b7dfcf52012c5450a52563。
+・source/main/runs/baseline/LAUNCH.json 5–31,74–81行。
+・runtime_inventory/reference_source以下のexploration-20261112/sparse-cache/release-v2-a/sources/model-cache.h 27–37行。
+・同cpu08/control/source/xeon-local/iq3-cache.cpp 71–74,118–124行、placement.inc 19–46,67–75行。
+・同exploration-20261112/mx-prepack/release-candidate-a/sources/ggml-cpu.c 1885–1905,1947–1951,2583–2589,3648–3666行。
+上記ディレクトリはいずれも本ZIPのecc9_review_2026-11-19/配下。runtime_inventory/reference_source以下の完全パスとhashはecc9_review_2026-11-19/runtime_inventory/SOURCE_IDENTITIES.jsonに記録。
+
+今回の追加確認は6.2 Astra/max指定のsourceレビューと、親のソース再読・Intel公式資料照合。新CPUの実測、新しい推論、build、API操作は行っていない。

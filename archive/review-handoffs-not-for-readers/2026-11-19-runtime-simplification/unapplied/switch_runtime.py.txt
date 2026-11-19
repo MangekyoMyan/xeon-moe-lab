@@ -1,0 +1,186 @@
+"""Switch between the two validated profiles on x9ram using its existing service switch."""
+import argparse
+from contextlib import ExitStack
+import copy
+import fcntl
+import hashlib
+import importlib.util
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+import time
+from pathlib import Path
+
+from api_window import active, clear_monitor
+from live import ENGINE, LAB, api, digest, read, snapshot
+
+ROOT=Path(__file__).resolve().parent
+CONFIG=ENGINE/"server-config.json"
+UNIT="llm-deepseek41-api.service"
+BASELINE_FILE=LAB/"exploration-20261112/profiles/final.json"
+PLAN=ROOT/"SWITCH_PLAN.json"
+OLD=LAB/"iq-cache-next-20261103/switch_profile.py"
+
+def save(path,value):
+    path.write_text(json.dumps(value,indent=2)+"\n")
+
+def prepare():
+    if read(ROOT/"DECISION.json")["decision"]!="adopt":
+        raise RuntimeError("The performance decision does not select the simplified runtime.")
+    initial=read(ROOT/"INITIAL_RUNTIME.json")
+    assert digest(BASELINE_FILE)==initial["config_sha256"]
+    original=read(BASELINE_FILE)
+    build=read(ROOT/"build/BUILD.json")["ordinary"]
+    src=Path(build["file"])
+    assert build["sha256"]==digest(src)
+    folder=LAB/"runtime-releases"/("iq-compact-"+build["sha256"][:12])
+    folder.parent.mkdir(exist_ok=True)
+    if not folder.exists():
+        with tempfile.TemporaryDirectory(dir=folder.parent) as temp:
+            staged=Path(temp)/"lib"
+            staged.mkdir()
+            shutil.copy2(src,staged/src.name)
+            for alias in ["libggml-cpu.so","libggml-cpu.so.0"]:(staged/alias).symlink_to(src.name)
+            assert digest(staged/src.name)==build["sha256"]
+            staged.rename(folder)
+    dest=folder/src.name
+    assert digest(dest)==build["sha256"]
+    for a in ["libggml-cpu.so","libggml-cpu.so.0"]:assert (folder/a).resolve()==dest
+    normal=copy.deepcopy(original)
+    old_cpu=next(Path(path) for path in initial["mapped_runtime_hashes"] if Path(path).name==src.name)
+    dirs=normal["environment"]["LD_LIBRARY_PATH"].split(":")
+    assert dirs.count(str(old_cpu.parent))==1
+    dirs[dirs.index(str(old_cpu.parent))]=str(folder)
+    normal["environment"]["LD_LIBRARY_PATH"]=":".join(dirs)
+    normal["cpu_iq3_compact_profile"]["runtime"]=str(folder)
+    normal["cpu_iq3_compact_profile"]["full_model_validation"]=str(ROOT/"ANALYSIS.json")
+    normal["runtime_maintenance"]={"study":"ecc9-simplification-20261119","row_local_available":False,"original_config_sha256":initial["config_sha256"],"decision":str(ROOT/"DECISION.json")}
+    hashes=dict(initial["mapped_runtime_hashes"])
+    del hashes[str(old_cpu)]
+    hashes[str(dest)]=build["sha256"]
+    normal["study_libraries"]=[{"file":path,"sha256":h} for path,h in hashes.items()]
+    private=ROOT/"private-profiles"
+    private.mkdir(mode=0o700,exist_ok=True)
+    new_file=private/"ordinary.json"
+    data=(json.dumps(normal,indent=2)+"\n").encode()
+    if new_file.exists():assert new_file.read_bytes()==data
+    else:
+        with new_file.open("xb") as f:
+            os.fchmod(f.fileno(),0o600)
+            f.write(data)
+    manifest={"previous":{"config_file":str(BASELINE_FILE),"config_sha256":digest(BASELINE_FILE),"mapped_runtime_hashes":initial["mapped_runtime_hashes"]},
+              "ordinary":{"config_file":str(new_file),"config_sha256":digest(new_file),"mapped_runtime_hashes":hashes}}
+    if PLAN.exists():assert read(PLAN)==manifest
+    else:save(PLAN,manifest)
+
+def check_assets(profile):
+    require=digest(profile["config_file"])==profile["config_sha256"]
+    assert require and all(digest(p)==h for p,h in profile["mapped_runtime_hashes"].items())
+    cfg=read(profile["config_file"])
+    for f in cfg["study_files"]:assert digest(f["file"])==f["sha256"]
+
+def ready(profile):
+    end=time.monotonic()+900
+    while True:
+        clear_monitor(ROOT)
+        if digest(CONFIG)!=profile["config_sha256"] or not active(UNIT):
+            raise RuntimeError("Service stopped or configuration changed while loading.")
+        try:
+            if api(read(CONFIG),"/health").get("status")=="ok":break
+        except (OSError,ValueError):pass
+        if time.monotonic()>end:raise TimeoutError("API warmup did not finish.")
+        time.sleep(5)
+    return snapshot(profile,smoke=True)
+
+def apply(name):
+    if os.geteuid()!=0:raise SystemExit("Use sudo for a service switch.")
+    if name=="ordinary" and read(ROOT/"DECISION.json")["decision"]!="adopt":
+        raise RuntimeError("The current decision does not select this runtime.")
+    profiles=read(PLAN)
+    target=profiles[name]
+    current_bytes=CONFIG.read_bytes()
+    old=next((e for e in profiles.values() if e["config_sha256"]==hashlib.sha256(current_bytes).hexdigest()),None)
+    if not old:raise RuntimeError("The normal profile has changed since this comparison.")
+    check_assets(old)
+    check_assets(target)
+    if not active(UNIT):raise RuntimeError("Normal API is inactive. Check the existing service first.")
+    if old==target:
+        snapshot(target)
+        print("Requested profile already active.")
+        return
+    clear_monitor(ROOT)
+    initial=snapshot(old)
+    if not initial["slots_idle"]:raise RuntimeError("An API request is active.")
+    spec=importlib.util.spec_from_file_location("existing_iq_switch",OLD)
+    switch=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(switch)
+    desired=Path(target["config_file"]).read_bytes()
+    record=ROOT/"switches"/str(time.time_ns())
+    record.mkdir(parents=True)
+    save(record/"REQUEST.json",{"target":name,"from":old["config_sha256"],"to":target["config_sha256"]})
+    try:
+        switch.apply(current_bytes,desired)
+        state=ready(target)
+        assert "openai_smoke" in state
+        save(record/"VERIFIED.json",state)
+    except BaseException as error:
+        save(record/"FAILED.json",{"error":str(error)})
+        try:
+            clear_monitor(ROOT)
+            observed=CONFIG.read_bytes()
+            if observed not in (current_bytes,desired):
+                raise RuntimeError("Configuration changed independently.")
+            if active(UNIT) and observed==desired:
+                try:
+                    slots=api(read(CONFIG),"/slots")
+                except OSError:
+                    # The API that failed to start can be unavailable. Verify its
+                    # child and environment against the exact attempted switch.
+                    cfg=read(CONFIG)
+                    pid=read(ENGINE/"health.json")["pid"]
+                    proc=Path("/proc")/str(pid)
+                    args=(proc/"cmdline").read_bytes().decode().rstrip("\0").split("\0")
+                    binary=str(ENGINE/"build/bin/llama-server")
+                    expected=cfg["command"][cfg["command"].index(binary):]
+                    environ=(proc/"environ").read_bytes().split(b"\0")
+                    expected_ld=("LD_LIBRARY_PATH="+cfg["environment"]["LD_LIBRARY_PATH"]).encode()
+                    if args!=expected or expected_ld not in environ or UNIT not in (proc/"cgroup").read_text():
+                        raise RuntimeError("Unresponsive service ownership could not be confirmed.")
+                else:
+                    if any(slot["is_processing"] for slot in slots):
+                        raise RuntimeError("An API request is active.")
+                if CONFIG.read_bytes()!=observed:
+                    raise RuntimeError("Config changed during ownership check.")
+                subprocess.run(["systemctl","stop",UNIT],check=True,timeout=90)
+            if not active(UNIT):
+                switch.wait_release(time.time())
+                clear_monitor(ROOT)
+                if CONFIG.read_bytes()!=observed or any(active(u) for u in (UNIT,"llm-openai-api.service")):
+                    raise RuntimeError("Another operation changed the service during recovery.")
+                if observed!=current_bytes:
+                    switch.write_config(current_bytes)
+                clear_monitor(ROOT)
+                if CONFIG.read_bytes()!=current_bytes:
+                    raise RuntimeError("Configuration changed before recovery start.")
+                subprocess.run(["python3",str(ENGINE/"start.py")],check=True,timeout=60)
+            save(record/"RECOVERED.json",ready(old))
+        except BaseException as recovery_error:
+            save(record/"ROLLBACK_PENDING.json",{"reason":str(recovery_error)})
+            raise
+        raise
+    print(json.dumps({"target":name,"pid":state["pid"],"health":state["API_health"],"receipt":str(record/"VERIFIED.json")}))
+
+if __name__=="__main__":
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("target",choices=["prepare","ordinary","previous"])
+    args=parser.parse_args()
+    if args.target=="prepare":
+        prepare()
+    else:
+        with ExitStack() as stack:
+            for filename in [ROOT/".study.lock", OLD.parent/".profile.lock", LAB/"exploration-20261112/.benchmark.lock"]:
+                lock=stack.enter_context(filename.open("a"))
+                fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            apply(args.target)

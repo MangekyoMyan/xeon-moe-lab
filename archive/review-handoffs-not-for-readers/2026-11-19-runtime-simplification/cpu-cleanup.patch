@@ -1,0 +1,42 @@
+--- a/iq3-cache.cpp
++++ b/iq3-cache.cpp
+@@ -8,6 +8,7 @@
+ #include <atomic>
+ #include <cstdio>
+ #include <cstring>
++#include <exception>
+ #include <fstream>
+ #include <limits>
+ #include <memory>
+@@ -21,7 +22,6 @@
+ 
+ #include "compact-kernel.inc"
+ #include "iq-small-kernels.inc"
+-#include "placement.inc"
+ static_assert(sizeof(compact_block)==sizeof(iq_compact_block), "shared compact stride");
+ 
+ namespace {
+@@ -41,7 +41,6 @@
+     size_t budget, reserve, used = 0;
+     int threads;
+     std::vector<std::unique_ptr<entry>> entries;
+-    xeon_placement::options placement{};
+ };
+ // Model loading and destruction take this lock. Read lookup takes it once per worker/operator.
+ std::mutex registry_mutex;
+@@ -115,7 +114,6 @@
+         e->legacy_identity = identity;
+         e->data = mmap(nullptr, bytes, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+         if (e->data == MAP_FAILED) return -1;
+-        const bool row_local=xeon_placement::bind_before_touch(o.placement,t,e->data,bytes,selected_count);
+         // Allocate metadata before touching the large buffer. No publication until it is complete.
+         o.entries.reserve(o.entries.size()+1);
+         registry.reserve(registry.size()+1);
+@@ -138,7 +136,6 @@
+         for (size_t slot = 0; slot < selected_count; ++slot) {
+             e->expert_ptrs[ids[slot]] = static_cast<const char *>(e->data) + slot*expert_blocks*sizeof(compact_block);
+         }
+-        xeon_placement::audit(o.placement,t,e->data,bytes,selected_count,row_local);
+         registry.emplace(e->source, e.get());
+         o.entries.push_back(std::move(e));
+         o.used += bytes;

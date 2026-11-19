@@ -1,0 +1,72 @@
+{
+  "recorded_unix": 1795066827.6944492,
+  "stages": [
+    {
+      "name": "quality-control",
+      "stage": "quality",
+      "arm": "control",
+      "cases": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "quality-ordinary",
+      "stage": "quality",
+      "arm": "ordinary",
+      "cases": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "timing-0-control",
+      "stage": "timing",
+      "arm": "control",
+      "cases": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "timing-1-ordinary",
+      "stage": "timing",
+      "arm": "ordinary",
+      "cases": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "timing-2-ordinary",
+      "stage": "timing",
+      "arm": "ordinary",
+      "cases": [
+        1,
+        0
+      ]
+    },
+    {
+      "name": "timing-3-control",
+      "stage": "timing",
+      "arm": "control",
+      "cases": [
+        1,
+        0
+      ]
+    }
+  ],
+  "profile": "initial live configuration; CPU variant is the only change, normal row placement variables unset",
+  "cases": "Two previous training prompts using exact token IDs. Reference output is pinned from ecc9.",
+  "clocks": {
+    "load": "common_init_from_params text model plus context; separate vision warmup, warm page cache may be shared across launches",
+    "prefill": "full target prefix decode through logits ready, after KV clear",
+    "decode": "all 64 forced T1 calls per case; start immediately before llama_decode, finish after logits ready; four fresh observer-free processes ABBA; case order reversed for second matched pair",
+    "memory": "RSS/HWM/locked/anonymous after text load, before and after full unload; membership/VMA/page samples only outside time in separate quality processes"
+  },
+  "decision": {
+    "functional": "Require same full finite golden outputs for both quality processes, all four timing final rows, 80 compact tensors, every selected/missing expert matches plan, exact compact bytes, inherited interleave, complete teardown to zero and correct providers. Mixed native/compact graph and freed/reloaded allocation checked on owned synthetic buffers.",
+    "regression": "No speedup target or accepted slowdown margin. Publish the two paired differences and the full range of each arm for load, prefill and mean decode by prompt. If ordinary is consistently slower with nonoverlapping ranges in any primary decode case, or repeatable material deterioration in prefill, load or memory, retain original live binary. Look at baseline variation, do not silently broaden a tolerance or exclude early samples. Overlapping distributions with mixed pair directions are unresolved at this precision, not proof of performance equivalence. For ambiguous material change retain existing default pending specific evidence.",
+    "adoption": "Choose the ordinary build only when the functionality/ownership checks pass and the measured profile supports keeping normal use. Limit any adoption to the old hardware, preserve exact prior config and runtime."
+  }
+}

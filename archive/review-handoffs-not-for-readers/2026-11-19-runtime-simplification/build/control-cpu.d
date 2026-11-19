@@ -1,0 +1,24 @@
+/home/codex/projects/llm-lab/ecc9-simplification-20261119/build/control-cpu.o: \
+ /home/codex/projects/llm-lab/be05-followup-20261119/cpu08/control/source/ggml/src/ggml-cpu/ggml-cpu.c \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/./ggml-backend-impl.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/../include/ggml-backend.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/../include/ggml.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/../include/ggml-alloc.h \
+ /home/codex/projects/llm-lab/be05-followup-20261119/cpu08/control/source/xeon-local/iq3-cache.h \
+ /home/codex/projects/llm-lab/be05-followup-20261119/cpu08/control/source/xeon-local/mx-rhs.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/traits.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/ggml-cpu-impl.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/./ggml-impl.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/../include/gguf.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/quants.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/./ggml-common.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/./ggml-threading.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/unary-ops.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/common.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/simd-mappings.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/binary-ops.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/vec.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/../include/ggml-cpu.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/ops.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/tiled/tiled.h \
+ /home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu/llamafile/sgemm.h

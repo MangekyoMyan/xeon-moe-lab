@@ -1,0 +1,119 @@
+実機メイン向け：現行構成の明確化と、最小の簡素化
+2026-11-19 JST / ecc9af41d42c031856b7dfcf52012c5450a52563
+
+CPU交換予定の追記：E5-2630L v2×2 → E5-2697 v2×2（未交換）。下記の12/24等は現機の保存基準であり、新機の既定値ではない。CPU_UPGRADE_E52697V2_ADDENDUM_JA.txtに、旧24論理と新24物理、mask/OpenMP上限、ロード時だけのcompact生成12固定、CPU/GPU分担とcompact配分の再較正をまとめた。交換前の小さな簡素化は継続し、新機向け設定を現在の通常APIへ先に適用しない。
+
+1. 今回の依頼の意味
+
+ユーザーは、直近の不採用が続くことと、将来モデルへの汎用性を重視し、効果の小さい特殊処理や複雑さを減らす方向を提案した。親と6.2独立レビューはこれに賛成する。
+
+shared-prefix試験は完了済み。品質・重なりは成立し、通常時計の日本語+2.086%、Python−0.941%、固定採用条件未達。現候補を不採用として閉じる。現在の通常構成へ追加しない。
+
+次の一巡は「通常構成を一つの入口で識別できるようにする → 通常無効row-localの導線だけを実験側へ隔離する」。速度向上を出す義務を設けない。保守範囲を減らし、現在の出力・必要機能・性能を維持する作業である。
+
+古い03、147/270、04/08/09、hot bank、共有枝の別stream/event設計等を今回の作業として再開しない。過去に完了した試験を未実施に戻さない。以前のZIPは資料として同梱したが、作業指示は本書で更新する。
+
+2. 固定する現行構成
+
+以下はecc9に保存された初期・復旧記録の値。実機メインが現在の実体と照合する。公開記録を読んだ親が、現在の/proc/mapsを観測済みという意味ではない。
+
+config SHA256
+963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43
+
+CPU（mx-prepack/release-candidate-a）
+33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3
+
+llama（sparse-cache/release-v2-a）
+1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26
+
+CUDA（cuda-sort/release-candidate-a）
+45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0
+
+base（gpu-stream-20261103/runtime）
+2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558
+
+frequency19200.plan（過去通常復旧記録で確認されたhash）
+cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6
+
+CPU compact予算120GiB=128,849,018,880 bytes、実使用127,401,984,000 bytes=118.65234375GiB。19,200は選択expert projection数。単純な(layer,expert)19,200組とは扱わない。
+
+基準条件：E5-2630L v2×2、12物理/24論理、512GB、Volta32GB、generation12/prefill24、U1024、interleave0/1、THP無効、GPU routed層37～39、128k/f16 KV、GPU150W/ECC/Standard fan<=70、RAM reserve64GiB。今回の整理ではこれらやモデルを同時に変更しない。
+
+3. 最初に作るもの：短いcurrent manifestと、一つの入口
+
+これは巨大な新しい管理システムを作る指示ではない。既存のmanifest、ビルドコマンド、起動方法を再利用し、次を一つのcurrent entrypointから辿れるようにする。
+
+・4DSOの実パスとhash、provider解決、必要なLD_LIBRARY_PATHと外部runtime依存。
+・CPUで元objectを再利用する場合、その実パス、hash、source出自、compile/link引数。
+・model/quant識別、plan hash、設定fingerprint、コンテキスト・メモリ・配置条件。
+・対照を再現する隔離build出力、候補の出力先、現在の通常構成へ戻す方法。
+・採用済み、通常に組み込むが無効、実験専用、歴史資料という現在の状態。
+
+README/acceptedは2026-11-05基準という歴史を保持する。新currentへの参照を追加して、96GiBの旧基準を現行の120GiB構成と混同しないようにする。旧pendingを新しい実測結果へ勝手に書き換えない。
+
+model/planの結び付けは外側のmanifestでよい。selection-plan.hは名前・型・寸法・ID・予算を検証するが、同名・同shapeの別の重み内容を区別するhashはplan formatにない。ここを理由にloader全体やplan形式を大きく改造する必要はない。実機専用の機密設定やモデル本体の公開も不要。
+
+4. 再構築の範囲を絞る
+
+169a/cpu08/BUILD.jsonには、controlのggml-cpu.cとiq3-cache.cppを再構築したobjectが元と一致し、最終CPUも33aに一致した記録がある。これを現在の環境で利用可能か確認する。
+
+CPU側の整理の対照として必要なのは、同じ入力source/フラグ/依存で未変更controlを作れることと、変更対象以外が同じこと。まず他3DSOを固定したままCPUのcontrolを作る。全CUDA・全上流・全4DSOの完全再ビルドを、この最小変更の必須前提にしない。
+
+期待するhash一致が崩れたら、toolchain、依存、source、絶対path等の理由を説明する。異なるELFを黙って元と同一としない。一方で、完全再現ビルドが後で必要になる部分は残課題に明記し、今の小さな整理と混ぜない。
+
+5. 変更対象：row-localの未使用導線だけ
+
+対象の根拠
+
+・現CPU33aのlinkにはrow-local版iq3-cache.cpp.oが含まれる。
+・今回のbaseline LAUNCHではGGML_CPU_IQ_ROW_LOCALとGGML_CPU_IQ_AUDIT_DIRが未指定。placement.incは未指定時local=false、audit_fd=-1。
+・有効時は4KiBページ、12物理core、CPU0..5/node0と6..11/node1、THP無効、5120×2304のgate/up等に依存。
+・過去11/12のrow-local +0.70%は通常採用に至らず、interleaveを維持。
+・主処理はload時。外すことによるT1高速化は未測定で、目的に置かない。
+
+実機メインと6.2が、通常buildからこの機能の導線を外す最小差分を一つ選ぶ。可能なら実験側の独立patch/sourceとして履歴を保持する。新しい汎用plugin frameworkや多数のbuild flagを作る必要はない。
+
+比較の出発点は現CPU control source。旧sparse-cache版を丸ごと「現在の正解」としてコピーしない。既知差分は同梱SPARSE_TO_CURRENT_ROWLOCAL.diffの5点：placement.incのinclude、owner内options、createの例外表示、mmap後bind、publication前audit。例外表示まで必ず消す指示ではない。削る特殊機能と無関係な改善は保持してよい。
+
+compact lookup/kernel、cache登録・所有権・失敗時処理、MXFP4、CUDA ID整列、通常scheduler、plan、入力量子化はこの変更に混ぜない。同期や寿命管理を「複雑だから」という理由で短絡させない。
+
+baselineで実際にrow-localが有効になっていたなど、ecc9記録と異なる事情が見つかった場合は、差を記録して変更対象を再評価する。ユーザーへ一般論の確認を求める前に、現状、最小差分、影響、戻し方を具体化する。
+
+6. 検証は変更の大きさに合わせる
+
+A. buildと経路
+  対照CPU、候補CPU、固定する他3DSO、model/plan/configを識別。compiler/linker flagsの変更、LTO/fast-math、upstream更新、余分な候補が混ざらないことを確認する。通常候補にrow-local専用導線が入らず、cacheの登録数・使用bytes・miss時fallback・placementが元の通常と一致することを確認する。
+
+B. 出力
+  入力量子化と演算を変更しない整理なので、現controlと同じ固定token列の全logitsのbyte一致を期待する。違えば「近いからよい」と自動採用せず、実際の入力・配置・build差を確認する。有限値も確認する。通常loadingとunloadingでの所有権・後始末を確認する。これはCPUを数値的な絶対正解とする主張ではない。
+
+C. 全体の退行
+  性能時計は観測器なしの同一境界、独立プロセスの対応比較を使う。まず既存trainingの代表ケースを再利用し、固定順序・全値・基準のdriftを残す。初回の扱いを結果を見て変えない。変更はload時なので読み込み/メモリとdecodeを区別し、必要なprefillの確認も行う。新しい大規模ベンチマーク網を作る指示ではない。
+
+  単なる不採用高速化の再挑戦ではないため、今回のshared-prefixの0.5%改善線を削除判定へ流用しない。速度損失を意図して許す合意もまだ置かない。機能・数値・通常性能を維持し、実験固有の責任範囲が減ったことを評価する。揺らぎ以下なら「差なしの証明」ではなく、その精度では差を識別できないと報告する。
+
+  差が明確に悪化する場合は、controlと候補の違いを調べ、簡素化差分を縮めるか候補を保留する。よい比を得るためだけの追加反復や後出し除外はしない。必要な懸念が解消したら追加テストを増やし続けない。
+
+D. 通常反映
+  通常サービスの操作、現在の承認範囲、復旧は実機メインが一貫して管理する。既存承認で可能な隔離作業はそのまま進める。新たな不可逆操作や範囲外の利用判断が必要な場合だけ、具体物と根拠を揃えて判断を求める。本書を新しい一律の承認手続きにしない。
+
+7. 6.2とメインの役割
+
+6.2 Astra/max：current sourceと出自の対応、最小差分、既存control buildの適用、根拠付きの実行記録の整理を担当。探索範囲は上記一つの変更に絞る。使うモデル指定と返却された解決情報を区別して記録する。
+
+メイン：現行provider/実ライブラリの確認、候補とcontrolの境界、演算・所有権・例外・破棄順の独立レビュー、実機の実行窓、全値を使った採否、通常構成の維持を担当。6.2の要約だけではなく、実行したsourceとrawから確認する。人数やレビュー枚数を増やすことを目的にしない。
+
+今回のローカル6.2レビューは、sourceとカウンタで「計画を毎T1作り直す」という仮説を退けた。一方、compact使用bytesの3桁抜けがあり、親が発見して訂正した。実機前回草稿のbackend寿命問題と合わせ、単位・実行版・所有権の独立確認を特に継続する。
+
+8. 今回の完了報告に必要な最小内容
+
+・現行current entrypointとmanifest。旧11/05基準との関係。
+・CPU controlの再構築結果と元との差。全4DSO全面rebuild未実施ならそのまま明記。
+・row-local隔離の最小diff、通常/実験の入口、影響範囲。
+・出力・メモリ/placement・通常時計の実結果。改善しなかったことも報告する。
+・通常採用/保留、現在の実ロード構成、戻した場合のreceipt。
+・今後の新モデルで共通に使う機構と、profile/planを作り直す部分。
+
+資料収集やビルド系の整理だけで今回の窓を終える事情がある場合、何が具体的に完了し何が未実施かを示す。「今回row-localを隔離した」と先取りして書かない。
+
+根拠はROOT_REVIEW_ECC9_JA.txt、ecc9_review_2026-11-19/runtime_inventory/RUNTIME_LEDGER.jsonと60原文、ecc9_review_2026-11-19/source/の239原文。実行版はecc9_review_2026-11-19/source/prefix-engine/、ecc9_review_2026-11-19/source/astra62/prefix-candidate/は未実行草稿を含むため混同しない。
