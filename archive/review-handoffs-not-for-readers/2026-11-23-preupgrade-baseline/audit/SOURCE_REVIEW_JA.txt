@@ -1,0 +1,30 @@
+交換前の実機測定に使う資料と観測方法の独立確認
+
+11月19日の実機ファイルと同梱参照のSHA-256
+
+driver.cpp      6db0f56d8437e9317ceb392309dfb3ef33190956e50cbc9c92024bef67fe51bc
+run_trial.py    595196bcf6defdda5ea15d046af17a88d0e67ec0b74fb106bd8868a41ceac060
+CASES.json      0458b7a358d0eb3a0c289eb1a1aa9903ee0bb972158acc64abbf0952f472d746
+runtime.json    dc834d2a4cbdf824f7e8702a87629e4fe4af5b19f0dadeedceb8865bbdcda6ee
+
+4件とも実機の既存資料とバイト一致した。現行指定は11月19日版runtime.jsonで同定できる。llm-lab/AGENTS.mdによると、CPUライブラリ2626bb83の試験は完了しており、通常APIは33a9e346に復旧済みである。今回の稼働値は新規のproduction-beforeで照合する。
+
+計測コードと参照出力
+
+11月19日版driverは入力時の12/24を固定検査し、RUN.contextにも同じ数を定数で記入する。projector initには生成用スレッド設定を渡す。P12では入力・生成のCLI、解析済みマスク、起動直後のOS許可集合、contextのgetterをそれぞれ照合する必要がある。projectorの設定と計時も個別に確認する。
+
+旧run_trial.pyは全行のhistorical gold一致を必須とする。今回の品質出力は11月19日版quality-controlの全65行と数値比較する。また、各タイミングrunで保存する最終行は、同じケースの今回のOLD_P12品質出力の最終行を照合先とする。
+
+11月19日の通常12/24 controlの2本をRUNの生時刻から再集計した。日本語128回は平均130.086960578125 ms、7.687165535699023 T1/秒。Python 128回は平均131.4499984765625 ms、7.607455394366549 T1/秒。各中央値、nearest-rank p95、最大、prefill平均も同梱のHISTORICAL_CONTROL_BASELINE.jsonに一致した。今回のP12速度に数えるのは新規タイミング2プロセスの256回である。
+
+CPU workerの観測範囲
+
+deepseek41-bringup-20261101/source/common/common.cpp の1421行でcommon_initがthreadpoolを初期化する。1795行以降で厳密マスクとスレッド数を引き継ぎ、1860行でcontextへ接続する。CPU33a9e346の実体にはOpenMPシンボルがあり、同じrelease-candidate-a/sources/ggml-cpu.c の3650〜3666行で各グラフの実チーム数をOpenMPから得て、参加workerのaffinityを適用する。公開済みのcontext getterは設定スレッド数を返す。
+
+既存のobserve_bottlenecks.pyには各TID別のschedstatと許可CPUの採取例がある。qualityウォームアップの前後差分から、指定した物理コアへの割り当てと各TIDのCPU使用を補足できる。各OpenMP領域の参加TIDを直接示すには領域内の識別情報を要する。確認できた既存のCPUライブラリに該当する照会APIはなく、通常ユーザーからはperf_event_paranoid=3でtracefsのuprobesもアクセス制限された。11月3日のlive_probe.pyは別API試験と診断トレースを起動する古い制御プログラムである。
+
+スナップショットと受信時計
+
+capture_snapshot.pyの外部コマンドはlscpu --json、dmidecode --type 17、nvidia-smi -q -xの読み取り照会である。プロセスのコマンドと環境を内部で読み、出力を設定項目で絞る。参照のファイルパス検査は絶対パスと「..」を除外するため、現物との照合には上記の固定参照と実ファイルの確認を用いた。GGUFとprojectorでは既存receiptのハッシュと各ファイルのsize/statが今回の証拠となる。
+
+capture_stream.pyは指定URLへリダイレクト・再試行・環境プロキシなしで1回のPOSTを送り、要求と応答の本文を保存する。実機ラッパーは接続先の所有経路を確認し、固定の非機密要求を用いる。audit/replay_stream.pyは保存済み本文を改めて区切り、各イベントが完成したbyte位置をreadsの単調時計に対応付けた。audit/STREAM_REPLAY.jsonがその再計算結果である。

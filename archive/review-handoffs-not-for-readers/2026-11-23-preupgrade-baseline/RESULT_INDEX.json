@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "status": "completed",
+  "real_capture_started_at": "2026-11-23T07:30:28.648090+00:00",
+  "real_capture_finished_at": "2026-11-23T07:55:40.388288+00:00",
+  "host": "x9ram",
+  "actual_cpu": {
+    "model": "Intel(R) Xeon(R) CPU E5-2630L v2 @ 2.40GHz",
+    "sockets": 2,
+    "physical": 12,
+    "logical": 24
+  },
+  "source_kit_sha256": "717921619f5fd6f3e875a0b8b63ced398538d0418b6010acdf680d51e640d336",
+  "execution_protocol_sha256": "ed608ddbb6d4de23341605ab512fcedf00346b53dd76dc6de5d7b5fdb2f47e07",
+  "current_baseline_identity": {
+    "config_sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+    "normal_start_pid": 7207,
+    "normal_restored_pid": 30434,
+    "mapped_runtime_hashes": {
+      "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+      "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26",
+      "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0",
+      "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+    },
+    "plan_sha256": "cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6",
+    "model_download_manifest_sha256": "2e28c7078295069169287b27e57d448fc5b3afbdf861d309bb52752770872a1f",
+    "runtime": "intake/reference/current_runtime_633e.json"
+  },
+  "deviations_and_reasons": [
+    "The before/after collector used its verified 633e local reference and saved only allowlisted runtime fields. The normal stream used the API's configured same-host interface.",
+    "Standard Linux perf sampled only the Japanese quality case. The two primary timing processes contain no perf recorder; per-graph worker counts remain unmeasured."
+  ],
+  "artifacts": {
+    "before_snapshot": "production-before/snapshot.json",
+    "direct_stream": "stream/summary.json",
+    "direct_stream_raw": "stream/response_body.bin",
+    "topology_and_selected_physical_cores": "TOPOLOGY.json",
+    "resolved_conditions": "trial/DESIGN.json",
+    "quality_run": "trial/runs/old-p12-quality-01/RUN.json",
+    "timing_runs": [
+      "trial/runs/old-p12-timing-01/RUN.json",
+      "trial/runs/old-p12-timing-02/RUN.json"
+    ],
+    "quality_comparisons": "trial/QUALITY_COMPARISON.json",
+    "timing_aggregate": "TIMINGS.json",
+    "harness_source_and_binary": {
+      "source": "trial/driver.cpp",
+      "header": "trial/affinity_check.h",
+      "build": "trial/BUILD.json",
+      "local_binary": {
+        "path": "/home/codex/projects/llm-lab/preupgrade-baseline-20261123/local-frozen/p12-benchmark-driver",
+        "sha256": "b32c3777afd478e0a726f898795c3bcbe14005c69fd4f116083c87520f646994",
+        "bytes": 8151648
+      }
+    },
+    "runtime_exe_dso_model_plan_receipts": [
+      "FROZEN_ASSETS.json",
+      "production-before-live.json",
+      "intake/reference/current_runtime_633e.json",
+      "PLAN_MEMBERSHIP.json"
+    ],
+    "host_observations": "QUALITY_HOST_EVIDENCE.json",
+    "restore_evidence": [
+      "RESTORED_P12.json",
+      "API_WINDOW_P12.json",
+      "production-after-live.json"
+    ],
+    "after_restore_snapshot": "production-after/snapshot.json",
+    "independent_review": "audit/FINAL_REVIEW_JA.txt",
+    "sha256_manifest": "FILES_SHA256.json"
+  },
+  "actual_decode_team_observed": null,
+  "actual_prefill_team_observed": null,
+  "loaded_weight_contents_rehashed_this_capture": false,
+  "unknown_fields_and_reasons": [
+    {
+      "field": "full current GGUF content equality",
+      "reason": "Nine small reference files were hashed and all eight weights' current sizes and stable stats were checked. Re-reading 347,349,300,224 bytes of weights was unnecessary."
+    },
+    {
+      "field": "actual team membership of every individual compute graph",
+      "reason": "Context getters, process allowance, /proc thread CPU runtime and process-scoped sampled PCs were obtained. They do not enumerate every worker at each graph invocation."
+    },
+    {
+      "field": "prefix cache state before the direct request",
+      "reason": "No prior private conversations were inspected. The server reported zero cached prompt tokens for this request."
+    },
+    {
+      "field": "first reasoning receive time",
+      "reason": "No reasoning delta in this particular stream."
+    },
+    {
+      "field": "new CPU performance and browser token display time",
+      "reason": "This is an old-hardware pre-upgrade capture from a direct client and an internal fixed-token harness."
+    }
+  ],
+  "guard_or_invalid_run_events": [],
+  "restored_normal_api": true,
+  "baseline_comparison_ready": true,
+  "historical_reference": {
+    "file": "intake/reference/HISTORICAL_CONTROL_BASELINE.json",
+    "date": "2026-11-19",
+    "conditions": "old production 12/24, separate independent existing data, not pooled"
+  },
+  "summary_japanese": "SUMMARY_JA.txt",
+  "real_capture_started_jst": "2026-11-23T16:30:28.648090+09:00",
+  "real_capture_finished_jst": "2026-11-23T16:55:40.388288+09:00",
+  "executor": "Codex parent: real machine and API, Astra subagent: independent audit",
+  "resolved_design_sha256": "f18fc0c426a1f99cff80f2fba661ad87a27b2ad25b8983975654865edfa0c4f8",
+  "source_reference_commit": "633e8862c9e80f87d937b4a85ba174b7122558be",
+  "sampled_worker_evidence": {
+    "decode_distinct_numeric_tids": 12,
+    "prefill_distinct_numeric_tids": 0,
+    "scope": "Japanese quality case, sampled application instruction pointers. This is not a direct team census."
+  },
+  "quality_reference_hashes": {
+    "text_cache_budget_ja.f32": "35d028fed9fa08bbe8f304c598ced362ff466aff176ecf407133c0a1870bbd64",
+    "code_stable_grouping_python.f32": "077eefd33928bfbec340162c5b5e54c2bbad9e4ac3ae72bc23f38a7a33d69d01"
+  },
+  "tail_equal": {
+    "old-p12-timing-01/text_cache_budget_ja.f32": true,
+    "old-p12-timing-01/code_stable_grouping_python.f32": true,
+    "old-p12-timing-02/code_stable_grouping_python.f32": true,
+    "old-p12-timing-02/text_cache_budget_ja.f32": true
+  },
+  "unload_gates": "Each of three explicitly released model/context registries and VmLck returned zero; exclusive resource guard before each new launch, normal restore enforced <=128 MiB GPU used before startup."
+}

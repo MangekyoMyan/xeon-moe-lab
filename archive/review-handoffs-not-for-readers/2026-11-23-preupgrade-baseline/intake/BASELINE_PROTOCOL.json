@@ -1,0 +1,217 @@
+{
+  "schema": 1,
+  "document_date_jst": "2026-11-23",
+  "status": "prepared_for_real_machine_execution",
+  "real_machine_capture_performed_here": false,
+  "old_cpu_expected": "Intel Xeon E5-2630L v2 x2",
+  "new_cpu_purchased_user_report": "Intel Xeon E5-2697 v2 x2",
+  "new_cpu_installation_observed": false,
+  "source_commit": "633e8862c9e80f87d937b4a85ba174b7122558be",
+  "reference_profile": "reference/current_runtime_633e.json",
+  "reference_profile_sha256": "dc834d2a4cbdf824f7e8702a87629e4fe4af5b19f0dadeedceb8865bbdcda6ee",
+  "priority": "Record actual live state; do not silently restore a historical runtime if intentionally changed",
+  "conditions": {
+    "OLD_PRODUCTION": {
+      "role": "actual current ordinary API",
+      "historical_threads_requested": {
+        "decode": 12,
+        "prefill": 24
+      },
+      "historical_masks": {
+        "decode": "0xffffff",
+        "prefill": "0xffffff"
+      },
+      "current_runtime_identity": "must_observe",
+      "snapshot_before_and_after_restore": true,
+      "direct_stream_requests": 1
+    },
+    "OLD_P12": {
+      "decode_threads_requested": 12,
+      "prefill_threads_requested": 12,
+      "physical_cores_per_socket": [
+        6,
+        6
+      ],
+      "smt_representatives_per_physical_core": 1,
+      "selected_os_cpu_ids": null,
+      "decode_mask": "derive_from_selected_os_cpu_ids",
+      "prefill_mask": "same_as_decode",
+      "strict_mask": true,
+      "process_allowed_cpus": "exactly_selected_12",
+      "memory_interleave_nodes": [
+        0,
+        1
+      ],
+      "actual_decode_team_observed": null,
+      "actual_prefill_team_observed": null,
+      "quality_processes": 1,
+      "timing_processes": 2,
+      "timing_T1_calls_total": 256
+    },
+    "NEW_P12": {
+      "execute_now": false,
+      "definition": "repeat OLD_P12 on new CPU with new topology-derived OS IDs",
+      "comparison": "system performance at fixed physical core count; not isolated IPC"
+    },
+    "NEW_D24_B12": {
+      "execute_now": false,
+      "decode_threads_requested": 24,
+      "prefill_threads_requested": 12,
+      "physical_decode_cores_per_socket": [
+        12,
+        12
+      ],
+      "prefill_cores": "same selected 6+6 as NEW_P12",
+      "process_allowed_physical_cores": 24,
+      "comparison": "operational change includes larger process-wide CPU allowance",
+      "projector_init_threads_requested": 12,
+      "optional_causal_bridge": "NEW_D12_B12_ALLOWED24 only if later needed"
+    }
+  },
+  "runtime_pins": {
+    "exe_and_four_dsos": "actual current baseline; save hashes and maps, same after upgrade",
+    "model_projector_plan_and_compact": "same existing verified assets and receipts",
+    "context": 131072,
+    "batch": 1024,
+    "ubatch": 1024,
+    "kv_types": [
+      "f16",
+      "f16"
+    ],
+    "parallel_slots": 1,
+    "packing_threads_at_load": 12,
+    "OMP_THREAD_LIMIT_historical": 24,
+    "gpu_routed_layers_historical": [
+      37,
+      38,
+      39
+    ],
+    "offload_thresholds_historical": {
+      "ordinary": 64,
+      "mxfp4": 64
+    },
+    "gpu_power_limit_W_historical": 150,
+    "gpu_ecc_historical": "Enabled",
+    "THP": "same existing disabled wrapper",
+    "host_reserve_bytes": 68719476736,
+    "changes_if_live_differs": "record and freeze actual baseline; never fabricate identity"
+  },
+  "fixed_cases_file": "reference/CASES_633e.json",
+  "fixed_cases_sha256": "0458b7a358d0eb3a0c289eb1a1aa9903ee0bb972158acc64abbf0952f472d746",
+  "fixed_cases": [
+    {
+      "case_id": "text_cache_budget_ja",
+      "split": "train",
+      "prefix_count": 272,
+      "prefix_ids_i32_sha256": "eca5e6bc0b44742f30863e58fe400ff3054c408babf4e8f2989b19f9e2d9bab9",
+      "used_T1_ids_i32_sha256": "e7199d5b1929cb06a95f8443ce83e48673423c228dd73be429dfefbcf9e2f39c",
+      "first_T1_position": 272,
+      "T1_calls": 64,
+      "quality_rows": 65,
+      "vocab_size": 129280
+    },
+    {
+      "case_id": "code_stable_grouping_python",
+      "split": "train",
+      "prefix_count": 240,
+      "prefix_ids_i32_sha256": "50f8cbe7f638cec65acd255131f3e3f3c3df01bccca811e92f9a2ccce69c852a",
+      "used_T1_ids_i32_sha256": "7335603e65a997790df3b2459fe2ee117350dc5501cd3d67dcabaf32e641b28a",
+      "first_T1_position": 240,
+      "T1_calls": 64,
+      "quality_rows": 65,
+      "vocab_size": 129280
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "old-p12-quality-01",
+      "condition": "OLD_P12",
+      "stage": "quality",
+      "case_indices": [
+        0,
+        1
+      ],
+      "save_rows_per_case": 65,
+      "included_in_performance_aggregate": false
+    },
+    {
+      "run_id": "old-p12-timing-01",
+      "condition": "OLD_P12",
+      "stage": "timing",
+      "case_indices": [
+        0,
+        1
+      ],
+      "save_rows_per_case": 1,
+      "included_in_performance_aggregate": true
+    },
+    {
+      "run_id": "old-p12-timing-02",
+      "condition": "OLD_P12",
+      "stage": "timing",
+      "case_indices": [
+        1,
+        0
+      ],
+      "save_rows_per_case": 1,
+      "included_in_performance_aggregate": true
+    }
+  ],
+  "process_policy": {
+    "one_model_process_at_a_time": true,
+    "new_process_each_run": true,
+    "file_cache": "retain OS cache, no drop_caches; full residency not guaranteed",
+    "warmup": "same driver: JA first64, clear, JA full prefix +4 T1, clear",
+    "kv_clear_between_cases": true,
+    "timing_begin": "immediately before llama_decode",
+    "timing_end": "after llama_get_logits_ith(-1) returns ready output",
+    "all_first64_included": true,
+    "model_load_prefill_projector_unload_separate": true,
+    "full_logits_or_eval_observer_in_primary_timing": false
+  },
+  "quality": {
+    "direct_future_reference": "OLD_P12 quality full raw logits",
+    "historical_normal_gold": "separate normal 12/24 reference; record differences",
+    "timing_tail_reference": "same-case OLD_P12 quality last row",
+    "finite_shape_input_checks": true,
+    "comparison_metrics": [
+      "byte_equal",
+      "max_abs_error",
+      "NMSE",
+      "argmax_changes"
+    ],
+    "NMSE_definition": "sum((observed-reference)^2)/sum(reference^2); undefined if denominator zero",
+    "silent_tolerance_relaxation": false,
+    "numeric_match_proves_general_answer_quality": false
+  },
+  "statistics": {
+    "per_case_and_process": [
+      "N",
+      "mean_ms",
+      "median_ms",
+      "p95_ms_nearest_rank",
+      "max_ms",
+      "raw_start_ready_ns"
+    ],
+    "T1_per_second": "N / sum(T1_seconds)",
+    "independent_timing_processes": 2,
+    "token_samples_are_independent_runs": false,
+    "retry_until_good_result": false,
+    "pool_historical_and_new_samples": false
+  },
+  "restore_required": [
+    "same normal config",
+    "health",
+    "fresh PID and maps",
+    "no test thread settings left active",
+    "existing guard and memory reserve retained"
+  ],
+  "completion_gate": "Require real artifacts and restore evidence; this protocol is not a completed baseline",
+  "limitations": [
+    "Virtual fixtures do not validate the engine, CUDA or Xeon performance",
+    "One natural stream and two teacher cases are limited workloads",
+    "Snapshot affinity does not prove active decode team",
+    "SSE read/event times are not model token generation timestamps",
+    "Dynamic clocks and DIMM speeds must be observed or left unknown"
+  ]
+}

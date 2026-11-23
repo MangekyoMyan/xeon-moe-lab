@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "date_jst": "2026-11-23",
+  "scope": "virtual owned fixtures and static source review only",
+  "real_machine_contacted": false,
+  "real_model_loaded": false,
+  "engine_or_CUDA_benchmarks_run": false,
+  "engine_files_modified": false,
+  "source_review": {
+    "parent": "source review and historical raw arithmetic check",
+    "independent_agent": {
+      "model_requested": "gpt-6.2-astra",
+      "reasoning_effort_requested": "max",
+      "documents": [
+        "reviews/BASELINE_REVIEW_JA.txt",
+        "reviews/TOOLS_REVIEW_JA.txt"
+      ]
+    }
+  },
+  "tests": {
+    "command": "python -m unittest discover -s tests -p 'test_*.py' -v",
+    "cwd": "kit",
+    "count": 26,
+    "passed": 26,
+    "failed": 0,
+    "exit_code": 0,
+    "python": "3.12.14",
+    "snapshot_fixtures": 13,
+    "stream_fixtures": 13,
+    "stream_network_scope": "127.0.0.1 fake HTTP only",
+    "log": "fixture-tests.log"
+  },
+  "historical_recount": {
+    "source_control_processes": 2,
+    "calls": 256,
+    "candidate_excluded": true,
+    "fixed_case_ids_and_positions_cross_checked": true,
+    "new_measurement": false
+  },
+  "tool_sha256": {
+    "tools/README_capture_snapshot.txt": "a3f73997fbb7e5902a0c8873f1dee4703d098629b29973e388c3d15fc137149e",
+    "tools/README_capture_stream.md": "13703c8933c411f68e6a4fd3b9e9cf2ba85abcdb819dc343e615af6bf79efed6",
+    "tools/capture_snapshot.py": "47bb87b648f0bc50b288383525f580f181c181271b1b184b8ca2f92f03dcfbaf",
+    "tools/capture_stream.py": "1fd4259d44a9f5c96efc89ad810854fefdc04f22422e1fee115d02883503d08d"
+  },
+  "final_document_crosscheck": {
+    "by": "independent gpt-6.2-astra max",
+    "static_only": true,
+    "files": [
+      "USER_REPORT_PREUPGRADE_JA.txt",
+      "MAIN_PREUPGRADE_INSTRUCTIONS_JA.txt",
+      "BASELINE_PROTOCOL.json",
+      "RESULTS_TEMPLATE.json"
+    ],
+    "no_material_conflicts_reported": true,
+    "wording_adjusted_to_avoid_presuming_future_speedup": true
+  },
+  "source_and_packaging_checks": {
+    "historical_current_files_match_previous_root_snapshot": true,
+    "previous_zip_preserved_sha256": "229e4e8e7774ed83e6088785f8e4d7d6adf4be76b1ecab45fd8e102c61c22a3c"
+  }
+}

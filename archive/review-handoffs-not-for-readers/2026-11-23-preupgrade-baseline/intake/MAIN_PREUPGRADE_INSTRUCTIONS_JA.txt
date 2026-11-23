@@ -1,0 +1,208 @@
+実機メイン向け：CPU交換前の固定基準記録
+2026-11-23（日本時間）／新しい実機測定は未実施
+
+目的と終了条件
+  E5-2630L v2 ×2を外す前に、現在の通常状態と共通12物理コア条件を保存する。
+  今回はエンジン最適化、簡素化候補の採用、GPU配置の再探索を同時に行わない。
+  新規記録、品質比較、通常APIへの復旧確認、結果の索引が揃ったら終了する。
+  良い数字が出るまでの再実行や、全スレッド数探索を始めない。
+
+0. 受け取り時の確認
+  00_READ_FIRST_JA.txt と BASELINE_PROTOCOL.json を読み、この実施案を基準にする。
+  前回の統合ZIPは previous_handoff/ に同梱した。履歴・参照ソースとして扱う。
+  この環境で検証したのは収集ツールの機能26件だけ。CPU性能・CUDA・実モデルは未測定。
+
+  実CPU型番を最初に観測する。旧CPUが既に外されていたら、旧CPUの新規記録は
+  「採れなかった」と報告する。新CPUの記録をOLDと名付けて代用しない。
+  購入された新CPUはE5-2697 v2 ×2。交換後の計画は第8節に分離する。
+
+1. 新しい記録先と現在状態
+  実機の /home/codex/projects/llm-lab 以下に、今回専用の新規studyディレクトリを作る。
+  日時とホスト、実施者、コードrev、実施中断の有無を記録する。
+  過去のtrial/STATE.json・RUN.json・成果物を上書きしない。
+  633eのrun_trial.pyはSTATE.completedがtrueだと実行せず戻る。
+  名前だけ変更して過去の完了済みstudyを再利用しない。
+
+  通常APIの実際のPIDを、その時点で解決して記録する。
+  11/19に記録されたPIDをそのまま流用しない。
+  現在の起動設定、サービス状態、exe、実際の/proc/PID/maps上のCPU/CUDA/base/llama、
+  モデルとprojector、配置planの識別値を保存する。
+
+  同梱 capture_snapshot.py は、通常APIの前後確認に使う。
+  --profile reference/current_runtime_633e.json
+  --lab-root /home/codex/projects/llm-lab
+  --pid には今確認したllama-serverのPID、--out は未作成の出力先を指定する。
+  ツール自身はAPI/サービスを変更しない。詳細はtools/README_capture_snapshot.txt。
+
+  633eの通常CPUライブラリは33a9e346...、簡素化候補2626...は未採用だった。
+  現在もそうだと推測せず照合する。差があれば、実際の状態と変更経緯を記録し、
+  意図して動いている現行版を今回の固定基準にする。勝手に過去へ戻さない。
+  同じバイナリ・依存DSOを交換後にも使えるよう保存/識別しておく。
+  参照ファイルは基準の説明であり、実行中の状態を保証しない。
+
+  GGUF7分割とprojectorの合計は参照で347,349,300,224 bytes。
+  既定は既存receipt＋size/stat、内容ハッシュを今回読み直したかはfalse/nullで保存する。
+  不一致やファイル変更の具体的な疑いがなければ--full-weightsを常用しない。
+
+2. OLD_PRODUCTION：普段のAPIを短く記録
+  CPU/OS/BIOS/microcode/DIMM設定、SMT/NUMA、GPU設定、THP、現在のmaskを保存する。
+  負荷中の有効クロックは、既存手段で得られる場合のみ別途記録。
+  /proc/cpuinfoの瞬時MHz、lscpuの範囲、アイドルsnapshotを負荷中の周波数としない。
+  optional項目が権限等で取れなければ、その理由を残す。権限を迂回しない。
+
+  requests/stream_ja.template.json のmodelを実際のserved model名に一度だけ確定し、
+  今回のrequest.jsonとして保存する。固定の非機密promptを使う。
+  その他のsampling、max_tokens、stream_optionsも実際に受け付ける仕様を確認し固定する。
+  認証が必要なら既存の環境変数名を--api-key-envに渡す。キーを資料に転記しない。
+  このツールは指定JSONをそのまま送る。prompt/応答は生保存する。
+
+  実機上から直接APIへ、capture_stream.pyで1回POSTする。
+  --urlには実際の完全な /v1/chat/completions URL、
+  --requestには確定JSONのファイルパス、--outには新規ディレクトリを使う。
+  温度0等でも出力一致は保証しない。出力token IDsが固定された内部試験と混同しない。
+  APIのprefix cache状態、直前利用の有無が分かれば記録。不明ならunknownとする。
+
+  保存するのはrequest、raw本文、read/SSE時刻、content/reasoning別TTFT、
+  サーバーが返したusage、finish reason、DONE、EOF、受信間隔の中央値/p95/max/0間隔件数。
+  SSEイベント数から生成token数を作らない。usage不足によるpartialは生成失敗の断定ではない。
+  直結の記録とOpenWebUI経由の表示は観測位置が違う。
+  OpenWebUI追加試験は現象が残り切り分けが必要な場合だけ。今回の必須測定は直結1回。
+  自動再試行しない。失敗なら受信済み記録と理由を残し、必要な修正を明記して別runにする。
+
+3. OLD_P12：交換後にも残す共通条件
+  現在の通常設定（参照はdecode12/prefill24、両mask0xffffff）とは別の測定条件とする。
+  使用可能CPUの実トポロジーから、各socket 6個の物理コアを選び、
+  各物理コアからSMT siblingを1個だけ選ぶ。
+  その12個をdecodeとprefill双方のstrict maskに指定する。
+  numactl等によるプロセス全体の許可CPU集合も同じ12個にする。
+  decode_threads=12、prefill_threads=12。旧機のCPU番号0〜11は参考例で、再観測を優先する。
+  物理コアの同一性は(socket,core)で判定する。両socketに同じcore IDがあり得る。
+  生成12を指定しただけの通常運用を、12物理コアで固定済みだと表現しない。
+
+  OSのメモリ配置は参照と同じinterleave=0,1、THP無効化は既存wrapperを使用。
+  OMP_THREAD_LIMITは参照24のまま記録し、他のthreading環境も固定する。
+  実際にdecodeで使用したteamと、その参加TID/affinityが取れる既存観測があれば、
+  quality/warmup側で確認し保存する。全OSスレッド数や1回のlast_cpuだけでは証明しない。
+  既存手段で直接観測できない場合はactual_decode_team_observed=false/unknownを保存し、
+  指定値・OS許可範囲・観測結果を別々に報告する。新しい大規模トレーサーは作らない。
+
+  以下は参照のまま固定する（実機現行に差があれば差を記録して固定し直す）：
+    同一exe/DSO、同一重みと量子化、plan、compact対象/容量、GPU上の層、
+    offload閾値、batch/ubatch=1024、context=131072、KV=f16/f16、parallel slot=1、
+    packing-at-loadのworker=12、RAM予備64GiB、mlock/mmap、lazy off、
+    projectorの有無・初期化、GPU電力150W/ECC、fan設定、環境変数。
+  packing-at-load=12はロード用の設定であり、生成worker数の固定上限ではない。
+
+4. 測定ハーネスで必要な最小変更
+  同梱reference/driver_633e.cppは参照用。通常12/24がguardに直書きされ、
+  RUN.contextにも12/24がliteralで書かれている。
+  コマンドの-tbだけ12に変更するとguardで止まる。guardを削除して通してはいけない。
+  run spec→引数→期待条件guard→実context/worker観測→RUN保存を一貫させて、
+  OLD_P12の12/12を正しく検証する小さな変更を実機で行う。
+  汎用的な検証・記録部分の変更とし、エンジンの演算カーネルは変えない。
+  新旧CPUでこの同じ測定ハーネスのソース・ビルド条件・バイナリを使えるよう固定する。
+
+  argv/specを記録しただけでactualと書かない。
+  取得可能なcontext/getterとphase観測をactual欄に、指定値をrequested欄に分ける。
+  既存driverのvp.n_threadsはdecode設定を参照している。
+  projector initのworkersも12に固定して記録するか、変更を明示して初期化時計を分離する。
+  今回のP12ではどちらも12。将来decode24にする際の見落としを防ぐ。
+
+  既存のprovider pin、配置、compact bytes、有限値、終了後registry=0などのguardは維持する。
+  new studyのSTATEを新規作成し、run spec/順序を実行前に保存する。
+  失敗したrunを消さず、無効理由を記録する。物理条件等の修正後は別run IDとする。
+
+5. 実行順と時間測定
+  既存の保守window・実行guard・失敗時復旧手順を使う。
+  通常APIは参照で約425GiB RSS。常駐APIと別のフルモデルを同時にロードしない。
+  API停止が必要な測定は、既存の実機側運用に従い復旧まで一続きに行う。
+  64GiBの予備RAM guardやハードウェアの既存制限を勝手に下げない。
+
+  予定は次の3独立プロセスだけ：
+    old-p12-quality-01：quality、日本語→Python、全65row×129280語彙×2課題を保存。
+    old-p12-timing-01 ：timing、日本語→Python、各64回T1。
+    old-p12-timing-02 ：timing、Python→日本語、各64回T1。
+  各プロセスを終了・unloadしてから次を起動する。
+  性能集計の対象はtiming2本、128回/課題、計256回。qualityの時刻は混ぜない。
+
+  CASES.jsonは同梱の固定token IDs、positions、next targetsをそのまま使う。
+  日本語prefix272、Python prefix240。tokenizer/chat templateで再生成しない。
+  各ケースの前にKV clear。元driverと同じ共通warmup
+  （日本語最初64→clear→日本語全prefix＋reference T1を4回→clear）を使う。
+  各ケースの64回は最初の1回から含め、都合のよい外れ値除外をしない。
+  load/context、projector init、warmup、prefill、T1、unloadの時計を分ける。
+  T1はllama_decodeの直前からllama_get_logits_ithで出力readyになる直後まで。
+  GPU非同期処理を未完了のまま速いと判定しない。既存のready契約を維持する。
+  1回ごとのstart_ns/output_ready_ns/statusを保存する。
+  詳細logits保存・大きな観測callback・統計集計はtiming区間に入れない。
+  timingは最後の1rowのみ保存し、同じOLD_P12品質runの最後のrowと比較する。
+
+  OSページキャッシュは維持する。fresh process / OS cache保持という条件であり、
+  全ページの事前residentを保証するものではない。冷たいHDDからのロード試験でもない。
+  既存ログにpage faultや実I/O量があれば残す。drop_caches、巨大ファイル全走査を追加しない。
+  GPU/CPU温度・clock・loadの既存監視ログがあれば残し、頻度と観測方法も記録する。
+  新しい高頻度監視を主測定に混ぜない。
+
+6. 数値・速度の評価
+  固定入力/形/位置/status/有限値を最初に確認する。
+  OLD_P12品質出力と11/19通常品質goldは別参照として比較する。
+  prefill24→12で加算順が変わり得るため、違った場合も消さず最大絶対差・NMSE等を保存する。
+  bit一致を未確認のまま「同じ出力」と書かない。数値差だけで回答品質の悪化とも断定しない。
+  NEW_P12を将来比較する直接参照は今回のOLD_P12品質raw。
+  今回のtiming末尾rowは同じOLD_P12品質末尾rowへの一致を確認する。
+  不一致があれば理由未解決を明示し、勝手な許容誤差を追加してpassにしない。
+  記録自体は保持し、性能比較の確定を保留する。
+
+  速度はcase/process別のN、平均、中央値、p95(nearest-rank)、max、全raw時刻を保存。
+  対応するT1/秒は N / sum(T1秒)。各回の瞬間TPSを平均しない。
+  プロセス平均の範囲も出す。2本のプロセスしかないことを明記し、
+  128tokenを独立した128回の実験として信頼区間を小さく見せない。
+  コールドロード、prefill、decode、API受信は別々に比較する。
+  今回ロードはwarm OS cacheであるため、coldというラベルを付けない。
+  2課題だけで「日本語全般の方が遅い」「モデル全体の品質が同じ」と結論しない。
+
+7. 復旧と納品
+  3プロセスの終了・unload/registry解除・RAM/GPU使用の戻りを確認する。
+  既存手順で通常APIを元の設定へ戻し、health、PID、実maps/4DSO hash、configを確認。
+  復旧後snapshotは実際の新PIDを使う。benchmark driver PIDをserver PIDとして渡さない。
+  通常APIのthread設定を12/12へ恒久変更しない。
+
+  次を結果ZIPへ保存する：
+    SUMMARY_JA.txt：完了/部分完了、実CPU、何を測ったか、比較可能性、復旧結果。
+    RESULT_INDEX.json：RESULTS_TEMPLATEを埋め、全ファイルの所在と未取得理由を記録。
+    before/after snapshots、確定requestとSSE生記録、topology/選択core一覧、
+    spec、RUN×3、quality/末尾row raw、品質比較、timing再集計、
+    harness source/build/バイナリSHA、実exe/4DSO/config/plan識別、
+    source manifest、実行順/時刻/guard、復旧記録。
+  今回raw logits約67MB＋末尾rowを含め、再比較できる形を優先する。
+  secretや私的なpromptは同梱しない。ログには固定の非機密promptだけを使う。
+  署名なしの簡単なSHA manifestでよい。参照値/実測値/unknownを別欄にする。
+
+8. 交換後の順序（今回まだ実行しない）
+  1) 新CPU型番、2socket/物理core、DIMM設定速度、BIOS/OS/microcode、
+     GPU/電力/冷却、現在の使用可能CPU集合を再観測。
+  2) NEW_P12：各socket6物理、decode12/prefill12、process allowedもその12個。
+     同じbinary/model/plan/プロトコルで今回のOLD_P12に対応させる。
+     これは同じ12物理コアを使う新旧システム比較。純IPC差とは呼ばない。
+  3) NEW_D24_B12：decodeは各socket12物理、prefillは前段の12個のまま、
+     process allowedを24物理に広げる。これはその運用変更の効果を測る。
+     decode workerだけの純粋な因子分離が必要なら、将来
+     NEW_D12_B12_ALLOWED24を橋渡し条件に追加する。交換前に増やす必要はない。
+  4) workerを決めてからprefill、CPU/GPU配分、offload閾値、compact配分を別々に考える。
+     モデル由来の頻度記録は再利用できるが、旧CPUの処理時間で決めた価値は再評価する。
+  新CPU向けに旧mask 0xffffffをそのまま使わない。実トポロジーから選ぶ。
+
+9. 6.2 maxサブエージェントへの依頼範囲
+  mainが実行と復旧を所有し、6.2には以下を独立確認させる：
+    ・spec/argv/guard/RUNが12/12と実物理core条件で一致すること。
+    ・Nov19 gold、OLD_P12 gold、timing末尾row、自然APIを混同していないこと。
+    ・rawからの独立再集計、未取得値の扱い、process数/順序/失敗記録。
+  実行中に別のモデル・benchmarkを並列に動かさない。
+  本番での提案と採用は別に扱い、今回の記録を最適化実験へ拡張しない。
+
+主要参照
+  固定コミット：633e8862c9e80f87d937b4a85ba174b7122558be
+  current/runtime.json、current/CPU_UPGRADE.md
+  archive/review-handoffs-not-for-readers/2026-11-19-runtime-simplification/
+    trial/driver.cpp、trial/CASES.json、run_trial.py、trial/runs/
+  参照URLとhashはreference/SOURCES.json、過去値はreference/HISTORICAL_CONTROL_BASELINE.json。

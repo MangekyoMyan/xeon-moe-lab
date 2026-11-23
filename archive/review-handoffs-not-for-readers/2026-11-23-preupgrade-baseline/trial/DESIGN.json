@@ -1,0 +1,269 @@
+{
+  "condition": {
+    "name": "OLD_P12",
+    "decode_threads": 12,
+    "prefill_threads": 12,
+    "projector_threads": 12,
+    "decode_cpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "prefill_cpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "process_cpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "decode_mask": "0xfff",
+    "prefill_mask": "0xfff",
+    "strict": true,
+    "interleave_nodes": [
+      0,
+      1
+    ],
+    "OMP_THREAD_LIMIT": 24,
+    "packing_threads_at_load": 12
+  },
+  "stages": [
+    {
+      "name": "old-p12-quality-01",
+      "stage": "quality",
+      "cases": [
+        0,
+        1
+      ],
+      "rows": 65,
+      "condition": {
+        "name": "OLD_P12",
+        "decode_threads": 12,
+        "prefill_threads": 12,
+        "projector_threads": 12,
+        "decode_cpu_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "prefill_cpu_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "process_cpu_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "decode_mask": "0xfff",
+        "prefill_mask": "0xfff",
+        "strict": true,
+        "interleave_nodes": [
+          0,
+          1
+        ],
+        "OMP_THREAD_LIMIT": 24,
+        "packing_threads_at_load": 12
+      },
+      "quality_host_observation": true
+    },
+    {
+      "name": "old-p12-timing-01",
+      "stage": "timing",
+      "cases": [
+        0,
+        1
+      ],
+      "rows": 1,
+      "condition": {
+        "name": "OLD_P12",
+        "decode_threads": 12,
+        "prefill_threads": 12,
+        "projector_threads": 12,
+        "decode_cpu_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "prefill_cpu_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "process_cpu_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "decode_mask": "0xfff",
+        "prefill_mask": "0xfff",
+        "strict": true,
+        "interleave_nodes": [
+          0,
+          1
+        ],
+        "OMP_THREAD_LIMIT": 24,
+        "packing_threads_at_load": 12
+      },
+      "quality_host_observation": false
+    },
+    {
+      "name": "old-p12-timing-02",
+      "stage": "timing",
+      "cases": [
+        1,
+        0
+      ],
+      "rows": 1,
+      "condition": {
+        "name": "OLD_P12",
+        "decode_threads": 12,
+        "prefill_threads": 12,
+        "projector_threads": 12,
+        "decode_cpu_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "prefill_cpu_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "process_cpu_ids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "decode_mask": "0xfff",
+        "prefill_mask": "0xfff",
+        "strict": true,
+        "interleave_nodes": [
+          0,
+          1
+        ],
+        "OMP_THREAD_LIMIT": 24,
+        "packing_threads_at_load": 12
+      },
+      "quality_host_observation": false
+    }
+  ],
+  "protocol_sha256": "ed608ddbb6d4de23341605ab512fcedf00346b53dd76dc6de5d7b5fdb2f47e07",
+  "fixed_before_runs": true,
+  "source_commit": "633e8862c9e80f87d937b4a85ba174b7122558be",
+  "quality_reference": "first new OLD_P12 run; historical comparison recorded independently",
+  "timing_reference": "same P12 quality last row, exact",
+  "timing_clock": "llama_decode to llama_get_logits_ith(-1) return",
+  "capture_policy": "CPU task snapshots and optional perf only in quality; OS page cache retained"
+}

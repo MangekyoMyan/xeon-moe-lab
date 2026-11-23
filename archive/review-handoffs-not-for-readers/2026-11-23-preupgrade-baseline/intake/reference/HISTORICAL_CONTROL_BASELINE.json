@@ -1,0 +1,54 @@
+{
+  "record_date": "2026-11-19",
+  "fresh_2026_11_23_measurement": false,
+  "source_commit": "633e8862c9e80f87d937b4a85ba174b7122558be",
+  "control_processes": 2,
+  "control_calls": 256,
+  "candidate_excluded": true,
+  "cases": {
+    "text_cache_budget_ja": {
+      "calls": 128,
+      "mean_ms": 130.086960578125,
+      "T1_per_second": 7.687165535699023,
+      "process_mean_range_ms": [
+        129.997080046875,
+        130.176841109375
+      ],
+      "prefill_seconds": 11.746173225,
+      "median_ms": 127.5742675,
+      "p95_ms_nearest_rank": 146.325207,
+      "max_ms": 161.204541
+    },
+    "code_stable_grouping_python": {
+      "calls": 128,
+      "mean_ms": 131.4499984765625,
+      "T1_per_second": 7.607455394366549,
+      "process_mean_range_ms": [
+        131.09593378125,
+        131.804063171875
+      ],
+      "prefill_seconds": 12.4803022505,
+      "median_ms": 128.1074145,
+      "p95_ms_nearest_rank": 148.288985,
+      "max_ms": 156.633611
+    }
+  },
+  "scope": "Historical 2026-11-19 normal control only; not OLD_P12, not natural API, not a new measurement",
+  "decode_threads_requested": 12,
+  "prefill_threads_requested": 24,
+  "actual_decode_team_observed": false,
+  "clock_definition": "steady_clock ns before llama_decode through return of llama_get_logits_ith(-1)",
+  "aggregation": "per-case all ready-start durations; T1/s = N/sum(seconds); no quality or candidate calls",
+  "sources": [
+    "reference/timing-0-control.RUN.json",
+    "reference/timing-3-control.RUN.json"
+  ],
+  "text_model_context_load_seconds": [
+    89.838705428,
+    89.873674583
+  ],
+  "projector_init_seconds": [
+    0.924726916,
+    0.933826734
+  ]
+}
