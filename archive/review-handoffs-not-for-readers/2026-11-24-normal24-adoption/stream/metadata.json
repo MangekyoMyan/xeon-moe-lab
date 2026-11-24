@@ -1,0 +1,40 @@
+{
+  "schema": "capture-stream/v1",
+  "label": "adopted-normal-24-24",
+  "url": "http://10.10.10.2:8000/v1/chat/completions",
+  "python_version": "3.13.5",
+  "client_sha256": "1fd4259d44a9f5c96efc89ad810854fefdc04f22422e1fee115d02883503d08d",
+  "request_sha256": "8c7dd777627326870076b7b4ec19fca9db085f84bfd461a2321a78d3363bfc39",
+  "payload_modified": false,
+  "validated_stream": true,
+  "validated_n": 1,
+  "usage_requested": true,
+  "api_key_env_name": "XEON_ADOPT_STREAM_KEY",
+  "authorization_used": true,
+  "socket_timeout_seconds": 60.0,
+  "max_elapsed_seconds": 300.0,
+  "max_body_bytes": 16777216,
+  "read_method": "HTTPResponse.read1(<=65536)",
+  "redirects": false,
+  "retries": 0,
+  "environment_proxies_used": false,
+  "proxy_environment_names_ignored": [],
+  "response_headers_saved": [
+    "content-type",
+    "content-length",
+    "content-encoding",
+    "transfer-encoding"
+  ],
+  "caveats": [
+    "Application read1 returns, TCP reads/packets, SSE events, and model tokens are different units.",
+    "Timestamps are client perf_counter_ns immediately after read1 returns, not model generation times.",
+    "All events completed in one read share its timestamp; zero event gaps are retained.",
+    "TTFT means time to the first nonempty content delta received; event gaps are not token TPOT.",
+    "usage/completion_tokens are server reports; event counts are never converted into token counts.",
+    "Use the same client, payload, and observation point before/after; direct and proxy routes differ.",
+    "This client clock is separate from internal engine/token-ID benchmark clocks.",
+    "HTTP framing is decoded, but raw body bytes are preserved; these are not packet captures.",
+    "Parsing and file writes can affect later read times; this client does not measure browser rendering.",
+    "The outgoing Authorization header is not logged; supplied JSON and response bodies are saved verbatim."
+  ]
+}

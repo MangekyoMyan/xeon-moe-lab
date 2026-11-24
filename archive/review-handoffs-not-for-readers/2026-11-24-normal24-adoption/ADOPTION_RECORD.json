@@ -1,0 +1,181 @@
+{
+  "status": "adopted",
+  "recorded_utc": "2026-11-24T11:53:08.897644+00:00",
+  "change": "normal API decode 12 to 24; prefill 24",
+  "authorized_choice": "User selected adoption as the normal profile",
+  "normal_config": "/home/codex/projects/llm-lab/deepseek41-bringup-20261101/server-config.json",
+  "original_sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+  "prepared_sha256": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+  "actual_after_sha256": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+  "only_semantic_difference": {
+    "field": "command[9]",
+    "flag": "-t",
+    "before": "12",
+    "after": "24"
+  },
+  "backup": {
+    "private_path": "/home/codex/projects/llm-lab/adopt24-20261124/private/normal-12-24.json",
+    "sha256": "963b652592504501b6ec02880ab7e38303b7da782f7aca8e49ff0a9568d70d43",
+    "uid": 1001,
+    "gid": 1001,
+    "file_mode": 436,
+    "source_inode": 13509303,
+    "source_device": 2049
+  },
+  "installed_owner_gid_mode_octal": [
+    1001,
+    1001,
+    "0o664"
+  ],
+  "atomic_install": true,
+  "boot_before": "3b3356d7-b550-41f0-8f66-181e3942a899",
+  "boot_after": "3b3356d7-b550-41f0-8f66-181e3942a899",
+  "old_model": {
+    "pid": 46945,
+    "ppid": 46927,
+    "start_ticks": 1329979,
+    "comm": "llama-server",
+    "boot": "3b3356d7-b550-41f0-8f66-181e3942a899",
+    "supervisor": 46927,
+    "invocation": "134a51b4acbc477bae82f8ba636bf2fd",
+    "listen_inode": 183845,
+    "host": "10.10.10.2",
+    "port": 8000,
+    "decode": 12,
+    "prefill": 24,
+    "decode_mask": "0xffffff",
+    "prefill_mask": "0xffffff",
+    "guard_start_unix": 1795517582.6286223,
+    "idle": {
+      "all_slots_idle": true,
+      "queue": {
+        "requests_processing": 0.0,
+        "requests_deferred": 0.0
+      },
+      "observed_busy_while_waiting": false,
+      "unix": 1795520754.2362952
+    },
+    "unix": 1795520754.4232566
+  },
+  "normal_model": {
+    "pid": 58059,
+    "ppid": 57997,
+    "start_ticks": 1650942,
+    "comm": "llama-server",
+    "boot": "3b3356d7-b550-41f0-8f66-181e3942a899",
+    "supervisor": 57997,
+    "invocation": "a3a3ca26e6b840b6b540f16e2be98211",
+    "listen_inode": 232232,
+    "host": "10.10.10.2",
+    "port": 8000,
+    "decode": 24,
+    "prefill": 24,
+    "decode_mask": "0xffffff",
+    "prefill_mask": "0xffffff",
+    "guard_start_unix": 1795520792.2602694
+  },
+  "cutover_start_unix": 1795520755.5434458,
+  "ordinary_ready_verified_unix": 1795520874.9162157,
+  "stop_to_identity_and_http_ready_verified_s": 119.37276838999969,
+  "old_DSO_hashes": {
+    "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+    "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26",
+    "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0",
+    "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+  },
+  "actual_DSO_hashes": {
+    "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+    "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26",
+    "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0",
+    "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+  },
+  "mapped_backing_inodes_verified": true,
+  "command_and_environment_match": true,
+  "monitor_services": {
+    "llm-deepseek41-api.service": "active",
+    "xeon-watch.service": "active",
+    "xeon-watch-notify.service": "active"
+  },
+  "approval_scope": "normal deployment and one short text acceptance on the existing endpoint",
+  "request": {
+    "finish_unix": 1795520915.2397304,
+    "pid": 58059,
+    "boot": "3b3356d7-b550-41f0-8f66-181e3942a899",
+    "start_ticks": 1650942,
+    "http": 200,
+    "runtime_unchanged": true,
+    "health_after_request": "ok",
+    "input_request_hash": "8c7dd777627326870076b7b4ec19fca9db085f84bfd461a2321a78d3363bfc39",
+    "same_content_as_prior_pilot": true,
+    "content_sha256": "4cf74246fe11cb2d9abc913ec460d2ef6ffa4dafcd1b5b3d58b57f7686af012c",
+    "prior_pilot_content_sha256": "4cf74246fe11cb2d9abc913ec460d2ef6ffa4dafcd1b5b3d58b57f7686af012c",
+    "ttft_content_ms": 1826.287054,
+    "eof_ms": 7768.795696,
+    "reported_usage": {
+      "completion_tokens": 59,
+      "prompt_tokens": 29,
+      "total_tokens": 88,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    },
+    "server_timings": {
+      "cache_n": 0,
+      "prompt_n": 29,
+      "prompt_ms": 1809.877,
+      "prompt_per_token_ms": 62.40955172413793,
+      "prompt_per_second": 16.02318831611209,
+      "predicted_n": 59,
+      "predicted_ms": 5942.081,
+      "predicted_per_token_ms": 102.44967241379311,
+      "predicted_per_second": 9.76089016625657
+    },
+    "finish_reason": "stop",
+    "content_events": 55,
+    "content_gaps_ms": {
+      "gap_count": 54,
+      "median_ms": 100.85604649999999,
+      "p95_ms": 198.241646,
+      "max_ms": 210.77975,
+      "zero_gap_count": 0
+    },
+    "extra_inference_requests": 0,
+    "all_thread_sampling": false
+  },
+  "operator_view": {
+    "old_target": "ecc9-simplification-20261119/current",
+    "new_target": "adopt24-20261124/current",
+    "current_runtime_sha256": "9cafd6d6fd7728b14ce40577dd700b5825b22644edaa6ad5ad7159af04127b95"
+  },
+  "weight_check": "Existing download receipt and sizes, no new full GGUF read",
+  "health": {
+    "native_sample_count": 53,
+    "native_sample_duration_s": 126.93580341339111,
+    "watch_sample_count": 13,
+    "max_socket_C": {
+      "S0": 34.0,
+      "S1": 40.0
+    },
+    "max_CPU_C": 40.0,
+    "max_GPU_C": 28.0,
+    "max_HBM_C": 28.0,
+    "max_DIMM_C": 35.0,
+    "max_fan_percent": 40.0,
+    "min_available_GiB": 68.13532638549805,
+    "checked_host_counters": 112,
+    "counter_changes": {},
+    "GPU_volatile_ECC_single_delta": 0.0,
+    "GPU_volatile_ECC_double_delta": 0.0,
+    "kernel_error_matches": 0,
+    "continuing_alarms": {},
+    "sensor_errors": {},
+    "compact_reserve_bytes": 68719476736,
+    "native_supervisor_MemAvailable_stop_GiB": 3,
+    "hardware_stop_marker": false
+  },
+  "scope_limits": [
+    "short text acceptance on normal 24/24",
+    "no vision, long-context, concurrent or sustained-load acceptance",
+    "no new-CPU CUPTI trace or new expert assignment in this adoption"
+  ]
+}
