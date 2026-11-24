@@ -1,0 +1,29 @@
+{
+  "order": [
+    [
+      64,
+      64
+    ],
+    [
+      128,
+      128
+    ],
+    [
+      64,
+      128
+    ],
+    [
+      128,
+      64
+    ]
+  ],
+  "general_then_MXFP4": [
+    "GGML_OP_OFFLOAD_MIN_BATCH",
+    "GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH"
+  ],
+  "driver": "c6872a0ab618becf4eb7fe982f3a2f6bda54db5b1a758fcc5e6009186b02a365",
+  "fixtures": "9a87068068cd559dd31ec4bcaa87db7cfa5d52d4e3bc6b6b7a7331de0cfff070",
+  "controls": "original 96-token JA/Python+64 forced; 160+64 where both policies offload; eight independent chat histories frozen from ordinary greedy 64/64",
+  "capture": "Endpoint policies only: replay identical 96 inputs; hold prefix logits against no-callback run. Collect layer-0 actual inputs, IDs, outputs, dequantized GGUF F64 dot and Q8_K-input F64 dot; all 40 layers' active expert IDs.",
+  "production": "return to ordinary thresholds 64/64 and 24/24; no numerical change deployed"
+}

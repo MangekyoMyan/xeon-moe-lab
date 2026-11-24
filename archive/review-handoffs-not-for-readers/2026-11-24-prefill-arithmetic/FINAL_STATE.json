@@ -1,0 +1,174 @@
+{
+  "ordinary_profile_sha256": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+  "ordinary_pid": 98266,
+  "http": "ok",
+  "model": {
+    "pid": 98266,
+    "ppid": 98248,
+    "start_ticks": 2677779,
+    "comm": "llama-server",
+    "boot": "3b3356d7-b550-41f0-8f66-181e3942a899",
+    "supervisor": 98248,
+    "invocation": "bc41bf5d8ba148f5a4d2ae1335b6cbf3",
+    "listen_inode": 334720,
+    "host": "10.10.10.2",
+    "port": 8000,
+    "decode": 24,
+    "prefill": 24,
+    "decode_mask": "0xffffff",
+    "prefill_mask": "0xffffff",
+    "guard_start_unix": 1795531060.6367757
+  },
+  "services": {
+    "llm-deepseek41-api.service": "active",
+    "xeon-watch.service": "active",
+    "xeon-watch-notify.service": "active"
+  },
+  "thresholds": [
+    64,
+    64
+  ],
+  "threads": [
+    24,
+    24
+  ],
+  "host_counters_unchanged": 112,
+  "GPU_ECC_delta": {
+    "ecc_single": 0.0,
+    "ecc_double": 0.0
+  },
+  "alerts": {},
+  "errors": {},
+  "windows": {
+    "CHAT": {
+      "started_unix": 1795528306.7245195,
+      "finished_unix": 1795529143.914626,
+      "profile_sha256": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+      "before": 80369,
+      "after": 89470
+    },
+    "WORKERS": {
+      "started_unix": 1795529145.2489152,
+      "finished_unix": 1795529438.7782943,
+      "profile_sha256": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+      "before": 89470,
+      "after": 91065
+    },
+    "PRECISION": {
+      "started_unix": 1795529677.6812203,
+      "finished_unix": 1795530808.325799,
+      "profile_sha256": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+      "before": 91065,
+      "after": 96536
+    },
+    "CAUSAL": {
+      "started_unix": 1795530814.5603137,
+      "finished_unix": 1795531143.5597343,
+      "profile_sha256": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+      "before": 96536,
+      "after": 98266
+    }
+  },
+  "diagnostic_processes": {
+    "causal": {
+      "pid": 97360,
+      "status": "exited",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 81,
+      "watch_samples": 21,
+      "health_sha256": "a8984240f60aba27dfb9f5bcae3423e2cdde38bdcfc67fa6282dbb564291fbcb"
+    },
+    "chat-A1": {
+      "pid": 86284,
+      "status": "stopped_by_request",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 66,
+      "watch_samples": 19,
+      "health_sha256": "d42d979678232f36f842280205e25d87cd3fcef3e0f53893fa5e15925d29d806"
+    },
+    "chat-A2": {
+      "pid": 88490,
+      "status": "stopped_by_request",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 66,
+      "watch_samples": 19,
+      "health_sha256": "769ec18d0189b1e4c604a458f78158aa91fc2b753f222ea2d439ee8d3d6b48c2"
+    },
+    "chat-B1": {
+      "pid": 87016,
+      "status": "stopped_by_request",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 58,
+      "watch_samples": 18,
+      "health_sha256": "b39178be3e3460b8959b64144bc10ee94f83171c3a95973c30d938709544df64"
+    },
+    "chat-B2": {
+      "pid": 87829,
+      "status": "stopped_by_request",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 57,
+      "watch_samples": 17,
+      "health_sha256": "5db18200f1b18aa7d7a3a001602b75185c377064f25fd939ba7839ebf045faff"
+    },
+    "precision-128-128": {
+      "pid": 93397,
+      "status": "exited",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 100,
+      "watch_samples": 25,
+      "health_sha256": "5fe86bf7d9e0e139ed39af56838f358e27e4a3c9f37a32e0e8b32af8f8498a67"
+    },
+    "precision-128-64": {
+      "pid": 95052,
+      "status": "exited",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 93,
+      "watch_samples": 23,
+      "health_sha256": "c20f55c45b3c17844b7cb584535ff4f66f6fe3ae0964c62142a962a765ff85b4"
+    },
+    "precision-64-128": {
+      "pid": 94259,
+      "status": "exited",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 99,
+      "watch_samples": 24,
+      "health_sha256": "45e0f55acc87b743de3ed793abcf57a523a36a1b04b25c79dd9f6043af4bae08"
+    },
+    "precision-64-64": {
+      "pid": 92315,
+      "status": "exited",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 120,
+      "watch_samples": 29,
+      "health_sha256": "a65103cb7e7796c682e45967b41870b244eeee4a7d69e7023f60a397e75295e6"
+    },
+    "worker-trace": {
+      "pid": 90233,
+      "status": "exited",
+      "exit": 0,
+      "initial_host_counters_match": true,
+      "guard_samples": 69,
+      "watch_samples": 17,
+      "health_sha256": "7df4dc1ac9031be5ca4d159e32e96cb0275a334f9adf9987d4bad582db207383"
+    }
+  },
+  "guard_samples": 809,
+  "watch_samples": 212,
+  "peak_C": {
+    "cpu_max_C": 53.0,
+    "gpu_C": 33.0,
+    "hbm_C": 34.0
+  },
+  "peak_DIMM_C": 51.0,
+  "max_fan_pct": 40.0,
+  "min_available_GiB": 67.83488082885742
+}

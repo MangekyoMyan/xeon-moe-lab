@@ -1,0 +1,104 @@
+[
+  {
+    "id": "short-control",
+    "messages": [
+      {
+        "role": "user",
+        "content": "足し算の答えだけを半角数字で返してください。17 + 28 はいくつですか？"
+      }
+    ],
+    "expect": "45"
+  },
+  {
+    "id": "reservation",
+    "messages": [
+      {
+        "role": "user",
+        "content": "会議の予約メモをお願いします。金曜の15時、参加者2人です。"
+      },
+      {
+        "role": "assistant",
+        "content": "金曜15時に2人で予約する予定ですね。"
+      },
+      {
+        "role": "user",
+        "content": "変更します。曜日は日曜、時刻は14:10、参加者は3人です。最新の予約をJSONだけで返してください。キーは day、time、people。曜日は「日曜」、人数は整数で書いてください。"
+      }
+    ],
+    "expect": {
+      "day": "日曜",
+      "time": "14:10",
+      "people": 3
+    }
+  },
+  {
+    "id": "inventory",
+    "messages": [
+      {
+        "role": "user",
+        "content": "The packing team tracks bolts in two trays. Tray A began with 34 bolts, sent 9 to a client, then received 4 back. Tray B began with 22 bolts and sent 7 to a client. Five bolts from tray A must stay in reserve. How many bolts can ship now from both trays together? Return only a JSON object with integer fields a_available, b_available, total."
+      }
+    ],
+    "expect": {
+      "a_available": 24,
+      "b_available": 15,
+      "total": 39
+    }
+  },
+  {
+    "id": "py-slice",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Write one Python expression for an existing list named xs. It must return the last two nonnegative values in their original order. Zero counts as nonnegative. If only one value qualifies, return a one-element list. If no value qualifies, return an empty list. Do not modify xs. Reply with just the expression, without Markdown or an explanation."
+      }
+    ],
+    "expect": "py-slice"
+  },
+  {
+    "id": "sql-sales",
+    "messages": [
+      {
+        "role": "user",
+        "content": "A SQLite table sales(shop TEXT, amount INTEGER) has one row per sale. Return the two shops with the greatest total amount. If totals tie, the shop whose name comes first in ascending text order should appear first. The two result columns should be shop and the summed amount. Write one SELECT query, without Markdown or commentary."
+      }
+    ],
+    "expect": "sql-sales"
+  },
+  {
+    "id": "jp-mail",
+    "messages": [
+      {
+        "role": "user",
+        "content": "社内の佐藤さんに、資料の提出期限が月曜の正午から火曜の17時に変更されたことを伝えてください。提出先は共有フォルダのままです。宛名と本文を合わせて丁寧な日本語の2〜3文にして、挨拶や署名を長くしないでください。変更理由を勝手に足さないでください。"
+      }
+    ],
+    "expect": "jp-mail"
+  },
+  {
+    "id": "units",
+    "messages": [
+      {
+        "role": "user",
+        "content": "An instrument records elapsed time in milliseconds. It logged three intervals: 250 ms, 1.5 seconds, and 750 ms. The correction memo says to discard the 250 ms interval and replace it with 400 ms. How many seconds remain in total? Return exactly one JSON object with the single key seconds and a numeric value. Do not include units in the value."
+      }
+    ],
+    "expect": {
+      "seconds": 2.65
+    }
+  },
+  {
+    "id": "long-control",
+    "messages": [
+      {
+        "role": "user",
+        "content": "An archive keeps a chronological list of revisions to a small operating schedule. The original schedule named room Amber, start time 09:00, and a capacity of 12 seats. A later note was a tentative proposal for room Birch at 11:00 with 18 seats. Proposals are never binding. The next entry was approved and changed the room to Cedar and the starting time to 10:30, leaving capacity unchanged. The final approved entry raised capacity by four seats and made no other changes. An unsigned draft after that entry suggested going back to 09:00 and using room Ash. Unsigned drafts have no effect. Reconstruct the final approved schedule and return exactly one JSON object with keys room, start, seats. Preserve the capitalization of the room name and use a two-digit hour and minute for the start time."
+      }
+    ],
+    "expect": {
+      "room": "Cedar",
+      "start": "10:30",
+      "seats": 16
+    }
+  }
+]

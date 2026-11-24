@@ -1,0 +1,136 @@
+{
+  "sample_windows": 14,
+  "user_cpu_samples": 6380,
+  "counts": {
+    "CPU_numerics": 4105,
+    "OpenMP_barrier_spin": 2071,
+    "other": 181,
+    "other_libgomp": 23
+  },
+  "spin_by_location": {
+    "graph_end_barrier": 93,
+    "outside_all_logged_cpu_graph_work": 1728,
+    "after_MUL_MAT_ID_barrier": 162,
+    "after_GLU_barrier": 61,
+    "MUL_MAT_ID_preparation_barrier": 27
+  },
+  "percent_of_spin": {
+    "graph_end_barrier": 4.490584258812168,
+    "outside_all_logged_cpu_graph_work": 83.4379526798648,
+    "after_MUL_MAT_ID_barrier": 7.822308063737325,
+    "after_GLU_barrier": 2.94543698696282,
+    "MUL_MAT_ID_preparation_barrier": 1.3037180106228874
+  },
+  "by_group_and_interval": {
+    "CPU_numerics": {
+      "inside_worker_node_or_bookkeeping": 4105
+    },
+    "OpenMP_barrier_spin": {
+      "graph_end_barrier": 93,
+      "outside_all_logged_cpu_graph_work": 1728,
+      "after_MUL_MAT_ID_barrier": 162,
+      "after_GLU_barrier": 61,
+      "MUL_MAT_ID_preparation_barrier": 27
+    },
+    "other": {
+      "inside_worker_node_or_bookkeeping": 101,
+      "outside_all_logged_cpu_graph_work": 72,
+      "CPU_graph_team_or_worker_gap": 6,
+      "after_MUL_MAT_ID_barrier": 1,
+      "graph_end_barrier": 1
+    },
+    "other_libgomp": {
+      "outside_all_logged_cpu_graph_work": 16,
+      "graph_end_barrier": 3,
+      "MUL_MAT_ID_preparation_barrier": 2,
+      "after_GLU_barrier": 1,
+      "after_MUL_MAT_ID_barrier": 1
+    }
+  },
+  "individual_counts": {
+    "(0, 21)": {
+      "CPU_numerics": 271,
+      "OpenMP_barrier_spin": 165,
+      "other": 9
+    },
+    "(0, 29)": {
+      "CPU_numerics": 260,
+      "OpenMP_barrier_spin": 181,
+      "other": 12,
+      "other_libgomp": 2
+    },
+    "(0, 37)": {
+      "other": 14,
+      "CPU_numerics": 306,
+      "OpenMP_barrier_spin": 156,
+      "other_libgomp": 2
+    },
+    "(0, 45)": {
+      "CPU_numerics": 290,
+      "OpenMP_barrier_spin": 133,
+      "other": 17,
+      "other_libgomp": 1
+    },
+    "(0, 53)": {
+      "CPU_numerics": 279,
+      "OpenMP_barrier_spin": 158,
+      "other": 3,
+      "other_libgomp": 4
+    },
+    "(0, 61)": {
+      "CPU_numerics": 298,
+      "OpenMP_barrier_spin": 166,
+      "other": 9,
+      "other_libgomp": 1
+    },
+    "(1, 5)": {
+      "CPU_numerics": 315,
+      "OpenMP_barrier_spin": 152,
+      "other_libgomp": 1,
+      "other": 23
+    },
+    "(1, 13)": {
+      "OpenMP_barrier_spin": 116,
+      "CPU_numerics": 334,
+      "other_libgomp": 1,
+      "other": 6
+    },
+    "(1, 21)": {
+      "CPU_numerics": 303,
+      "OpenMP_barrier_spin": 130,
+      "other_libgomp": 2,
+      "other": 14
+    },
+    "(1, 29)": {
+      "other": 13,
+      "CPU_numerics": 273,
+      "OpenMP_barrier_spin": 162,
+      "other_libgomp": 2
+    },
+    "(1, 37)": {
+      "CPU_numerics": 306,
+      "OpenMP_barrier_spin": 135,
+      "other": 14,
+      "other_libgomp": 1
+    },
+    "(1, 45)": {
+      "OpenMP_barrier_spin": 123,
+      "CPU_numerics": 313,
+      "other": 11,
+      "other_libgomp": 3
+    },
+    "(1, 53)": {
+      "CPU_numerics": 262,
+      "OpenMP_barrier_spin": 159,
+      "other": 22,
+      "other_libgomp": 2
+    },
+    "(1, 61)": {
+      "OpenMP_barrier_spin": 135,
+      "CPU_numerics": 295,
+      "other": 14,
+      "other_libgomp": 1
+    }
+  },
+  "definition": "On-CPU PC periods only; outside all intervals is outside the measured CPU backend worker graph from its first node entry to its last barrier return. It can include thread-pool wait, CPU submission, GPU work or inter-graph overhead. It does not measure GPU activity directly."
+}

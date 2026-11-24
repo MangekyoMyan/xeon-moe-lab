@@ -1,0 +1,134 @@
+{
+  "schema": "capture-stream/v1",
+  "label": "chat-B2/inventory",
+  "status": "complete",
+  "termination": "eof",
+  "request_start_utc": "2026-11-24T13:59:51.720594+00:00",
+  "perf_counter_ns": {
+    "request_start": 24508879599315,
+    "response_headers_ready": 24508892678020,
+    "first_content": 24513626636221,
+    "first_reasoning": null,
+    "first_reasoning_content": null,
+    "first_reasoning_field": null,
+    "last_content": 24515770102395,
+    "last_reasoning": null,
+    "last_text": 24515770102395,
+    "done": 24515869681258,
+    "eof": 24515869834734,
+    "capture_end": 24515869867125
+  },
+  "elapsed_from_request_start": {
+    "request_start_ms": 0.0,
+    "response_headers_ready_ms": 13.078705,
+    "first_content_ms": 4747.036906,
+    "first_reasoning_ms": null,
+    "first_reasoning_content_ms": null,
+    "first_reasoning_field_ms": null,
+    "last_content_ms": 6890.50308,
+    "last_reasoning_ms": null,
+    "last_text_ms": 6890.50308,
+    "done_ms": 6990.081943,
+    "eof_ms": 6990.235419,
+    "capture_end_ms": 6990.26781
+  },
+  "ttft_content_receive_ms": 4747.036906,
+  "first_reasoning_receive_ms": null,
+  "counts": {
+    "reads": 25,
+    "body_bytes": 6805,
+    "sse_blocks": 26,
+    "sse_data_events": 26,
+    "json_events": 25,
+    "content_events": 22,
+    "reasoning_events": 0
+  },
+  "text_characters": {
+    "content": 51,
+    "reasoning_content": 0,
+    "reasoning": 0
+  },
+  "http": {
+    "status": 200,
+    "version": 11,
+    "headers": {
+      "content-type": "text/event-stream",
+      "content-length": null,
+      "content-encoding": null,
+      "transfer-encoding": "chunked"
+    }
+  },
+  "failure": null,
+  "issues": [],
+  "sse_tail": {
+    "unfinished_block": false,
+    "pending_line_bytes": 0,
+    "pending_complete_lines": 0,
+    "invalid_utf8_lines": 0
+  },
+  "sse_data_event_gap_ms": {
+    "gap_count": 25,
+    "median_ms": 100.872256,
+    "p95_ms": 106.878919,
+    "max_ms": 110.550911,
+    "zero_gap_count": 2,
+    "p95_method": "nearest rank, ceil(0.95*N)"
+  },
+  "sse_content_event_gap_ms": {
+    "gap_count": 21,
+    "median_ms": 101.085167,
+    "p95_ms": 106.878919,
+    "max_ms": 110.550911,
+    "zero_gap_count": 0,
+    "p95_method": "nearest rank, ceil(0.95*N)"
+  },
+  "sse_reasoning_event_gap_ms": {
+    "gap_count": 0,
+    "median_ms": null,
+    "p95_ms": null,
+    "max_ms": null,
+    "zero_gap_count": 0,
+    "p95_method": "nearest rank, ceil(0.95*N)"
+  },
+  "usage_reports": [
+    {
+      "received_perf_counter_ns": 24515869197750,
+      "usage": {
+        "completion_tokens": 23,
+        "prompt_tokens": 90,
+        "total_tokens": 113,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      }
+    }
+  ],
+  "server_usage": {
+    "completion_tokens": 23,
+    "prompt_tokens": 90,
+    "total_tokens": 113,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    }
+  },
+  "finish_reasons": [
+    {
+      "received_perf_counter_ns": 24515869197750,
+      "finish_reason": "stop",
+      "index": 0
+    }
+  ],
+  "finish_reason": "stop",
+  "caveats": [
+    "Application read1 returns, TCP reads/packets, SSE events, and model tokens are different units.",
+    "Timestamps are client perf_counter_ns immediately after read1 returns, not model generation times.",
+    "All events completed in one read share its timestamp; zero event gaps are retained.",
+    "TTFT means time to the first nonempty content delta received; event gaps are not token TPOT.",
+    "usage/completion_tokens are server reports; event counts are never converted into token counts.",
+    "Use the same client, payload, and observation point before/after; direct and proxy routes differ.",
+    "This client clock is separate from internal engine/token-ID benchmark clocks.",
+    "HTTP framing is decoded, but raw body bytes are preserved; these are not packet captures.",
+    "Parsing and file writes can affect later read times; this client does not measure browser rendering.",
+    "The outgoing Authorization header is not logged; supplied JSON and response bodies are saved verbatim."
+  ]
+}

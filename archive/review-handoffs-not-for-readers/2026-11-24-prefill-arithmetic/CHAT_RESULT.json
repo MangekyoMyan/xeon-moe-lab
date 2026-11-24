@@ -1,0 +1,880 @@
+{
+  "periods": [
+    [
+      "A1",
+      64
+    ],
+    [
+      "B1",
+      128
+    ],
+    [
+      "B2",
+      128
+    ],
+    [
+      "A2",
+      64
+    ]
+  ],
+  "requests_scored": 32,
+  "distinct_prompts": 8,
+  "eligible": [
+    "reservation",
+    "inventory",
+    "py-slice",
+    "sql-sales",
+    "jp-mail",
+    "units"
+  ],
+  "per_case": {
+    "short-control": {
+      "tokens": 28,
+      "mean_first_text_ms": {
+        "A": 1640.4364249999999,
+        "B": 1636.1851355
+      },
+      "B_over_A": 0.9974084399521914,
+      "128_faster_than_both_64": false,
+      "pass_by_repeat": {
+        "A": [
+          true,
+          true
+        ],
+        "B": [
+          true,
+          true
+        ]
+      },
+      "text_same_all_four": true,
+      "text_repeat_stable": {
+        "A": true,
+        "B": true
+      },
+      "example_64": "45",
+      "example_128": "45"
+    },
+    "reservation": {
+      "tokens": 102,
+      "mean_first_text_ms": {
+        "A": 7190.494304,
+        "B": 4908.410911
+      },
+      "B_over_A": 0.6826249633866618,
+      "128_faster_than_both_64": true,
+      "pass_by_repeat": {
+        "A": [
+          true,
+          true
+        ],
+        "B": [
+          true,
+          true
+        ]
+      },
+      "text_same_all_four": true,
+      "text_repeat_stable": {
+        "A": true,
+        "B": true
+      },
+      "example_64": "{\"day\":\"日曜\",\"time\":\"14:10\",\"people\":3}",
+      "example_128": "{\"day\":\"日曜\",\"time\":\"14:10\",\"people\":3}"
+    },
+    "inventory": {
+      "tokens": 90,
+      "mean_first_text_ms": {
+        "A": 8574.566750999998,
+        "B": 4734.131408
+      },
+      "B_over_A": 0.5521131907274368,
+      "128_faster_than_both_64": true,
+      "pass_by_repeat": {
+        "A": [
+          true,
+          true
+        ],
+        "B": [
+          true,
+          true
+        ]
+      },
+      "text_same_all_four": true,
+      "text_repeat_stable": {
+        "A": true,
+        "B": true
+      },
+      "example_64": "{\"a_available\": 24, \"b_available\": 15, \"total\": 39}",
+      "example_128": "{\"a_available\": 24, \"b_available\": 15, \"total\": 39}"
+    },
+    "py-slice": {
+      "tokens": 75,
+      "mean_first_text_ms": {
+        "A": 7445.3167245,
+        "B": 4044.4511795
+      },
+      "B_over_A": 0.5432208365550238,
+      "128_faster_than_both_64": true,
+      "pass_by_repeat": {
+        "A": [
+          true,
+          true
+        ],
+        "B": [
+          true,
+          true
+        ]
+      },
+      "text_same_all_four": true,
+      "text_repeat_stable": {
+        "A": true,
+        "B": true
+      },
+      "example_64": "[x for x in xs if x >= 0][-2:]",
+      "example_128": "[x for x in xs if x >= 0][-2:]"
+    },
+    "sql-sales": {
+      "tokens": 73,
+      "mean_first_text_ms": {
+        "A": 7418.432504,
+        "B": 3916.7787725
+      },
+      "B_over_A": 0.527979296217642,
+      "128_faster_than_both_64": true,
+      "pass_by_repeat": {
+        "A": [
+          true,
+          true
+        ],
+        "B": [
+          true,
+          true
+        ]
+      },
+      "text_same_all_four": true,
+      "text_repeat_stable": {
+        "A": true,
+        "B": true
+      },
+      "example_64": "SELECT shop, SUM(amount) AS total FROM sales GROUP BY shop ORDER BY total DESC, shop ASC LIMIT 2;",
+      "example_128": "SELECT shop, SUM(amount) AS total FROM sales GROUP BY shop ORDER BY total DESC, shop ASC LIMIT 2;"
+    },
+    "jp-mail": {
+      "tokens": 88,
+      "mean_first_text_ms": {
+        "A": 6640.7101600000005,
+        "B": 4216.398364000001
+      },
+      "B_over_A": 0.6349318465060069,
+      "128_faster_than_both_64": true,
+      "pass_by_repeat": {
+        "A": [
+          true,
+          true
+        ],
+        "B": [
+          true,
+          true
+        ]
+      },
+      "text_same_all_four": true,
+      "text_repeat_stable": {
+        "A": true,
+        "B": true
+      },
+      "example_64": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。",
+      "example_128": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。"
+    },
+    "units": {
+      "tokens": 81,
+      "mean_first_text_ms": {
+        "A": 8158.4203035,
+        "B": 4277.7005915
+      },
+      "B_over_A": 0.5243295187506883,
+      "128_faster_than_both_64": true,
+      "pass_by_repeat": {
+        "A": [
+          true,
+          true
+        ],
+        "B": [
+          true,
+          true
+        ]
+      },
+      "text_same_all_four": true,
+      "text_repeat_stable": {
+        "A": true,
+        "B": true
+      },
+      "example_64": "{\"seconds\": 2.65}",
+      "example_128": "{\"seconds\": 2.65}"
+    },
+    "long-control": {
+      "tokens": 173,
+      "mean_first_text_ms": {
+        "A": 11553.3062545,
+        "B": 11454.753624
+      },
+      "B_over_A": 0.9914697465531469,
+      "128_faster_than_both_64": false,
+      "pass_by_repeat": {
+        "A": [
+          true,
+          true
+        ],
+        "B": [
+          true,
+          true
+        ]
+      },
+      "text_same_all_four": true,
+      "text_repeat_stable": {
+        "A": true,
+        "B": true
+      },
+      "example_64": "{\n  \"room\": \"Cedar\",\n  \"start\": \"10:30\",\n  \"seats\": 16\n}",
+      "example_128": "{\n  \"room\": \"Cedar\",\n  \"start\": \"10:30\",\n  \"seats\": 16\n}"
+    }
+  },
+  "mean_first_text_ms_affected": {
+    "A": 7571.323457833333,
+    "B": 4349.645204416667
+  },
+  "passed_by_period": {
+    "A1": 8,
+    "B1": 8,
+    "B2": 8,
+    "A2": 8
+  },
+  "raw_scores": {
+    "A1": {
+      "short-control": {
+        "case": "short-control",
+        "prompt": 28,
+        "cache_n": 0,
+        "output": 2,
+        "prompt_ms": 1613.531,
+        "ttft_ms": 1627.499066,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "45",
+        "response_sha256": "b59b3d2ddff4753982172337fbfe4f834caba98bf94e21151cfe461785d9e5b1",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "reservation": {
+        "case": "reservation",
+        "prompt": 102,
+        "cache_n": 0,
+        "output": 17,
+        "prompt_ms": 7203.775,
+        "ttft_ms": 7223.464472,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"day\":\"日曜\",\"time\":\"14:10\",\"people\":3}",
+        "response_sha256": "9a736c588c6a29a66723ea08b59c9e98d07c90d4ab9587ad17f14b6583761624",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "inventory": {
+        "case": "inventory",
+        "prompt": 90,
+        "cache_n": 0,
+        "output": 23,
+        "prompt_ms": 8581.907,
+        "ttft_ms": 8594.561676,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"a_available\": 24, \"b_available\": 15, \"total\": 39}",
+        "response_sha256": "ba5b67af9feec2c3f404aab9756540e78c54b6c32e5fcc6db0342377bb583ae6",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "py-slice": {
+        "case": "py-slice",
+        "prompt": 75,
+        "cache_n": 0,
+        "output": 15,
+        "prompt_ms": 7443.377,
+        "ttft_ms": 7455.626642,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "[x for x in xs if x >= 0][-2:]",
+        "response_sha256": "cfc11c9b3a147886292ba4cfa44687cabc1cdaf2796fb5e991b9bf4e9a48551c",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "input_lists": 1365
+          }
+        }
+      },
+      "sql-sales": {
+        "case": "sql-sales",
+        "prompt": 73,
+        "cache_n": 0,
+        "output": 27,
+        "prompt_ms": 7433.003,
+        "ttft_ms": 7445.113929,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "SELECT shop, SUM(amount) AS total FROM sales GROUP BY shop ORDER BY total DESC, shop ASC LIMIT 2;",
+        "response_sha256": "f9bfaacf6e7073f461ae5d4f10088f4a3cc82a505b6fb2673b5d83cf52ac4b0d",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "sqlite_tables": 5
+          }
+        }
+      },
+      "jp-mail": {
+        "case": "jp-mail",
+        "prompt": 88,
+        "cache_n": 0,
+        "output": 54,
+        "prompt_ms": 6606.853,
+        "ttft_ms": 6619.50224,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。",
+        "response_sha256": "2484e135f783695658ed8fc1e5f0d0332ab76fbd154a86021d87861a96db4c01",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "recipient": true,
+            "new_due": true,
+            "shared_folder": true,
+            "polite": true,
+            "sentence_count": 3,
+            "text_for_review": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。"
+          }
+        }
+      },
+      "units": {
+        "case": "units",
+        "prompt": 81,
+        "cache_n": 0,
+        "output": 9,
+        "prompt_ms": 8160.179,
+        "ttft_ms": 8167.274886,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"seconds\": 2.65}",
+        "response_sha256": "7ba05940d57dc4a21e5fba244ebfa388d72e4a5ccc506bfb714d06b0517c92b8",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "long-control": {
+        "case": "long-control",
+        "prompt": 173,
+        "cache_n": 0,
+        "output": 28,
+        "prompt_ms": 11515.86,
+        "ttft_ms": 11529.440292,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\n  \"room\": \"Cedar\",\n  \"start\": \"10:30\",\n  \"seats\": 16\n}",
+        "response_sha256": "cfd841fdd9e46002c88980c880a25817a01fd144bdacff19f47766cf98f06342",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      }
+    },
+    "B1": {
+      "short-control": {
+        "case": "short-control",
+        "prompt": 28,
+        "cache_n": 0,
+        "output": 2,
+        "prompt_ms": 1621.762,
+        "ttft_ms": 1633.345603,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "45",
+        "response_sha256": "9725387ec1b24f558153e62936f19dd452b43685b6e33b92a8bc29f529a5b931",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "reservation": {
+        "case": "reservation",
+        "prompt": 102,
+        "cache_n": 0,
+        "output": 17,
+        "prompt_ms": 4854.926,
+        "ttft_ms": 4869.532218,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"day\":\"日曜\",\"time\":\"14:10\",\"people\":3}",
+        "response_sha256": "4109f3a24394b219e0bc883fbbb9a3fc840493a5a7e1e67d0e6b14f467a43e5b",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "inventory": {
+        "case": "inventory",
+        "prompt": 90,
+        "cache_n": 0,
+        "output": 23,
+        "prompt_ms": 4708.168,
+        "ttft_ms": 4721.22591,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"a_available\": 24, \"b_available\": 15, \"total\": 39}",
+        "response_sha256": "901296e8e87288efbef02ead645332498f6f3c2f1afd016624407db7c36ccd9c",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "py-slice": {
+        "case": "py-slice",
+        "prompt": 75,
+        "cache_n": 0,
+        "output": 15,
+        "prompt_ms": 4037.507,
+        "ttft_ms": 4050.019762,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "[x for x in xs if x >= 0][-2:]",
+        "response_sha256": "dc9d4a869355bc68d98c4a3993df6d3cf520972a0e2ae919d5d16e0d3fc07bab",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "input_lists": 1365
+          }
+        }
+      },
+      "sql-sales": {
+        "case": "sql-sales",
+        "prompt": 73,
+        "cache_n": 0,
+        "output": 27,
+        "prompt_ms": 3904.743,
+        "ttft_ms": 3917.380721,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "SELECT shop, SUM(amount) AS total FROM sales GROUP BY shop ORDER BY total DESC, shop ASC LIMIT 2;",
+        "response_sha256": "f57d073544f78083358901ac3c64f53628917c75fd46a1977483136a483469d9",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "sqlite_tables": 5
+          }
+        }
+      },
+      "jp-mail": {
+        "case": "jp-mail",
+        "prompt": 88,
+        "cache_n": 0,
+        "output": 54,
+        "prompt_ms": 4208.864,
+        "ttft_ms": 4224.561482,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。",
+        "response_sha256": "02f1222b0e3fb04eeebd7c39c5de1766eb37a3c7ffdd3c84ef191e07e5111590",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "recipient": true,
+            "new_due": true,
+            "shared_folder": true,
+            "polite": true,
+            "sentence_count": 3,
+            "text_for_review": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。"
+          }
+        }
+      },
+      "units": {
+        "case": "units",
+        "prompt": 81,
+        "cache_n": 0,
+        "output": 9,
+        "prompt_ms": 4266.079,
+        "ttft_ms": 4278.711523,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"seconds\": 2.65}",
+        "response_sha256": "13d812d82e732c8d5866b0cf4fe0ff7699ed5dad6514b57aff3a0814758f6870",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "long-control": {
+        "case": "long-control",
+        "prompt": 173,
+        "cache_n": 0,
+        "output": 28,
+        "prompt_ms": 11344.915,
+        "ttft_ms": 11354.443848,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\n  \"room\": \"Cedar\",\n  \"start\": \"10:30\",\n  \"seats\": 16\n}",
+        "response_sha256": "546e772650761a37084a857dab077b4d81117e7bd325f85f8d2d4cb88d19d17f",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      }
+    },
+    "B2": {
+      "short-control": {
+        "case": "short-control",
+        "prompt": 28,
+        "cache_n": 0,
+        "output": 2,
+        "prompt_ms": 1626.858,
+        "ttft_ms": 1639.024668,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "45",
+        "response_sha256": "4f3548d3c5df3c586dbe721d37845c5cc5b656233df497d2d71497de46dbb257",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "reservation": {
+        "case": "reservation",
+        "prompt": 102,
+        "cache_n": 0,
+        "output": 17,
+        "prompt_ms": 4926.969,
+        "ttft_ms": 4947.289604,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"day\":\"日曜\",\"time\":\"14:10\",\"people\":3}",
+        "response_sha256": "0df851128882bad15cc01fe68e1cb74d2425a91faaf79715552facc1485a7996",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "inventory": {
+        "case": "inventory",
+        "prompt": 90,
+        "cache_n": 0,
+        "output": 23,
+        "prompt_ms": 4733.974,
+        "ttft_ms": 4747.036906,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"a_available\": 24, \"b_available\": 15, \"total\": 39}",
+        "response_sha256": "f3a8d8498a117e25e4e4d04b0e9b45b6ef62b05bfaac31f865eecd253c344ca6",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "py-slice": {
+        "case": "py-slice",
+        "prompt": 75,
+        "cache_n": 0,
+        "output": 15,
+        "prompt_ms": 4026.246,
+        "ttft_ms": 4038.882597,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "[x for x in xs if x >= 0][-2:]",
+        "response_sha256": "6aec607502d44e2dcd530dda6b778a128011d8d148a03986e3b2841b045923a7",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "input_lists": 1365
+          }
+        }
+      },
+      "sql-sales": {
+        "case": "sql-sales",
+        "prompt": 73,
+        "cache_n": 0,
+        "output": 27,
+        "prompt_ms": 3909.239,
+        "ttft_ms": 3916.176824,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "SELECT shop, SUM(amount) AS total FROM sales GROUP BY shop ORDER BY total DESC, shop ASC LIMIT 2;",
+        "response_sha256": "89b9a8fef4efa54c9445daef1f348a129a5a4c8481c9f2eeb166e8e67ab6efa2",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "sqlite_tables": 5
+          }
+        }
+      },
+      "jp-mail": {
+        "case": "jp-mail",
+        "prompt": 88,
+        "cache_n": 0,
+        "output": 54,
+        "prompt_ms": 4195.604,
+        "ttft_ms": 4208.235246,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。",
+        "response_sha256": "fe327780fad25ef51f2a97404f0a80022a13d179b53c5a62b29f51ea6d909498",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "recipient": true,
+            "new_due": true,
+            "shared_folder": true,
+            "polite": true,
+            "sentence_count": 3,
+            "text_for_review": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。"
+          }
+        }
+      },
+      "units": {
+        "case": "units",
+        "prompt": 81,
+        "cache_n": 0,
+        "output": 9,
+        "prompt_ms": 4263.969,
+        "ttft_ms": 4276.68966,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"seconds\": 2.65}",
+        "response_sha256": "7e734c666adf3d4839bdc9c315a826f658421ef19d355e21d4bbaa3ed7ed4567",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "long-control": {
+        "case": "long-control",
+        "prompt": 173,
+        "cache_n": 0,
+        "output": 28,
+        "prompt_ms": 11547.25,
+        "ttft_ms": 11555.0634,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\n  \"room\": \"Cedar\",\n  \"start\": \"10:30\",\n  \"seats\": 16\n}",
+        "response_sha256": "db4d5934d3d1abbf855910fd1ddc867e9dcc09ecf4285e2012ebae309487e254",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      }
+    },
+    "A2": {
+      "short-control": {
+        "case": "short-control",
+        "prompt": 28,
+        "cache_n": 0,
+        "output": 2,
+        "prompt_ms": 1641.498,
+        "ttft_ms": 1653.373784,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "45",
+        "response_sha256": "06042f6975b5b1d9abe4f6208a7061c617e86467327b6022f638fea0583329f9",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "reservation": {
+        "case": "reservation",
+        "prompt": 102,
+        "cache_n": 0,
+        "output": 17,
+        "prompt_ms": 7135.359,
+        "ttft_ms": 7157.524136,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"day\":\"日曜\",\"time\":\"14:10\",\"people\":3}",
+        "response_sha256": "14bdfbb7342d9bf417301e763d5bf549aabd123e7e283956cb0fe748a8eafa66",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "inventory": {
+        "case": "inventory",
+        "prompt": 90,
+        "cache_n": 0,
+        "output": 23,
+        "prompt_ms": 8541.609,
+        "ttft_ms": 8554.571826,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"a_available\": 24, \"b_available\": 15, \"total\": 39}",
+        "response_sha256": "7f316444c263a2357062fc9d69dd5deafd0d5d19a6e62de014404e4c71376d6f",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "py-slice": {
+        "case": "py-slice",
+        "prompt": 75,
+        "cache_n": 0,
+        "output": 15,
+        "prompt_ms": 7422.216,
+        "ttft_ms": 7435.006807,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "[x for x in xs if x >= 0][-2:]",
+        "response_sha256": "c50bc77bc0300595e31ded715ca2e8c3b3a9667d2245acaae54d243f53d94fbb",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "input_lists": 1365
+          }
+        }
+      },
+      "sql-sales": {
+        "case": "sql-sales",
+        "prompt": 73,
+        "cache_n": 0,
+        "output": 27,
+        "prompt_ms": 7378.79,
+        "ttft_ms": 7391.751079,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "SELECT shop, SUM(amount) AS total FROM sales GROUP BY shop ORDER BY total DESC, shop ASC LIMIT 2;",
+        "response_sha256": "0ddd3643242bfaab83c90060cbe8c5e6de2313a60f03cd020fc9904acad1a2b8",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "sqlite_tables": 5
+          }
+        }
+      },
+      "jp-mail": {
+        "case": "jp-mail",
+        "prompt": 88,
+        "cache_n": 0,
+        "output": 54,
+        "prompt_ms": 6645.94,
+        "ttft_ms": 6661.91808,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。",
+        "response_sha256": "a686f275182e47dfa6e936a4b02f5621b62c1837990e3cb2ebda20be18af7019",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {
+            "recipient": true,
+            "new_due": true,
+            "shared_folder": true,
+            "polite": true,
+            "sentence_count": 3,
+            "text_for_review": "佐藤さん、資料の提出期限が月曜の正午から火曜の17時に変更されましたのでお伝えします。提出先は共有フォルダのままです。ご確認のほどよろしくお願いいたします。"
+          }
+        }
+      },
+      "units": {
+        "case": "units",
+        "prompt": 81,
+        "cache_n": 0,
+        "output": 9,
+        "prompt_ms": 8142.611,
+        "ttft_ms": 8149.565721,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\"seconds\": 2.65}",
+        "response_sha256": "820dbcd44ad5f297a4f639228b8fae93b817f642506fc77e14e704d800feb189",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      },
+      "long-control": {
+        "case": "long-control",
+        "prompt": 173,
+        "cache_n": 0,
+        "output": 28,
+        "prompt_ms": 11562.449,
+        "ttft_ms": 11577.172217,
+        "reasoning_first_ms": null,
+        "finish": "stop",
+        "text": "{\n  \"room\": \"Cedar\",\n  \"start\": \"10:30\",\n  \"seats\": 16\n}",
+        "response_sha256": "7e8519a4cfafb63f324dd4e292ec8f1706c5bda5ebb24be20303d5d8ad725238",
+        "score": {
+          "passes": true,
+          "content_ok": true,
+          "format_without_fence": true,
+          "detail": {}
+        }
+      }
+    }
+  }
+}
