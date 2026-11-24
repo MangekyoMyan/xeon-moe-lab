@@ -1,0 +1,67 @@
+{
+  "scope": "Japanese quality prefill plus 64 forced calls. PC samples are for this PID. APERF/MPERF/TSC are CPU-wide on the process CPUs in this run SPEC.",
+  "timebase": "CLOCK_MONOTONIC",
+  "commands": {
+    "clocks": [
+      "/usr/bin/perf",
+      "stat",
+      "-a",
+      "-A",
+      "-C",
+      "0,1,2,3,4,5,12,13,14,15,16,17",
+      "--no-big-num",
+      "-I",
+      "2000",
+      "-x",
+      ";",
+      "-e",
+      "msr/aperf/,msr/mperf/,msr/tsc/",
+      "-o",
+      "/home/codex/projects/llm-lab/postload-measurement-20261124/trial/runs/new-p12-quality-01/quality-host/msr.csv"
+    ],
+    "workers": [
+      "/usr/bin/perf",
+      "record",
+      "-q",
+      "--no-buildid-cache",
+      "--no-buildid",
+      "--sample-cpu",
+      "-T",
+      "-k",
+      "mono",
+      "-F",
+      "79",
+      "-e",
+      "cpu-clock:u",
+      "-p",
+      "41761",
+      "-o",
+      "/home/codex/projects/llm-lab/postload-measurement-20261124/trial/runs/new-p12-quality-01/quality-host/worker.local.data"
+    ]
+  },
+  "start_brackets_ns": {
+    "clocks": [
+      12119944540288,
+      12119964273919
+    ],
+    "workers": [
+      12119964406331,
+      12119965056889
+    ]
+  },
+  "exit_codes": {
+    "clocks": -2,
+    "workers": -2
+  },
+  "target_pid": 41761,
+  "armed_ns": 12120265182549,
+  "running_at_arm": {
+    "clocks": true,
+    "workers": true
+  },
+  "completed_marker": {
+    "pid": 41761,
+    "monotonic_ns": 12139532760216
+  },
+  "stop_ns": 12139605288065
+}
