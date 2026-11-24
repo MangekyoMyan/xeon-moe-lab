@@ -1,0 +1,238 @@
+{
+  "command": [
+    "timeout",
+    "--signal=INT",
+    "--kill-after=5s",
+    "25s",
+    "taskset",
+    "-c",
+    "15",
+    "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+    "--cpu",
+    "1",
+    "--cpu-method",
+    "sqrt",
+    "--verify",
+    "--abort",
+    "--timeout",
+    "10s",
+    "--metrics-brief"
+  ],
+  "target": {
+    "cpu": 15,
+    "socket": 1,
+    "core": 3,
+    "node": 1,
+    "siblings": "15,39",
+    "allowed": true,
+    "online": true,
+    "microcode": "0x42e",
+    "governor": "schedutil"
+  },
+  "seconds": 10,
+  "method": "sqrt",
+  "size_mib": null,
+  "snapshots": [
+    {
+      "t": 3856.422991331,
+      "tree": [
+        {
+          "pid": 16087,
+          "comm": "timeout",
+          "allowed": "0-47",
+          "last_cpu": 33,
+          "ticks": 0,
+          "start_tick": 385642,
+          "rss_kib": 1600
+        },
+        {
+          "pid": 16088,
+          "comm": "stress-ng",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 3,
+          "start_tick": 385642,
+          "rss_kib": 11360
+        }
+      ]
+    },
+    {
+      "t": 3858.423164585,
+      "tree": [
+        {
+          "pid": 16087,
+          "comm": "timeout",
+          "allowed": "0-47",
+          "last_cpu": 33,
+          "ticks": 0,
+          "start_tick": 385642,
+          "rss_kib": 1600
+        },
+        {
+          "pid": 16088,
+          "comm": "stress-ng",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 7,
+          "start_tick": 385642,
+          "rss_kib": 72820
+        },
+        {
+          "pid": 16092,
+          "comm": "stress-ng-cpu",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 214,
+          "start_tick": 385650,
+          "rss_kib": 5444
+        }
+      ]
+    },
+    {
+      "t": 3860.423339034,
+      "tree": [
+        {
+          "pid": 16087,
+          "comm": "timeout",
+          "allowed": "0-47",
+          "last_cpu": 33,
+          "ticks": 0,
+          "start_tick": 385642,
+          "rss_kib": 1600
+        },
+        {
+          "pid": 16088,
+          "comm": "stress-ng",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 7,
+          "start_tick": 385642,
+          "rss_kib": 72820
+        },
+        {
+          "pid": 16092,
+          "comm": "stress-ng-cpu",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 397,
+          "start_tick": 385650,
+          "rss_kib": 5444
+        }
+      ]
+    },
+    {
+      "t": 3862.423514731,
+      "tree": [
+        {
+          "pid": 16087,
+          "comm": "timeout",
+          "allowed": "0-47",
+          "last_cpu": 33,
+          "ticks": 0,
+          "start_tick": 385642,
+          "rss_kib": 1600
+        },
+        {
+          "pid": 16088,
+          "comm": "stress-ng",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 7,
+          "start_tick": 385642,
+          "rss_kib": 72820
+        },
+        {
+          "pid": 16092,
+          "comm": "stress-ng-cpu",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 596,
+          "start_tick": 385650,
+          "rss_kib": 5444
+        }
+      ]
+    },
+    {
+      "t": 3864.423690236,
+      "tree": [
+        {
+          "pid": 16087,
+          "comm": "timeout",
+          "allowed": "0-47",
+          "last_cpu": 33,
+          "ticks": 0,
+          "start_tick": 385642,
+          "rss_kib": 1600
+        },
+        {
+          "pid": 16088,
+          "comm": "stress-ng",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 7,
+          "start_tick": 385642,
+          "rss_kib": 72820
+        },
+        {
+          "pid": 16092,
+          "comm": "stress-ng-cpu",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 804,
+          "start_tick": 385650,
+          "rss_kib": 5444
+        }
+      ]
+    },
+    {
+      "t": 3866.423863472,
+      "tree": [
+        {
+          "pid": 16087,
+          "comm": "timeout",
+          "allowed": "0-47",
+          "last_cpu": 33,
+          "ticks": 0,
+          "start_tick": 385642,
+          "rss_kib": 1600
+        },
+        {
+          "pid": 16088,
+          "comm": "stress-ng",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 7,
+          "start_tick": 385642,
+          "rss_kib": 72820
+        },
+        {
+          "pid": 16092,
+          "comm": "stress-ng-cpu",
+          "allowed": "15",
+          "last_cpu": 15,
+          "ticks": 997,
+          "start_tick": 385650,
+          "rss_kib": 5444
+        }
+      ]
+    }
+  ],
+  "large_maps": [],
+  "start": {
+    "utc": "2026-11-24T08:15:39.215014+00:00",
+    "monotonic_s": 3856.374023671
+  },
+  "label": "s1-cpu15-sqrt",
+  "pid": 16087,
+  "exit_code": 0,
+  "bogo_ops": 13330,
+  "stressor_wall_s": 10.0,
+  "active_worker_pids": [
+    16092
+  ],
+  "status": "pass",
+  "end": {
+    "utc": "2026-11-24T08:15:49.437471+00:00",
+    "monotonic_s": 3866.596482604
+  }
+}

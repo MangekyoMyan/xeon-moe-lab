@@ -1,0 +1,3465 @@
+{
+  "schema": 1,
+  "document_kind": "real machine health results",
+  "prepared_jst_date": "2026-11-24",
+  "external_review_did_not_access_real_machine": true,
+  "overall_status": "INCOMPLETE",
+  "status_vocabulary": [
+    "NOT_RUN",
+    "INCOMPLETE",
+    "ANOMALY_OBSERVED",
+    "INITIAL_SCREEN_CLEAR_WITH_LIMITATIONS"
+  ],
+  "status_notes_ja": "null/未取得は0件ではない。観測した異常とCPU単体不良の確定を区別する。",
+  "operator": "Codex on x9ram",
+  "physical_readiness": {
+    "coolers_replaced": false,
+    "cooler_model": null,
+    "cooler_130w_suitability_confirmed": null,
+    "power_cooling_suitability_confirmed": null,
+    "fan_policy_before": [
+      40.0,
+      40.0,
+      40.0,
+      40.0
+    ],
+    "fan_policy_during": {
+      "mode_before": "00",
+      "end_mode": "00",
+      "max_pct_observed": 40.0,
+      "configured_monitor_ceiling_pct": 70
+    },
+    "cpu_power_connectors_checked": null
+  },
+  "llm_state": {
+    "found_loaded_at_start": false,
+    "actual_supervisor": "llm-deepseek41-api.service (systemd)",
+    "original_active_state": "inactive/dead; MainPID=0; Restart=no",
+    "original_enablement": "static",
+    "automatic_start_sources": [],
+    "method_used_to_keep_stopped": "Already inactive; no reverse dependency or TriggeredBy found for the unit; no unit or enablement mutation.",
+    "model_remained_stopped_during_tests": true,
+    "stopped_at_end": true,
+    "later_restore_instructions_not_executed": true
+  },
+  "system": {
+    "boot_id_before": "3b3356d7-b550-41f0-8f66-181e3942a899",
+    "boot_id_after": "3b3356d7-b550-41f0-8f66-181e3942a899",
+    "kernel_os": {
+      "kernel": "6.12.113+deb13-amd64",
+      "os_release": "PRETTY_NAME=\"Debian GNU/Linux 13 (trixie)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"13\"\nVERSION=\"13 (trixie)\"\nVERSION_CODENAME=trixie\nDEBIAN_VERSION_FULL=13.7\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\""
+    },
+    "board_bios": {
+      "board_vendor": "Sugon",
+      "board_name": "X9DR3-F",
+      "bios_version": "3.4",
+      "bios_date": "06/30/2020"
+    },
+    "cpu_model_each_socket": [
+      {
+        "Socket Designation": "CPU 1",
+        "Version": "Intel(R) Xeon(R) CPU E5-2697 v2 @ 2.70GHz",
+        "Status": "Populated, Enabled",
+        "Core Count": "12",
+        "Core Enabled": "12",
+        "Thread Count": "24"
+      },
+      {
+        "Socket Designation": "CPU 2",
+        "Version": "Intel(R) Xeon(R) CPU E5-2697 v2 @ 2.70GHz",
+        "Status": "Populated, Enabled",
+        "Core Count": "12",
+        "Core Enabled": "12",
+        "Thread Count": "24"
+      }
+    ],
+    "microcode_each_socket": {
+      "0": [
+        "0x42e"
+      ],
+      "1": [
+        "0x42e"
+      ]
+    },
+    "expected_sockets": 2,
+    "expected_physical_cores": 24,
+    "expected_logical_cpus_if_ht_enabled": 48,
+    "observed_sockets": 2,
+    "observed_physical_cores": 24,
+    "observed_logical_cpus": 48,
+    "ht_enabled": true,
+    "online_cpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47
+    ],
+    "allowed_cpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47
+    ],
+    "cpu_socket_core_sibling_node_mapping_file": "evidence/hardware.json",
+    "selected_physical_core_representatives": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "numa_topology_file": "evidence/numa.txt",
+    "dimm_inventory_file": "evidence/hardware.json",
+    "installed_memory_bytes": 549755813888,
+    "mem_available_bytes": 536388714496,
+    "configured_memory_speeds": [
+      "1600 MT/s"
+    ],
+    "governor_turbo_state": {
+      "governors": [
+        "schedutil"
+      ],
+      "no_turbo": "0"
+    },
+    "differences_from_old_machine": [
+      "2026-11-23 E5-2630L v2 ×2 (12 physical / 24 logical) -> E5-2697 v2 ×2 (24 / 48).",
+      "Socket/core/SMT mapping changed. Same 16 DIMM locators, sizes and 1600 MT/s configured speeds; same board and BIOS."
+    ],
+    "old_data_commit": "959a59486d12f0f9224d5a8a5cf8dd822c315d22"
+  },
+  "tools": {
+    "stress_ng_version": "stress-ng, version 0.19.02 (gcc 14.2.0, x86_64 Linux 6.12.113+deb13-amd64)",
+    "stress_ng_binary_identity": "812ceb194f387a033de72abd1b99bfff4ec168ebebc3cc3c4916c5eeb55da3d0",
+    "cpu_methods_verified": [
+      "int64",
+      "sqrt"
+    ],
+    "effective_vm_method": "checkerboard, one worker, MADV_NORMAL, vm-keep, --verify --abort --oomable",
+    "numactl_version": "2.0.19",
+    "timeout_version": "timeout (GNU coreutils) 9.7",
+    "option_check_file": "evidence/tools.json",
+    "planned_vm_method": "checkerboard, or a locally verified equivalent pattern write/read/compare method; never default or all"
+  },
+  "monitoring": {
+    "coretemp_sensor_mapping_file": "evidence/hardware.json",
+    "both_sockets_and_core_temperatures_observed": true,
+    "temperature_policy": "min(existing monitor CPU limit 60 C, 80 C, individually read crit minus 10 C)",
+    "actual_stop_thresholds_by_sensor": {
+      "S0/Core 8": 60000,
+      "S0/Core 9": 60000,
+      "S0/Core 10": 60000,
+      "S0/Core 11": 60000,
+      "S0/Core 12": 60000,
+      "S0/Core 13": 60000,
+      "S0/Package id 0": 60000,
+      "S0/Core 0": 60000,
+      "S0/Core 1": 60000,
+      "S0/Core 2": 60000,
+      "S0/Core 3": 60000,
+      "S0/Core 4": 60000,
+      "S0/Core 5": 60000,
+      "S1/Core 8": 60000,
+      "S1/Core 9": 60000,
+      "S1/Core 10": 60000,
+      "S1/Core 11": 60000,
+      "S1/Core 12": 60000,
+      "S1/Core 13": 60000,
+      "S1/Package id 1": 60000,
+      "S1/Core 0": 60000,
+      "S1/Core 1": 60000,
+      "S1/Core 2": 60000,
+      "S1/Core 3": 60000,
+      "S1/Core 4": 60000,
+      "S1/Core 5": 60000
+    },
+    "temperature_sample_interval_seconds": 2,
+    "temperature_series_file": [
+      "evidence/P0/samples.jsonl",
+      "evidence/P1/samples.jsonl",
+      "evidence/P2/samples.jsonl",
+      "evidence/P5/samples.jsonl",
+      "evidence/P6/samples.jsonl"
+    ],
+    "max_temperature_by_sensor": {
+      "S0/Core 8": 35.0,
+      "S0/Core 9": 33.0,
+      "S0/Core 10": 31.0,
+      "S0/Core 11": 34.0,
+      "S0/Core 12": 31.0,
+      "S0/Core 13": 35.0,
+      "S0/Package id 0": 37.0,
+      "S0/Core 0": 30.0,
+      "S0/Core 1": 34.0,
+      "S0/Core 2": 36.0,
+      "S0/Core 3": 34.0,
+      "S0/Core 4": 37.0,
+      "S0/Core 5": 30.0,
+      "S1/Core 8": 37.0,
+      "S1/Core 9": 40.0,
+      "S1/Core 10": 43.0,
+      "S1/Core 11": 42.0,
+      "S1/Core 12": 38.0,
+      "S1/Core 13": 40.0,
+      "S1/Package id 1": 43.0,
+      "S1/Core 0": 38.0,
+      "S1/Core 1": 42.0,
+      "S1/Core 2": 41.0,
+      "S1/Core 3": 40.0,
+      "S1/Core 4": 34.0,
+      "S1/Core 5": 38.0
+    },
+    "max_observed_temperature_change": {
+      "max_abs_C_between_adjacent_samples_within_phase": 12.0
+    },
+    "journal_before_file": "Full kernel log retained on host. Public matched lines and counts in evidence/before.json.",
+    "journal_start_cursor": null,
+    "journal_new_file": "Full kernel delta retained on host. Public matched lines and counts in evidence/after.json.",
+    "edac_before_file": "evidence/before.json",
+    "edac_after_file": "evidence/after.json",
+    "edac_new_ce": 0,
+    "edac_new_ue": 0,
+    "thermal_before_file": "evidence/before.json",
+    "thermal_after_file": "evidence/after.json",
+    "deduplicated_thermal_deltas": {
+      "package": {
+        "0": 0,
+        "1": 0
+      },
+      "cores_with_an_increment": []
+    },
+    "bmc_sel_before_file": "evidence/before-sel.txt",
+    "bmc_sel_after_file": "evidence/after-sel.txt",
+    "new_sel_records": [],
+    "hardware_event_interpretations": [
+      "Boot contains thermal monitor and EDAC controller registration. No hardware error events identified in that log or the subsequent interval."
+    ],
+    "unavailable_observations_and_reason": [
+      "rasdaemon is not installed as a service. Used Linux kernel journal and sb_edac counters.",
+      "BMC PSU watt fields return 0 while running. Actual AC input and cable details are unmeasured.",
+      "Fan RPM and DIMMs come from existing 30 s BMC monitoring. Intervals in the numerical trace are in MEASUREMENTS.json."
+    ]
+  },
+  "phases": [
+    {
+      "phase": "P0_idle",
+      "status": "COMPLETED",
+      "planned_seconds_if_two_numa_nodes": 180,
+      "optional": false,
+      "commands": [
+        [
+          "python3",
+          "guard.py",
+          "P0"
+        ]
+      ],
+      "target_cpu_ids": [],
+      "memory_node": null,
+      "started_utc": "2026-11-24T08:04:42.456837+00:00",
+      "ended_utc": "2026-11-24T08:07:42.499384+00:00",
+      "started_monotonic_s": 3199.615856301,
+      "ended_monotonic_s": 3379.658384198,
+      "exit_codes": [
+        0
+      ],
+      "verification_succeeded": null,
+      "stdout_stderr_files": [],
+      "temperature_and_log_review": {
+        "summary": "MEASUREMENTS.json#phases/P0",
+        "samples": 91,
+        "max_interval_s": 2.0002429040000607,
+        "new_events": []
+      },
+      "reason_for_stop_or_skip": null
+    },
+    {
+      "phase": "P1_socket_single_core",
+      "status": "COMPLETED",
+      "planned_seconds_if_two_numa_nodes": 120,
+      "optional": false,
+      "commands": [
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "45s",
+          "taskset",
+          "-c",
+          "0",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "30s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "45s",
+          "taskset",
+          "-c",
+          "0",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "30s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "45s",
+          "taskset",
+          "-c",
+          "12",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "30s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "45s",
+          "taskset",
+          "-c",
+          "12",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "30s",
+          "--metrics-brief"
+        ]
+      ],
+      "target_cpu_ids": [
+        0,
+        12
+      ],
+      "memory_node": null,
+      "started_utc": "2026-11-24T08:07:59.996052+00:00",
+      "ended_utc": "2026-11-24T08:10:01.292611+00:00",
+      "started_monotonic_s": 3397.155071452,
+      "ended_monotonic_s": 3518.451621126,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "verification_succeeded": true,
+      "stdout_stderr_files": [
+        "evidence/P1/s0-cpu0-int64.txt",
+        "evidence/P1/s0-cpu0-sqrt.txt",
+        "evidence/P1/s1-cpu12-int64.txt",
+        "evidence/P1/s1-cpu12-sqrt.txt"
+      ],
+      "temperature_and_log_review": {
+        "summary": "MEASUREMENTS.json#phases/P1",
+        "samples": 72,
+        "max_interval_s": 2.0002588160000414,
+        "new_events": []
+      },
+      "reason_for_stop_or_skip": null
+    },
+    {
+      "phase": "P2_individual_24_physical_cores",
+      "status": "COMPLETED",
+      "planned_seconds_if_two_numa_nodes": 480,
+      "optional": false,
+      "commands": [
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "0",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "0",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "1",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "1",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "2",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "2",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "3",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "3",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "4",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "4",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "5",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "5",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "6",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "6",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "7",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "7",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "8",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "8",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "9",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "9",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "10",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "10",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "11",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "11",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "12",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "12",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "13",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "13",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "14",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "14",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "15",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "15",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "16",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "16",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "17",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "17",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "18",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "18",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "19",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "19",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "20",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "20",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "21",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "21",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "22",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "22",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "23",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "int64",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "25s",
+          "taskset",
+          "-c",
+          "23",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--cpu",
+          "1",
+          "--cpu-method",
+          "sqrt",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "10s",
+          "--metrics-brief"
+        ]
+      ],
+      "target_cpu_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "memory_node": null,
+      "started_utc": "2026-11-24T08:10:22.012933+00:00",
+      "ended_utc": "2026-11-24T08:18:33.307655+00:00",
+      "started_monotonic_s": 3539.171951682,
+      "ended_monotonic_s": 4030.466665283,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "verification_succeeded": true,
+      "stdout_stderr_files": [
+        "evidence/P2/s0-cpu0-int64.txt",
+        "evidence/P2/s0-cpu0-sqrt.txt",
+        "evidence/P2/s0-cpu1-int64.txt",
+        "evidence/P2/s0-cpu1-sqrt.txt",
+        "evidence/P2/s0-cpu2-int64.txt",
+        "evidence/P2/s0-cpu2-sqrt.txt",
+        "evidence/P2/s0-cpu3-int64.txt",
+        "evidence/P2/s0-cpu3-sqrt.txt",
+        "evidence/P2/s0-cpu4-int64.txt",
+        "evidence/P2/s0-cpu4-sqrt.txt",
+        "evidence/P2/s0-cpu5-int64.txt",
+        "evidence/P2/s0-cpu5-sqrt.txt",
+        "evidence/P2/s0-cpu6-int64.txt",
+        "evidence/P2/s0-cpu6-sqrt.txt",
+        "evidence/P2/s0-cpu7-int64.txt",
+        "evidence/P2/s0-cpu7-sqrt.txt",
+        "evidence/P2/s0-cpu8-int64.txt",
+        "evidence/P2/s0-cpu8-sqrt.txt",
+        "evidence/P2/s0-cpu9-int64.txt",
+        "evidence/P2/s0-cpu9-sqrt.txt",
+        "evidence/P2/s0-cpu10-int64.txt",
+        "evidence/P2/s0-cpu10-sqrt.txt",
+        "evidence/P2/s0-cpu11-int64.txt",
+        "evidence/P2/s0-cpu11-sqrt.txt",
+        "evidence/P2/s1-cpu12-int64.txt",
+        "evidence/P2/s1-cpu12-sqrt.txt",
+        "evidence/P2/s1-cpu13-int64.txt",
+        "evidence/P2/s1-cpu13-sqrt.txt",
+        "evidence/P2/s1-cpu14-int64.txt",
+        "evidence/P2/s1-cpu14-sqrt.txt",
+        "evidence/P2/s1-cpu15-int64.txt",
+        "evidence/P2/s1-cpu15-sqrt.txt",
+        "evidence/P2/s1-cpu16-int64.txt",
+        "evidence/P2/s1-cpu16-sqrt.txt",
+        "evidence/P2/s1-cpu17-int64.txt",
+        "evidence/P2/s1-cpu17-sqrt.txt",
+        "evidence/P2/s1-cpu18-int64.txt",
+        "evidence/P2/s1-cpu18-sqrt.txt",
+        "evidence/P2/s1-cpu19-int64.txt",
+        "evidence/P2/s1-cpu19-sqrt.txt",
+        "evidence/P2/s1-cpu20-int64.txt",
+        "evidence/P2/s1-cpu20-sqrt.txt",
+        "evidence/P2/s1-cpu21-int64.txt",
+        "evidence/P2/s1-cpu21-sqrt.txt",
+        "evidence/P2/s1-cpu22-int64.txt",
+        "evidence/P2/s1-cpu22-sqrt.txt",
+        "evidence/P2/s1-cpu23-int64.txt",
+        "evidence/P2/s1-cpu23-sqrt.txt"
+      ],
+      "temperature_and_log_review": {
+        "summary": "MEASUREMENTS.json#phases/P2",
+        "samples": 384,
+        "max_interval_s": 2.000255771999946,
+        "new_events": []
+      },
+      "reason_for_stop_or_skip": null
+    },
+    {
+      "phase": "P3_socket_12_cores_each",
+      "status": "NOT_RUN",
+      "planned_seconds_if_two_numa_nodes": 120,
+      "optional": false,
+      "commands": [],
+      "target_cpu_ids": [],
+      "memory_node": null,
+      "started_utc": null,
+      "ended_utc": null,
+      "started_monotonic_s": null,
+      "ended_monotonic_s": null,
+      "exit_codes": [],
+      "verification_succeeded": null,
+      "stdout_stderr_files": [],
+      "temperature_and_log_review": null,
+      "reason_for_stop_or_skip": "130 W per-socket cooling suitability remains unknown for reused tower coolers."
+    },
+    {
+      "phase": "P4_both_sockets_24_cores",
+      "status": "NOT_RUN",
+      "planned_seconds_if_two_numa_nodes": 60,
+      "optional": false,
+      "commands": [],
+      "target_cpu_ids": [],
+      "memory_node": null,
+      "started_utc": null,
+      "ended_utc": null,
+      "started_monotonic_s": null,
+      "ended_monotonic_s": null,
+      "exit_codes": [],
+      "verification_succeeded": null,
+      "stdout_stderr_files": [],
+      "temperature_and_log_review": null,
+      "reason_for_stop_or_skip": "130 W per-socket cooling suitability remains unknown for reused tower coolers."
+    },
+    {
+      "phase": "P4b_optional_cpu_methods",
+      "status": "NOT_RUN",
+      "planned_seconds_if_two_numa_nodes": 300,
+      "optional": true,
+      "commands": [],
+      "target_cpu_ids": [],
+      "memory_node": null,
+      "started_utc": null,
+      "ended_utc": null,
+      "started_monotonic_s": null,
+      "ended_monotonic_s": null,
+      "exit_codes": [],
+      "verification_succeeded": null,
+      "stdout_stderr_files": [],
+      "temperature_and_log_review": null,
+      "reason_for_stop_or_skip": "Optional multi-core extension."
+    },
+    {
+      "phase": "P5_numa_local_small_memory",
+      "status": "COMPLETED",
+      "planned_seconds_if_two_numa_nodes": 180,
+      "optional": false,
+      "commands": [
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "45s",
+          "numactl",
+          "--physcpubind=0",
+          "--membind=0",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--vm",
+          "1",
+          "--vm-bytes",
+          "256M",
+          "--vm-method",
+          "checkerboard",
+          "--vm-madvise",
+          "normal",
+          "--vm-keep",
+          "--oomable",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "30s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "75s",
+          "numactl",
+          "--physcpubind=0",
+          "--membind=0",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--vm",
+          "1",
+          "--vm-bytes",
+          "1024M",
+          "--vm-method",
+          "checkerboard",
+          "--vm-madvise",
+          "normal",
+          "--vm-keep",
+          "--oomable",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "60s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "45s",
+          "numactl",
+          "--physcpubind=12",
+          "--membind=1",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--vm",
+          "1",
+          "--vm-bytes",
+          "256M",
+          "--vm-method",
+          "checkerboard",
+          "--vm-madvise",
+          "normal",
+          "--vm-keep",
+          "--oomable",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "30s",
+          "--metrics-brief"
+        ],
+        [
+          "timeout",
+          "--signal=INT",
+          "--kill-after=5s",
+          "75s",
+          "numactl",
+          "--physcpubind=12",
+          "--membind=1",
+          "/home/codex/projects/llm-lab/postswap-health-20261124/toolroot/usr/bin/stress-ng",
+          "--vm",
+          "1",
+          "--vm-bytes",
+          "1024M",
+          "--vm-method",
+          "checkerboard",
+          "--vm-madvise",
+          "normal",
+          "--vm-keep",
+          "--oomable",
+          "--verify",
+          "--abort",
+          "--timeout",
+          "60s",
+          "--metrics-brief"
+        ]
+      ],
+      "target_cpu_ids": [
+        0,
+        12
+      ],
+      "memory_node": [
+        0,
+        1
+      ],
+      "started_utc": "2026-11-24T08:18:58.478914+00:00",
+      "ended_utc": "2026-11-24T08:21:59.747242+00:00",
+      "started_monotonic_s": 4055.637933902,
+      "ended_monotonic_s": 4236.906258928,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "verification_succeeded": true,
+      "stdout_stderr_files": [
+        "evidence/P5/s0-cpu0-checkerboard-256MiB.txt",
+        "evidence/P5/s0-cpu0-checkerboard-1024MiB.txt",
+        "evidence/P5/s1-cpu12-checkerboard-256MiB.txt",
+        "evidence/P5/s1-cpu12-checkerboard-1024MiB.txt"
+      ],
+      "temperature_and_log_review": {
+        "summary": "MEASUREMENTS.json#phases/P5",
+        "samples": 102,
+        "max_interval_s": 2.0002390950003246,
+        "new_events": []
+      },
+      "reason_for_stop_or_skip": null
+    },
+    {
+      "phase": "P6_cooldown",
+      "status": "COMPLETED",
+      "planned_seconds_if_two_numa_nodes": 180,
+      "optional": false,
+      "commands": [
+        [
+          "python3",
+          "guard.py",
+          "P6"
+        ]
+      ],
+      "target_cpu_ids": [],
+      "memory_node": null,
+      "started_utc": "2026-11-24T08:22:35.582097+00:00",
+      "ended_utc": "2026-11-24T08:25:35.636525+00:00",
+      "started_monotonic_s": 4272.741118061,
+      "ended_monotonic_s": 4452.795537296,
+      "exit_codes": [
+        0
+      ],
+      "verification_succeeded": null,
+      "stdout_stderr_files": [],
+      "temperature_and_log_review": {
+        "summary": "MEASUREMENTS.json#phases/P6",
+        "samples": 91,
+        "max_interval_s": 2.0002609559996927,
+        "new_events": []
+      },
+      "reason_for_stop_or_skip": null
+    }
+  ],
+  "individual_core_results": [
+    {
+      "cpu": 0,
+      "socket": 0,
+      "core": 0,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16564,
+      "observed_workers": [
+        14367
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 23.0,
+          "min": 23.0,
+          "median": 26.0,
+          "max": 28.0,
+          "last": 28.0
+        },
+        "S1/Package id 1": {
+          "first": 31.0,
+          "min": 30.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 23.0,
+        "S1/Package id 1": 31.0
+      },
+      "result_file": "evidence/P2/s0-cpu0-int64.json"
+    },
+    {
+      "cpu": 0,
+      "socket": 0,
+      "core": 0,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13278,
+      "observed_workers": [
+        14403
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 28.0,
+          "min": 27.0,
+          "median": 27.5,
+          "max": 28.0,
+          "last": 28.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 29.0,
+          "median": 29.5,
+          "max": 30.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 28.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu0-sqrt.json"
+    },
+    {
+      "cpu": 1,
+      "socket": 0,
+      "core": 1,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16796,
+      "observed_workers": [
+        14491
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 28.0,
+          "min": 28.0,
+          "median": 32.0,
+          "max": 34.0,
+          "last": 33.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 29.0,
+          "median": 30.0,
+          "max": 30.0,
+          "last": 29.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 28.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu1-int64.json"
+    },
+    {
+      "cpu": 1,
+      "socket": 0,
+      "core": 1,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13307,
+      "observed_workers": [
+        14567
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 33.0,
+          "min": 32.0,
+          "median": 33.0,
+          "max": 34.0,
+          "last": 33.0
+        },
+        "S1/Package id 1": {
+          "first": 29.0,
+          "min": 29.0,
+          "median": 29.0,
+          "max": 30.0,
+          "last": 29.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 33.0,
+        "S1/Package id 1": 29.0
+      },
+      "result_file": "evidence/P2/s0-cpu1-sqrt.json"
+    },
+    {
+      "cpu": 2,
+      "socket": 0,
+      "core": 2,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16961,
+      "observed_workers": [
+        14607
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 33.0,
+          "min": 33.0,
+          "median": 34.0,
+          "max": 35.0,
+          "last": 35.0
+        },
+        "S1/Package id 1": {
+          "first": 29.0,
+          "min": 29.0,
+          "median": 29.0,
+          "max": 30.0,
+          "last": 29.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 33.0,
+        "S1/Package id 1": 29.0
+      },
+      "result_file": "evidence/P2/s0-cpu2-int64.json"
+    },
+    {
+      "cpu": 2,
+      "socket": 0,
+      "core": 2,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13181,
+      "observed_workers": [
+        14654
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 35.0,
+          "min": 34.0,
+          "median": 35.0,
+          "max": 36.0,
+          "last": 35.0
+        },
+        "S1/Package id 1": {
+          "first": 29.0,
+          "min": 29.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 29.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 35.0,
+        "S1/Package id 1": 29.0
+      },
+      "result_file": "evidence/P2/s0-cpu2-sqrt.json"
+    },
+    {
+      "cpu": 3,
+      "socket": 0,
+      "core": 3,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16993,
+      "observed_workers": [
+        14709
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 35.0,
+          "min": 33.0,
+          "median": 34.0,
+          "max": 35.0,
+          "last": 34.0
+        },
+        "S1/Package id 1": {
+          "first": 29.0,
+          "min": 29.0,
+          "median": 29.0,
+          "max": 30.0,
+          "last": 29.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 35.0,
+        "S1/Package id 1": 29.0
+      },
+      "result_file": "evidence/P2/s0-cpu3-int64.json"
+    },
+    {
+      "cpu": 3,
+      "socket": 0,
+      "core": 3,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13293,
+      "observed_workers": [
+        14757
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 34.0,
+          "min": 33.0,
+          "median": 34.0,
+          "max": 34.0,
+          "last": 34.0
+        },
+        "S1/Package id 1": {
+          "first": 29.0,
+          "min": 29.0,
+          "median": 29.5,
+          "max": 30.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 34.0,
+        "S1/Package id 1": 29.0
+      },
+      "result_file": "evidence/P2/s0-cpu3-sqrt.json"
+    },
+    {
+      "cpu": 4,
+      "socket": 0,
+      "core": 4,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16799,
+      "observed_workers": [
+        14805
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 34.0,
+          "min": 34.0,
+          "median": 35.0,
+          "max": 37.0,
+          "last": 37.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 29.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 31.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 34.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu4-int64.json"
+    },
+    {
+      "cpu": 4,
+      "socket": 0,
+      "core": 4,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13306,
+      "observed_workers": [
+        14875
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 37.0,
+          "min": 36.0,
+          "median": 36.0,
+          "max": 37.0,
+          "last": 36.0
+        },
+        "S1/Package id 1": {
+          "first": 31.0,
+          "min": 29.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 29.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 37.0,
+        "S1/Package id 1": 31.0
+      },
+      "result_file": "evidence/P2/s0-cpu4-sqrt.json"
+    },
+    {
+      "cpu": 5,
+      "socket": 0,
+      "core": 5,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16931,
+      "observed_workers": [
+        14947
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 36.0,
+          "min": 29.0,
+          "median": 29.0,
+          "max": 36.0,
+          "last": 29.0
+        },
+        "S1/Package id 1": {
+          "first": 29.0,
+          "min": 29.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 36.0,
+        "S1/Package id 1": 29.0
+      },
+      "result_file": "evidence/P2/s0-cpu5-int64.json"
+    },
+    {
+      "cpu": 5,
+      "socket": 0,
+      "core": 5,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13143,
+      "observed_workers": [
+        15005
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 29.0,
+          "min": 28.0,
+          "median": 29.0,
+          "max": 31.0,
+          "last": 31.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 29.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 31.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 29.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu5-sqrt.json"
+    },
+    {
+      "cpu": 6,
+      "socket": 0,
+      "core": 8,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16648,
+      "observed_workers": [
+        15068
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 31.0,
+          "min": 31.0,
+          "median": 34.5,
+          "max": 35.0,
+          "last": 34.0
+        },
+        "S1/Package id 1": {
+          "first": 31.0,
+          "min": 30.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 31.0,
+        "S1/Package id 1": 31.0
+      },
+      "result_file": "evidence/P2/s0-cpu6-int64.json"
+    },
+    {
+      "cpu": 6,
+      "socket": 0,
+      "core": 8,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13312,
+      "observed_workers": [
+        15118
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 34.0,
+          "min": 33.0,
+          "median": 34.0,
+          "max": 35.0,
+          "last": 34.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 30.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 34.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu6-sqrt.json"
+    },
+    {
+      "cpu": 7,
+      "socket": 0,
+      "core": 9,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16796,
+      "observed_workers": [
+        15166
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 34.0,
+          "min": 31.0,
+          "median": 32.0,
+          "max": 34.0,
+          "last": 31.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 30.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 31.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 34.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu7-int64.json"
+    },
+    {
+      "cpu": 7,
+      "socket": 0,
+      "core": 9,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13295,
+      "observed_workers": [
+        15219
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 31.0,
+          "min": 31.0,
+          "median": 32.0,
+          "max": 33.0,
+          "last": 32.0
+        },
+        "S1/Package id 1": {
+          "first": 31.0,
+          "min": 30.0,
+          "median": 31.0,
+          "max": 31.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 31.0,
+        "S1/Package id 1": 31.0
+      },
+      "result_file": "evidence/P2/s0-cpu7-sqrt.json"
+    },
+    {
+      "cpu": 8,
+      "socket": 0,
+      "core": 10,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16969,
+      "observed_workers": [
+        15269
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 32.0,
+          "min": 29.0,
+          "median": 29.5,
+          "max": 32.0,
+          "last": 30.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 30.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 31.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 32.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu8-int64.json"
+    },
+    {
+      "cpu": 8,
+      "socket": 0,
+      "core": 10,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13175,
+      "observed_workers": [
+        15329
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 30.0,
+          "min": 30.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 30.0
+        },
+        "S1/Package id 1": {
+          "first": 31.0,
+          "min": 30.0,
+          "median": 31.0,
+          "max": 31.0,
+          "last": 31.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 30.0,
+        "S1/Package id 1": 31.0
+      },
+      "result_file": "evidence/P2/s0-cpu8-sqrt.json"
+    },
+    {
+      "cpu": 9,
+      "socket": 0,
+      "core": 11,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16345,
+      "observed_workers": [
+        15382
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 30.0,
+          "min": 30.0,
+          "median": 33.0,
+          "max": 34.0,
+          "last": 33.0
+        },
+        "S1/Package id 1": {
+          "first": 31.0,
+          "min": 30.0,
+          "median": 30.5,
+          "max": 31.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 30.0,
+        "S1/Package id 1": 31.0
+      },
+      "result_file": "evidence/P2/s0-cpu9-int64.json"
+    },
+    {
+      "cpu": 9,
+      "socket": 0,
+      "core": 11,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13296,
+      "observed_workers": [
+        15435
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 33.0,
+          "min": 33.0,
+          "median": 33.0,
+          "max": 33.0,
+          "last": 33.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 30.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 33.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu9-sqrt.json"
+    },
+    {
+      "cpu": 10,
+      "socket": 0,
+      "core": 12,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16794,
+      "observed_workers": [
+        15496
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 33.0,
+          "min": 29.0,
+          "median": 30.0,
+          "max": 33.0,
+          "last": 30.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 30.0,
+          "median": 30.5,
+          "max": 31.0,
+          "last": 31.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 33.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu10-int64.json"
+    },
+    {
+      "cpu": 10,
+      "socket": 0,
+      "core": 12,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13291,
+      "observed_workers": [
+        15565
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 30.0,
+          "min": 30.0,
+          "median": 30.0,
+          "max": 31.0,
+          "last": 31.0
+        },
+        "S1/Package id 1": {
+          "first": 31.0,
+          "min": 31.0,
+          "median": 31.0,
+          "max": 31.0,
+          "last": 31.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 30.0,
+        "S1/Package id 1": 31.0
+      },
+      "result_file": "evidence/P2/s0-cpu10-sqrt.json"
+    },
+    {
+      "cpu": 11,
+      "socket": 0,
+      "core": 13,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16968,
+      "observed_workers": [
+        15626
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 31.0,
+          "min": 31.0,
+          "median": 34.0,
+          "max": 35.0,
+          "last": 35.0
+        },
+        "S1/Package id 1": {
+          "first": 31.0,
+          "min": 30.0,
+          "median": 31.0,
+          "max": 32.0,
+          "last": 30.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 31.0,
+        "S1/Package id 1": 31.0
+      },
+      "result_file": "evidence/P2/s0-cpu11-int64.json"
+    },
+    {
+      "cpu": 11,
+      "socket": 0,
+      "core": 13,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13209,
+      "observed_workers": [
+        15672
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 35.0,
+          "min": 33.0,
+          "median": 33.5,
+          "max": 35.0,
+          "last": 35.0
+        },
+        "S1/Package id 1": {
+          "first": 30.0,
+          "min": 30.0,
+          "median": 30.5,
+          "max": 32.0,
+          "last": 31.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 35.0,
+        "S1/Package id 1": 30.0
+      },
+      "result_file": "evidence/P2/s0-cpu11-sqrt.json"
+    },
+    {
+      "cpu": 12,
+      "socket": 1,
+      "core": 0,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16557,
+      "observed_workers": [
+        15738
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 35.0,
+          "min": 27.0,
+          "median": 28.0,
+          "max": 35.0,
+          "last": 27.0
+        },
+        "S1/Package id 1": {
+          "first": 31.0,
+          "min": 31.0,
+          "median": 35.0,
+          "max": 36.0,
+          "last": 36.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 35.0,
+        "S1/Package id 1": 31.0
+      },
+      "result_file": "evidence/P2/s1-cpu12-int64.json"
+    },
+    {
+      "cpu": 12,
+      "socket": 1,
+      "core": 0,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13348,
+      "observed_workers": [
+        15778
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 27.0,
+          "min": 27.0,
+          "median": 27.5,
+          "max": 28.0,
+          "last": 28.0
+        },
+        "S1/Package id 1": {
+          "first": 36.0,
+          "min": 36.0,
+          "median": 36.0,
+          "max": 36.0,
+          "last": 36.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 27.0,
+        "S1/Package id 1": 36.0
+      },
+      "result_file": "evidence/P2/s1-cpu12-sqrt.json"
+    },
+    {
+      "cpu": 13,
+      "socket": 1,
+      "core": 1,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17023,
+      "observed_workers": [
+        15824
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 28.0,
+          "min": 25.0,
+          "median": 27.0,
+          "max": 28.0,
+          "last": 27.0
+        },
+        "S1/Package id 1": {
+          "first": 36.0,
+          "min": 36.0,
+          "median": 40.5,
+          "max": 42.0,
+          "last": 41.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 28.0,
+        "S1/Package id 1": 36.0
+      },
+      "result_file": "evidence/P2/s1-cpu13-int64.json"
+    },
+    {
+      "cpu": 13,
+      "socket": 1,
+      "core": 1,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13443,
+      "observed_workers": [
+        15890
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 27.0,
+          "min": 25.0,
+          "median": 26.0,
+          "max": 27.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 41.0,
+          "min": 40.0,
+          "median": 41.0,
+          "max": 41.0,
+          "last": 41.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 27.0,
+        "S1/Package id 1": 41.0
+      },
+      "result_file": "evidence/P2/s1-cpu13-sqrt.json"
+    },
+    {
+      "cpu": 14,
+      "socket": 1,
+      "core": 2,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17011,
+      "observed_workers": [
+        15947
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 25.0,
+          "min": 25.0,
+          "median": 26.0,
+          "max": 27.0,
+          "last": 27.0
+        },
+        "S1/Package id 1": {
+          "first": 41.0,
+          "min": 39.0,
+          "median": 39.5,
+          "max": 41.0,
+          "last": 39.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 41.0
+      },
+      "result_file": "evidence/P2/s1-cpu14-int64.json"
+    },
+    {
+      "cpu": 14,
+      "socket": 1,
+      "core": 2,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13329,
+      "observed_workers": [
+        15998
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 27.0,
+          "min": 24.0,
+          "median": 25.5,
+          "max": 27.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 39.0,
+          "min": 39.0,
+          "median": 39.5,
+          "max": 41.0,
+          "last": 41.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 27.0,
+        "S1/Package id 1": 39.0
+      },
+      "result_file": "evidence/P2/s1-cpu14-sqrt.json"
+    },
+    {
+      "cpu": 15,
+      "socket": 1,
+      "core": 3,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17022,
+      "observed_workers": [
+        16053
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 25.0,
+          "min": 25.0,
+          "median": 25.0,
+          "max": 27.0,
+          "last": 27.0
+        },
+        "S1/Package id 1": {
+          "first": 41.0,
+          "min": 39.0,
+          "median": 39.5,
+          "max": 41.0,
+          "last": 39.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 41.0
+      },
+      "result_file": "evidence/P2/s1-cpu15-int64.json"
+    },
+    {
+      "cpu": 15,
+      "socket": 1,
+      "core": 3,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13330,
+      "observed_workers": [
+        16092
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 27.0,
+          "min": 25.0,
+          "median": 25.5,
+          "max": 27.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 39.0,
+          "min": 39.0,
+          "median": 39.0,
+          "max": 39.0,
+          "last": 39.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 27.0,
+        "S1/Package id 1": 39.0
+      },
+      "result_file": "evidence/P2/s1-cpu15-sqrt.json"
+    },
+    {
+      "cpu": 16,
+      "socket": 1,
+      "core": 4,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17011,
+      "observed_workers": [
+        16154
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 25.0,
+          "min": 24.0,
+          "median": 25.0,
+          "max": 26.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 39.0,
+          "min": 34.0,
+          "median": 35.0,
+          "max": 39.0,
+          "last": 35.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 39.0
+      },
+      "result_file": "evidence/P2/s1-cpu16-int64.json"
+    },
+    {
+      "cpu": 16,
+      "socket": 1,
+      "core": 4,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13328,
+      "observed_workers": [
+        16205
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 25.0,
+          "min": 25.0,
+          "median": 25.0,
+          "max": 25.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 35.0,
+          "min": 35.0,
+          "median": 35.0,
+          "max": 36.0,
+          "last": 35.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 35.0
+      },
+      "result_file": "evidence/P2/s1-cpu16-sqrt.json"
+    },
+    {
+      "cpu": 17,
+      "socket": 1,
+      "core": 5,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17016,
+      "observed_workers": [
+        16246
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 25.0,
+          "min": 24.0,
+          "median": 25.0,
+          "max": 26.0,
+          "last": 26.0
+        },
+        "S1/Package id 1": {
+          "first": 35.0,
+          "min": 35.0,
+          "median": 37.5,
+          "max": 38.0,
+          "last": 38.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 35.0
+      },
+      "result_file": "evidence/P2/s1-cpu17-int64.json"
+    },
+    {
+      "cpu": 17,
+      "socket": 1,
+      "core": 5,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13337,
+      "observed_workers": [
+        16309
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 26.0,
+          "min": 24.0,
+          "median": 25.0,
+          "max": 26.0,
+          "last": 24.0
+        },
+        "S1/Package id 1": {
+          "first": 38.0,
+          "min": 37.0,
+          "median": 37.5,
+          "max": 38.0,
+          "last": 38.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 26.0,
+        "S1/Package id 1": 38.0
+      },
+      "result_file": "evidence/P2/s1-cpu17-sqrt.json"
+    },
+    {
+      "cpu": 18,
+      "socket": 1,
+      "core": 8,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17020,
+      "observed_workers": [
+        16361
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 24.0,
+          "min": 24.0,
+          "median": 24.0,
+          "max": 25.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 38.0,
+          "min": 35.0,
+          "median": 36.5,
+          "max": 38.0,
+          "last": 35.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 24.0,
+        "S1/Package id 1": 38.0
+      },
+      "result_file": "evidence/P2/s1-cpu18-int64.json"
+    },
+    {
+      "cpu": 18,
+      "socket": 1,
+      "core": 8,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13327,
+      "observed_workers": [
+        16413
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 26.0,
+          "min": 25.0,
+          "median": 25.0,
+          "max": 26.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 34.0,
+          "min": 34.0,
+          "median": 35.5,
+          "max": 37.0,
+          "last": 36.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 26.0,
+        "S1/Package id 1": 34.0
+      },
+      "result_file": "evidence/P2/s1-cpu18-sqrt.json"
+    },
+    {
+      "cpu": 19,
+      "socket": 1,
+      "core": 9,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17006,
+      "observed_workers": [
+        16465
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 25.0,
+          "min": 25.0,
+          "median": 25.0,
+          "max": 26.0,
+          "last": 26.0
+        },
+        "S1/Package id 1": {
+          "first": 35.0,
+          "min": 35.0,
+          "median": 39.0,
+          "max": 40.0,
+          "last": 40.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 35.0
+      },
+      "result_file": "evidence/P2/s1-cpu19-int64.json"
+    },
+    {
+      "cpu": 19,
+      "socket": 1,
+      "core": 9,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13336,
+      "observed_workers": [
+        16547
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 26.0,
+          "min": 24.0,
+          "median": 24.5,
+          "max": 27.0,
+          "last": 24.0
+        },
+        "S1/Package id 1": {
+          "first": 40.0,
+          "min": 39.0,
+          "median": 39.5,
+          "max": 40.0,
+          "last": 39.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 26.0,
+        "S1/Package id 1": 40.0
+      },
+      "result_file": "evidence/P2/s1-cpu19-sqrt.json"
+    },
+    {
+      "cpu": 20,
+      "socket": 1,
+      "core": 10,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17017,
+      "observed_workers": [
+        16592
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 24.0,
+          "min": 24.0,
+          "median": 24.0,
+          "max": 25.0,
+          "last": 24.0
+        },
+        "S1/Package id 1": {
+          "first": 39.0,
+          "min": 39.0,
+          "median": 42.0,
+          "max": 42.0,
+          "last": 42.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 24.0,
+        "S1/Package id 1": 39.0
+      },
+      "result_file": "evidence/P2/s1-cpu20-int64.json"
+    },
+    {
+      "cpu": 20,
+      "socket": 1,
+      "core": 10,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13329,
+      "observed_workers": [
+        16644
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 24.0,
+          "min": 24.0,
+          "median": 24.0,
+          "max": 26.0,
+          "last": 24.0
+        },
+        "S1/Package id 1": {
+          "first": 42.0,
+          "min": 42.0,
+          "median": 43.0,
+          "max": 43.0,
+          "last": 43.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 24.0,
+        "S1/Package id 1": 42.0
+      },
+      "result_file": "evidence/P2/s1-cpu20-sqrt.json"
+    },
+    {
+      "cpu": 21,
+      "socket": 1,
+      "core": 11,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17017,
+      "observed_workers": [
+        16711
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 24.0,
+          "min": 24.0,
+          "median": 25.0,
+          "max": 26.0,
+          "last": 24.0
+        },
+        "S1/Package id 1": {
+          "first": 43.0,
+          "min": 40.0,
+          "median": 41.0,
+          "max": 43.0,
+          "last": 42.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 24.0,
+        "S1/Package id 1": 43.0
+      },
+      "result_file": "evidence/P2/s1-cpu21-int64.json"
+    },
+    {
+      "cpu": 21,
+      "socket": 1,
+      "core": 11,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13331,
+      "observed_workers": [
+        16748
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 24.0,
+          "min": 24.0,
+          "median": 24.5,
+          "max": 25.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 42.0,
+          "min": 41.0,
+          "median": 42.0,
+          "max": 42.0,
+          "last": 41.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 24.0,
+        "S1/Package id 1": 42.0
+      },
+      "result_file": "evidence/P2/s1-cpu21-sqrt.json"
+    },
+    {
+      "cpu": 22,
+      "socket": 1,
+      "core": 12,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 17015,
+      "observed_workers": [
+        16797
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 25.0,
+          "min": 24.0,
+          "median": 24.5,
+          "max": 25.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 41.0,
+          "min": 36.0,
+          "median": 37.5,
+          "max": 41.0,
+          "last": 38.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 41.0
+      },
+      "result_file": "evidence/P2/s1-cpu22-int64.json"
+    },
+    {
+      "cpu": 22,
+      "socket": 1,
+      "core": 12,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13326,
+      "observed_workers": [
+        16848
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 25.0,
+          "min": 24.0,
+          "median": 25.0,
+          "max": 25.0,
+          "last": 25.0
+        },
+        "S1/Package id 1": {
+          "first": 38.0,
+          "min": 36.0,
+          "median": 36.5,
+          "max": 38.0,
+          "last": 36.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 38.0
+      },
+      "result_file": "evidence/P2/s1-cpu22-sqrt.json"
+    },
+    {
+      "cpu": 23,
+      "socket": 1,
+      "core": 13,
+      "method": "int64",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 16999,
+      "observed_workers": [
+        16903
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 25.0,
+          "min": 24.0,
+          "median": 24.0,
+          "max": 25.0,
+          "last": 24.0
+        },
+        "S1/Package id 1": {
+          "first": 36.0,
+          "min": 36.0,
+          "median": 38.0,
+          "max": 40.0,
+          "last": 40.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 36.0
+      },
+      "result_file": "evidence/P2/s1-cpu23-int64.json"
+    },
+    {
+      "cpu": 23,
+      "socket": 1,
+      "core": 13,
+      "method": "sqrt",
+      "stressor_wall_s": 10.0,
+      "bogo_ops": 13332,
+      "observed_workers": [
+        16967
+      ],
+      "package_C": {
+        "S0/Package id 0": {
+          "first": 24.0,
+          "min": 24.0,
+          "median": 24.0,
+          "max": 24.0,
+          "last": 24.0
+        },
+        "S1/Package id 1": {
+          "first": 40.0,
+          "min": 38.0,
+          "median": 38.0,
+          "max": 40.0,
+          "last": 38.0
+        }
+      },
+      "package_start_before_C": {
+        "S0/Package id 0": 24.0,
+        "S1/Package id 1": 40.0
+      },
+      "result_file": "evidence/P2/s1-cpu23-sqrt.json"
+    }
+  ],
+  "numa_memory_results": [
+    {
+      "node": 0,
+      "cpu": 0,
+      "bytes_verified_per_full_pass": 268435456,
+      "minimum_complete_passes": 366,
+      "ops": 374784,
+      "wall_s": 30.0,
+      "result_file": "evidence/P5/s0-cpu0-checkerboard-256MiB.json"
+    },
+    {
+      "node": 0,
+      "cpu": 0,
+      "bytes_verified_per_full_pass": 1073741824,
+      "minimum_complete_passes": 184,
+      "ops": 753664,
+      "wall_s": 60.01,
+      "result_file": "evidence/P5/s0-cpu0-checkerboard-1024MiB.json"
+    },
+    {
+      "node": 1,
+      "cpu": 12,
+      "bytes_verified_per_full_pass": 268435456,
+      "minimum_complete_passes": 363,
+      "ops": 371712,
+      "wall_s": 30.0,
+      "result_file": "evidence/P5/s1-cpu12-checkerboard-256MiB.json"
+    },
+    {
+      "node": 1,
+      "cpu": 12,
+      "bytes_verified_per_full_pass": 1073741824,
+      "minimum_complete_passes": 185,
+      "ops": 757760,
+      "wall_s": 60.0,
+      "result_file": "evidence/P5/s1-cpu12-checkerboard-1024MiB.json"
+    }
+  ],
+  "unexpected_restart_or_freeze": false,
+  "all_own_test_workers_terminated": true,
+  "new_events_requiring_investigation": [],
+  "conclusion": {
+    "tested_scope": "180 s idle; four 30 s CPU tests; 24 physical cores individually with int64 and sqrt 10 s each; four node-bound, verified memory jobs; 180 s cooldown.",
+    "unverified_scope": [
+      "physical integrity beneath the sticker",
+      "residual service lifetime",
+      "all installed memory addresses and every DIMM",
+      "all CPU instructions",
+      "long duration operation",
+      "combined CPU plus GPU power margin",
+      "concurrent 12/24-core loads and the cooling capacity of each tower",
+      "new model performance in tokens/s"
+    ],
+    "ready_for_controlled_next_stage": false,
+    "reason": "No detected anomaly in the one-worker scope. Full per-socket cooler rating is unknown. Concurrent 12/24-core thermals and power are unmeasured.",
+    "next_stage": "Resolve cooling suitability before concurrent CPU trials. Then consider NEW_P12; ordinary API remains off."
+  },
+  "memory_result_fields_expected": [
+    "allocated_bytes",
+    "verified_bytes_or_completed_passes_if_observable",
+    "verification_progress_evidence",
+    "node_placement_evidence",
+    "incomplete_scope_reason"
+  ],
+  "document_revision": 2,
+  "socket_comparison": {
+    "matched_method_duration_worker_count": true,
+    "baseline_temperature_each_socket": {
+      "evidence/P1/s0-cpu0-int64.json": {
+        "S0/Package id 0": 23.0,
+        "S1/Package id 1": 27.0
+      },
+      "evidence/P1/s0-cpu0-sqrt.json": {
+        "S0/Package id 0": 28.0,
+        "S1/Package id 1": 28.0
+      },
+      "evidence/P1/s1-cpu12-int64.json": {
+        "S0/Package id 0": 29.0,
+        "S1/Package id 1": 28.0
+      },
+      "evidence/P1/s1-cpu12-sqrt.json": {
+        "S0/Package id 0": 25.0,
+        "S1/Package id 1": 36.0
+      }
+    },
+    "temperature_rise_each_socket": {
+      "evidence/P1/s0-cpu0-int64.json": {
+        "S0/Package id 0": 6.0,
+        "S1/Package id 1": 2.0
+      },
+      "evidence/P1/s0-cpu0-sqrt.json": {
+        "S0/Package id 0": 2.0,
+        "S1/Package id 1": 2.0
+      },
+      "evidence/P1/s1-cpu12-int64.json": {
+        "S0/Package id 0": 0.0,
+        "S1/Package id 1": 8.0
+      },
+      "evidence/P1/s1-cpu12-sqrt.json": {
+        "S0/Package id 0": 0.0,
+        "S1/Package id 1": 1.0
+      }
+    },
+    "new_hardware_events_each_socket": {
+      "observed": []
+    },
+    "observed_socket_locality": "See P1 socket-specific same-method and P2 individual peaks.",
+    "cpu_package_identity_tracking": null,
+    "component_swap_performed": false,
+    "fault_follows_cpu_instance_established": null,
+    "notes": "Separate tests have different starting temperatures. Fan/airflow and installation differ by position; the same CPU was not moved between sockets."
+  },
+  "progression_notes": {
+    "read_only": "May start by reading actual state, preserving no-model condition.",
+    "single_core": "Only after seating, power connections, cooler attachment, airflow/fans, both-socket monitoring, and idle state are judged appropriate.",
+    "multi_core": "Confirm reused cooler/system cooling suitability and earlier observations before P3/P4; a cool single-core test does not establish full-load adequacy."
+  },
+  "source_attachment": {
+    "source_name": "xeon_moe_postswap_cpu_health_2026-11-24.zip",
+    "bytes": 136384501,
+    "sha256": "19c3af16a10dc481c053a3aef6db553a371f3cfcfff2bcb87af8330282dfeb57",
+    "verified_manifest_entries": 13,
+    "includes_previous_review_sha256": "ffd9f8a19bd71241456f8bd86758678d4beb25737595184f4ce3d133c9b8d80a"
+  },
+  "measurement_date_jst": "2026-11-24",
+  "future_common_12_topology": {
+    "applied": false,
+    "old_comparison_mask": "0xfff",
+    "sockets_on_new_host_if_old_mask_reused": [
+      0
+    ],
+    "new_6_per_socket_cpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+    ],
+    "new_mask_from_topology": "0x3f03f"
+  },
+  "archive_note": "Full DMI and kernel journal and their cursors are retained locally. This archive includes the selected hardware inventory, all sampled EDAC/thermal counters and full trial series."
+}
