@@ -1,0 +1,111 @@
+{
+  "binary_sha256": "878899bd63019a390b1deb10f26c633bdc5995cda1d92c9f2eec4f2c4d3a3ead",
+  "source_sha256": "059ac88442b38639f722a639103b6c001968f375a86b0d79df338c3e465fa734",
+  "runs": {
+    "interleaved": {
+      "command": [
+        "/usr/bin/numactl",
+        "--physcpubind=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+        "--interleave=0,1",
+        "/home/codex/projects/llm-lab/read-bandwidth",
+        "24"
+      ],
+      "read": {
+        "bytes_per_pass": 2147483648,
+        "threads": 24,
+        "cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "gb_s": [
+          85.435279,
+          86.872959,
+          84.591137,
+          86.864979,
+          86.016135,
+          85.875576,
+          85.499941,
+          86.378616,
+          86.204828
+        ],
+        "checksum_passed": true
+      },
+      "peak_sampled_CPU_C": 27.0
+    },
+    "local_first_touch": {
+      "command": [
+        "/usr/bin/numactl",
+        "--physcpubind=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+        "--localalloc",
+        "/home/codex/projects/llm-lab/read-bandwidth",
+        "24"
+      ],
+      "read": {
+        "bytes_per_pass": 2147483648,
+        "threads": 24,
+        "cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "gb_s": [
+          91.555049,
+          91.554132,
+          91.98511,
+          91.633132,
+          91.659539,
+          91.553203,
+          91.637593,
+          90.657846,
+          91.744596
+        ],
+        "checksum_passed": true
+      },
+      "peak_sampled_CPU_C": 27.0
+    }
+  },
+  "scope": "2 GiB checksummed contiguous AVX reads, 9 passes each. Software bytes/time; not a universal maximum or a per-process IMC measurement."
+}

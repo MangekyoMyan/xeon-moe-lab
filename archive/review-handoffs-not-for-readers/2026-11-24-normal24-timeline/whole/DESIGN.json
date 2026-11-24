@@ -1,0 +1,46 @@
+{
+  "stages": [
+    [
+      "F1",
+      false,
+      [
+        0,
+        1
+      ]
+    ],
+    [
+      "S1",
+      true,
+      [
+        0,
+        1
+      ]
+    ],
+    [
+      "S2",
+      true,
+      [
+        1,
+        0
+      ]
+    ],
+    [
+      "F2",
+      false,
+      [
+        1,
+        0
+      ]
+    ]
+  ],
+  "membership": {
+    "7": [
+      19,
+      154,
+      331
+    ]
+  },
+  "tested_candidate": "serial partition; unchanged resident weights for both language cases",
+  "reasons": "Both H1 and H2 saved time in local serial vs O, H1 did not benefit from parallel; 331 much more common than 85 in historical training. Use exactly one candidate.",
+  "qualification": "Compare corresponding F/S in both time orders. Use 64-call per-case aggregate and p95, direct finite rows, argmax and target NLL. Require consistent improvement across both workloads/orders for policy adoption; experimental DSOs differ from production."
+}

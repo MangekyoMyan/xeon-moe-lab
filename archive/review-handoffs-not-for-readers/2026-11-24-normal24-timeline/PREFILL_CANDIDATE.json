@@ -1,0 +1,33 @@
+{
+  "state": "measured candidate, not installed",
+  "normal_config_sha256": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+  "candidate_config_sha256": "b6290c497ad7e934242c64c087b12c0f6c7ba9156e2093c48b250c9aa781b598",
+  "patch": [
+    {
+      "op": "test",
+      "path": "/environment/GGML_OP_OFFLOAD_MIN_BATCH",
+      "value": "64"
+    },
+    {
+      "op": "replace",
+      "path": "/environment/GGML_OP_OFFLOAD_MIN_BATCH",
+      "value": "128"
+    },
+    {
+      "op": "test",
+      "path": "/environment/GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH",
+      "value": "64"
+    },
+    {
+      "op": "replace",
+      "path": "/environment/GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH",
+      "value": "128"
+    }
+  ],
+  "decode_threads": 24,
+  "prefill_threads": 24,
+  "resident_experts": "normal",
+  "native_latency_raw": "PREFILL.json",
+  "full_logits_raw": "PREFIX_QUALITY.json",
+  "quality_scope": "Two input families. 96-token tests change 2/65 and 1/65 top-ranked IDs on identical histories."
+}

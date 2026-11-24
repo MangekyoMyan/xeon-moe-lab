@@ -1,0 +1,27 @@
+{
+  "policies": [
+    [
+      "A1",
+      64
+    ],
+    [
+      "L",
+      32
+    ],
+    [
+      "H",
+      128
+    ],
+    [
+      "A2",
+      64
+    ]
+  ],
+  "thresholds_changed_together": [
+    "GGML_OP_OFFLOAD_MIN_BATCH",
+    "GGML_SCHED_MXFP4_OFFLOAD_MIN_BATCH"
+  ],
+  "order": "Each process: standard JA64 warmup; the same 7 prompts forward then reverse, 4 generated tokens each, direct loopback text completion.",
+  "cache": "cache_prompt=false; require actual prompt_n==expected length and report actual cache_n for every request.",
+  "criteria": "Compare TTFT and server prompt_ms per length against both 64 controls. Retain identical geometry cases as crosschecks. Separate first generated token IDs and text from timing; short outputs alone do not certify general numerical quality."
+}

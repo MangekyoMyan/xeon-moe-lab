@@ -1,0 +1,16 @@
+計測コード・第三者実装の出典
+
+通常エンジンのGGUF読込み、CPU/CUDAグラフ、量子化演算、llama-serverはllama.cppとggmlを基盤とする。配布元のMIT表示をlicenses/llama.cpp-LICENSEに収録した。当リポジトリ固有のコードの表示はlicenses/project-LICENSE、関連OSSはlicenses/ACKNOWLEDGMENTS.mdとlicenses/THIRD_PARTY_NOTICES.mdにある。
+
+今回のCPU/GPU時系列は、以前この実機用に作成したホスト計測器のC++ソースと同一ビルドを使った。NVIDIA CUPTIのデバイス活動・外部相関・API記録と、ggmlのスケジューラ区間を照合している。tools/trace169.cppおよびtools/cupti-BUILD.jsonが実装とビルド記録。コールバック名はインストール済みのCUPTIヘッダーから、出現したIDだけを復号した。CUDA・CUPTI本体は実機上のNVIDIA提供ライブラリを使用した。
+前回の観測器・ビルド　https://github.com/MangekyoMyan/xeon-moe-lab/tree/ecc9af41d42c031856b7dfcf52012c5450a52563/archive/review-handoffs-not-for-readers/2026-11-19-shared-prefix
+
+CPU計時と帯域の対照は24物理コアに固定した。コア上で実行中の命令位置はLinux perf（cpu-clock:u）、DRAMは両ソケットのIntel IMCカウンターで記録した。GNU OpenMP（libgomp）のELF Build IDと一致するDebianのデバッグ情報で、インラインのspin・barrier関数を識別した。シンボル・分類根拠とELF相対位置はCPU_SAMPLES.jsonおよびruns/observe/にある。Linux perfのネイティブファイルと完全なデバッグELFのハッシュと入手元はSOURCE_HASHES.jsonに記録した。
+Debian debuginfod　https://debuginfod.debian.net/buildid/abac9c46bfe169c31d97018db81b5386bdf38a17/debuginfo
+
+固定入力と計時ドライバは交換前に作成し、前回比較した版をもとにした。各BUILD.jsonに対応する入力ソースとバイナリのハッシュ、実際のコンパイル条件がある。通常版の設定・配備ライブラリ・取得時のモデル証明はreference/runtime.jsonとFINAL_API.json。第7層の比較用CPUライブラリや独立した実験用libllamaは、通常APIと別にビルドしたものである。reference/にはフルモデルの重みの代わりに固定課題、過去の選択記録、単一演算を再生するための入力・参照出力を収録した。
+交換後の対応比較　https://github.com/MangekyoMyan/xeon-moe-lab/tree/901c0d14f8b9b73065a8b59ce2516185934f84d7/archive/review-handoffs-not-for-readers/2026-11-24-postload-measurement
+通常24/24採用　https://github.com/MangekyoMyan/xeon-moe-lab/tree/081851f84f83ad575bd9c57d90d88679d42c1275/current
+保存した第7層の元入力　https://github.com/MangekyoMyan/xeon-moe-lab/tree/d4d50b651ff7754ee2189228762468fc02971bfa/archive/review-handoffs-not-for-readers/2026-11-17-parallel-pilot
+
+実機用の起動・ビルドスクリプトは当時のパスで保存した。結果の検算は同じZIPのreplay.pyで完結する。reference/ggml-backend.cppとreference/ggml-cuda.cuでは、GPUへ渡し始める最小バッチの判定をそれぞれ確認できる。
