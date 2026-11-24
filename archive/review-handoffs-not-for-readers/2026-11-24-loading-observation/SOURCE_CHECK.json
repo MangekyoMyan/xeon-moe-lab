@@ -1,0 +1,35 @@
+{
+  "local_cpu_source": "/home/codex/projects/llm-lab/be05-followup-20261119/cpu08/control/source/ggml/src/ggml-cpu/ggml-cpu.c",
+  "sha256": "e8fdf3d424463f9852fa774d9de6057dce35855a872936bda87d12d3d756e3a8",
+  "mask_slice_sha256": "c34fe8f4a4c6b9a841e883cfe5234036959ebb06149b72e6c74bf57395244d59",
+  "chunk_slice_sha256": "e0050e66b26b1c038b6f5c2ce6986f7cc8c9b8d61cd1e7f2f38c56c0231d56cf",
+  "live_cpu_dso_sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+  "local_loader_sources": {
+    "llama-model.cpp": "66b4b0dc3814722f2490922555c0b7db1e385789a64abdcb0b284e2bcfe24df1",
+    "model-cache.h": "57fa7568d0a6b2f6410b2afe89f22b8d5c90106b365e078def0d5c984a5876c7"
+  },
+  "build_flags": [
+    "-DGGML_USE_OPENMP",
+    "-march=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fopenmp"
+  ],
+  "current_topology_matches_fixture_partitions": true,
+  "live_threads_masks_and_strict_match_fixture": true,
+  "currently_observed_decode_team": null,
+  "currently_observed_prefill_team": null,
+  "projector_requested_threads_from_server_code": 12,
+  "projector_source": "tools/server/server-context.cpp:1248",
+  "packing_owner_threads_argument_from_loader_source": 12,
+  "packing_source": "sparse-cache/release-v2-a/sources/model-cache.h:36",
+  "packing_observed_active_team": null,
+  "call_chain": [
+    "server-context.cpp:1305 common_init_from_params",
+    "common.cpp:1421 common_threadpools::init",
+    "common.cpp:1798\u20131806 mask_valid and strict",
+    "common.cpp:1834\u20131860 distinct pools and attach",
+    "llama-context.cpp:2757\u20132758 choose batched or ordinary pool",
+    "ggml-cpu.c:3584 create masks; 3664 apply affinity inside OpenMP region"
+  ]
+}
