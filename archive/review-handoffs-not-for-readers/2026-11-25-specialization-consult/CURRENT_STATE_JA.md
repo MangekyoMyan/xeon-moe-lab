@@ -28,7 +28,7 @@ CPUビルドはIvy Bridge向けAVX・F16C・OpenMP、AVX2／FMA無効。再利�
 | 境界 | このモデルで必要な動作 |
 |---|---|
 | 入出力 | 隠れ幅5,120、40層、語彙129,280。各層384のrouted expertから6個を選び、shared expertが1個。ルーターの `blk.L.ffn_gate_inp.weight` は [5120,384]。F32蓄積のlogitsから `sqrt(softplus(logit))`、選択バイアスを加えてtop6、重みにはバイアス前の値を使い、和＋1e-20で正規化して1.5倍。画像用バイアスの選択条件も保持 |
-| CPUの4演算 | `blk.L.ffn_{gate,up}_exps.weight` はGGML軸順 [5120,2304,384]、`ffn_down_exps.weight` は [2304,5120,384]。入力F32、IDはI32。選択slotごとのgate・up → clamped SwiGLU → down。SiLU後のgateに上限10、upを±10に制限。各slotに対応する重みを掛け、元のslot順に合算し、shared出力を加える |
+| CPUの4演算 | `blk.L.ffn_{gate,up}_exps.weight` はGGML軸順 [5120,2304,384]、`ffn_down_exps.weight` は [2304,5120,384]。入力F32、IDはI32。選択slotごとのgate・up → clamped SwiGLU → down。生のgateの上側を制限してからSiLUを計算し、上下を制限したupと掛ける。制限値は演算パラメーターから読み、このモデルでは10。各slotに対応する重みを掛け、元のslot順に合算し、shared出力を加える |
 | 実際の型 | CPU37層のgate／upは同層で同型。IQ3_XXS 21層、MXFP4 9層、IQ2_S 6層、IQ3_S 1層。downは異型の層もある。CPU担当層のshared側は実機の37組ともgate Q6_K、up Q8_0、down Q6_K。層番号から型を推測する実装を避け、テンソル記述子を読む |
 | 履歴と注意機構 | mHCは4本の残差stream、Sinkhorn 20回。rawの窓128、圧縮KV、indexer top-k 512、KV供給層2/8/14/20と層間共有、位置・圧縮状態と更新順を保持。Engramは層1/14で4-gramを使い、sequence境界・直前のトークン・画像embeddingのマスクが入力に効く |
 | サービス | 最優先は通常会話の**生成中の1トークン時間と遅い側の間隔**。併せて短文の最初の本文、長い入力の処理、同一会話のprefix再利用、画像付き要求、128kの設定を守る。1スロットが現行運用。複数sequence・保存／復帰の実装は元の経路に残せる。旧CPUで16kの継続と画像を実行済み。新CPU・128k全域での品質や永続復帰の検証は別に必要 |

@@ -1,0 +1,60 @@
+--- a/ggml/src/ggml-cpu/ops.cpp
++++ b/ggml/src/ggml-cpu/ops.cpp
+@@ -3543,6 +3543,23 @@
+ 
+ // ggml_compute_forward_swiglu_clamp
+ 
++// Split each of the six contiguous F32 rows over the 24 physical workers.
++// The CPU backend can reuse an input buffer for an elementwise output.
++static bool swiglu_decode_layout(const ggml_tensor * t) {
++    return t->type == GGML_TYPE_F32 && t->ne[0] == 2304 && t->ne[1] == 6 &&
++           t->ne[2] == 1 && t->ne[3] == 1 && t->nb[0] == sizeof(float) &&
++           t->nb[1] >= 2304 * sizeof(float) && t->nb[1] % sizeof(float) == 0;
++}
++
++static bool swiglu_independent_elements(const ggml_tensor * input, const ggml_tensor * output) {
++    const uintptr_t src = reinterpret_cast<uintptr_t>(input->data);
++    const uintptr_t dst = reinterpret_cast<uintptr_t>(output->data);
++    if (src == dst) {
++        return input->nb[1] == output->nb[1];
++    }
++    return src < dst ? dst - src >= ggml_nbytes(input) : src - dst >= ggml_nbytes(output);
++}
++
+ static void ggml_compute_forward_swiglu_clamp_f32(const ggml_compute_params * params, ggml_tensor * dst) {
+     const ggml_tensor * src0   = dst->src[0];
+     const ggml_tensor * src1   = dst->src[1];
+@@ -3571,9 +3588,14 @@
+     const int32_t swapped = ggml_get_op_params_i32(dst, 1);
+     const float   limit   = ggml_get_op_params_f32(dst, 3);
+ 
++    const bool split_channels = nth == 24 && src1 && swiglu_decode_layout(dst) &&
++            swiglu_decode_layout(src0) && swiglu_decode_layout(src1) &&
++            swiglu_independent_elements(src0, dst) && swiglu_independent_elements(src1, dst);
+     const int dr  = (nr + nth - 1) / nth;
+-    const int ir0 = dr * ith;
+-    const int ir1 = MIN(ir0 + dr, nr);
++    const int ir0 = split_channels ? 0 : dr * ith;
++    const int ir1 = split_channels ? nr : MIN(ir0 + dr, nr);
++    const int k0  = split_channels ? 96 * ith : 0;
++    const int k1  = split_channels ? k0 + 96 : nc;
+ 
+     for (int i1 = ir0; i1 < ir1; i1++) {
+         float * src0_p = (float *) (src0_d + i1 * src0_o);
+@@ -3585,14 +3607,14 @@
+             src1_p += swapped ? 0 : nc;
+         }
+ 
+-        for (int k = 0; k < nc; k++) {
++        for (int k = k0; k < k1; k++) {
+             const float gate = std::min(src0_p[k], limit);
+             const float up   = std::clamp(src1_p[k], -limit, limit);
+             dst_p[k]         = gate / (1.f + expf(-gate)) * up;
+         }
+ 
+ #ifndef NDEBUG
+-        for (int k = 0; k < nc; k++) {
++        for (int k = k0; k < k1; k++) {
+             const float x = dst_p[k];
+             GGML_UNUSED(x);
+             assert(!isnan(x));

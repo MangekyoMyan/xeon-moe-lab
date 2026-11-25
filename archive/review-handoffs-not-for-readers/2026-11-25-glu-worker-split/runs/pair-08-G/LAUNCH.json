@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "-B",
+    "/home/codex/projects/llm-lab/moe-implementation-20261026/release/without_thp.py",
+    "/usr/bin/numactl",
+    "--physcpubind=0-23",
+    "--interleave=0,1",
+    "/home/codex/projects/llm-lab/glu-split-20261125/probe",
+    "/home/codex/projects/llm-lab/glu-split-20261125/runs/pair-08-G/SPEC.json",
+    "/home/codex/projects/llm-lab/glu-split-20261125/runs/pair-08-G"
+  ],
+  "environment": {
+    "PATH": "/usr/bin:/bin",
+    "LANG": "C",
+    "OMP_DYNAMIC": "FALSE",
+    "OMP_THREAD_LIMIT": "24",
+    "OMP_MAX_ACTIVE_LEVELS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "LD_LIBRARY_PATH": "/home/codex/projects/llm-lab/glu-split-20261125/build/G/runtime:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+    "CUDA_VISIBLE_DEVICES": ""
+  },
+  "design_sha256": "6bf0e04669f175afb0a0d60f7d280e65b1d98c2952b291fbdec58657cf7b5e11",
+  "library_sha256": "28ffffdc4d83d978ae8e3833f6fb76772144d3d6bc0830a32af887d5bf4acab9",
+  "probe_sha256": "a0870d65095fa214d39b9dd94572fb2835827a18af5841bb158bfefd5abdf5df"
+}

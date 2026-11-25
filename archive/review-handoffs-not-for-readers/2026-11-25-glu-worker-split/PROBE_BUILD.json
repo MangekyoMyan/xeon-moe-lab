@@ -1,0 +1,37 @@
+{
+  "command": [
+    "g++",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src",
+    "-I/home/codex/projects/llm-lab/mxfp4-hybrid-20261102/hybrid/engine/ggml/src/ggml-cpu",
+    "-O3",
+    "-std=c++17",
+    "-march=ivybridge",
+    "-mtune=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-fopenmp",
+    "-Wall",
+    "-Wextra",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+    "-I/home/codex/projects/llm-lab/exploration-20261112/row-local",
+    "/home/codex/projects/llm-lab/glu-split-20261125/probe.cpp",
+    "-L/home/codex/projects/llm-lab/glu-split-20261125/build/O/runtime",
+    "-L/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+    "-Wl,--no-as-needed",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-ldl",
+    "-o",
+    "/home/codex/projects/llm-lab/glu-split-20261125/probe"
+  ],
+  "source_sha256": {
+    "probe.cpp": "286864765ddcdc3a3cb288bfdc4f92e52ad9171ef4267a9aa23d3ab28ca506f4",
+    "pointwise.hpp": "5875e057618fff9241b1854f2d88bddd49ab4475703c5c280bbb1ba3165b6f75",
+    "fixture.hpp": "b0a26b8909a0ee1460c44cd25ba9196973b067b6f65ca91f1c6ef75a91a7fff7",
+    "pool24.h": "96537e39a5a665b9a1167f3055e439ca4fddd5a23819de1bf5e119df2e9ce297"
+  },
+  "binary_sha256": "a0870d65095fa214d39b9dd94572fb2835827a18af5841bb158bfefd5abdf5df"
+}
