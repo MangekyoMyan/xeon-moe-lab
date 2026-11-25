@@ -1,0 +1,75 @@
+--- a/topk-moe.cu
++++ b/topk-moe.cu
+@@ -1,12 +1,15 @@
+ #include "ggml-cuda/common.cuh"
+ #include "ggml.h"
+ #include "topk-moe.cuh"
++#include "margin_shared.h"
+ 
+ #include <cmath>
+ #include <initializer_list>
+ 
+ // Kernel config struct - passed by value to CUDA kernel
+ struct topk_moe_config {
++    margin_row *margin;
++    float cut;
+     bool use_sigmoid;
+     bool use_sqrt_softplus;
+     bool with_norm;
+@@ -136,7 +139,7 @@
+ 
+     It is intended as fusion of softmax->top-k->get_rows pipeline for MoE models
+ */
+-template <int n_experts, bool has_bias>
++template <int n_experts, bool has_bias, bool with_margin = false>
+ __launch_bounds__(TOPK_MOE_ROWS_PER_BLOCK * WARP_SIZE, 1)
+ __global__ void topk_moe_cuda(const float *         logits,
+                               float *               weights,
+@@ -235,6 +238,7 @@
+     //or the raw logits. We do the argmax reduce over n_expert_used, each time marking
+     //the expert weight as -inf to exclude from the next iteration
+ 
++    float last_score=0.f; int last_id=-1;
+     float wt_sum = 0.f;
+ 
+     float output_weights[experts_per_thread];
+@@ -274,6 +278,7 @@
+                 }
+             }
+ 
++            if constexpr(with_margin){last_score=max_val_s;last_id=max_expert;}
+             if ((max_expert & (WARP_SIZE - 1)) == threadIdx.x) {
+                 selection_wt[max_expert / WARP_SIZE] = -INFINITY;
+             }
+@@ -314,6 +319,7 @@
+         }
+     }
+ 
++#include "seventh.inc"
+     if (config.with_norm) {
+         wt_sum              = warp_reduce_sum(wt_sum);
+         wt_sum              = max(wt_sum, clamp_val);
+@@ -403,6 +409,13 @@
+                 logits, weights, ids, bias, n_rows, n_expert_used, clamp_val, scale_val, config);
+             break;
+         case 384: // DeepSeek V4.1
++            if constexpr(has_bias){
++                if(config.margin){
++                    ggml_cuda_kernel_launch(topk_moe_cuda<384, true, true>, launch_params,
++                        logits, weights, ids, bias, n_rows, n_expert_used, clamp_val, scale_val, config);
++                    break;
++                }
++            }
+             ggml_cuda_kernel_launch(topk_moe_cuda<384, has_bias>, launch_params,
+                 logits, weights, ids, bias, n_rows, n_expert_used, clamp_val, scale_val, config);
+             break;
+@@ -453,6 +466,9 @@
+     }
+ 
+     topk_moe_config config;
++    config.cut=0;config.margin=nullptr;
++    if(bias && args.sqrt_softplus && args.n_groups==0 && n_experts==384 && n_expert_used==6)
++        config.margin=xeon_margin_rows_for(ids->name,"ffn_moe_topk-",n_rows,&config.cut);
+     config.use_sigmoid       = args.sigmoid;
+     config.use_sqrt_softplus = args.sqrt_softplus;
+     config.with_norm         = with_norm;
