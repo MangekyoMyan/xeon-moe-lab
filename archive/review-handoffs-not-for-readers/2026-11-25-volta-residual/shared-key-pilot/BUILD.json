@@ -1,0 +1,55 @@
+{
+  "sources": {
+    "residual.cu": "cd720a318b58f84f11177daa40f58ee2cbe14f77c4cd02031c6093a1cb725c1d",
+    "probe.cpp": "c93e456e9844cb421ab550846fe19716c4ee975e66ed62ef4518199a7bd73fce"
+  },
+  "commands": [
+    [
+      "/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/bin/nvcc",
+      "-std=c++17",
+      "-O3",
+      "-use_fast_math",
+      "-Wno-deprecated-gpu-targets",
+      "--generate-code=arch=compute_70,code=sm_70",
+      "-Xcompiler=-fPIC",
+      "-c",
+      "/home/codex/projects/llm-lab/volta-residual-20261125/residual.cu",
+      "-o",
+      "/home/codex/projects/llm-lab/volta-residual-20261125/residual.o"
+    ],
+    [
+      "g++",
+      "-std=c++17",
+      "-O2",
+      "-ffp-contract=off",
+      "-march=ivybridge",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+      "-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include",
+      "/home/codex/projects/llm-lab/volta-residual-20261125/probe.cpp",
+      "/home/codex/projects/llm-lab/volta-residual-20261125/residual.o",
+      "-L/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a",
+      "-L/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a",
+      "-L/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a",
+      "-L/home/codex/projects/llm-lab/optimization-20261112/cache120/runtime",
+      "-L/home/codex/projects/llm-lab/iq-cache-next-20261103/runtime",
+      "-L/home/codex/projects/llm-lab/iq3-cache-20261103/runtime",
+      "-L/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+      "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+      "-L/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a:/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a:/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a:/home/codex/projects/llm-lab/optimization-20261112/cache120/runtime:/home/codex/projects/llm-lab/iq-cache-next-20261103/runtime:/home/codex/projects/llm-lab/iq3-cache-20261103/runtime:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin:/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+      "-Wl,-rpath-link,/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a:/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a:/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a:/home/codex/projects/llm-lab/optimization-20261112/cache120/runtime:/home/codex/projects/llm-lab/iq-cache-next-20261103/runtime:/home/codex/projects/llm-lab/iq3-cache-20261103/runtime:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin:/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+      "-lggml-cuda",
+      "-lggml-cpu",
+      "-lggml-base",
+      "-lggml",
+      "-lcudart",
+      "-ldl",
+      "-o",
+      "/home/codex/projects/llm-lab/volta-residual-20261125/probe"
+    ]
+  ],
+  "probe_sha256": "c4a15ce4e50667fa4e3f94e75dad1a099202c05c1df4efdba9194d54a9b4e77c",
+  "spec_sha256": "74244c9446954b667b7977cd165713c415399de80bf296c718b753446f68064e"
+}
