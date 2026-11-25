@@ -1,0 +1,20 @@
+--- a/ggml-cpu.c
++++ b/ggml-cpu.c
+@@ -1896,7 +1896,16 @@
+         int64_t nchunk0 = (nr0 + chunk_size - 1) / chunk_size;
+         int64_t nchunk1 = (nr1 + chunk_size - 1) / chunk_size;
+ 
+-        if (nchunk0 * nchunk1 < nth * 4 || disable_chunking) {
++        // Decode with one input row per routed expert. Keep the existing
++        // ticket mechanism, but leave 32-row jobs for otherwise idle workers.
++        const bool balance_decode = !params->use_ref && nth == 24 && n_ids == 6 &&
++            n_as == 384 && ids->ne[1] == 1 && nr1 == 1 && (nr0 == 2304 || nr0 == 5120) &&
++            (type == GGML_TYPE_MXFP4 || type == GGML_TYPE_IQ3_XXS ||
++             type == GGML_TYPE_IQ2_S || type == GGML_TYPE_IQ3_S);
++        if (balance_decode) {
++            nchunk0 = (nr0 + 31) / 32;
++            nchunk1 = 1;
++        } else if (nchunk0 * nchunk1 < nth * 4 || disable_chunking) {
+             nchunk0 = nr0 > nr1 ? nth : 1;
+             nchunk1 = nr0 > nr1 ? 1 : nth;
+         }

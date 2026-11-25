@@ -1,0 +1,60 @@
+{
+  "normal": "physical24/24, ordinary 64/64 prefill thresholds and original 4 DSOs",
+  "source_evidence": [
+    "WORKER_RESULT.json",
+    "PC_RESULT.json"
+  ],
+  "rationale": "24 workers assigned 96 rows each on gate/up. Only the last worker has 198 rather than 214 rows on down. Most profiled OpenMP barrier-spin samples were outside logged CPU worker graphs. Test finer work allocation independently of a shorter spin budget, with identical per-row dot arithmetic.",
+  "periods": [
+    [
+      "cpu-F1",
+      "original",
+      [
+        0,
+        1
+      ]
+    ],
+    [
+      "cpu-C1",
+      "chunks32",
+      [
+        0,
+        1
+      ]
+    ],
+    [
+      "cpu-S1",
+      "spin3000",
+      [
+        0,
+        1
+      ]
+    ],
+    [
+      "cpu-S2",
+      "spin3000",
+      [
+        1,
+        0
+      ]
+    ],
+    [
+      "cpu-C2",
+      "chunks32",
+      [
+        1,
+        0
+      ]
+    ],
+    [
+      "cpu-F2",
+      "original",
+      [
+        1,
+        0
+      ]
+    ]
+  ],
+  "criteria": "Original baseline before and after; compare paired 64-step totals and nearest-rank p95 per case; require all 65 full F32 rows per case identical to accepted reference. Keep wall time, process CPU seconds, and package/DRAM RAPL separate. Experimental only; current human request keeps the ordinary threshold at 64.",
+  "status": "Prepared comparison design. No cpu-F/C/S timing process was launched in this study. After the paired chat result, the user requested numerical localization before adopting a change."
+}
