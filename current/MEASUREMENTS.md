@@ -1,6 +1,6 @@
 # 実測から読むXeonとVoltaの推論
 
-この実機で重視しているのは、1人が長い会話を続けるときの入力待ちと生成間隔です。モデルはDeepSeek-V4.1-Flash-1017-abliteratedのMix-256G。通常版はE5-2697 v2 ×2、512 GiB、PG500-216、入力24・生成24、しきい値64/64です。採用設定と実装を照合したのは2026年11月27日、以下の交換後CPUの性能測定は11月24～25日です。[稼働ソースと配置](README.md)
+この実機で重視しているのは、1人が長い会話を続けるときの入力待ちと生成間隔です。モデルはDeepSeek-V4.1-Flash-1017-abliteratedのMix-256G。通常版はE5-2697 v2 ×2、512 GiB、PG500-216、入力24・生成24、しきい値64/64です。採用設定と実装を照合したのは2026年11月27日、以下の交換後CPUの性能測定は11月24～27日です。[稼働ソースと配置](README.md)
 
 | 何を比較したか | 実測と現在の判断 | 元資料 |
 |---|---|---|
@@ -10,6 +10,12 @@
 | ホストにあるexpertをさらにGPUに常駐 | 第7層で選択1回当たりの局所短縮は、CPU展開済みのID 331で0.093 ms、未展開のID 85で0.188 ms。常駐3枠を加えた全モデルでは日本語10.148→10.063、Python 9.810→9.936 tok/sと効果が分かれ、通常版への追加は見送った | [局所試験・全モデル・配置](https://github.com/MangekyoMyan/xeon-moe-lab/blob/f6eafb2d4ffa55c348ac004c97ac6b08a96f6821/archive/review-handoffs-not-for-readers/2026-11-24-normal24-timeline/SUMMARY_JA.txt) |
 | 活性値の丸め残差を補正 | 実際のGGUF重みとFP32入力を使うFP64内積を基準にすると、第0層のGPU内積で局所誤差は小さくなった。第6／第7候補のrouterスコアが近い位置を選んでも、同じ個数をずらして選ぶ対照と比べ、補正対象の元誤差はほぼ濃縮されなかった。回答品質向上の判断は保留 | [Voltaの演算試験](https://github.com/MangekyoMyan/xeon-moe-lab/blob/7ec7f304ea98ab05ea7bf56442ea4e9f3a70e442/archive/review-handoffs-not-for-readers/2026-11-25-volta-residual/RESULTS_JA.md)・[選択補正の全モデル試験](https://github.com/MangekyoMyan/xeon-moe-lab/blob/c2b14b339bcd94bd34e0d2402ac3a72e6bbd9d25/archive/review-handoffs-not-for-readers/2026-11-25-selective-margin/RESULTS_JA.md)・[元logitsと再計算用ZIP](https://github.com/MangekyoMyan/xeon-moe-lab/releases/tag/precision-consult-20261125) |
 | 第7層のSwiGLUを6→24コアへ分担 | 2つの実入力で中間値を含む144,384個のF32出力がビット一致。計装時の活性化単体は26.18→14.73、27.38→16.39 µs。計装を外した4演算全体の平均時間差は−0.31%／+0.81%。全4,608回で実行順による逆転があり、通常版は元の分担を採用 | [コードと全ブロックの結果](https://github.com/MangekyoMyan/xeon-moe-lab/blob/93f765aaf66299cb1c2a8148e9f748ae781a7b82/archive/review-handoffs-not-for-readers/2026-11-25-glu-worker-split/RESULTS_JA.md)・[185ファイルの実験ZIP](https://github.com/MangekyoMyan/xeon-moe-lab/releases/tag/glu-worker-split-20261125) |
+
+## 1回だけ選ばれるexpertのCPU分担
+
+11月27日に、1回の入力処理で1トークンだけを担当するexpertをCPUに残し、残りをGPUに任せる実験を行った。日本語512入力の第4層では、GPUへ送った実データが2.985→2.320 GB、第24層では3.347→2.445 GBに減った。実モデルでこの2層だけを分担すると、末尾のlogits取得までの平均は日本語14.247→14.063秒、Python 15.838→15.746秒。いずれも4組すべてで短縮し、24トークンの貪欲生成は一致した。
+
+長い会話で16,388トークンの共通履歴を構築したときは平均231.27→229.44秒だった。履歴再利用後の75トークンの質問には元の経路を使った。Python 1024入力では固定17位置中3位置で第一候補が変わり、元コードの次トークンとの一致は5/16から4/16に減った。通常APIは既存構成を維持している。[実装・数値差・長文と短い追記の測定条件](https://github.com/MangekyoMyan/xeon-moe-lab/blob/ba8f54fad68406eaa9723826461d6d0e2b63c2b3/archive/review-handoffs-not-for-readers/2026-11-27-prefill-singletons/RESULTS_JA.md)・[入力・全語彙・実測時刻の再計算用データ](https://github.com/MangekyoMyan/xeon-moe-lab/releases/tag/prefill-singletons-20261127)
 
 ## まだ実測で答えが出ていないこと
 
