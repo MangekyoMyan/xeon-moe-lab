@@ -8,6 +8,8 @@
 
 11月25日の第7層試験では、SwiGLUを6コアから24コアに分けると、活性化単体の時間は約40～44%短縮しました。前後の内積を含む4演算の平均では入力によって差の向きが変わったため、通常APIには従来の分担を使っています。[実測レポート・実装差分・各回の時刻](https://github.com/MangekyoMyan/xeon-moe-lab/blob/93f765aaf66299cb1c2a8148e9f748ae781a7b82/archive/review-handoffs-not-for-readers/2026-11-25-glu-worker-split/RESULTS_JA.md)
 
+11月27日には、入力中で1回だけ選ばれるexpertをCPUに残し、第4・24層でGPU転送を減らす方法を実モデルで試しました。512入力全体での平均短縮は日本語0.18秒、Python 0.09秒でした。Pythonの1024入力で出力候補の差も確認したため、これは実験版です。[1024入力・長い会話を含む実測](https://github.com/MangekyoMyan/xeon-moe-lab/blob/ba8f54fad68406eaa9723826461d6d0e2b63c2b3/archive/review-handoffs-not-for-readers/2026-11-27-prefill-singletons/RESULTS_JA.md)
+
 <details>
 <summary>11月5日の保存版（E5-2630L v2 ×2）の構成・実験・復元手順</summary>
 
