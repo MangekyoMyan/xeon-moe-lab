@@ -1,0 +1,9 @@
+{
+  "reason": "Preliminary G had correct output but CUPTI found excess H2D precisely equal to all unused gate weight blocks. Its strided ID tensor was represented as a newly executed VIEW. Verify the real model callback and range offsets before choosing the control.",
+  "native_measure": "Two identical real 512-token inputs, plain and router-to-sum callback fences. Forward every original weight-copy callback/offset. If the actual model handles all three weights selectively, use a ready non-contiguous ID leaf (same data/strides but no new VIEW node) to rerun all 5 operators for both orders and both LLC conditions, then profile. Otherwise explicitly match each projected transport pattern or withhold the baseline.",
+  "numerics": "Two separate one-layer counterfactuals, replace final routed weighted sum with the measured P result only after native tensor equals saved captured tensor, verify readback. Original 16 text-next tokens teacher-forced, 16 additional greedy steps separately. No speed inference from the injected path.",
+  "binary_sha256": "75ead8bd4515947502496db3c11266984adfc67915fc075a3351edfcbef0dc9f",
+  "model_audit_sha256": "c5a83f4751fd28d6a9584da9128daa4557f7761a1ae2c4db3d758a14131c9668",
+  "model_cases_sha256": "9b37e5100eeee006da1be8e0faa2b1768a10787c08fd7b553167185674a95e2e",
+  "unchanged_pair_schedule_from": "ffdb0874cf1fcf6e2ad60ea6fda28aa2fc6959e1c26601a4d8192594ce03326a"
+}

@@ -1,0 +1,43 @@
+{
+  "baseline_commit": "ea69daf11ddfd13863856dbf55da6991ae5504e5",
+  "fixture": "JA512, one actual model ubatch",
+  "layers": [
+    4,
+    24
+  ],
+  "reps": 7,
+  "capture_hashes": {
+    "ffn_moe_weights_scaled-4.bin": "fe5b5194272b7390b594ae1d0fd558c1fe1a343f4aee078f2e8992fc273d4f55",
+    "ffn_moe_down-4.bin": "343b15ec8f5a5c5e78f9076ce5c713d67317716f9c5f82a96a612233b34d07f2",
+    "ffn_moe_weights_scaled-24.bin": "65c77501a253c84041be9725c2c7978b6783e05dc4fb71bee6fcea7bfaa80c40",
+    "ffn_moe_out-4.bin": "13337898fc0178ba035c9fd87ba3deed75cbf7aa3f52dbdeeb47523487338aa0",
+    "x-24.bin": "f4ff1146538190bfa2aa1e8ce4cdb8ba6e7b079fbf79193c2b610074adf34e91",
+    "capture-logits.f32": "51a6442a3e8c1d4fb2ff0ba0323c71e692cad8646085cbe36d48f724d00349a3",
+    "ffn_moe_out-24.bin": "7ce636ed3fa88080a192c00c3c5472815947eee8441008e6c6e975d759ea439f",
+    "ffn_moe_down-24.bin": "18d64fb8fe36e34e474639e7de57bb36d160044575ab1860bdca185d21670b07",
+    "x-4.bin": "a6b9f5eb2936b55094b28dff33be21484c2353a9f8b663ca74c6be75c837bacd",
+    "native-logits.f32": "51a6442a3e8c1d4fb2ff0ba0323c71e692cad8646085cbe36d48f724d00349a3",
+    "ids-24.bin": "0fcd3ea74bc5ab73b24692b6b0fbdb8afbaaabb169552e7750f5f606e7651449",
+    "ids-4.bin": "8d1570bee64d2f09393c41965baf74411d73612884e79df2c77d38aa046781b0"
+  },
+  "operator_sha256": "d111566bd0cbafcf0bfa01d2acdf9fdfaff590e94031880263f78852f542ba03",
+  "arms": [
+    "G original shape, registered host weights and installed llama_context::graph_compute/sched_copy_experts, original CUDA weighted sum",
+    "C native CPU 24 physical cores [6,512], CUDA input and output aggregation",
+    "Gprobe all packed as [1,3072], same packing/gather/scatter and native copy callback as S/P",
+    "S [1,Nsingle] on CPU and remaining pairs on GPU, CPU complete before GPU",
+    "P same assignments with CPU/GPU overlap"
+  ],
+  "primary": "GPU x, ids and coefficients already ready; start steady host clock; include per-call IDs, counts, remap/gather, native weight transfers, all compute, scatter, weighting and synchronized device-ready endpoint. One-time graph allocation inside first call. Tiny model creates scheduler only; measured inputs and weights come entirely from DeepSeek.",
+  "cache_control": "Repeated route warm or independent reads of disjoint 96 MiB per socket outside each call. No direct LLC hit-rate inference.",
+  "protocol": "First call of each arm retained, one further warmup per arm; 2 blocks reverse both five-arm order and pressure order. 7 measured calls per cell. Separate process and separate CUPTI clock/activity window once per arm/layer.",
+  "advance": "Only an output-validated min(S,P) ahead of min(G,C) both orders and both cache conditions is eligible for further tests. Assess variation; do not translate a local time to tok/s.",
+  "production": "24/24, thresholds64/64, 150W ECC, fan<=70%, 64GiB reserve; no automatic adoption.",
+  "build_amendment": "Provider dictionary validated by named field; the prior process exited before CUDA init or any measurements. Same frozen arms/order/counts.",
+  "binary_by_layer": {
+    "4": "9cac0661d0beb5cb1117547c415a0454ebd4e4c08f8812b695c7717c8917d868",
+    "24": "d111566bd0cbafcf0bfa01d2acdf9fdfaff590e94031880263f78852f542ba03"
+  },
+  "holdout_fixture_sha256": "c38fe17370e72ca6e99091ccdfd3456210dd462692c5e412a613285ad4b030d5",
+  "continuation": "Retain all completed original L4 timings, use same binary for that layer. L24 failed in setup because its three MXFP4 plan entries are empty. The corrected harness skips empty registrations; numerical kernels, allocation geometry, schedule and primary clocks unmodified. Holdout measures only layers passing both block orders and both cache conditions on JA."
+}

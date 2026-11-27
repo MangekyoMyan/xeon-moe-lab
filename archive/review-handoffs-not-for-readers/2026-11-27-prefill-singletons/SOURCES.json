@@ -1,0 +1,62 @@
+{
+  "review_input": {
+    "file": "xeon_moe_handoff_ea69daf_20261127.txt",
+    "sha256": "0452369217b1ec603d010a85ec45064c1eaaede3c050e553eeae684d8e4e059c"
+  },
+  "normal_source_commit": "ea69daf11ddfd13863856dbf55da6991ae5504e5",
+  "upstream": "dde879bc4f954b809892fd0d660515f42536394a",
+  "current_profile_sha256": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+  "plan_sha256": "cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6",
+  "model_revision": "349470a09c1fca35862b0796e726b9fe00a947df",
+  "model_prior_download_sha256": "2e28c7078295069169287b27e57d448fc5b3afbdf861d309bb52752770872a1f",
+  "vision_revision": "62168fc534d42dbe85843ef6b71bfb6384e32ba5",
+  "production_libraries": {
+    "cpu": {
+      "file": "exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0",
+      "sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3"
+    },
+    "llama": {
+      "file": "exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0",
+      "sha256": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26"
+    },
+    "cuda": {
+      "file": "exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+      "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+    },
+    "base": {
+      "file": "gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+      "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+    }
+  },
+  "host": {
+    "board": "Sugon X9DR3-F",
+    "CPU": "two E5-2697 v2, 24 physical, 48 logical",
+    "affinity": "0-23, 12 physical per socket, OMP 24, strict",
+    "NUMA": "interleave 0,1; process THP disabled",
+    "RAM": "512 GiB DDR3-1600; 64 GiB available reserve",
+    "GPU": "Tesla PG500-216 32 GiB, sm70, limit 150 W, ECC enabled",
+    "fans": "Standard, <=70%",
+    "GPU_before_first_capture_MiB": {
+      "total": 32768,
+      "used": 30440,
+      "free": 2055
+    },
+    "host_MemAvailable_before_GiB_rounded": 68,
+    "L3_sysfs_cpu0_and12": "30720K per socket, shared masks 0-11/24-35 and 12-23/36-47 respectively"
+  },
+  "prior_code": {
+    "apex": {
+      "path": "archive/development-history-not-for-readers/lab/apex-split-20261105",
+      "reused": "GGUF tensor metadata / mapping, two CUDA gather and scatter kernels; independent real device slot sum and native scheduler replace old custom aggregation"
+    },
+    "24core_pool": "normal24-timeline-20261124/operator/pool24.h",
+    "full_model_caller": "worker-balance-20261124/precision/driver.cpp",
+    "score": "worker-balance-20261124/precision/score_logits.cpp",
+    "scheduler_fixture_sha256": "60797b6f23bd7f0983399746129085515adbc7cbe9fc3169903b939ca5188764",
+    "fixture_role": "creates a live instance of original libllama scheduler for isolated FFNs; no fixture-model tensors enter measured arithmetic"
+  },
+  "licenses": [
+    "project MIT, MangekyouMyan; upstream llama.cpp/ggml source and notices preserved",
+    "https://github.com/MangekyoMyan/xeon-moe-lab/blob/ea69daf11ddfd13863856dbf55da6991ae5504e5/THIRD_PARTY_NOTICES.md"
+  ]
+}

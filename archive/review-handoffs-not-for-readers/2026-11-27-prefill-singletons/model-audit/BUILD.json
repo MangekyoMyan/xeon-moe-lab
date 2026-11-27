@@ -1,0 +1,71 @@
+{
+  "command": [
+    "g++",
+    "-std=c++17",
+    "-O2",
+    "-g",
+    "-march=ivybridge",
+    "-mtune=ivybridge",
+    "-mno-avx2",
+    "-mno-fma",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-Wall",
+    "-Wextra",
+    "-fopenmp",
+    "-pthread",
+    "-I/home/codex/projects/llm-lab/prefill-split-20261127/model-audit",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/include",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/common",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/tools/mtmd",
+    "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+    "/home/codex/projects/llm-lab/prefill-split-20261127/model-audit/driver.cpp",
+    "/home/codex/projects/llm-lab/prefill-split-20261127/model-audit/copy_ledger.cpp",
+    "-Wl,--export-dynamic-symbol=ggml_backend_sched_set_copy_callback",
+    "-Wl,--export-dynamic-symbol=ggml_backend_tensor_set_async",
+    "-L/home/codex/projects/llm-lab/preupgrade-baseline-20261123/trial/runtime",
+    "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,-rpath,/home/codex/projects/llm-lab/preupgrade-baseline-20261123/trial/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+    "-Wl,--no-as-needed",
+    "-lllama",
+    "-lggml-cpu",
+    "-lggml-base",
+    "-lggml",
+    "-lllama-common",
+    "-lmtmd",
+    "-ldl",
+    "-Wl,--no-undefined",
+    "-o",
+    "/home/codex/projects/llm-lab/prefill-split-20261127/model-audit/driver"
+  ],
+  "driver_sha256": "c5a83f4751fd28d6a9584da9128daa4557f7761a1ae2c4db3d758a14131c9668",
+  "source_sha256": {
+    "tracing.h": "bc557c94145b409c29457c57992802507b1fdc5de361eb108fc3fa50babaece8",
+    "cache_inspection.h": "981e196fd2618bf5d487ea15a08abe7b3ca87248117d898b5e9c0370412d85d0",
+    "copy_ledger.cpp": "12e81238765309fe6e539f5ada966e8650bade47a8f3b1b235ed04ee759075c8",
+    "model_audit.h": "e375d10ab1ac650e76af10ed2eb9a497454f65db36bcd003622155b14eade05d",
+    "affinity_check.h": "31d701a994c4269dfd50d1e7f3f36868c82df4274e9268faf73deedd3b429149",
+    "driver.cpp": "a23e5188ac393f96e9e96ea864b9f6169c2c28ebfa91b94236354f09f943f206"
+  },
+  "libraries": {
+    "libggml-cpu.so.0.28.0": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0",
+      "sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3"
+    },
+    "libllama.so.0.8.0": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0",
+      "sha256": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26"
+    },
+    "libggml-cuda.so.0.28.0": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+      "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+    },
+    "libggml-base.so.0.28.0": {
+      "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+      "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+    }
+  }
+}

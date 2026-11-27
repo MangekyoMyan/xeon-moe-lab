@@ -1,0 +1,84 @@
+{
+  "commands": [
+    [
+      "/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/bin/nvcc",
+      "-O2",
+      "-std=c++17",
+      "-arch=sm_70",
+      "-Xcompiler",
+      "-fPIC",
+      "-c",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/operator/gather.cu",
+      "-o",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/operator/gather.o"
+    ],
+    [
+      "g++",
+      "-std=c++17",
+      "-O2",
+      "-g",
+      "-march=ivybridge",
+      "-mno-avx2",
+      "-mno-fma",
+      "-ffp-contract=off",
+      "-fno-fast-math",
+      "-pthread",
+      "-fopenmp",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/include",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+      "-I/home/codex/projects/llm-lab/exploration-20261112/row-local",
+      "-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include",
+      "-I/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/include",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/operator/replay.cpp",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/operator/gather.o",
+      "-L/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a",
+      "-L/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a",
+      "-L/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a",
+      "-L/home/codex/projects/llm-lab/gpu-stream-20261103/runtime",
+      "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+      "-L/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+      "-L/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/lib",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a:/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a:/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a:/home/codex/projects/llm-lab/gpu-stream-20261103/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin:/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib:/home/codex/projects/llm-lab/strata-tc-study-20261031/cupti/cuda_cupti-linux-x86_64-12.9.79-archive/lib",
+      "-Wl,--no-as-needed",
+      "-lllama",
+      "-lggml-cpu",
+      "-lggml-cuda",
+      "-lggml-base",
+      "-lggml",
+      "-lcudart",
+      "-lcupti",
+      "-ldl",
+      "-o",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/operator/replay"
+    ]
+  ],
+  "source_sha256": {
+    "pool24.h": "96537e39a5a665b9a1167f3055e439ca4fddd5a23819de1bf5e119df2e9ce297",
+    "gather.cu": "8d606a26ef3fa02883c214d9de603666f7434e9e375a59bb9fa0a09bd7365262",
+    "weights.h": "c57b363a3dad46a605ff1b3ee9b6deb8aca79a3a4100f94d80648443f411bb18",
+    "activity.h": "0221a458d9df10d2812a577e17fd002db7fcd8a8cb22d51cc14753f55adf317f",
+    "replay.cpp": "07899251bddccb9838a7f772845fcb5f25d8b36a7d330f59b1ba357b0b0ffba0"
+  },
+  "binary_sha256": "9cac0661d0beb5cb1117547c415a0454ebd4e4c08f8812b695c7717c8917d868",
+  "libraries": {
+    "cpu": {
+      "path": "exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0",
+      "sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3"
+    },
+    "llama": {
+      "path": "exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0",
+      "sha256": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26"
+    },
+    "cuda": {
+      "path": "exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+      "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+    },
+    "base": {
+      "path": "gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+      "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+    }
+  }
+}

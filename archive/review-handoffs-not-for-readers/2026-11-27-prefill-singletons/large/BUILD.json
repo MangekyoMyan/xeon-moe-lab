@@ -1,0 +1,93 @@
+{
+  "commands": [
+    [
+      "/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/bin/nvcc",
+      "-O2",
+      "-std=c++17",
+      "-arch=sm_70",
+      "-Xcompiler",
+      "-fPIC",
+      "-c",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/operator/gather.cu",
+      "-o",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/large/gather.o"
+    ],
+    [
+      "g++",
+      "-I/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/include",
+      "-L/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/v100-prep-20261024/cuda-12.9.2/lib",
+      "-std=c++17",
+      "-O2",
+      "-g",
+      "-march=ivybridge",
+      "-mtune=ivybridge",
+      "-mno-avx2",
+      "-mno-fma",
+      "-fno-fast-math",
+      "-ffp-contract=off",
+      "-Wall",
+      "-Wextra",
+      "-fopenmp",
+      "-pthread",
+      "-I/home/codex/projects/llm-lab/prefill-split-20261127/large",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/include",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/include",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/ggml/src",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/common",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/src",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/tools/mtmd",
+      "-I/home/codex/projects/llm-lab/deepseek41-bringup-20261101/source/vendor/nlohmann",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/large/driver.cpp",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/large/hook.cpp",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/large/gather.o",
+      "-lcudart",
+      "-Wl,--export-dynamic-symbol=ggml_backend_sched_set_copy_callback",
+      "-Wl,--export-dynamic-symbol=ggml_backend_sched_alloc_graph",
+      "-Wl,--export-dynamic-symbol=ggml_backend_graph_compute_async",
+      "-L/home/codex/projects/llm-lab/preupgrade-baseline-20261123/trial/runtime",
+      "-L/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+      "-Wl,-rpath,/home/codex/projects/llm-lab/preupgrade-baseline-20261123/trial/runtime:/home/codex/projects/llm-lab/deepseek41-bringup-20261101/build/bin",
+      "-Wl,--no-as-needed",
+      "-lllama",
+      "-lggml-cpu",
+      "-lggml-base",
+      "-lggml",
+      "-lllama-common",
+      "-lmtmd",
+      "-ldl",
+      "-Wl,--no-undefined",
+      "-o",
+      "/home/codex/projects/llm-lab/prefill-split-20261127/large/driver"
+    ]
+  ],
+  "binary_sha256": "d7ee8c9edc243401c7d6ab06258ac783f85d0aa7befc04c2827b0707d5e9281e",
+  "source_sha256": {
+    "tracing.h": "bc557c94145b409c29457c57992802507b1fdc5de361eb108fc3fa50babaece8",
+    "cache_inspection.h": "981e196fd2618bf5d487ea15a08abe7b3ca87248117d898b5e9c0370412d85d0",
+    "storage.h": "f882c936a29ef2f1b554708f56b28286ed2aff5f82d1c5437a57bc22b4dc4b9b",
+    "extended.h": "8d4d22da9c47672fc828b138b49a3738cef5ce90c05668dfd452fa7f866232ad",
+    "affinity_check.h": "31d701a994c4269dfd50d1e7f3f36868c82df4274e9268faf73deedd3b429149",
+    "hook.cpp": "748fa6315c1866e670cfe3abbca157de61c402e86d11881250bfab87d88d7ea5",
+    "driver.cpp": "6a2a95570e31209d497d9dca8bbaa07ee52dc667acd3476a6f164ea3145cc1c1"
+  },
+  "gather_source_sha256": "8d606a26ef3fa02883c214d9de603666f7434e9e375a59bb9fa0a09bd7365262",
+  "libraries": {
+    "libggml-cpu.so.0.28.0": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0",
+      "sha256": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3"
+    },
+    "libllama.so.0.8.0": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0",
+      "sha256": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26"
+    },
+    "libggml-cuda.so.0.28.0": {
+      "path": "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0",
+      "sha256": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0"
+    },
+    "libggml-base.so.0.28.0": {
+      "path": "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0",
+      "sha256": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+    }
+  }
+}

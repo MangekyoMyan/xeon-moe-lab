@@ -1,0 +1,11 @@
+{
+  "frozen_after": "four out of four 512 prefill pairs shorter on both inputs; 24 greedy IDs equal for both",
+  "change": "same two layers (4/24) and same n_e=1 partition; now only ubatches of 1024 qualify. Empty rare branch falls back to the native graph. No new quantified layer policy.",
+  "case_sha256": "b0cd9eb0f0f4823f6a14922d1f88cf0f7f067455bb41e3d4bcc13f2d9dc1d7be",
+  "cold": "two independent fixed 1024 prefixes extending the two 512 fixtures. O/GP/S/P +16 fixed tokens; 2 reversed O/P pairs per case; use full prefix wall-to-logits.",
+  "history": "fully rendered three-message warehouse lookup. Recompute the shared prefix in 1024-sized chunks and final remainder; attach final legitimate suffix exactly once in the same context. Four fresh histories in O,P,P,O order. 24 greedy tokens maximum. Measure sum of chunk wall clocks separately from suffix and answer. Both thresholds remain 64; this is not the 64 vs 128 switching trial.",
+  "common": 16388,
+  "new": 75,
+  "expected": "Q9978",
+  "normal": "No deployment. Report actual dispatch counts and guard outcome."
+}

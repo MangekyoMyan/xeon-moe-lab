@@ -1,0 +1,17 @@
+{
+  "baseline": "ea69daf, normal unchanged DSOs and routed model scheduler, one dedicated 24/24 driver",
+  "eligibility": "Exact match of the real gate split (one node), up/clamp split (two), down then weighting. Check 6-slot/512 dimensions, model weight identities, GPU provider, use counts of gate/up/act, and topology. Enable layers 4 and 24 only in this experiment.",
+  "implementation": "Borrow each native weight staging destination at its actual split; call installed selective-copy callback on packed valid global IDs; use ordinary CUDA kernels; CPU worker handles singleton FFN from same registered original weights; scatter device results to the original down slots; native weights/slot-order sum, remaining graph, mHC, KV and sampler continue. No second full-size weight arena.",
+  "qualification": "Native control equals full unmodified model. GP packed-only equal to control, integrated P4/P24 equal to prior one-layer counterfactuals, S and P equal through 16 fixed continuation tokens. Readbacks/hash cross-checks and actual targeted counts for both 512 cases. Timing only after qualification.",
+  "primary": "Four adjacent O/P pairs per case, O first / P first / P first / O first, prompt order alternates between the two cases. New prefix/empty memory, steady monotonic decode->all final logits ready, no diagnostic tensor readback. First shape/changing shape recorded. Full-model driver, not HTTP TTFT.",
+  "also": "24-step free greedy baseline/P, same initial prompt, token IDs and text. No default adoption. Do not extrapolate from 2 layers or 2 fixed prefixes to all layers/contexts/tasks.",
+  "prepared_source_sha256": {
+    "hook.cpp": "4f960ed8171bd7c53436b7327b55c722c277560b75439b5db1686ecc77e02d7c",
+    "storage.h": "f882c936a29ef2f1b554708f56b28286ed2aff5f82d1c5437a57bc22b4dc4b9b",
+    "trial.h": "ee13fe025fb6ebe4ef5762c48c567a738f62a4c573f183486d1265fc0a35dd62"
+  },
+  "matched_operator_result_sha256": {
+    "JA512": "e38bbbe8577d7a33b07b648bde182c9db056c7bb41b762d2d4820b486d03ba76",
+    "PY512": "750ffbe2eef297fb245f0986d93a9f2d1e1351631463428f3688bab524c55a2a"
+  }
+}

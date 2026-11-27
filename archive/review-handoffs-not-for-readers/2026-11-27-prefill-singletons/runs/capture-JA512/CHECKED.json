@@ -1,0 +1,317 @@
+{
+  "weights": {
+    "4": [
+      {
+        "name": "blk.4.ffn_gate_exps.weight",
+        "type": "iq3_xxs",
+        "ne": [
+          5120,
+          2304,
+          384,
+          1
+        ],
+        "nb": [
+          98,
+          1960,
+          4515840,
+          1734082560
+        ],
+        "buffer": "CPU_Mapped"
+      },
+      {
+        "name": "blk.4.ffn_up_exps.weight",
+        "type": "iq3_xxs",
+        "ne": [
+          5120,
+          2304,
+          384,
+          1
+        ],
+        "nb": [
+          98,
+          1960,
+          4515840,
+          1734082560
+        ],
+        "buffer": "CPU_Mapped"
+      },
+      {
+        "name": "blk.4.ffn_down_exps.weight",
+        "type": "iq2_s",
+        "ne": [
+          2304,
+          5120,
+          384,
+          1
+        ],
+        "nb": [
+          82,
+          738,
+          3778560,
+          1450967040
+        ],
+        "buffer": "CPU_Mapped"
+      }
+    ],
+    "24": [
+      {
+        "name": "blk.24.ffn_gate_exps.weight",
+        "type": "mxfp4",
+        "ne": [
+          5120,
+          2304,
+          384,
+          1
+        ],
+        "nb": [
+          17,
+          2720,
+          6266880,
+          2406481920
+        ],
+        "buffer": "CPU_Mapped"
+      },
+      {
+        "name": "blk.24.ffn_up_exps.weight",
+        "type": "mxfp4",
+        "ne": [
+          5120,
+          2304,
+          384,
+          1
+        ],
+        "nb": [
+          17,
+          2720,
+          6266880,
+          2406481920
+        ],
+        "buffer": "CPU_Mapped"
+      },
+      {
+        "name": "blk.24.ffn_down_exps.weight",
+        "type": "mxfp4",
+        "ne": [
+          2304,
+          5120,
+          384,
+          1
+        ],
+        "nb": [
+          17,
+          1224,
+          6266880,
+          2406481920
+        ],
+        "buffer": "CPU_Mapped"
+      }
+    ]
+  },
+  "tensors": {
+    "ffn_moe_weights_scaled-4": {
+      "name": "ffn_moe_weights_scaled-4",
+      "op": "SCALE",
+      "type": "f32",
+      "ne": [
+        1,
+        6,
+        512,
+        1
+      ],
+      "nb": [
+        4,
+        4,
+        24,
+        12288
+      ],
+      "buffer": "CUDA0",
+      "file": "ffn_moe_weights_scaled-4.bin"
+    },
+    "x-4": {
+      "name": "ffn_norm-4 (reshaped)",
+      "op": "RESHAPE",
+      "type": "f32",
+      "ne": [
+        5120,
+        1,
+        512,
+        1
+      ],
+      "nb": [
+        4,
+        20480,
+        20480,
+        10485760
+      ],
+      "buffer": "CUDA0",
+      "file": "x-4.bin"
+    },
+    "ids-4": {
+      "name": "ffn_moe_topk-4",
+      "op": "VIEW",
+      "type": "i32",
+      "ne": [
+        6,
+        512,
+        1,
+        1
+      ],
+      "nb": [
+        4,
+        1536,
+        786432,
+        786432
+      ],
+      "buffer": "CUDA0",
+      "file": "ids-4.bin"
+    },
+    "ffn_moe_down-4": {
+      "name": "ffn_moe_down-4",
+      "op": "MUL_MAT_ID",
+      "type": "f32",
+      "ne": [
+        5120,
+        6,
+        512,
+        1
+      ],
+      "nb": [
+        4,
+        20480,
+        122880,
+        62914560
+      ],
+      "buffer": "CUDA0",
+      "file": "ffn_moe_down-4.bin"
+    },
+    "ffn_moe_out-4": {
+      "name": "ffn_moe_out-4",
+      "op": "ADD",
+      "type": "f32",
+      "ne": [
+        5120,
+        512,
+        1,
+        1
+      ],
+      "nb": [
+        4,
+        20480,
+        10485760,
+        10485760
+      ],
+      "buffer": "CUDA0",
+      "file": "ffn_moe_out-4.bin"
+    },
+    "ffn_moe_weights_scaled-24": {
+      "name": "ffn_moe_weights_scaled-24",
+      "op": "SCALE",
+      "type": "f32",
+      "ne": [
+        1,
+        6,
+        512,
+        1
+      ],
+      "nb": [
+        4,
+        4,
+        24,
+        12288
+      ],
+      "buffer": "CUDA0",
+      "file": "ffn_moe_weights_scaled-24.bin"
+    },
+    "x-24": {
+      "name": "ffn_norm-24 (reshaped)",
+      "op": "RESHAPE",
+      "type": "f32",
+      "ne": [
+        5120,
+        1,
+        512,
+        1
+      ],
+      "nb": [
+        4,
+        20480,
+        20480,
+        10485760
+      ],
+      "buffer": "CUDA0",
+      "file": "x-24.bin"
+    },
+    "ids-24": {
+      "name": "ffn_moe_topk-24",
+      "op": "VIEW",
+      "type": "i32",
+      "ne": [
+        6,
+        512,
+        1,
+        1
+      ],
+      "nb": [
+        4,
+        1536,
+        786432,
+        786432
+      ],
+      "buffer": "CUDA0",
+      "file": "ids-24.bin"
+    },
+    "ffn_moe_down-24": {
+      "name": "ffn_moe_down-24",
+      "op": "MUL_MAT_ID",
+      "type": "f32",
+      "ne": [
+        5120,
+        6,
+        512,
+        1
+      ],
+      "nb": [
+        4,
+        20480,
+        122880,
+        62914560
+      ],
+      "buffer": "CUDA0",
+      "file": "ffn_moe_down-24.bin"
+    },
+    "ffn_moe_out-24": {
+      "name": "ffn_moe_out-24",
+      "op": "ADD",
+      "type": "f32",
+      "ne": [
+        5120,
+        512,
+        1,
+        1
+      ],
+      "nb": [
+        4,
+        20480,
+        10485760,
+        10485760
+      ],
+      "buffer": "CUDA0",
+      "file": "ffn_moe_out-24.bin"
+    }
+  },
+  "raw_sha256": {
+    "ffn_moe_weights_scaled-4.bin": "fe5b5194272b7390b594ae1d0fd558c1fe1a343f4aee078f2e8992fc273d4f55",
+    "ffn_moe_down-4.bin": "343b15ec8f5a5c5e78f9076ce5c713d67317716f9c5f82a96a612233b34d07f2",
+    "ffn_moe_weights_scaled-24.bin": "65c77501a253c84041be9725c2c7978b6783e05dc4fb71bee6fcea7bfaa80c40",
+    "ffn_moe_out-4.bin": "13337898fc0178ba035c9fd87ba3deed75cbf7aa3f52dbdeeb47523487338aa0",
+    "x-24.bin": "f4ff1146538190bfa2aa1e8ce4cdb8ba6e7b079fbf79193c2b610074adf34e91",
+    "capture-logits.f32": "51a6442a3e8c1d4fb2ff0ba0323c71e692cad8646085cbe36d48f724d00349a3",
+    "ffn_moe_out-24.bin": "7ce636ed3fa88080a192c00c3c5472815947eee8441008e6c6e975d759ea439f",
+    "ffn_moe_down-24.bin": "18d64fb8fe36e34e474639e7de57bb36d160044575ab1860bdca185d21670b07",
+    "x-4.bin": "a6b9f5eb2936b55094b28dff33be21484c2353a9f8b663ca74c6be75c837bacd",
+    "native-logits.f32": "51a6442a3e8c1d4fb2ff0ba0323c71e692cad8646085cbe36d48f724d00349a3",
+    "ids-24.bin": "0fcd3ea74bc5ab73b24692b6b0fbdb8afbaaabb169552e7750f5f606e7651449",
+    "ids-4.bin": "8d1570bee64d2f09393c41965baf74411d73612884e79df2c77d38aa046781b0"
+  },
+  "prefix_logits_match": true
+}
