@@ -1,10 +1,17 @@
-# Xeon MoE Lab — 2026-11-05 baseline
+# Xeon MoE Lab
 
-旧XeonとVoltaで大きなMoEモデルを動かした際の、採用済みソース・設定・測定結果を公開する実験用リポジトリです。
+2基の旧Xeonと1枚のVolta GPUで、大きなMoEモデルをどこまで会話に使えるか、実機で確かめています。対象はOrcaRouterのDeepSeek-V4.1-Flash-1017-abliterated、Mix-256Gです。
 
-**2026-11-05時点の構成と結果を保存しています。** ハードウェア固有の調整を含むため、CPUなどの構成を変更する際は、この版を比較の基準として再計測・再調整する前提です。
+**11月27日に確認した通常版**は、Xeon E5-2697 v2 ×2（24物理コア）、512 GiB DDR3-1600、Tesla PG500-216（Volta・32 GiB）で動作しています。入力・生成とも24スレッド、1会話のコンテキストは131,072です。通常APIで測った日本語の短い1要求は、29入力・59生成で最初の本文まで1.83秒、生成9.76 tok/sでした。[稼働構成とソース](current/README.md)・[測定条件と生データ](current/MEASUREMENTS.md)
 
-2026年11月19日の稼働構成（compact予算120 GiB）と実機での照合方法は、[通常構成の入口](https://github.com/MangekyoMyan/xeon-moe-lab/blob/633e8862c9e80f87d937b4a85ba174b7122558be/current/README.md)にまとめています。
+1トークンの生成では、モデルが選んだ6個のexpertを、先頭37層ではCPU、末尾3層ではGPUが処理します。CPUは頻度に基づいて選んだ重みをあらかじめRAMに展開し、選外は元の量子化重みで計算します。まとまった入力の処理では、バッチ長に応じてGPUへの振り分けが変わります。[重みの選択表と実行設定](current/runtime.json)・[CPU・CUDA・スケジューラのソース](current/overlays/)
+
+11月25日の第7層試験では、SwiGLUを6コアから24コアに分けると、活性化単体の時間は約40～44%短縮しました。前後の内積を含む4演算の平均では入力によって差の向きが変わったため、通常APIには従来の分担を使っています。[実測レポート・実装差分・各回の時刻](https://github.com/MangekyoMyan/xeon-moe-lab/blob/93f765aaf66299cb1c2a8148e9f748ae781a7b82/archive/review-handoffs-not-for-readers/2026-11-25-glu-worker-split/RESULTS_JA.md)
+
+<details>
+<summary>11月5日の保存版（E5-2630L v2 ×2）の構成・実験・復元手順</summary>
+
+以下はCPU交換前の記録です。[CPU交換前後を同じ入力で比較した結果](current/CPU_UPGRADE.md)
 
 ## 基準構成
 
@@ -78,6 +85,8 @@ python3 scripts/build_plan.py --cuda-root /path/to/cuda-12.9
 ## CPU交換後
 
 このタグの測定値を基準に、新しい日付のprofile/studyでCPU・NUMA・メモリ速度を比較します。再調整する主な項目は、スレッド数・affinity・expert分担の閾値や係数です。旧構成での評価結果と新構成での結果は区別して記録します。
+
+</details>
 
 ## ライセンス
 
