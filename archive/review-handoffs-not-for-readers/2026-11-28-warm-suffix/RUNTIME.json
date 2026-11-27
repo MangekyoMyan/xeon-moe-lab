@@ -1,0 +1,144 @@
+{
+  "installed_source_commit": "dde879bc4f954b809892fd0d660515f42536394a",
+  "deployed_overlay_commit": "ea69daf11ddfd13863856dbf55da6991ae5504e5",
+  "public_base": "b938c1d99714104f7a61610c52a8732c99b5daa4",
+  "public_profile_path": "current/runtime.json",
+  "public_profile_sha256": "9cafd6d6fd7728b14ce40577dd700b5825b22644edaa6ad5ad7159af04127b95",
+  "server": {
+    "file": "deepseek41-bringup-20261101/build/bin/llama-server",
+    "sha256": "13cfc5152fe80f730242365bf3243bdda450219f4879c0219a96a27e775f1bd6"
+  },
+  "mapped_libraries": {
+    "/home/codex/projects/llm-lab/exploration-20261112/mx-prepack/release-candidate-a/libggml-cpu.so.0.28.0": "33a9e3467de6fb550ee3dfb148d6bf9f6e5c91cf42eda925b21501f4365b0ed3",
+    "/home/codex/projects/llm-lab/exploration-20261112/sparse-cache/release-v2-a/libllama.so.0.8.0": "1d1e7d722c050856ddff874b5f7b87080925555e7eb9580a7ca37fcafb2a8f26",
+    "/home/codex/projects/llm-lab/exploration-20261112/cuda-sort/release-candidate-a/libggml-cuda.so.0.28.0": "45f6b7d8334c415818f79b13add7c9710d552bbab2ff6c1f4c8bb5770f8de8f0",
+    "/home/codex/projects/llm-lab/gpu-stream-20261103/runtime/libggml-base.so.0.28.0": "2e13b3701059c1529b97b185bdc659d3dc4730e0763ed3bb8eb9cdb9563cc558"
+  },
+  "model_revision": "349470a09c1fca35862b0796e726b9fe00a947df",
+  "weights_manifest_sha256": "2e28c7078295069169287b27e57d448fc5b3afbdf861d309bb52752770872a1f",
+  "vision": {
+    "repository": "orcarouter/DeepSeek-V4.1-Flash-1017-abliterated-GGUF",
+    "revision": "62168fc534d42dbe85843ef6b71bfb6384e32ba5",
+    "files": [
+      {
+        "file": "models/deepseek41-vision/mmproj-DeepSeek-V4.1-Flash-1017-abliterated-F16.gguf",
+        "size": 971003744,
+        "sha256": "539c7aa46c6d63b2a327ed0eabfe566138a7b540a94ba9d6fece232c630ef313"
+      }
+    ],
+    "download_receipt": {
+      "file": "models/deepseek41-vision/download-verified.json",
+      "sha256": "ee0aa0c588445b3ed3ebc437995bc87d61311426e23d26ce2a4a33a56dbbfdad"
+    }
+  },
+  "normal_inference": {
+    "context": 131072,
+    "threads_decode": 24,
+    "threads_prefill": 24,
+    "decode_cpu_mask": "0xffffff",
+    "prefill_cpu_mask": "0xffffff",
+    "OMP_THREAD_LIMIT": 24,
+    "batch": 1024,
+    "ubatch": 1024,
+    "kv_type": [
+      "f16",
+      "f16"
+    ],
+    "GPU_routed_layers": [
+      37,
+      38,
+      39
+    ],
+    "cpu_routed_count": 37,
+    "host_weight_registration": "1",
+    "interleave_nodes": [
+      0,
+      1
+    ],
+    "THP_disabled_by_wrapper": true,
+    "offload_min_batch": 64,
+    "mxfp4_offload_min_batch": 64,
+    "packing_threads_at_load": 12,
+    "compact_packing_host_reserve_bytes": 68719476736,
+    "load_mode": "mmap+mlock",
+    "lazy_mode": "off",
+    "fan_mode": "Standard",
+    "fan_limit_percent": 70,
+    "image_max_tokens": 256,
+    "parallel_slots": 1,
+    "projector_initialization_threads_from_server_source": 24
+  },
+  "plan": {
+    "file": "exploration-20261112/plans/frequency19200.plan",
+    "sha256": "cf11b82e3e953bbb06a0d5df164dbb6d53f6b19923efaeb79c72ceeef068bee6",
+    "format": "XEON_IQ_CACHE_PLAN_V2",
+    "tensor_count": 80,
+    "selected_projections": 19200,
+    "packed_bytes": 127401984000,
+    "ram_budget_bytes": 128849018880,
+    "model_download_fingerprint": "2e28c7078295069169287b27e57d448fc5b3afbdf861d309bb52752770872a1f",
+    "published_copy": "models/deepseek41-mix-256g/frequency19200.plan"
+  },
+  "cpu": "Intel(R) Xeon(R) CPU E5-2697 v2 @ 2.70GHz",
+  "sockets": 2,
+  "physical_cores": 24,
+  "logical_CPUs": 48,
+  "GPU_limit_W": 150.0,
+  "GPU_ECC": "Enabled",
+  "python": "3.13.5",
+  "kernel": "6.12.113+deb13-amd64",
+  "normal_options": {
+    "--parallel": 1,
+    "--cache-prompt": true,
+    "--cache-ram": 0,
+    "--ctx-checkpoints": 0
+  },
+  "lab_acquisition_dependencies": {
+    "normal24-timeline-20261124/study.py": {
+      "sha256": "b2afe7178b1e0c51964042f863a3c999f9c2c3412715b98c113cc50a408818b7",
+      "public_commit_path": "93f765aaf66299cb1c2a8148e9f748ae781a7b82/archive/review-handoffs-not-for-readers/2026-11-24-normal24-timeline/study.py"
+    },
+    "normal24-timeline-20261124/prefill.py": {
+      "sha256": "b8910ecc84fd779d7563fa4f1ab40e3aeabab098623c2b2e214a6898237084a1",
+      "public_commit_path": "93f765aaf66299cb1c2a8148e9f748ae781a7b82/archive/review-handoffs-not-for-readers/2026-11-24-normal24-timeline/prefill.py"
+    },
+    "normal24-timeline-20261124/telemetry.py": {
+      "sha256": "858d98ab6c096671b2615844ba2372bd9e6793987a2e42dd334fc7ab18a5e729",
+      "public_commit_path": "93f765aaf66299cb1c2a8148e9f748ae781a7b82/archive/review-handoffs-not-for-readers/2026-11-24-normal24-timeline/telemetry.py"
+    },
+    "adopt24-20261124/adopt.py": {
+      "sha256": "c6dcccae38da9909d7ace4cc66221e2aa0fbb9c205b2a1affdb7ae9bb4114da8",
+      "public_commit_path": "93f765aaf66299cb1c2a8148e9f748ae781a7b82/archive/review-handoffs-not-for-readers/2026-11-24-normal24-adoption/adopt.py"
+    },
+    "postload-measurement-20261124/practical_api.py": {
+      "sha256": "ef348e741a71642d8592e84f3137b42a03ae7a398ce3cfdac57e44bc220415a3",
+      "public_commit_path": "93f765aaf66299cb1c2a8148e9f748ae781a7b82/archive/review-handoffs-not-for-readers/2026-11-24-postload-measurement/practical_api.py"
+    },
+    "results-review-20261124/tools/check_live_identity.py": {
+      "sha256": "f2f1ab36d3af16ca12e2a27e8e992c99d75fa6d9e62a40d8c91ade2cc88e3450",
+      "public_commit_path": "93f765aaf66299cb1c2a8148e9f748ae781a7b82/archive/review-handoffs-not-for-readers/2026-11-24-normal24-adoption/tools/check_live_identity.py"
+    },
+    "deepseek41-bringup-20261101/start.py": {
+      "sha256": "88f943e971a32f34b10bfb4546470c80fffc5627b747be7138d517060a8c5835"
+    }
+  },
+  "hardware": {
+    "cpu": "Intel(R) Xeon(R) CPU E5-2697 v2 @ 2.70GHz",
+    "sockets": 2,
+    "physical": 24,
+    "logical": 48,
+    "board": "Sugon X9DR3-F",
+    "bios": "3.4",
+    "populated_dimms": 16,
+    "dimm_sizes": [
+      "32 GB"
+    ],
+    "configured_memory_speeds": [
+      "1600 MT/s"
+    ],
+    "ram_GiB_installed": 512,
+    "GPU": "PG500-216 (Volta, sm70, 32 GB class)",
+    "GPU_limit_W": 150.0,
+    "gpu_ecc": "Enabled"
+  }
+}

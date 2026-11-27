@@ -1,0 +1,53 @@
+{
+  "base": "b938c1d99714104f7a61610c52a8732c99b5daa4",
+  "runtime_config": "5fd9aeb7ac83bffb7a250880cfe7e106824a450f39de9634f085eb85fdb6cf15",
+  "fixture_sha256": "a97f21b806742ee39a5a3d500c7b188d91dd0356cbe20b6e8d5af6343aae3fc6",
+  "observer_sha256": "48d4ceac62c909ccad90c3bc83435dfbab4a207d296800cee5ac46a681a55ae2",
+  "periods": [
+    [
+      "A1",
+      64,
+      false
+    ],
+    [
+      "B1",
+      128,
+      false
+    ],
+    [
+      "B2",
+      128,
+      true
+    ],
+    [
+      "A2",
+      64,
+      true
+    ]
+  ],
+  "case_order": [
+    [
+      "warehouse",
+      "departments",
+      "python"
+    ],
+    [
+      "warehouse",
+      "departments",
+      "python"
+    ],
+    [
+      "warehouse",
+      "python",
+      "departments"
+    ],
+    [
+      "warehouse",
+      "python",
+      "departments"
+    ]
+  ],
+  "protocol": "Four independent native server startups. A1/B1 plain uninstrumented, B2/A2 with read-only batch/device tracer and full-logit readback. Compare pairs separately. Same warmup, idle one-slot, cold native seed with one predicted token, then actual /v1/chat/completions streamed continuation. All four original inference libraries and model/vision/plan unchanged.",
+  "clocks": "Client wall to first nonempty content and DONE, server prompt and decode times; diagnostic extra synchronization, graph enumeration and F32 write are confined to B2/A2. Cached/new counts taken from actual outgoing usage and timings. Suffix actual submitted IDs and prefill slices/dispatch measured in B2/A2.",
+  "checks": "Warehouse 16388+75 with a known lookup answer; new Japanese numeric and Python return-value questions; separately retained edited Japanese follow-up; cold96 and warmed 1024+160 controls. Check prefix terminal full-vocabulary F32 across thresholds before attributing changes. No numerical equivalence or arbitrary latency threshold presumed, no automatic deployment."
+}
