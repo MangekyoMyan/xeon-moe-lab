@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+feature_dir=$(dirname "$(realpath "$0")")
+workspace=${XEON_BRANCH_WORKSPACE:-/home/codex/projects/llm-lab/checkpoint-v2-20261128}
+if [ "${1:-}" = open ]; then
+    shift
+    exec /usr/bin/python3 -B "$feature_dir/x9ram_pilot.py" open --workspace "$workspace" "$@"
+fi
+exec /usr/bin/python3 -B "$feature_dir/branchctl.py" --store "$workspace/user-store" "$@"
