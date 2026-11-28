@@ -32,6 +32,8 @@ cd /home/codex/projects/llm-lab/engine-state-phase1-20261128
 
 共通地点にいる間に `mark` してください。各枝に同じ名前や同じ長さのテキストがあっても、内部の枝ID・保存点IDと、実際に処理したトークン列によって区別します。回答本文は受信中に表示します。集計用には `./branch --json turn --text '…'` で、追加処理したトークン数や最初の本文を受信した時刻も取得できます。
 
+現在のheadがその名前の保存点IDを指している間にもう一度 `mark` すると、画像を確認して同じIDを返します。その画像が退避・欠損・破損していれば `missing_image`、同じ名前が別のheadを指していれば `mark_exists` を返します。どちらの拒否でも枝と保存点の参照を保ちます。現在地を改めて保存するには新しい名前を使ってください。
+
 | 操作 | 確認・変更できること |
 |---|---|
 | `./branch list` | 枝名、親、現在の枝、世代、処理済み位置、未入力のサンプル数、最後の利用、再入力数、保持容量 |
@@ -82,3 +84,5 @@ python3 current/experiments/state-branches/build_adapter.py \
 このサーバーの実験用ワークスペースはビルド済みです。別のワークスペースを用意する場合、ランチャーは `$XEON_BRANCH_WORKSPACE/build/libllama-server-impl.so` と同じ場所の `BUILD.json` を使用します。
 
 独立試験で測定した往復、欠損時の再入力、全語彙の照合結果は実測記録にあります。[実機での検証](../../../archive/review-handoffs-not-for-readers/2026-11-28-state-branches/RESULTS_JA.md)
+
+285トークンと約16kトークンの切替では、画像の書き込み・検証・SQLiteの確定を個別に計測しました。復元に成功した画像の最終利用時刻は、枝の切替が確定するトランザクションで記録します。[切替費用と編集したツール結果の検証](../../../archive/review-handoffs-not-for-readers/2026-11-28-branch-switch-cost/RESULTS_JA.md)

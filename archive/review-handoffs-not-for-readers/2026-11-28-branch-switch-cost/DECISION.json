@@ -1,0 +1,80 @@
+{
+  "selected": "Persist the restored blob last-use timestamp in the same SQLite transaction that commits the successful placement and ready state. One Python change, no fsync reduction for file publication, no change to image hashing or format.",
+  "basis": {
+    "long-fresh": {
+      "file_fsync_ms": 1086.8815665,
+      "LRU_only_autocommit_ms": 167.03175199999998,
+      "LRU_autocommits_per_request": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "staged_hash_ms": 237.7869515,
+      "trace_count": 6
+    },
+    "long-resident": {
+      "file_fsync_ms": 1067.977844,
+      "LRU_only_autocommit_ms": 175.813825,
+      "LRU_autocommits_per_request": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "staged_hash_ms": 233.128307,
+      "trace_count": 6
+    },
+    "short-fresh": {
+      "file_fsync_ms": 119.203231,
+      "LRU_only_autocommit_ms": 165.0441765,
+      "LRU_autocommits_per_request": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "staged_hash_ms": 52.855869999999996,
+      "trace_count": 6
+    },
+    "short-resident": {
+      "file_fsync_ms": 147.045613,
+      "LRU_only_autocommit_ms": 176.2185645,
+      "LRU_autocommits_per_request": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "staged_hash_ms": 52.756502,
+      "trace_count": 6
+    }
+  },
+  "criterion": "Choose a removable synchronization present in all four cells, including genuinely new unique images. Required file durability dominates 16k fresh. Deleting or delaying its required fsync is not appropriate; using a clean duplicate alone could not benefit new states. Do not rely on a presumed deduplication frequency.",
+  "prediction": "One fewer standalone FULL write transaction per successful checkout; test paired latency, failure before commit, rollback and unchanged numerical scores. Other SQLite and image durability barriers remain.",
+  "decision_made_before_candidate_code_and_confirm": true,
+  "candidate_commit": "ef3d7fea16d90ee81d84f4855729baafbbe3c16b",
+  "source_fingerprints": {
+    "baseline": {
+      "manager.py": "3a52800c104e2b6545f0938b1dd5ae291129a0423986cd19d844227737fb83f3",
+      "storage.py": "6a6b09d1e817552fad93840a2f70573a796844327d1e5396b7e190e532cddb44",
+      "native.py": "ec7fa51d1869d6b1e07024a67aa0854e25c8b48f3e61b49cee54689328a1b219",
+      "branchctl.py": "3947c20a8dea1f40f8317ded2331f1674bc102577416ef5fd78abed2735b0e80"
+    },
+    "candidate": {
+      "manager.py": "7653a4906a145008be700a82ed3785a4fa6ec01a2a65f48a8db6089d11df597c",
+      "storage.py": "6a6b09d1e817552fad93840a2f70573a796844327d1e5396b7e190e532cddb44",
+      "native.py": "ec7fa51d1869d6b1e07024a67aa0854e25c8b48f3e61b49cee54689328a1b219",
+      "branchctl.py": "3947c20a8dea1f40f8317ded2331f1674bc102577416ef5fd78abed2735b0e80"
+    }
+  },
+  "observer_sha256": "912098c4b8237856a28accbab87e34be311ba030cc610c4b80e975d4ea8dfd53"
+}

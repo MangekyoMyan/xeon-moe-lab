@@ -1,0 +1,2402 @@
+{
+  "long-fresh": {
+    "timings": {
+      "base-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 2458.899695,
+          "min": 2236.771227,
+          "max": 2581.02247,
+          "mad": 122.12277499999982,
+          "mean": 2425.564464
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 4480.672245,
+          "min": 4247.480566,
+          "max": 4565.153477,
+          "mad": 84.48123200000009,
+          "mean": 4431.102096
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 4780.141018,
+          "min": 4513.652561,
+          "max": 4846.828024,
+          "mad": 66.68700600000011,
+          "mean": 4713.540534333333
+        }
+      },
+      "new-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 2209.139759,
+          "min": 2187.301542,
+          "max": 2398.325786,
+          "mad": 21.838216999999986,
+          "mean": 2264.9223623333332
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 4205.714834,
+          "min": 4183.713601,
+          "max": 4402.1674,
+          "mad": 22.001232999999957,
+          "mean": 4263.865278333334
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 4530.584364,
+          "min": 4496.059602,
+          "max": 4718.08476,
+          "mad": 34.52476200000001,
+          "mean": 4581.576242
+        }
+      }
+    },
+    "paired": {
+      "base-trace minus new-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 182.696684,
+          "min": 49.46968500000003,
+          "max": 249.75993599999993,
+          "mad": 67.06325199999992,
+          "mean": 160.64210166666666,
+          "positive": 3,
+          "values": [
+            49.46968500000003,
+            182.696684,
+            249.75993599999993
+          ]
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 162.98607699999957,
+          "min": 41.76573199999984,
+          "max": 296.95864399999937,
+          "mad": 121.22034499999972,
+          "mean": 167.23681766666627,
+          "positive": 3,
+          "values": [
+            41.76573199999984,
+            162.98607699999957,
+            296.95864399999937
+          ]
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 128.74326400000064,
+          "min": -16.9318030000004,
+          "max": 284.081416,
+          "mad": 145.67506700000104,
+          "mean": 131.96429233333342,
+          "positive": 2,
+          "values": [
+            -16.9318030000004,
+            128.74326400000064,
+            284.081416
+          ]
+        }
+      }
+    },
+    "exclusive_parts": {
+      "base-trace": {
+        "check_snapshot": {
+          "median_ms": 0.146087,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 423253
+        },
+        "choose_target": {
+          "median_ms": 0.300443,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 891226
+        },
+        "clean_files": {
+          "median_ms": 0.192146,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 572595
+        },
+        "client_before_manager": {
+          "median_ms": 0.399253,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1191331
+        },
+        "directory_fsync": {
+          "median_ms": 59.688899,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 183335305
+        },
+        "file_fsync": {
+          "median_ms": 1047.904491,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3194491574
+        },
+        "manager_request": {
+          "median_ms": 2.003993,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 5935940
+        },
+        "manager_to_client": {
+          "median_ms": 0.411253,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1233184
+        },
+        "native_restore_and_check": {
+          "median_ms": 0.01741,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 50363
+        },
+        "native_restore_http": {
+          "median_ms": 75.4068,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 220799583
+        },
+        "native_save_and_check": {
+          "median_ms": 0.447161,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 1356304
+        },
+        "native_save_http": {
+          "median_ms": 86.461338,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 260428043
+        },
+        "place_target": {
+          "median_ms": 0.071323,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 216965
+        },
+        "publish_outgoing": {
+          "median_ms": 1.458634,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 4176142
+        },
+        "publish_rename": {
+          "median_ms": 0.057115,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 165043
+        },
+        "sql_autocommit_mutating": {
+          "median_ms": 165.160996,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 485057984
+        },
+        "sql_autocommit_used": {
+          "median_ms": 160.137371,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 481010316
+        },
+        "sql_begin": {
+          "median_ms": 0.069185,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 213023
+        },
+        "sql_commit_active": {
+          "median_ms": 171.119907,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 502217877
+        },
+        "sql_commit_outgoing": {
+          "median_ms": 160.38633,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 503346307
+        },
+        "staged_blob_sha": {
+          "median_ms": 268.586331,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 759928899
+        },
+        "staged_token_check": {
+          "median_ms": 0.214278,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 640465
+        },
+        "sync_directory": {
+          "median_ms": 0.05024,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 151330
+        },
+        "target_existing_blob_sha": {
+          "median_ms": 234.690574,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 665395871
+        },
+        "target_existing_token_check": {
+          "median_ms": 0.123284,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 351325
+        },
+        "ticket_roundtrip": {
+          "median_ms": 1.004,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 3018126
+        },
+        "unlink": {
+          "median_ms": 0.031373,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 95018
+        }
+      },
+      "new-trace": {
+        "check_snapshot": {
+          "median_ms": 0.137097,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 404300
+        },
+        "choose_target": {
+          "median_ms": 0.300154,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 870365
+        },
+        "clean_files": {
+          "median_ms": 0.180222,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 541694
+        },
+        "client_before_manager": {
+          "median_ms": 0.411759,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 974447
+        },
+        "directory_fsync": {
+          "median_ms": 65.011353,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 182430091
+        },
+        "file_fsync": {
+          "median_ms": 1036.935406,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3054775632
+        },
+        "manager_request": {
+          "median_ms": 1.873877,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 5702668
+        },
+        "manager_to_client": {
+          "median_ms": 0.367453,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1116223
+        },
+        "native_restore_and_check": {
+          "median_ms": 0.016744,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 48364
+        },
+        "native_restore_http": {
+          "median_ms": 75.656469,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 226385809
+        },
+        "native_save_and_check": {
+          "median_ms": 0.443706,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 1274180
+        },
+        "native_save_http": {
+          "median_ms": 88.701842,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 265912031
+        },
+        "place_target": {
+          "median_ms": 0.045351,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 133201
+        },
+        "publish_outgoing": {
+          "median_ms": 1.445888,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 4132154
+        },
+        "publish_rename": {
+          "median_ms": 0.061496,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 179079
+        },
+        "sql_autocommit_mutating": {
+          "median_ms": 165.014755,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 507278696
+        },
+        "sql_begin": {
+          "median_ms": 0.099134,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 282662
+        },
+        "sql_commit_active": {
+          "median_ms": 183.490805,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 526599949
+        },
+        "sql_commit_outgoing": {
+          "median_ms": 182.617303,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 581027410
+        },
+        "sql_used_inside_tx": {
+          "median_ms": 0.026302,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 74624
+        },
+        "staged_blob_sha": {
+          "median_ms": 269.452213,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 772947155
+        },
+        "staged_token_check": {
+          "median_ms": 0.214064,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 644626
+        },
+        "sync_directory": {
+          "median_ms": 0.050907,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 151864
+        },
+        "target_existing_blob_sha": {
+          "median_ms": 233.167352,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 657473023
+        },
+        "target_existing_token_check": {
+          "median_ms": 0.123544,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 352143
+        },
+        "ticket_roundtrip": {
+          "median_ms": 1.001513,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 2961596
+        },
+        "unlink": {
+          "median_ms": 0.031795,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 93101
+        }
+      }
+    },
+    "dirty_tokens": 16417,
+    "dirty_bytes": 58267836,
+    "target_tokens": 16425,
+    "target_bytes": 58293660,
+    "next_new": 29,
+    "answer": "731"
+  },
+  "long-resident": {
+    "timings": {
+      "new-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 2369.70943,
+          "min": 2297.810009,
+          "max": 2631.205784,
+          "mad": 71.89942100000007,
+          "mean": 2432.908407666667
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 4419.586145,
+          "min": 4327.661653,
+          "max": 4674.708334,
+          "mad": 91.9244920000001,
+          "mean": 4473.985377333333
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 4705.067843,
+          "min": 4608.157615,
+          "max": 4986.074234,
+          "mad": 96.91022799999973,
+          "mean": 4766.4332306666665
+        }
+      },
+      "base-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 2392.097007,
+          "min": 2356.67495,
+          "max": 2547.293971,
+          "mad": 35.42205699999977,
+          "mean": 2432.021976
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 4374.066837,
+          "min": 4357.531998,
+          "max": 4561.294376,
+          "mad": 16.53483899999992,
+          "mean": 4430.964403666667
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 4660.821015,
+          "min": 4648.960187,
+          "max": 4857.628345,
+          "mad": 11.860828000000765,
+          "mean": 4722.469849
+        }
+      }
+    },
+    "paired": {
+      "base-trace minus new-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": -13.034479999999803,
+          "min": -83.91181300000017,
+          "max": 94.28699800000004,
+          "mad": 70.87733300000036,
+          "mean": -0.8864316666666431,
+          "positive": 1,
+          "values": [
+            -13.034479999999803,
+            -83.91181300000017,
+            94.28699800000004
+          ]
+        },
+        "first_ms": {
+          "n": 3,
+          "median": -62.05414699999983,
+          "min": -113.4139580000001,
+          "max": 46.40518400000019,
+          "mad": 51.35981100000026,
+          "mean": -43.02097366666658,
+          "positive": 1,
+          "values": [
+            -62.05414699999983,
+            -113.4139580000001,
+            46.40518400000019
+          ]
+        },
+        "done_ms": {
+          "n": 3,
+          "median": -44.24682799999937,
+          "min": -128.44588899999962,
+          "max": 40.8025719999996,
+          "mad": 84.19906100000026,
+          "mean": -43.963381666666464,
+          "positive": 1,
+          "values": [
+            -44.24682799999937,
+            -128.44588899999962,
+            40.8025719999996
+          ]
+        }
+      }
+    },
+    "exclusive_parts": {
+      "new-trace": {
+        "check_snapshot": {
+          "median_ms": 0.128562,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 410962
+        },
+        "choose_target": {
+          "median_ms": 0.292933,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 912108
+        },
+        "clean_files": {
+          "median_ms": 0.195748,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 606160
+        },
+        "client_before_manager": {
+          "median_ms": 0.404459,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1160865
+        },
+        "directory_fsync": {
+          "median_ms": 55.857132,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 161955554
+        },
+        "file_fsync": {
+          "median_ms": 992.171407,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3077312361
+        },
+        "manager_request": {
+          "median_ms": 1.895293,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 5649043
+        },
+        "manager_to_client": {
+          "median_ms": 0.308453,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 948732
+        },
+        "native_restore_and_check": {
+          "median_ms": 0.014205,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 45483
+        },
+        "native_restore_http": {
+          "median_ms": 73.436218,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 230029532
+        },
+        "native_save_and_check": {
+          "median_ms": 0.428872,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 1230667
+        },
+        "native_save_http": {
+          "median_ms": 88.895883,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 266018356
+        },
+        "outgoing_existing_blob_sha": {
+          "median_ms": 190.566151,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 606075991
+        },
+        "place_target": {
+          "median_ms": 0.045851,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 171501
+        },
+        "publish_outgoing": {
+          "median_ms": 1.222648,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3855997
+        },
+        "sql_autocommit_mutating": {
+          "median_ms": 165.34669,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 506177915
+        },
+        "sql_begin": {
+          "median_ms": 0.094108,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 280068
+        },
+        "sql_commit_active": {
+          "median_ms": 183.872147,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 530973600
+        },
+        "sql_commit_outgoing": {
+          "median_ms": 160.359584,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 514436881
+        },
+        "sql_used_inside_tx": {
+          "median_ms": 0.021572,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 69873
+        },
+        "staged_blob_sha": {
+          "median_ms": 235.981621,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 736157105
+        },
+        "staged_token_check": {
+          "median_ms": 0.210095,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 532725
+        },
+        "sync_directory": {
+          "median_ms": 0.050377,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 148743
+        },
+        "target_existing_blob_sha": {
+          "median_ms": 195.850363,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 620903050
+        },
+        "target_existing_token_check": {
+          "median_ms": 0.108025,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 322710
+        },
+        "ticket_roundtrip": {
+          "median_ms": 0.97694,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 2853631
+        },
+        "unlink": {
+          "median_ms": 9.928493,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 29485610
+        }
+      },
+      "base-trace": {
+        "check_snapshot": {
+          "median_ms": 0.128021,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 386594
+        },
+        "choose_target": {
+          "median_ms": 0.278896,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 837930
+        },
+        "clean_files": {
+          "median_ms": 0.199305,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 599517
+        },
+        "client_before_manager": {
+          "median_ms": 0.401783,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1195479
+        },
+        "directory_fsync": {
+          "median_ms": 50.913308,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 153428396
+        },
+        "file_fsync": {
+          "median_ms": 925.724986,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 2845297321
+        },
+        "manager_request": {
+          "median_ms": 1.907044,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 5727324
+        },
+        "manager_to_client": {
+          "median_ms": 0.37706,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1109402
+        },
+        "native_restore_and_check": {
+          "median_ms": 0.014596,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 45079
+        },
+        "native_restore_http": {
+          "median_ms": 72.438868,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 215282793
+        },
+        "native_save_and_check": {
+          "median_ms": 0.429142,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 1305446
+        },
+        "native_save_http": {
+          "median_ms": 88.5274,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 264423103
+        },
+        "outgoing_existing_blob_sha": {
+          "median_ms": 181.856189,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 545991591
+        },
+        "place_target": {
+          "median_ms": 0.067188,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 205692
+        },
+        "publish_outgoing": {
+          "median_ms": 1.252397,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3744297
+        },
+        "sql_autocommit_mutating": {
+          "median_ms": 165.475142,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 493747335
+        },
+        "sql_autocommit_used": {
+          "median_ms": 165.88006,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 506637551
+        },
+        "sql_begin": {
+          "median_ms": 0.062387,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 184812
+        },
+        "sql_commit_active": {
+          "median_ms": 160.000651,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 468929205
+        },
+        "sql_commit_outgoing": {
+          "median_ms": 160.38814,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 492226629
+        },
+        "staged_blob_sha": {
+          "median_ms": 231.451499,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 696905813
+        },
+        "staged_token_check": {
+          "median_ms": 0.212684,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 641337
+        },
+        "sync_directory": {
+          "median_ms": 0.051258,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 153301
+        },
+        "target_existing_blob_sha": {
+          "median_ms": 187.823352,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 567570975
+        },
+        "target_existing_token_check": {
+          "median_ms": 0.104949,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 313859
+        },
+        "ticket_roundtrip": {
+          "median_ms": 1.000393,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 2858857
+        },
+        "unlink": {
+          "median_ms": 9.236367,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 26316290
+        }
+      }
+    },
+    "dirty_tokens": 16417,
+    "dirty_bytes": 58267836,
+    "target_tokens": 16425,
+    "target_bytes": 58293660,
+    "next_new": 29,
+    "answer": "731"
+  },
+  "short-fresh": {
+    "timings": {
+      "base-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 875.833597,
+          "min": 864.897213,
+          "max": 942.580254,
+          "mad": 10.93638400000009,
+          "mean": 894.4370213333333
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 2824.549661,
+          "min": 2749.045196,
+          "max": 2837.916443,
+          "mad": 13.366782000000057,
+          "mean": 2803.8371
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 3116.26445,
+          "min": 3021.217149,
+          "max": 3179.029448,
+          "mad": 62.76499799999965,
+          "mean": 3105.5036823333335
+        }
+      },
+      "new-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 680.242184,
+          "min": 660.054348,
+          "max": 782.06207,
+          "mad": 20.187835999999947,
+          "mean": 707.4528673333333
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 2552.178346,
+          "min": 2551.361764,
+          "max": 2651.532575,
+          "mad": 0.8165819999999258,
+          "mean": 2585.0242283333337
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 2856.559722,
+          "min": 2836.193694,
+          "max": 2958.552496,
+          "mad": 20.366027999999915,
+          "mean": 2883.768637333333
+        }
+      }
+    },
+    "paired": {
+      "base-trace minus new-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 184.655029,
+          "min": 160.51818400000002,
+          "max": 215.77924900000005,
+          "mad": 24.136844999999994,
+          "mean": 186.98415400000002,
+          "positive": 3,
+          "values": [
+            160.51818400000002,
+            184.655029,
+            215.77924900000005
+          ]
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 196.86684999999989,
+          "min": 173.01708599999984,
+          "max": 286.55467899999985,
+          "mad": 23.84976400000005,
+          "mean": 218.81287166666652,
+          "positive": 3,
+          "values": [
+            173.01708599999984,
+            196.86684999999989,
+            286.55467899999985
+          ]
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 220.47695199999998,
+          "min": 164.6574270000001,
+          "max": 280.0707560000001,
+          "mad": 55.819524999999885,
+          "mean": 221.73504500000004,
+          "positive": 3,
+          "values": [
+            220.47695199999998,
+            164.6574270000001,
+            280.0707560000001
+          ]
+        }
+      }
+    },
+    "exclusive_parts": {
+      "base-trace": {
+        "check_snapshot": {
+          "median_ms": 0.215317,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 645859
+        },
+        "choose_target": {
+          "median_ms": 0.204745,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 599768
+        },
+        "clean_files": {
+          "median_ms": 0.358157,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 1065399
+        },
+        "client_before_manager": {
+          "median_ms": 0.403929,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1114077
+        },
+        "directory_fsync": {
+          "median_ms": 50.870588,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 152926902
+        },
+        "file_fsync": {
+          "median_ms": 120.02279,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 360267924
+        },
+        "manager_request": {
+          "median_ms": 1.138496,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3454910
+        },
+        "manager_to_client": {
+          "median_ms": 0.442392,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1368882
+        },
+        "native_restore_and_check": {
+          "median_ms": 0.014613,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 59439
+        },
+        "native_restore_http": {
+          "median_ms": 7.881897,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 25028266
+        },
+        "native_save_and_check": {
+          "median_ms": 0.348041,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 916933
+        },
+        "native_save_http": {
+          "median_ms": 11.197607,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 33616469
+        },
+        "place_target": {
+          "median_ms": 0.084925,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 255968
+        },
+        "publish_outgoing": {
+          "median_ms": 1.297357,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3842423
+        },
+        "publish_rename": {
+          "median_ms": 0.060714,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 181821
+        },
+        "sql_autocommit_mutating": {
+          "median_ms": 55.655505,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 277805542
+        },
+        "sql_autocommit_used": {
+          "median_ms": 186.153722,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 546694664
+        },
+        "sql_begin": {
+          "median_ms": 0.077774,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 212679
+        },
+        "sql_commit_active": {
+          "median_ms": 148.977765,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 457925083
+        },
+        "sql_commit_outgoing": {
+          "median_ms": 160.429904,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 503390142
+        },
+        "staged_blob_sha": {
+          "median_ms": 52.769267,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 158106138
+        },
+        "staged_token_check": {
+          "median_ms": 0.129872,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 312362
+        },
+        "sync_directory": {
+          "median_ms": 0.061557,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 182855
+        },
+        "target_existing_blob_sha": {
+          "median_ms": 50.435985,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 150168278
+        },
+        "target_existing_token_check": {
+          "median_ms": 0.074457,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 245726
+        },
+        "ticket_roundtrip": {
+          "median_ms": 0.926591,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 2724017
+        },
+        "unlink": {
+          "median_ms": 0.062436,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 198538
+        }
+      },
+      "new-trace": {
+        "check_snapshot": {
+          "median_ms": 0.218932,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 671468
+        },
+        "choose_target": {
+          "median_ms": 0.200156,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 604518
+        },
+        "clean_files": {
+          "median_ms": 0.373623,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 1146691
+        },
+        "client_before_manager": {
+          "median_ms": 0.402792,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1214290
+        },
+        "directory_fsync": {
+          "median_ms": 50.838156,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 152864282
+        },
+        "file_fsync": {
+          "median_ms": 119.812573,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 359038746
+        },
+        "manager_request": {
+          "median_ms": 1.12175,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3344637
+        },
+        "manager_to_client": {
+          "median_ms": 0.428214,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1280242
+        },
+        "native_restore_and_check": {
+          "median_ms": 0.013084,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 39760
+        },
+        "native_restore_http": {
+          "median_ms": 7.699422,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 23113959
+        },
+        "native_save_and_check": {
+          "median_ms": 0.343256,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 1052437
+        },
+        "native_save_http": {
+          "median_ms": 10.811296,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 32781773
+        },
+        "place_target": {
+          "median_ms": 0.029648,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 101849
+        },
+        "publish_outgoing": {
+          "median_ms": 1.291275,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3916967
+        },
+        "publish_rename": {
+          "median_ms": 0.057369,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 173566
+        },
+        "sql_autocommit_mutating": {
+          "median_ms": 55.541919,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 277404546
+        },
+        "sql_begin": {
+          "median_ms": 0.072097,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 219247
+        },
+        "sql_commit_active": {
+          "median_ms": 153.162067,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 470483903
+        },
+        "sql_commit_outgoing": {
+          "median_ms": 160.360356,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 469993861
+        },
+        "sql_used_inside_tx": {
+          "median_ms": 0.026142,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 76772
+        },
+        "staged_blob_sha": {
+          "median_ms": 52.790059,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 158126679
+        },
+        "staged_token_check": {
+          "median_ms": 0.131021,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 392079
+        },
+        "sync_directory": {
+          "median_ms": 0.05873,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 178086
+        },
+        "target_existing_blob_sha": {
+          "median_ms": 53.670189,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 160955574
+        },
+        "target_existing_token_check": {
+          "median_ms": 0.075799,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 226050
+        },
+        "ticket_roundtrip": {
+          "median_ms": 0.925774,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 2774378
+        },
+        "unlink": {
+          "median_ms": 0.060706,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 182242
+        }
+      }
+    },
+    "dirty_tokens": 285,
+    "dirty_bytes": 6193740,
+    "target_tokens": 293,
+    "target_bytes": 6219564,
+    "next_new": 29,
+    "answer": "731"
+  },
+  "short-resident": {
+    "timings": {
+      "new-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 803.858085,
+          "min": 715.45556,
+          "max": 870.653333,
+          "mad": 66.79524800000002,
+          "mean": 796.6556593333333
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 2700.274208,
+          "min": 2577.402846,
+          "max": 2746.982388,
+          "mad": 46.708180000000084,
+          "mean": 2674.8864806666666
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 2969.217151,
+          "min": 2880.843319,
+          "max": 3028.111007,
+          "mad": 58.89385600000014,
+          "mean": 2959.3904923333334
+        }
+      },
+      "base-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 964.82327,
+          "min": 964.478976,
+          "max": 1064.839736,
+          "mad": 0.3442939999999908,
+          "mean": 998.0473273333333
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 2850.058015,
+          "min": 2846.524188,
+          "max": 2946.630843,
+          "mad": 3.5338270000002012,
+          "mean": 2881.0710153333334
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 3152.290255,
+          "min": 3140.864508,
+          "max": 3341.142163,
+          "mad": 11.425746999999774,
+          "mean": 3211.432308666667
+        }
+      }
+    },
+    "paired": {
+      "base-trace minus new-trace": {
+        "switch_ms": {
+          "n": 3,
+          "median": 249.36771,
+          "min": 93.82564300000001,
+          "max": 260.98165099999994,
+          "mad": 11.613940999999954,
+          "mean": 201.39166799999998,
+          "positive": 3,
+          "values": [
+            93.82564300000001,
+            249.36771,
+            260.98165099999994
+          ]
+        },
+        "first_ms": {
+          "n": 3,
+          "median": 246.3566350000001,
+          "min": 99.54179999999997,
+          "max": 272.6551690000001,
+          "mad": 26.298534000000018,
+          "mean": 206.18453466666674,
+          "positive": 3,
+          "values": [
+            99.54179999999997,
+            272.6551690000001,
+            246.3566350000001
+          ]
+        },
+        "done_ms": {
+          "n": 3,
+          "median": 271.4469359999998,
+          "min": 112.75350100000014,
+          "max": 371.92501200000015,
+          "mad": 100.47807600000033,
+          "mean": 252.04181633333337,
+          "positive": 3,
+          "values": [
+            112.75350100000014,
+            271.4469359999998,
+            371.92501200000015
+          ]
+        }
+      }
+    },
+    "exclusive_parts": {
+      "new-trace": {
+        "check_snapshot": {
+          "median_ms": 0.131265,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 420638
+        },
+        "choose_target": {
+          "median_ms": 0.11775,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 382954
+        },
+        "clean_files": {
+          "median_ms": 0.23522,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 736287
+        },
+        "client_before_manager": {
+          "median_ms": 0.388059,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1178071
+        },
+        "directory_fsync": {
+          "median_ms": 50.74367,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 151618918
+        },
+        "file_fsync": {
+          "median_ms": 119.93857,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 355394678
+        },
+        "manager_request": {
+          "median_ms": 0.98909,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 2984507
+        },
+        "manager_to_client": {
+          "median_ms": 0.351134,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1094839
+        },
+        "native_restore_and_check": {
+          "median_ms": 0.011255,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 35571
+        },
+        "native_restore_http": {
+          "median_ms": 7.6735,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 23201790
+        },
+        "native_save_and_check": {
+          "median_ms": 0.345585,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 1029513
+        },
+        "native_save_http": {
+          "median_ms": 11.21021,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 32499679
+        },
+        "outgoing_existing_blob_sha": {
+          "median_ms": 33.07084,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 99288246
+        },
+        "place_target": {
+          "median_ms": 0.021712,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 66151
+        },
+        "publish_outgoing": {
+          "median_ms": 1.166752,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3542446
+        },
+        "sql_autocommit_mutating": {
+          "median_ms": 166.191402,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 449433462
+        },
+        "sql_begin": {
+          "median_ms": 0.05218,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 156186
+        },
+        "sql_commit_active": {
+          "median_ms": 175.636426,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 516625702
+        },
+        "sql_commit_outgoing": {
+          "median_ms": 160.366907,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 481085537
+        },
+        "sql_used_inside_tx": {
+          "median_ms": 0.013247,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 47179
+        },
+        "staged_blob_sha": {
+          "median_ms": 52.287395,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 157520583
+        },
+        "staged_token_check": {
+          "median_ms": 0.129636,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 388566
+        },
+        "sync_directory": {
+          "median_ms": 0.056773,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 159872
+        },
+        "target_existing_blob_sha": {
+          "median_ms": 33.63272,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 105233168
+        },
+        "target_existing_token_check": {
+          "median_ms": 0.056061,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 178623
+        },
+        "ticket_roundtrip": {
+          "median_ms": 0.915407,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 2744798
+        },
+        "unlink": {
+          "median_ms": 0.972618,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 2919014
+        }
+      },
+      "base-trace": {
+        "check_snapshot": {
+          "median_ms": 0.132457,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 429200
+        },
+        "choose_target": {
+          "median_ms": 0.12243,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 393947
+        },
+        "clean_files": {
+          "median_ms": 0.240212,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 766680
+        },
+        "client_before_manager": {
+          "median_ms": 0.39864,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1284341
+        },
+        "directory_fsync": {
+          "median_ms": 50.067597,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 149874024
+        },
+        "file_fsync": {
+          "median_ms": 173.899398,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 502797715
+        },
+        "manager_request": {
+          "median_ms": 1.135382,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3352038
+        },
+        "manager_to_client": {
+          "median_ms": 0.46013,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 1377261
+        },
+        "native_restore_and_check": {
+          "median_ms": 0.017027,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 57564
+        },
+        "native_restore_http": {
+          "median_ms": 7.810601,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 25353207
+        },
+        "native_save_and_check": {
+          "median_ms": 0.36237,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 1085931
+        },
+        "native_save_http": {
+          "median_ms": 11.417178,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 35267528
+        },
+        "outgoing_existing_blob_sha": {
+          "median_ms": 33.296164,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 100005364
+        },
+        "place_target": {
+          "median_ms": 0.055933,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 187013
+        },
+        "publish_outgoing": {
+          "median_ms": 1.19443,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 3617282
+        },
+        "sql_autocommit_mutating": {
+          "median_ms": 55.636992,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 299458273
+        },
+        "sql_autocommit_used": {
+          "median_ms": 162.036891,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 487924039
+        },
+        "sql_begin": {
+          "median_ms": 0.068506,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 195908
+        },
+        "sql_commit_active": {
+          "median_ms": 182.298769,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 524865257
+        },
+        "sql_commit_outgoing": {
+          "median_ms": 171.444212,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 583786423
+        },
+        "staged_blob_sha": {
+          "median_ms": 52.581441,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 158377540
+        },
+        "staged_token_check": {
+          "median_ms": 0.130478,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 393566
+        },
+        "sync_directory": {
+          "median_ms": 0.056592,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 155885
+        },
+        "target_existing_blob_sha": {
+          "median_ms": 33.636772,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 107262671
+        },
+        "target_existing_token_check": {
+          "median_ms": 0.056489,
+          "counts": [
+            1,
+            1,
+            1
+          ],
+          "total_ns": 182677
+        },
+        "ticket_roundtrip": {
+          "median_ms": 0.927528,
+          "counts": [
+            0,
+            0,
+            0
+          ],
+          "total_ns": 2665637
+        },
+        "unlink": {
+          "median_ms": 0.969768,
+          "counts": [
+            2,
+            2,
+            2
+          ],
+          "total_ns": 3025011
+        }
+      }
+    },
+    "dirty_tokens": 285,
+    "dirty_bytes": 6193740,
+    "target_tokens": 293,
+    "target_bytes": 6219564,
+    "next_new": 29,
+    "answer": "731"
+  }
+}
