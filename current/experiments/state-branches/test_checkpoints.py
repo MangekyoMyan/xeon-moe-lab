@@ -1,8 +1,7 @@
 """Placement and failure boundaries, without a model or GPU."""
 
-import copy
 import json
-import math
+import os
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -17,6 +16,26 @@ from test_branches import SmallSlot
 
 
 class PolicyTests(unittest.TestCase):
+    def test_only_validated_native_replay_feeds_prompt_cost(self):
+        p = CheckpointPolicy("auto", 1)
+
+        class Engine:
+            prefill_observer = p.observe_prefill
+            result = {"tokens_cached": 4, "timings": {"cache_n": 1, "prompt_n": 3, "prompt_ms": 5}}
+
+            def call(self, *args):
+                return self.result
+
+        e = Engine()
+        self.assertEqual(Native.replay(e, pack([1, 2, 3, 4]), True), 3)
+        self.assertEqual(p.observed["prefill"], 1)
+        e.result["timings"].pop("prompt_ms")
+        self.assertEqual(Native.replay(e, pack([1, 2, 3, 4]), True), 3)
+        self.assertEqual(p.observed["prefill"], 1)
+        e.result["tokens_cached"] = 2
+        with self.assertRaises(Error):
+            Native.replay(e, pack([1, 2, 3, 4]), True)
+
     def test_fixed_boundary_and_one_return_cost_model(self):
         fixed = CheckpointPolicy("fixed", 8)
         for d, status in [(7, "skipped"), (8, "attempt"), (38, "attempt"), (0, "skipped")]:
@@ -255,6 +274,46 @@ class ManagerTests(unittest.TestCase):
             switched = self.do("checkout", name="B")
         self.assertTrue(switched["exact_head"])
         self.assertEqual(self.s.stamp()["revision"], stamp["revision"] + 1)
+
+    def test_reconciliation_error_preserves_streamed_turn_and_fences(self):
+        with patch.object(self.s, "clean_files", side_effect=OSError("cleanup")), patch.object(
+            self.s, "snap", side_effect=sqlite3.OperationalError("catalog unavailable")
+        ):
+            x = self.do("turn", text="completed")
+        self.assertTrue(x["turn_committed"])
+        self.assertEqual(x["content"], "A")
+        self.assertEqual(x["checkpoint"]["status"], "unknown")
+        self.assertEqual(self.do("status")["mode"], "uncertain")
+        with self.assertRaises(Error):
+            self.do("recover")
+        self.assertEqual(self.s.branch()["gen"], 1)
+
+    def test_manager_interruption_in_optional_phase_keeps_committed_turn(self):
+        pid = os.fork()
+        if pid == 0:
+            try:
+                self.s.db.close()
+                s = Store(self.root, self.n, 10000)
+                m = Manager(s, "fixed", 1)
+                self.n.save = lambda _: os._exit(74)
+                m.handle({"op": "turn", "text": "finished", "max_tokens": 2, "ticket": s.stamp()})
+            finally:
+                os._exit(75)
+        self.assertEqual(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]), 74)
+        self.assertEqual(self.s.control()["mode"], "mutating")
+        self.assertEqual(self.s.branch()["gen"], 1)
+        tokens = self.s.branch()["tokens"]
+        self.assertEqual(self.s.branch()["pending"], pack([1]))
+        reopened = Store(self.root, self.n, 10000)
+        self.addCleanup(reopened.db.close)
+        self.assertEqual(reopened.control()["mode"], "uncertain")
+        self.n.epoch = "new epoch"
+        fresh = Store(self.root, self.n, 10000)
+        self.addCleanup(fresh.db.close)
+        with patch.object(self.n, "generate", side_effect=AssertionError("resampled")):
+            Manager(fresh, "fixed", 1).handle({"op": "recover", "ticket": fresh.stamp()})
+        self.assertEqual(self.n.live, tokens)
+        self.assertEqual(fresh.branch()["gen"], 1)
 
 
 if __name__ == "__main__":

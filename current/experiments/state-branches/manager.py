@@ -50,6 +50,7 @@ class Manager:
             thresholds=identity.get("offload_thresholds", ()),
         )
         self.anchor_hint = None
+        self.optional_io_fenced = False
         self.native.prefill_observer = (
             self.policy.observe_prefill if checkpoint_mode != "off" else None
         )
@@ -150,8 +151,6 @@ class Manager:
             position = anchor["n"] if anchor else 0
             progressed = n != len(branch["tokens"]) // 4 or turn["common_prefix"] != n
             r.update(policy.decide(anchor["id"] if anchor else None, position, n, progressed))
-            if r["status"] == "reused":
-                r["snapshot_id"] = r["anchor_id"]
             if r["status"] == "attempt":
                 capacity, feasible = store.checkpoint_capacity(branch["id"], n)
                 if not feasible or policy.blocked(branch["id"], n, capacity):
@@ -205,7 +204,6 @@ class Manager:
                 known_readonly_failure = isinstance(exc, (OSError, sqlite3.Error)) or code in (
                     "budget",
                     "native_error",
-                    "native_unavailable",
                 )
                 if saving is not None:
                     # Native save is read-only. A known write/budget failure leaves B installed.
@@ -469,7 +467,12 @@ class Manager:
         if op == "ticket":
             return {"ticket": store.stamp()}
         if op in ("list", "status"):
-            return {**store.listing(), "checkpoint_policy": self.policy.status()}
+            status = {**store.listing(), "checkpoint_policy": self.policy.status()}
+            if self.optional_io_fenced:
+                status.update(
+                    mode="uncertain", detail="checkpoint outcome needs a fresh private backend"
+                )
+            return status
         if op == "inspect":
             if request.get("kind") == "snapshot":
                 return store.point_info(store.resolve(request["name"]), True)
@@ -485,7 +488,7 @@ class Manager:
                 "stale", "session, active branch or generation changed", current=store.stamp()
             )
         control = store.control()
-        if control["mode"] == "uncertain":
+        if self.optional_io_fenced or control["mode"] in ("uncertain", "mutating"):
             raise Error(
                 "native_outcome_unknown",
                 "restart the private inference backend and reopen its binding before recovery",
@@ -544,5 +547,38 @@ class Manager:
         # the turn rollback handler above or invite the client to generate the answer again.
         if op == "turn":
             answer["turn_committed"] = True
-            answer["checkpoint"] = self.optional_checkpoint(branch, answer)
+            try:
+                answer["checkpoint"] = self.optional_checkpoint(branch, answer)
+                answer["ticket"] = store.stamp()
+            except Exception as exc:
+                # Even reconciliation can fail (for example, an unreadable SQLite file).
+                # B is committed. Keep any possibly issued save fenced independently of DB access.
+                self.optional_io_fenced = True
+                self.anchor_hint = None
+                try:
+                    store.state("uncertain", "optional checkpoint reconciliation failed")
+                except (sqlite3.Error, OSError):
+                    pass
+                answer["checkpoint"] = {
+                    "mode": self.policy.mode,
+                    "interval_tokens": self.policy.interval,
+                    "status": "unknown",
+                    "reason": "reconciliation_failed",
+                    "error": str(exc),
+                    "error_stage": "reconcile",
+                    "turn_committed": True,
+                    "snapshot_committed": None,
+                    "slot_mode": "uncertain",
+                }
+                try:
+                    answer["ticket"] = store.stamp()
+                except (sqlite3.Error, OSError):
+                    previous = request["ticket"]
+                    answer["ticket"] = None
+                    answer["last_known_turn_ticket"] = {
+                        **previous,
+                        "revision": previous["revision"] + 1,
+                        "generation": previous["generation"] + 1,
+                    }
+            return answer
         return {**answer, "ticket": store.stamp()}

@@ -95,8 +95,8 @@ class CheckpointPolicy:
         if distance == 0 or not progressed:
             return {
                 **r,
-                "status": "reused" if distance == 0 and anchor_id else "skipped",
-                "reason": "already_saved" if distance == 0 and anchor_id else "no_progress",
+                "status": "skipped",
+                "reason": "covered_boundary" if distance == 0 and anchor_id else "no_progress",
             }
         if self.mode == "auto":
             band = bisect_right(self.cuts, distance)
