@@ -10,6 +10,15 @@ import time
 from dataclasses import asdict, dataclass
 
 
+def valid_ms(value):
+    if type(value) not in (int, float) or value <= 0:
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 @dataclass(frozen=True)
 class Config:
     mode: str = "off"
@@ -26,7 +35,7 @@ class Config:
             raise ValueError("unsupported checkpoint mode or coverage policy")
         if any(type(x) is not int or x < 1 for x in (self.interval, self.recent)):
             raise ValueError("positive token counts required")
-        if not math.isfinite(self.target_ms) or self.target_ms <= 0:
+        if not valid_ms(self.target_ms):
             raise ValueError("finite positive resume target required")
 
     def domain(self, history):
@@ -45,9 +54,8 @@ class Profile:
     def add(self, kind, position, length, ms, size=0):
         if (
             kind not in ("empty", "restore", "prefill", "save")
-            or not math.isfinite(ms)
-            or ms <= 0
-            or min(position, length, size) < 0
+            or not valid_ms(ms)
+            or any(type(x) is not int or x < 0 for x in (position, length, size))
             or (kind == "prefill" and not length)
         ):
             return
@@ -92,7 +100,13 @@ class Profile:
         return self._cost("save", position, 0)
 
     def image_size(self, position):
-        samples = [r for r in self.rows if r[4] and r[0] in ("restore", "save")]
+        samples = [
+            r
+            for r in self.rows
+            if r[4]
+            and r[0] in ("restore", "save")
+            and max(position + 256, r[1] + 256) <= 4 * min(position + 256, r[1] + 256)
+        ]
         if not samples:
             return None
         nearest = sorted(samples, key=lambda r: abs(r[1] - position))[:3]
@@ -110,6 +124,15 @@ class Profile:
             "context_range": (
                 [min(r[1] for r in self.rows), max(r[1] for r in self.rows)] if self.rows else None
             ),
+            "prefill_length_range": (
+                [
+                    min(r[2] for r in self.rows if r[0] == "prefill"),
+                    max(r[2] for r in self.rows if r[0] == "prefill"),
+                ]
+                if any(r[0] == "prefill" for r in self.rows)
+                else None
+            ),
+            "image_forecast": "largest of the nearest three image observations within the context band; independent future blobs",
             "route_cuts": self.cuts,
             "basis": "median of 2–6 nearby ordinary warm observations; context and replay length within factor 4, same dispatch band; locally linear in replay length",
         }
@@ -165,6 +188,7 @@ def resume_route(
 def least_harm(positions, domain):
     """Lexicographic minimax replay gaps. A retained predecessor can cover the left edge."""
     lo, hi = domain
+    positions = set(positions)
     before = max([0, *(p for p in positions if p <= lo)])
     edges = [before, *sorted(p for p in positions if lo < p <= hi), hi + 1]
     return tuple(sorted((b - a - 1 for a, b in zip(edges, edges[1:])), reverse=True))
@@ -293,6 +317,7 @@ def plan(config, branch, start, history, rows, budget, costs, hysteresis=None, *
         positions = []
         attempts = []
         peak = total
+        optional_peak = total - baseline
         known = True
         room = True
         # These points are reachable on this *future traversal*, including replay.
@@ -325,6 +350,10 @@ def plan(config, branch, start, history, rows, budget, costs, hysteresis=None, *
             for k in gone:
                 kept.pop(k)
             peak = max(peak, sum(v["bytes"] for v in kept.values()) + estimate)
+            optional_peak = max(
+                optional_peak,
+                sum(v["bytes"] for v in kept.values() if not v.get("baseline")) + estimate,
+            )
             kept["plan-" + str(p)] = {"positions": [p], "bytes": estimate, "protected": False}
             positions.append(p)
         after = sorted(set(q for v in kept.values() for q in v["positions"]))
@@ -334,8 +363,17 @@ def plan(config, branch, start, history, rows, budget, costs, hysteresis=None, *
             costs,
             config.target_ms,
             interval,
-            capture_allowed=config.mode != "off" and not dense,
+            capture_allowed=config.mode != "off" and pinned < budget and not dense,
         )
+        if not known and not dense:
+            forecast.update(
+                estimated_max_resume=None,
+                estimated_min_equivalent=None,
+                target_met="unknown",
+                target_met_ranges=None,
+                miss_ranges=None,
+                reason="unmeasured_image_size",
+            )
         if dense:
             forecast.update(
                 estimated_max_resume=None,
@@ -344,6 +382,7 @@ def plan(config, branch, start, history, rows, budget, costs, hysteresis=None, *
                 target_met_ranges=None,
                 miss_ranges=None,
                 enumeration="dense_plan_not_simulated",
+                max_replay_tokens=None,
             )
         return dict(
             interval=interval,
@@ -355,7 +394,7 @@ def plan(config, branch, start, history, rows, budget, costs, hysteresis=None, *
             retained_increment_bytes=(
                 sum(v["bytes"] for v in kept.values() if not v.get("baseline")) if known else None
             ),
-            peak_increment_bytes=max(0, peak - baseline) if known else None,
+            peak_increment_bytes=optional_peak if known else None,
             size_known=known,
             budget_feasible=(room if known or not room else None),
             forecast=forecast,
@@ -364,10 +403,17 @@ def plan(config, branch, start, history, rows, budget, costs, hysteresis=None, *
     choices = [project(i) for i in sorted(intervals)]
 
     def score(v):
-        pred = v["forecast"]["estimated_max_resume"]
+        forecast = v["forecast"]
+        pred = forecast["estimated_max_resume"]
+        if (
+            pred is None
+            and forecast["enumeration"] == "sample"
+            and not forecast["unknown_positions"]
+        ):
+            pred = forecast["worst_observed_in_model"]
         if pred is None or not v["size_known"]:
             return (2, abs(v["interval"] - config.interval))
-        if v["forecast"]["target_met"] == "yes":
+        if pred["ms"] <= config.target_ms:
             return (0, v["retained_bytes"], len(v["expected_saved"]), -v["interval"])
         return (1, pred["ms"], v["retained_bytes"], -v["interval"])
 
@@ -396,7 +442,7 @@ def plan(config, branch, start, history, rows, budget, costs, hysteresis=None, *
         costs,
         config.target_ms,
         return_interval,
-        capture_allowed=config.mode != "off" and not dense_current,
+        capture_allowed=config.mode != "off" and pinned < budget and not dense_current,
     )
     if dense_current:
         current.update(
@@ -406,6 +452,7 @@ def plan(config, branch, start, history, rows, budget, costs, hysteresis=None, *
             target_met_ranges=None,
             miss_ranges=None,
             enumeration="dense_plan_not_simulated",
+            max_replay_tokens=None,
         )
     body = dict(
         schema_version=2,
@@ -421,6 +468,16 @@ def plan(config, branch, start, history, rows, budget, costs, hysteresis=None, *
         chosen_interval=winner["interval"],
         next_position=next(iter(winner["attempt_positions"]), None),
         candidate_intervals=sorted(intervals),
+        selection_evidence=(
+            ("fixed_fallback" if score(winner)[0] == 2 else winner["forecast"]["enumeration"])
+            if config.mode == "auto"
+            else config.mode
+        ),
+        assumptions=[
+            "model already loaded; single warm local image store; no queue or model startup",
+            "future independent images sized from nearby observations; exact native bytes admitted at each write",
+            "replay through absent grid points includes estimated split and synchronous save when unpinned capacity exists",
+        ],
         hysteresis_after=next_state,
         capacity={
             "resource": "disk native images",

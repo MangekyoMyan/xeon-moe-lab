@@ -13,6 +13,7 @@ class Anchors:
     def __init__(self, store):
         self.s = store
         self.cleanup_needed = False
+        self.observed_image_peak = None
         store.db.executescript(
             """
             CREATE TABLE IF NOT EXISTS anchors(

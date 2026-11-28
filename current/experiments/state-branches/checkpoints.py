@@ -53,6 +53,23 @@ class Checkpoints:
             self.model,
             self.memory.get(branch["id"]),
         )
+        v["resource_accounting"] = {
+            "disk_images": {
+                "retained_increment_bytes": v["capacity"]["retained_increment_bytes"],
+                "peak_total_bytes_observed_since_open": self.anchors.observed_image_peak,
+                "scope": "image payload bytes; shared SHA counted once",
+            },
+            "disk_metadata": {
+                "occupied_bytes": sum(
+                    p.stat().st_size for p in self.s.root.glob("branches.sqlite3*")
+                ),
+                "retained_increment_bytes": None,
+                "peak_increment_bytes": None,
+            },
+            "ram": {"retained_increment_bytes": None, "peak_increment_bytes": None},
+            "vram": {"retained_increment_bytes": None, "peak_increment_bytes": None},
+            "fixed_pool": "unsupported",
+        }
         v["branch_generation"] = branch["gen"]
         v["catalog_revision"] = self.s.control()["rev"]
         v["plan_id"] = hashlib.sha256(
@@ -76,7 +93,11 @@ class Checkpoints:
                 v["currently_available"],
                 self.model,
                 strict=empty_suffix,
-                capture_interval=stride if (config or self.cfg).mode != "off" else 0,
+                capture_interval=(
+                    stride
+                    if (config or self.cfg).mode != "off" and v["capacity"]["new_save_possible"]
+                    else 0
+                ),
             )
             v["return_route"] = dict(
                 p=return_position,
@@ -105,6 +126,9 @@ class Checkpoints:
                 available.append(r)
             else:
                 skipped.append(dict(snapshot=r["id"], reason=status))
+        budget = self.s.control()["budget"]
+        rows = self.anchors.inventory(branch, data, self.protect)
+        can_write = sum(item["bytes"] for item in rows.values() if item["protected"]) < budget
         while True:
             positions = {len(r["tokens"]) // 4 for r in available}
             stride = self.memory.get(branch["id"], {}).get("interval", self.cfg.interval)
@@ -113,7 +137,7 @@ class Checkpoints:
                 positions,
                 self.model,
                 strict=strict,
-                capture_interval=stride if self.cfg.mode != "off" else 0,
+                capture_interval=stride if self.cfg.mode != "off" and can_write else 0,
             )
             r = next((r for r in available if len(r["tokens"]) == 4 * c), None)
             chosen_ns = time.monotonic_ns()
@@ -134,9 +158,10 @@ class Checkpoints:
             skipped.append(dict(snapshot=r["id"], reason=status))
             available = [v for v in available if v["id"] != r["id"]]
         ready = time.monotonic_ns()
-        self.model.add(
-            "restore" if c else "empty", c, 0, (ready - begin) / 1e6, r["bytes"] if r else 0
-        )
+        if not skipped:
+            self.model.add(
+                "restore" if c else "empty", c, 0, (ready - begin) / 1e6, r["bytes"] if r else 0
+            )
         return r, dict(
             from_snapshot=r["id"] if r else None,
             from_position=c,
@@ -182,6 +207,9 @@ class Checkpoints:
                 conn.sendall(b"w")
                 admitted = True
                 read_image(stream, path, size)
+                self.anchors.observed_image_peak = max(
+                    self.anchors.observed_image_peak or 0, room["peak_bytes"]
+                )
                 ids = image_tokens(path, n.limit)
                 if (
                     len(ids) != 4 * pos
@@ -228,6 +256,9 @@ class Checkpoints:
         replay_grid = range((start // return_stride + 1) * return_stride, common + 1, return_stride)
         forward_grid = range((common // interval + 1) * interval, horizon + 1, interval)
         captures = [p for grid in (replay_grid, forward_grid) for p in grid if p not in known]
+        denied = [] if profile["capacity"]["new_save_possible"] else captures
+        if denied:
+            captures = []
         stops = set(captures)
         if common > start:
             stops.add(common)
@@ -271,6 +302,19 @@ class Checkpoints:
         reached = [e["position"] for e in state["events"]]
         if reached != sorted(q for q in stops if start < q <= len(actual) // 4):
             raise Error("missing_boundary", "backend omitted a planned processed boundary")
+        for p in denied:
+            if p <= len(actual) // 4:
+                state["events"].append(
+                    dict(
+                        position=p,
+                        phase="prefill" if p <= prompt_len else "decode",
+                        bytes=0,
+                        status="skipped",
+                        reason="protected_capacity",
+                        recorded_from_final_receipt=True,
+                        pause_ms=0,
+                    )
+                )
         model = self.model
         for at, length, ms in state["samples"]:
             model.add("prefill", at, length, ms)
@@ -296,6 +340,7 @@ class Checkpoints:
             plan_id=profile["plan_id"],
             interval_tokens=interval,
             attempt_positions=captures,
+            preflight_refusals=denied,
             return_interval=return_stride,
             status="complete",
             events=state["events"],
@@ -382,7 +427,7 @@ class Checkpoints:
 
         def take(e, conn, stream):
             try:
-                self.anchors.reserve(
+                room = self.anchors.reserve(
                     self.s.branch(), expected, e["bytes"], self.cfg.domain(n), keep=keep
                 )
             except Error as exc:
@@ -391,6 +436,9 @@ class Checkpoints:
                 return
             conn.sendall(b"w")
             read_image(stream, path, e["bytes"])
+            self.anchors.observed_image_peak = max(
+                self.anchors.observed_image_peak or 0, room["peak_bytes"]
+            )
             if image_tokens(path, self.n.limit) != expected:
                 raise Error("boundary_mismatch", "idle export differs from committed processed IDs")
             result.update(sha=digest(path), size=e["bytes"])

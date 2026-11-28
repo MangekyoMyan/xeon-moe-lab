@@ -111,6 +111,31 @@ class Planning(unittest.TestCase):
         self.assertEqual(cold.rows, [])
         json.dumps(a, allow_nan=False)
 
+    def test_partial_capacity_and_discarded_public_image_peak(self):
+        class UnknownSize(Linear):
+            def image_size(self, p):
+                return None
+
+        rows = {"baseline": dict(bytes=32 * 1024**2, protected=False, positions=[], baseline=True)}
+        data = plan(Config("fixed", 8), "b", 0, 8, rows, 32 * 1024**2, Linear())
+        proposed = data["after_plan_forecast"]
+        self.assertEqual(proposed["retained_increment_bytes"], 32 * 1024**2)
+        self.assertEqual(proposed["peak_increment_bytes"], 32 * 1024**2)
+        missing = plan(Config("fixed", 8), "b", 0, 8, rows, 64 * 1024**2, UnknownSize())
+        self.assertEqual(missing["after_plan_forecast"]["forecast"]["target_met"], "unknown")
+        c = Profile("x")
+        for value in (None, True, float("inf"), 10**600):
+            c.add("prefill", 1, 4, value)
+        self.assertFalse(c.rows)
+
+    def test_sampled_long_horizon_can_select_an_interval_without_claiming_global_success(self):
+        cfg = Config("auto", 1024, target_ms=100000)
+        a = plan(cfg, "b", 0, 12000, {}, 2**30, Linear())
+        b = plan(cfg, "b", 0, 12000, {}, 2**30, Linear(), a["hysteresis_after"])
+        self.assertGreater(b["chosen_interval"], 1024)
+        self.assertEqual(b["selection_evidence"], "sample")
+        self.assertEqual(b["after_plan_forecast"]["forecast"]["target_met"], "unknown")
+
 
 class Replies:
     def __init__(self):
@@ -260,43 +285,50 @@ class Integration(unittest.TestCase):
         self.do("release", kind="branch", name="sibling")
         self.assertEqual(self.s.db.execute("SELECT COUNT(*) FROM anchor_refs").fetchone()[0], 3)
 
-
     def test_failed_stage_keeps_the_preceding_turn_committable(self):
         # read_image's disk failure contract drains the full admitted export.
         def reject(stream, path, size):
             self.assertEqual(len(stream.read()), size)
             raise OSError("synthetic full disk")
+
         with patch("checkpoints.read_image", side_effect=reject):
-            result=self.do("turn",text="abcdefghi",max_tokens=1)
+            result = self.do("turn", text="abcdefghi", max_tokens=1)
         self.assertTrue(result["turn_committed"])
-        self.assertEqual(self.s.branch()["gen"],1)
-        self.assertEqual(self.s.listing()["image_bytes"],0)
-        self.assertTrue(all(e["reason"]=="storage_error" for e in result["checkpoint"]["events"] if e["bytes"]))
+        self.assertEqual(self.s.branch()["gen"], 1)
+        self.assertEqual(self.s.listing()["image_bytes"], 0)
+        self.assertTrue(
+            all(
+                e["reason"] == "storage_error" for e in result["checkpoint"]["events"] if e["bytes"]
+            )
+        )
         self.assertFalse(list(self.n.images.glob(".writing-*")))
 
     def test_missing_file_and_foreign_compatibility_fall_back(self):
-        self.do("turn",text="abcdefghijkl",max_tokens=1)
-        row=self.s.db.execute("SELECT * FROM anchors WHERE length(tokens)=32").fetchone()
-        (self.n.images/(row["sha"]+".slot")).unlink()
+        self.do("turn", text="abcdefghijkl", max_tokens=1)
+        row = self.s.db.execute("SELECT * FROM anchors WHERE length(tokens)=32").fetchone()
+        (self.n.images / (row["sha"] + ".slot")).unlink()
         self.s.db.execute("UPDATE anchors SET compat='foreign' WHERE length(tokens)=16")
-        r=self.do("turn",messages=[dict(role="user",content="abcdefgZ")],max_tokens=1)["resume"]
-        self.assertEqual(r["from_position"],0)
-        self.assertTrue(any(v["reason"]=="missing" for v in r["skipped"]))
+        r = self.do("turn", messages=[dict(role="user", content="abcdefgZ")], max_tokens=1)[
+            "resume"
+        ]
+        self.assertEqual(r["from_position"], 0)
+        self.assertTrue(any(v["reason"] == "missing" for v in r["skipped"]))
 
     def test_shared_sha_survives_until_last_reference(self):
-        self.do("turn",text="abcdefg",max_tokens=1)
-        self.do("mark",name="root")
-        self.do("fork",name="fork",**{"from":"root"})
-        point=self.s.db.execute("SELECT * FROM anchors WHERE length(tokens)=16").fetchone()
-        p=self.n.images/(point["sha"]+".slot")
+        self.do("turn", text="abcdefg", max_tokens=1)
+        self.do("mark", name="root")
+        self.do("fork", name="fork", **{"from": "root"})
+        point = self.s.db.execute("SELECT * FROM anchors WHERE length(tokens)=16").fetchone()
+        p = self.n.images / (point["sha"] + ".slot")
         self.assertTrue(p.exists())
-        self.do("release",kind="branch",name="fork")
+        self.do("release", kind="branch", name="fork")
         self.assertTrue(p.exists())
         with self.s.tx():
             self.s.anchors.release(self.s.branch()["id"])
             self.s.collect()
         self.s.clean_files()
         self.assertFalse(p.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

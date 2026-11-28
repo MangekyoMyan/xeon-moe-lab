@@ -59,7 +59,10 @@ class Manager:
         )
         if checkpoint_mode != "off" and isinstance(self.native, Native):
             if not self.native.identity.get("slot_format", "").endswith("/XKV1"):
-                raise Error("incompatible_codec", "exact prefix checkpoints require the verified physical KV state codec")
+                raise Error(
+                    "incompatible_codec",
+                    "exact prefix checkpoints require the verified physical KV state codec",
+                )
         self.cp = Checkpoints(store, self.config)
         self.enabled = checkpoint_mode != "off"
         store.bounded_save = self.cp.mandatory if self.enabled else None
