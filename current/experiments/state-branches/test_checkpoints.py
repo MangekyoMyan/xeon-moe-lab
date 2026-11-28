@@ -16,6 +16,18 @@ from test_branches import SmallSlot
 
 
 class PolicyTests(unittest.TestCase):
+    def test_nonfinite_aggregate_falls_back_with_a_serializable_receipt(self):
+        p = CheckpointPolicy("auto", 8)
+        for _ in range(4):
+            p.observe_prefill({"prompt_n": 32, "prompt_ms": 1.6e308})
+            p.observe_save(64, 900, 1.6e308)
+            p.observe_restore("place", 48, 900, 1.6e308)
+        decision = p.decide("old", 32, 64)
+        self.assertEqual(decision["basis"], "cold_fallback")
+        self.assertIsNone(decision["estimate_ms"]["replay"])
+        self.assertIsNone(decision["estimate_ms"]["save"])
+        json.dumps(decision, allow_nan=False)
+
     def test_only_validated_native_replay_feeds_prompt_cost(self):
         p = CheckpointPolicy("auto", 1)
 

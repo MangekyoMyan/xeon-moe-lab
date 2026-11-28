@@ -114,7 +114,10 @@ class CheckpointPolicy:
             }
 
             def cost(samples):
-                return median(s[1] for s in samples) if len(samples) >= MIN_SAMPLES else None
+                if len(samples) < MIN_SAMPLES:
+                    return None
+                value = median(s[1] for s in samples)
+                return value if isfinite(value) else None
 
             p = (
                 distance * (sum(s[1] for s in pp) / sum(s[0] for s in pp))
@@ -141,8 +144,8 @@ class CheckpointPolicy:
                     "gain": None,
                 },
             )
-            if all(v is not None and isfinite(v) for v in (p, a, b, save)) and isfinite(p + a - b):
-                gain = p + a - b
+            gain = p + a - b if all(v is not None for v in (p, a, b, save)) else None
+            if gain is not None and isfinite(gain):
                 r["estimate_ms"]["gain"] = gain
                 take = gain > SAFETY * save
                 return {
@@ -154,7 +157,7 @@ class CheckpointPolicy:
                 }
             r.update(
                 basis="cold_fallback",
-                fallback_reason="insufficient_comparable_data",
+                fallback_reason="insufficient_comparable_data" if gain is None else "nonfinite_gain",
                 missing=[
                     k
                     for k, v in r["estimate_ms"].items()
