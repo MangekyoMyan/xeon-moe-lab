@@ -1,10 +1,10 @@
 """Serialize native work and publish logical heads only after confirmed completion."""
 
 import json
-import sqlite3
 import time
-from checkpoint_policy import CheckpointPolicy
-from native import Error, Uncertain, encode, pack, unpack
+from planner import Config
+from checkpoints import Checkpoints
+from native import Error, Native, Uncertain, encode, pack, unpack
 from storage import name_ok, uid
 
 
@@ -38,35 +38,39 @@ def check_messages(messages):
 
 
 class Manager:
-    def __init__(self, store, checkpoint_mode="off", checkpoint_interval=1024):
-        self.store = store
-        self.native = store.native
+    def __init__(
+        self,
+        store,
+        checkpoint_mode="off",
+        checkpoint_interval=1024,
+        *,
+        resume_target_ms=5000,
+        coverage_policy="all_history",
+        recent_window_tokens=4096,
+    ):
+        self.store, self.native = store, store.native
         self.changed = False
-        identity = getattr(self.native, "identity", {})
-        self.policy = CheckpointPolicy(
+        self.config = Config(
             checkpoint_mode,
             checkpoint_interval,
-            runtime=self.native.compat,
-            thresholds=identity.get("offload_thresholds", ()),
+            resume_target_ms,
+            coverage_policy,
+            recent_window_tokens,
         )
-        self.anchor_hint = None
-        self.optional_io_fenced = False
-        self.native.prefill_observer = (
-            self.policy.observe_prefill if checkpoint_mode != "off" else None
-        )
-
-    def restore_sample(self, route, start, chosen):
-        position = len(chosen["tokens"]) // 4 if chosen and chosen["sha"] else 0
-        size = chosen["bytes"] if position else 0
-        ms = (time.monotonic_ns() - start) / 1e6
-        self.policy.observe_restore(route, position, size, ms)
-        return {"route": route, "position": position, "bytes": size, "ms": ms}
+        if checkpoint_mode != "off" and isinstance(self.native, Native):
+            if not self.native.identity.get("slot_format", "").endswith("/XKV1"):
+                raise Error("incompatible_codec", "exact prefix checkpoints require the verified physical KV state codec")
+        self.cp = Checkpoints(store, self.config)
+        self.enabled = checkpoint_mode != "off"
+        store.bounded_save = self.cp.mandatory if self.enabled else None
 
     def place(self, branch):
         """Install a compatible ancestor, then evaluate precisely the missing tokens."""
         store = self.store
+        if self.enabled:
+            self.changed = True
+            return self.cp.place(branch)
         target_tokens = branch["tokens"]
-        start = time.monotonic_ns() if self.policy.mode != "off" else None
         chosen, skipped = store.choose(branch["head"] or branch["base"], target_tokens)
         self.changed = True
         if chosen and chosen["sha"]:
@@ -75,7 +79,6 @@ class Manager:
         else:
             self.native.erase()
             at = 0
-        observation = self.restore_sample("place", start, chosen) if start is not None else None
         count = 0
         if len(target_tokens) // 4 > at:
             count = self.native.replay(target_tokens, at > 0)
@@ -89,14 +92,11 @@ class Manager:
                 chosen and chosen["id"] == branch["head"] and chosen["tokens"] == target_tokens
             ),
         }
-        if observation is not None:
-            detail["restore_observation"] = observation
         return detail
 
     def prepare_turn(self, branch, ids):
         if ids.startswith(branch["tokens"]):
             return {"previous_boundary_matches": True, "restored_prefix": None, "skipped": []}
-        start = time.monotonic_ns() if self.policy.mode != "off" else None
         chosen, skipped = self.store.choose(branch["base"], ids)
         self.changed = True
         if chosen and chosen["sha"]:
@@ -111,137 +111,7 @@ class Manager:
             "restored_prefix": chosen["id"] if chosen else None,
             "skipped": skipped,
         }
-        if start is not None:
-            detail["restore_observation"] = self.restore_sample("prepare_turn", start, chosen)
         return detail
-
-    def optional_checkpoint(self, branch, turn):
-        """Only called after the turn's transaction committed, under the same exclusive writer."""
-        policy, store = self.policy, self.store
-        n = turn["processed"]
-        r = {
-            "mode": policy.mode,
-            "interval_tokens": policy.interval,
-            "runtime": policy.runtime,
-            "basis": policy.mode,
-            "candidate_processed": n,
-            "anchor_id": None,
-            "anchor_processed": None,
-            "distance_tokens": None,
-            "status": "disabled",
-            "reason": "disabled",
-            "snapshot_id": None,
-            "decision_ms": 0.0,
-            "checkpoint_elapsed_ms": 0.0,
-            "turn_committed": True,
-        }
-        if policy.mode == "off":
-            policy.record(r)
-            return r
-        begin = time.monotonic_ns()
-        info = {}
-        capacity = None
-        saving = None
-        try:
-            extends = turn["previous_boundary_matches"]
-            verified = branch["head"] if extends else turn["restored_prefix"]
-            anchor, self.anchor_hint = store.checkpoint_anchor(
-                branch, n, extends, verified, self.anchor_hint
-            )
-            position = anchor["n"] if anchor else 0
-            progressed = n != len(branch["tokens"]) // 4 or turn["common_prefix"] != n
-            r.update(policy.decide(anchor["id"] if anchor else None, position, n, progressed))
-            if r["status"] == "attempt":
-                capacity, feasible = store.checkpoint_capacity(branch["id"], n)
-                if not feasible or policy.blocked(branch["id"], n, capacity):
-                    r.update(
-                        status="skipped",
-                        reason="budget" if not feasible else "budget_retry_suppressed",
-                    )
-            r["decision_ms"] = (time.monotonic_ns() - begin) / 1e6
-            if r["status"] == "attempt":
-                self.anchor_hint = None
-                saving = time.monotonic_ns()
-                info["stage"] = "enter_mutating"
-                store.state("mutating", "optional_checkpoint")
-                point = store.save_active(on_publish=self.finish, receipt=info)
-                if info["committed"]:
-                    r.update(status="saved", snapshot_id=point["id"], image_bytes=point["bytes"])
-                else:
-                    store.state("ready")
-                    r.update(
-                        status="reused",
-                        reason="already_saved",
-                        snapshot_id=point["id"],
-                        image_bytes=point["bytes"],
-                    )
-        except Uncertain as exc:
-            # The native call may still be executing. The turn itself is already durable.
-            store.state("uncertain", str(exc))
-            r.update(
-                status="unknown",
-                reason=exc.code,
-                error=str(exc),
-                error_stage=info.get("stage", "decision"),
-            )
-        except Exception as exc:
-            sid = info.get("snapshot_id")
-            code = exc.code if isinstance(exc, Error) else type(exc).__name__
-            stage = info.get("stage", "decision")
-            # Check the durable outcome even if an exception was raised just after COMMIT.
-            committed = bool(
-                sid and store.branch()["head"] == sid and store.control()["mode"] == "ready"
-            )
-            if committed:
-                info.update(committed=True, evicted=info.get("planned_evictions", []))
-                r.update(
-                    status="saved_cleanup_warning",
-                    snapshot_id=sid,
-                    image_bytes=store.snap(sid)["bytes"],
-                )
-            else:
-                info["committed"] = False
-                known_readonly_failure = isinstance(exc, (OSError, sqlite3.Error)) or code in (
-                    "budget",
-                    "native_error",
-                )
-                if saving is not None:
-                    # Native save is read-only. A known write/budget failure leaves B installed.
-                    # An unverified boundary/codec/identity or unexpected failure needs recovery.
-                    store.state(
-                        "ready" if known_readonly_failure else "invalid",
-                        "" if known_readonly_failure else str(exc),
-                    )
-                    if known_readonly_failure and stage == "publish":
-                        try:
-                            store.clean_files()
-                        except OSError as cleanup:
-                            r["cleanup_error"] = str(cleanup)
-                r["status"] = "failed"
-                if code == "budget" and capacity is not None:
-                    policy.budget_failed(branch["id"], n, capacity)
-            r.update(reason=code, error=str(exc), error_stage=stage)
-        if saving is None:
-            if not r["decision_ms"]:
-                r["decision_ms"] = (time.monotonic_ns() - begin) / 1e6
-        else:
-            r["checkpoint_elapsed_ms"] = (time.monotonic_ns() - saving) / 1e6
-            r.update(
-                native_save_called=info.get("native_called", False),
-                written_bytes=info.get("written_bytes"),
-                existing_blob=info.get("existing_blob"),
-                evicted=info.get("evicted", []) if info.get("committed") else [],
-                snapshot_committed=(
-                    None
-                    if r["status"] == "unknown"
-                    else bool(info.get("committed") or r["status"] == "saved_cleanup_warning")
-                ),
-                slot_mode=store.control()["mode"],
-            )
-            if r["status"] == "saved" and info.get("native_called") and r.get("image_bytes", 0) > 0:
-                policy.observe_save(n, r["image_bytes"], r["checkpoint_elapsed_ms"])
-        policy.record(r)
-        return r
 
     def turn(self, request, branch, emit):
         if "messages" in request:
@@ -270,9 +140,14 @@ class Manager:
         common = next(
             (i for i, (x, y) in enumerate(zip(old, ids)) if x != y), min(len(old), len(ids))
         )
-        positioning = self.prepare_turn(branch, data)
         self.changed = True
-        result = self.native.generate(ids, maximum, emit)
+        if self.enabled:
+            result, positioning = self.cp.generate(branch, ids, maximum, common, emit)
+        else:
+            positioning = self.prepare_turn(branch, data)
+            result = self.native.generate(ids, maximum, emit)
+        if getattr(emit, "cancelled", lambda: False)():
+            raise Error("cancelled", "client cancelled before the turn committed")
         samples = result.pop("sampled")
         tokens = data + pack(samples[:-1])
         history = messages + [{"role": "assistant", "content": result["content"]}]
@@ -314,7 +189,7 @@ class Manager:
         # transaction fails, the rollback placement records the image that actually won.
         if placement is not None and placement["from_snapshot"] is not None:
             self.store.db.execute(
-                "UPDATE blobs SET used=? WHERE sha=(SELECT sha FROM snapshots WHERE id=?)",
+                "UPDATE blobs SET used=? WHERE sha IN (SELECT sha FROM snapshots WHERE id=?2 UNION SELECT sha FROM anchors WHERE id=?2)",
                 (time.time(), placement["from_snapshot"]),
             )
         self.store.db.execute("UPDATE control SET rev=rev+1")
@@ -413,6 +288,7 @@ class Manager:
                         0,
                     ),
                 )
+                store.anchors.fork(branch, branch_id, point["tokens"])
                 self.finish()
             return {"branch": store.describe(store.branch(branch_id))}
         if op in ("pin", "unpin", "release"):
@@ -446,6 +322,8 @@ class Manager:
             with store.tx():
                 if op == "release":
                     store.db.execute(f"DELETE FROM {table} WHERE {col}=?", (key,))
+                    if kind == "branch":
+                        store.anchors.release(key)
                     store.collect()
                 else:
                     store.db.execute(f"UPDATE {table} SET pin=? WHERE {col}=?", (op == "pin", key))
@@ -454,7 +332,9 @@ class Manager:
             return {"operation": op, "kind": kind, "name": request["name"]}
         if op == "budget":
             with store.tx():
-                victims = store.trim(request["bytes"])
+                victims = store.trim(
+                    request["bytes"], coverage=(self.cp, branch) if self.enabled else None
+                )
                 store.db.execute("UPDATE control SET budget=?", (request["bytes"],))
                 self.finish()
             store.clean_files()
@@ -467,12 +347,30 @@ class Manager:
         if op == "ticket":
             return {"ticket": store.stamp()}
         if op in ("list", "status"):
-            status = {**store.listing(), "checkpoint_policy": self.policy.status()}
-            if self.optional_io_fenced:
-                status.update(
-                    mode="uncertain", detail="checkpoint outcome needs a fresh private backend"
-                )
-            return status
+            return {
+                **store.listing(),
+                "checkpoint_policy": {
+                    "mode": self.config.mode,
+                    "interval_tokens": self.config.interval,
+                    "last": self.cp.last,
+                },
+            }
+        if op == "checkpoint":
+            branch = store.branch(request.get("name"))
+            cfg = Config(
+                request.get("mode", self.config.mode),
+                request.get("interval", self.config.interval),
+                request.get("target_ms", self.config.target_ms),
+                request.get("coverage", self.config.coverage),
+                request.get("recent", self.config.recent),
+            )
+            return self.cp.preview(
+                branch,
+                request.get("history"),
+                config=cfg,
+                return_position=request.get("return_position"),
+                empty_suffix=request.get("empty_suffix", False),
+            )
         if op == "inspect":
             if request.get("kind") == "snapshot":
                 return store.point_info(store.resolve(request["name"]), True)
@@ -488,7 +386,7 @@ class Manager:
                 "stale", "session, active branch or generation changed", current=store.stamp()
             )
         control = store.control()
-        if self.optional_io_fenced or control["mode"] in ("uncertain", "mutating"):
+        if control["mode"] in ("uncertain", "mutating"):
             raise Error(
                 "native_outcome_unknown",
                 "restart the private inference backend and reopen its binding before recovery",
@@ -496,18 +394,14 @@ class Manager:
         if control["mode"] != "ready" and op != "recover":
             raise Error("invalid_slot", "recover the active branch before using this slot")
         branch = store.branch()
-        if op != "turn":
-            self.anchor_hint = None
         self.changed = False
         store.state("mutating", op)
         try:
             answer = self.operation(op, request, branch, emit)
         except Uncertain as exc:
-            self.anchor_hint = None
             store.state("uncertain", str(exc))
             raise
         except Exception as exc:
-            self.anchor_hint = None
             code = exc.code if isinstance(exc, Error) else "operation_failed"
             more = dict(exc.details) if isinstance(exc, Error) else {}
             if store.control()["mode"] == "ready":
@@ -543,42 +437,7 @@ class Manager:
             else:
                 store.state("ready")
             raise Error(code, str(exc), **more) from exc
-        # Optional saving has its own failure contract. Never route its errors through
-        # the turn rollback handler above or invite the client to generate the answer again.
         if op == "turn":
             answer["turn_committed"] = True
-            try:
-                answer["checkpoint"] = self.optional_checkpoint(branch, answer)
-                answer["ticket"] = store.stamp()
-            except Exception as exc:
-                # Even reconciliation can fail (for example, an unreadable SQLite file).
-                # B is committed. Keep any possibly issued save fenced independently of DB access.
-                self.optional_io_fenced = True
-                self.anchor_hint = None
-                try:
-                    store.state("uncertain", "optional checkpoint reconciliation failed")
-                except (sqlite3.Error, OSError):
-                    pass
-                answer["checkpoint"] = {
-                    "mode": self.policy.mode,
-                    "interval_tokens": self.policy.interval,
-                    "status": "unknown",
-                    "reason": "reconciliation_failed",
-                    "error": str(exc),
-                    "error_stage": "reconcile",
-                    "turn_committed": True,
-                    "snapshot_committed": None,
-                    "slot_mode": "uncertain",
-                }
-                try:
-                    answer["ticket"] = store.stamp()
-                except (sqlite3.Error, OSError):
-                    previous = request["ticket"]
-                    answer["ticket"] = None
-                    answer["last_known_turn_ticket"] = {
-                        **previous,
-                        "revision": previous["revision"] + 1,
-                        "generation": previous["generation"] + 1,
-                    }
-            return answer
+            answer.setdefault("checkpoint", {"mode": "off", "status": "disabled"})
         return {**answer, "ticket": store.stamp()}

@@ -1,0 +1,112 @@
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -2077,6 +2077,11 @@
+         return;
+     }
+ 
++    // Opt-in single-slot DSV4 full images retain occupied SWA rows, physical
++    // coordinates and the allocation cursor. The compact codec remains readable.
++    constexpr uint32_t physical_magic = 0x31564b58; // XKV1
++    const bool physical = seq_id == 0 && n_stream == 1 && !flags && std::getenv("XEON_BRANCH_LAYOUT_V1");
++    if (physical) io.write(&physical_magic, sizeof(physical_magic));
+     io.write(&n_stream, sizeof(n_stream));
+ 
+     for (uint32_t s = 0; s < n_stream; ++s) {
+@@ -2097,7 +2102,7 @@
+             add_cell = add_cell && (seq_id == -1 || cells.seq_has(i, seq_id));
+ 
+             // check the cell is not SWA-masked
+-            if (add_cell && seq_id != -1) {
++            if (add_cell && seq_id != -1 && !physical) {
+                 const bool is_masked = llama_hparams::is_masked_swa(n_swa, swa_type, cells.pos_get(i), cells.seq_pos_max(seq_id));
+ 
+                 add_cell = !is_masked;
+@@ -2128,6 +2133,19 @@
+         GGML_ASSERT(cell_count == cell_count_check);
+ 
+         io.write(&cell_count, sizeof(cell_count));
++
++        if (physical) {
++            const uint32_t capacity = cells.size();
++            const uint32_t ranges = cr.data.size();
++            io.write(&capacity, sizeof(capacity));
++            io.write(&v_heads[s], sizeof(v_heads[s]));
++            io.write(&ranges, sizeof(ranges));
++            for (const auto & range : cr.data) {
++                const uint32_t begin = range.first, end = range.second;
++                io.write(&begin, sizeof(begin));
++                io.write(&end, sizeof(end));
++            }
++        }
+ 
+         // skip empty streams
+         if (cell_count == 0) {
+@@ -2171,6 +2189,13 @@
+ 
+     uint32_t n_stream_cur;
+     io.read(&n_stream_cur, sizeof(n_stream_cur));
++    const bool physical = n_stream_cur == 0x31564b58;
++    if (physical) {
++        if (seq_id != 0 || n_stream != 1 || flags || sinfos_in || !std::getenv("XEON_BRANCH_LAYOUT_V1")) {
++            throw std::runtime_error("incompatible single-slot physical KV image");
++        }
++        io.read(&n_stream_cur, sizeof(n_stream_cur));
++    }
+     if (n_stream_cur != n_stream) {
+         throw std::runtime_error("n_stream mismatch");
+     }
+@@ -2185,6 +2210,37 @@
+         uint32_t cell_count;
+         io.read(&cell_count, sizeof(cell_count));
+ 
++        slot_info physical_slots;
++        uint32_t saved_head = 0;
++        if (physical) {
++            uint32_t capacity, ranges;
++            io.read(&capacity, sizeof(capacity));
++            io.read(&saved_head, sizeof(saved_head));
++            io.read(&ranges, sizeof(ranges));
++            if (capacity != v_cells[s].size() || saved_head > capacity || cell_count > capacity || ranges > cell_count) {
++                throw std::runtime_error("invalid physical KV geometry");
++            }
++            physical_slots.resize(1);
++            physical_slots.s0 = physical_slots.s1 = physical_slots.strm[0] = s;
++            auto & idxs = physical_slots.idxs[0];
++            idxs.reserve(cell_count);
++            uint32_t previous_end = 0;
++            for (uint32_t r = 0; r < ranges; ++r) {
++                uint32_t begin, end;
++                io.read(&begin, sizeof(begin)); io.read(&end, sizeof(end));
++                if (begin < previous_end || begin >= end || end > capacity || end-begin > cell_count-idxs.size()) {
++                    throw std::runtime_error("invalid physical KV range");
++                }
++                for (uint32_t idx=begin; idx<end; ++idx) idxs.push_back(idx);
++                previous_end=end;
++            }
++            if (idxs.size() != cell_count) throw std::runtime_error("incomplete physical KV layout");
++            if (!cell_count) {
++                seq_rm(seq_id,-1,-1);
++                v_heads[s] = saved_head;
++            }
++        }
++
+         if (cell_count == 0) {
+             // a mirrored cache must be empty here as well, or the two no longer agree cell for cell
+             if (sinfos_in && !(*sinfos_in)[s].empty()) {
+@@ -2198,7 +2254,7 @@
+         slot_info sinfo;
+ 
+         bool res = true;
+-        res = res && state_read_meta(io, strm, cell_count, sinfo, seq_id, sinfos_in ? &(*sinfos_in)[s] : nullptr);
++        res = res && state_read_meta(io, strm, cell_count, sinfo, seq_id, physical ? &physical_slots : (sinfos_in ? &(*sinfos_in)[s] : nullptr));
+ 
+         try {
+             res = res && state_read_data(io, strm, cell_count, sinfo);
+@@ -2211,6 +2267,7 @@
+             throw std::runtime_error("failed to restore kv cache");
+         }
+ 
++        if (physical) v_heads[strm] = saved_head;
+         if (sinfos_out) {
+             (*sinfos_out)[s] = sinfo;
+         }

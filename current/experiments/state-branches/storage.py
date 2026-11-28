@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import re
 import sqlite3
-import stat
 import time
 import uuid
 from native import Error, digest, encode, image_tokens, sync_dir
@@ -51,6 +50,10 @@ class Store:
           CREATE TABLE IF NOT EXISTS blobs(sha TEXT PRIMARY KEY, bytes INTEGER NOT NULL, resident INTEGER, used REAL);
         """
         )
+        from anchors import Anchors
+
+        self.anchors = Anchors(self)
+        self.bounded_save = None
         control = self.control()
         if not control:
             if type(budget) is not int or budget <= 0:
@@ -161,9 +164,19 @@ class Store:
             return "damaged"
         return "available"
 
-    def trim(self, budget, keep=()):
+    def trim(self, budget, keep=(), coverage=None):
         if type(budget) is not int or budget < 1:
             raise Error("budget", "budget must be positive bytes")
+        if coverage:
+            from planner import eviction
+
+            cp, branch = coverage
+            rows = self.anchors.inventory(branch, branch["tokens"], keep)
+            victims = eviction(rows, 0, budget, cp.cfg.domain(len(branch["tokens"]) // 4))
+            if victims is None:
+                raise Error("budget", "protected image bytes exceed the requested budget")
+            self.db.executemany("UPDATE blobs SET resident=0 WHERE sha=?", [(s,) for s in victims])
+            return victims
         pinned = set(keep)
         for row in self.db.execute(
             """SELECT s.sha FROM snapshots s WHERE s.id IN
@@ -221,104 +234,8 @@ class Store:
         unused = [(r[0],) for r in self.db.execute("SELECT id FROM snapshots") if r[0] not in keep]
         self.db.executemany("DELETE FROM snapshots WHERE id=?", unused)
         self.db.execute(
-            "DELETE FROM blobs WHERE sha NOT IN (SELECT sha FROM snapshots WHERE sha IS NOT NULL)"
+            "DELETE FROM blobs WHERE sha NOT IN (SELECT sha FROM snapshots WHERE sha IS NOT NULL UNION SELECT sha FROM anchors)"
         )
-
-    def checkpoint_anchor(self, branch, position, extends, verified_id, hint):
-        """Locate a plausible restorable prefix without reading an image or copying messages."""
-
-        def present(item):
-            if not item["sha"]:
-                return item["n"] == 0
-            if not re.fullmatch(r"[0-9a-f]{64}", item["sha"]):
-                return False
-            try:
-                metadata = (self.native.images / (item["sha"] + ".slot")).lstat()
-                return stat.S_ISREG(metadata.st_mode) and metadata.st_size == item["bytes"]
-            except FileNotFoundError:
-                return False
-
-        base = branch["base"]
-        stamp = (branch["id"], base, branch["gen"])
-        if extends and hint and hint[0] == stamp and position < hint[1]:
-            anchor = hint[2]
-            if not anchor or present(anchor):
-                return anchor, ((branch["id"], base, branch["gen"] + 1), hint[1], anchor)
-        rows = (
-            self.db.execute(
-                """WITH RECURSIVE chain(id,parent) AS (
-                 SELECT id,parent FROM snapshots WHERE id=?
-                 UNION SELECT s.id,s.parent FROM snapshots s JOIN chain c ON s.id=c.parent
-               ) SELECT s.id,s.parent,s.compat,length(s.tokens)/4 AS n,s.sha,s.bytes,b.resident
-                 FROM chain JOIN snapshots s USING(id) LEFT JOIN blobs b ON b.sha=s.sha""",
-                (base,),
-            )
-            if base
-            else ()
-        )
-        by_id = {row["id"]: row for row in rows}
-        ordered = []
-        while base and base in by_id:
-            node = by_id.pop(base)
-            ordered.append(node)
-            base = node["parent"]
-        ceiling = self.native.limit + 1
-        anchor = None
-        cacheable = True
-        for node in sorted(ordered, key=lambda r: r["n"], reverse=True):
-            if node["compat"] != self.native.compat or (node["sha"] and not node["resident"]):
-                continue
-            if node["n"] > position:
-                ceiling = min(ceiling, node["n"])
-                continue
-            if not present(node):
-                cacheable = False
-                continue
-            if (
-                node["id"] != verified_id
-                and not self.db.execute(
-                    """SELECT s.tokens=substr(b.tokens,1,length(s.tokens)) FROM snapshots s, branches b
-                   WHERE s.id=? AND b.id=?""",
-                    (node["id"], branch["id"]),
-                ).fetchone()[0]
-            ):
-                continue
-            anchor = dict(node)
-            break
-        next_stamp = (branch["id"], branch["base"], branch["gen"] + 1)
-        return anchor, (next_stamp, ceiling, anchor) if cacheable else None
-
-    def checkpoint_capacity(self, branch_id, position):
-        """Unpinned images are reclaimable. The active branch pin follows its new head."""
-        rows = list(
-            self.db.execute(
-                """SELECT DISTINCT b.sha,b.bytes FROM blobs b JOIN snapshots s ON s.sha=b.sha
-               WHERE b.resident=1 AND s.id IN (
-                  SELECT sid FROM marks WHERE pin=1 UNION
-                  SELECT COALESCE(head,base) FROM branches WHERE pin=1 AND id<>?
-               ) ORDER BY b.sha""",
-                (branch_id,),
-            )
-        )
-        protected = tuple((r["sha"], r["bytes"]) for r in rows)
-        budget = self.control()["budget"]
-        used = self.db.execute(
-            "SELECT COALESCE(SUM(bytes),0) FROM blobs WHERE resident=1"
-        ).fetchone()[0]
-        free = budget - sum(n for _, n in protected)
-        # A possible duplicate of a protected image can fit without additional image bytes.
-        possible_duplicate = False
-        if free < 4 * position and protected:
-            possible_duplicate = (
-                self.db.execute(
-                    """SELECT 1 FROM snapshots s JOIN blobs b ON b.sha=s.sha WHERE b.resident=1
-                   AND length(s.tokens)=? AND s.id IN (SELECT sid FROM marks WHERE pin=1 UNION
-                   SELECT COALESCE(head,base) FROM branches WHERE pin=1 AND id<>?) LIMIT 1""",
-                    (4 * position, branch_id),
-                ).fetchone()
-                is not None
-            )
-        return (budget, used, protected), free >= 4 * position or possible_duplicate
 
     def save_active(self, keep=(), *, on_publish=None, receipt=None):
         info = receipt if receipt is not None else {}
@@ -337,7 +254,10 @@ class Store:
         try:
             if branch["tokens"]:
                 info.update(stage="native_save", native_called=True, written_bytes=None)
-                path, sha, size = self.native.save(branch["tokens"])
+                if self.bounded_save:
+                    path, sha, size = self.bounded_save(branch["tokens"], keep)
+                else:
+                    path, sha, size = self.native.save(branch["tokens"])
                 info["written_bytes"] = size
             snapshot_id = uid()
             info.update(stage="publish", snapshot_id=snapshot_id)

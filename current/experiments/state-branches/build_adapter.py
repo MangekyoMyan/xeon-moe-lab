@@ -23,6 +23,7 @@ def build(source, build_dir, out):
         p = work / "tools/server" / name
         p.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source / "tools/server" / name, p)
+    shutil.copyfile(Path(__file__).with_name("prefix-capture.hpp"), work / "tools/server/prefix-capture.hpp")
     patch = Path(__file__).with_name("native-stream.patch")
     subprocess.run(
         ["patch", "--batch", "--fuzz=0", "-p1", "-i", str(patch.resolve())], cwd=work, check=True
@@ -62,6 +63,7 @@ def build(source, build_dir, out):
     subprocess.run(args, cwd=server, check=True)
     record = {
         "patch_sha256": sha(patch),
+        "prefix_capture_sha256": sha(work / "tools/server/prefix-capture.hpp"),
         "library_sha256": sha(library),
         "original_source": {n: sha(source / "tools/server" / n) for n in units},
         "private_source": {n: sha(work / "tools/server" / n) for n in units},

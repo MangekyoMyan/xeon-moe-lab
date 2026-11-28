@@ -16,12 +16,12 @@ import subprocess
 import sys
 import time
 from native import Connection, Native, digest, proc_id
-from checkpoint_policy import DEFAULT_INTERVAL
+from branchctl import DEFAULT_INTERVAL
 from branchctl import add_checkpoint_arguments
 
 HERE = Path(__file__).resolve().parent
 LAB = Path("/home/codex/projects/llm-lab")
-DEFAULT = LAB / "engine-state-phase1-20261128"
+DEFAULT = LAB / "checkpoint-v2-20261128"
 sys.path.insert(0, str(LAB / "normal24-timeline-20261124"))
 import study
 import prefill
@@ -99,9 +99,20 @@ def engine(workspace, store, run, observed=False, stock=False):
     if impl_hash != b["base_server_impl_sha256" if stock else "library_sha256"]:
         raise RuntimeError("unexpected private or stock HTTP adapter")
     if not stock:
+        cfg["environment"]["XEON_BRANCH_PREFIX_V2"] = "1"
         cfg["environment"]["LD_LIBRARY_PATH"] = (
             str(impl.parent) + ":" + cfg["environment"]["LD_LIBRARY_PATH"]
         )
+    layout = workspace / "build/physical"
+    use_layout = not stock and (layout / "BUILD.json").is_file()
+    if use_layout:
+        layout_hash = load(layout / "BUILD.json")["library_sha256"]
+        if digest(layout / "libllama.so.0.8.0") != layout_hash:
+            raise RuntimeError("unverified private full-state codec")
+        cfg["environment"]["LD_LIBRARY_PATH"] = (
+            str(layout) + ":" + cfg["environment"]["LD_LIBRARY_PATH"]
+        )
+        cfg["environment"]["XEON_BRANCH_LAYOUT_V1"] = "1"
     if observed:
         tr = run / "trace"
         private(tr)
@@ -151,7 +162,13 @@ def engine(workspace, store, run, observed=False, stock=False):
             ref = workspace / "BEFORE.json"
             before = load(ref if ref.exists() else workspace / "OFFLINE_REFERENCE.json")
             profile = load(LAB / "current/runtime.json")
-            expected = {**before["mapped_runtime_hashes"], str(impl): impl_hash}
+            arithmetic = dict(before["mapped_runtime_hashes"])
+            if use_layout:
+                original = next(k for k in arithmetic if Path(k).name == "libllama.so.0.8.0")
+                if arithmetic.pop(original) != load(layout / "BUILD.json")["base_sha256"]:
+                    raise RuntimeError("unverified model library baseline")
+                arithmetic[str((layout / "libllama.so.0.8.0").resolve())] = layout_hash
+            expected = {**arithmetic, str(impl.resolve()): impl_hash}
             backing = prefill.verify_backing(pid, expected)
             env = (Path("/proc") / str(pid) / "environ").read_bytes().split(b"\0")
             assert all((k + "=" + v).encode() in env for k, v in cfg["environment"].items())
@@ -162,11 +179,10 @@ def engine(workspace, store, run, observed=False, stock=False):
                 "profile": before["config_sha256"],
                 "expert_plan": before["plan_sha256"],
                 "server_exe": profile["server_executable"]["sha256"],
-                "arithmetic_libraries": {
-                    Path(k).name: v for k, v in before["mapped_runtime_hashes"].items()
-                },
+                "arithmetic_libraries": {Path(k).name: v for k, v in arithmetic.items()},
                 "server_impl": impl_hash,
-                "slot_format": "GGSQ4/server_tokens1/DSV4-full/text",
+                "slot_format": "GGSQ4/server_tokens1/DSV4-full/text"
+                + ("/XKV1" if use_layout else ""),
                 "context": 131072,
                 "vocab": 129280,
                 "offload_thresholds": [128, 128],
@@ -227,6 +243,10 @@ def manager(
     *,
     checkpoint_mode="off",
     checkpoint_interval=DEFAULT_INTERVAL,
+    resume_target_ms=5000,
+    coverage_policy="all_history",
+    recent_window_tokens=4096,
+    checkpoint_budget_mib=None,
 ):
     from branchctl import rpc
 
@@ -247,6 +267,17 @@ def manager(
                 checkpoint_mode,
                 "--checkpoint-interval-tokens",
                 str(checkpoint_interval),
+                "--resume-target-ms",
+                str(resume_target_ms),
+                "--coverage-policy",
+                coverage_policy,
+                "--recent-window-tokens",
+                str(recent_window_tokens),
+                *(
+                    ["--checkpoint-budget-mib", str(checkpoint_budget_mib)]
+                    if checkpoint_budget_mib is not None
+                    else []
+                ),
             ],
             user=owner.st_uid,
             group=owner.st_gid,
@@ -363,6 +394,10 @@ def main():
                 run / "manager.log",
                 checkpoint_mode=a.checkpoint_mode,
                 checkpoint_interval=a.checkpoint_interval_tokens,
+                resume_target_ms=a.resume_target_ms,
+                coverage_policy=a.coverage_policy,
+                recent_window_tokens=a.recent_window_tokens,
+                checkpoint_budget_mib=a.checkpoint_budget_mib,
             ) as worker:
                 print(
                     f"Branch CLI ready. In a second terminal:\npython3 {HERE/'branchctl.py'} --store {store} list",

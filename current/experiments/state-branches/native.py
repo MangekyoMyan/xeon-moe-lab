@@ -132,6 +132,18 @@ class Native:
             )
 
     def call(self, method, route, body=None, consume=None):
+        request = getattr(self, "boundary_request", None)
+        if route == "/completion" and request and request[0]:
+            from prefix_io import exchange
+
+            return exchange(
+                self,
+                request,
+                lambda plan: self._http(method, route, {**body, "branch_prefix": plan}, consume),
+            )
+        return self._http(method, route, body, consume)
+
+    def _http(self, method, route, body=None, consume=None):
         con = Connection(self.socket, self.epoch)
         issued = False
         try:

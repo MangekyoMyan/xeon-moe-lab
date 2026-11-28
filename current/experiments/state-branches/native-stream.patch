@@ -1,6 +1,41 @@
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -2416,7 +2416,12 @@
+@@ -42,6 +42,8 @@
+ #endif
+ #include <windows.h>
+ #endif
++
++#include "prefix-capture.hpp"
+ 
+ constexpr int HTTP_POLLING_SECONDS = 1;
+ 
+@@ -309,6 +311,8 @@
+ 
+     // used to determine the slot that has been used the longest
+     int64_t t_last_used = -1;
++
++    prefix_plan branch_prefix;
+ 
+     // generation props
+     int32_t n_ctx   = 0;  // context size per slot
+@@ -2095,6 +2099,16 @@
+         // the per-request limit takes priority over the global one
+         slot.n_predict_max = task.params.n_predict != -1 ? task.params.n_predict : params_base.n_predict;
+ 
++        try {
++            slot.branch_prefix.reset(task.slot_action.filepath, slot.n_ctx);
++            if (!slot.branch_prefix.channel.empty() && (slots.size() != 1 || ctx_dft || spec || task.type != SERVER_TASK_TYPE_COMPLETION)) {
++                throw std::runtime_error("prefix capture requires one text completion slot without speculation");
++            }
++        } catch (const std::exception & e) {
++            send_error(task, e.what(), ERROR_TYPE_INVALID_REQUEST);
++            return false;
++        }
++
+         slot.task = std::make_unique<const server_task>(std::move(task));
+ 
+         if (slot.task->type == SERVER_TASK_TYPE_TTS) {
+@@ -2416,7 +2430,12 @@
          // in stream mode, content and tokens are already in last partial chunk
          if (slot.task->params.stream) {
              res->content     = {};
@@ -14,6 +49,83 @@
          } else {
              res->content     = std::move(slot.generated);
              res->tokens      = std::move(slot.generated_tokens);
+@@ -3231,6 +3250,30 @@
+                     std::string filename = task.slot_action.filename;
+                     std::string filepath = task.slot_action.filepath;
+ 
++                    if (filepath.empty()) {
++                        try {
++                            const int pos = slot->prompt.n_tokens();
++                            if (pos <= 0 || ctx_dft || !slot->prompt.checkpoints.empty()) {
++                                throw std::runtime_error("bounded export requires a nonempty full text state without a draft");
++                            }
++                            prefix_plan one;
++                            const json control = {{"channel", filename}, {"stops", std::vector<int>{pos}}, {"captures", std::vector<int>{pos}}};
++                            one.reset(control.dump(), slot->n_ctx);
++                            one.complete(*slot, true);
++                            auto res = std::make_unique<server_task_result_slot_save_load>();
++                            res->id = task.id;
++                            res->id_slot = id_slot;
++                            res->is_save = true;
++                            res->n_tokens = pos;
++                            res->n_bytes = 0;
++                            res->t_ms = (ggml_time_us() - t_start) / 1000.0;
++                            queue_results.send(std::move(res));
++                        } catch (const std::exception & e) {
++                            send_error(task, e.what(), ERROR_TYPE_SERVER);
++                        }
++                        break;
++                    }
++
+                     std::vector<char> packed;
+                     try {
+                         packed = slot->prompt.tokens.serialize();
+@@ -4499,6 +4542,11 @@
+                         }
+                         slot.prompt.tokens.push_back(cur_tok);
+ 
++                        if (!slot.branch_prefix.stops.empty() && slot.branch_prefix.stops.count(slot.prompt.n_tokens())) {
++                            if (slot.branch_prefix.logits) batch.set_output(batch.size() - 1, true);
++                            break;
++                        }
++
+                         // break at the last user message, or at user messages at least min step past the last checkpoint
+                         if (do_checkpoint && spans.is_user_start(slot.prompt.n_tokens())) {
+                             const auto pos = slot.prompt.n_tokens();
+@@ -4816,6 +4864,9 @@
+         };
+ 
+         iterate(slots, [&](server_slot & slot) {
++            if (!slot.branch_prefix.stops.empty() && slot.is_processing() && off + n_batch_tokens == batch.size()) {
++                slot.branch_prefix.complete(slot, slot.state != SLOT_STATE_GENERATING);
++            }
+             // optionally send prompt processing progress
+             if (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_DONE_PROMPT) {
+                 if (slot.task->params.stream && slot.task->params.return_progress) {
+@@ -5364,6 +5415,12 @@
+ 
+             task.apply_chat_session(chat_session);
+ 
++            if (data.contains("branch_prefix")) {
++                if (res_type != TASK_RESPONSE_TYPE_NONE || !std::getenv("XEON_BRANCH_PREFIX_V2")) {
++                    throw std::runtime_error("prefix capture requires the private branch backend");
++                }
++                task.slot_action.filepath = data.at("branch_prefix").dump();
++            }
+             task.id_slot = json_value(data, "id_slot", -1);
+             sse_ping_interval = task.params.sse_ping_interval;
+ 
+@@ -6764,6 +6821,10 @@
+     auto & rd = res->rd;
+     {
+         server_task task(SERVER_TASK_TYPE_SLOT_SAVE);
++        if (request_data.contains("branch_prefix") && std::getenv("XEON_BRANCH_PREFIX_V2")) {
++            filename = request_data.at("branch_prefix").at("channel").get<std::string>();
++            filepath.clear();
++        }
+         task.id = rd.get_new_id();
+         task.slot_action.id_slot  = id_slot;
+         task.slot_action.filename = filename;
 --- a/tools/server/server-task.cpp
 +++ b/tools/server/server-task.cpp
 @@ -348,6 +348,10 @@

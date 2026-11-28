@@ -1,112 +1,100 @@
-# x9ram の会話を保存して枝に戻る
+# x9ramで会話を保存し、前の発言からやり直す
 
-テキスト会話の途中で名前を付け、同じ地点から複数の会話を進められます。枝を切り替えるときに、今の枝の未保存部分を保存します。保存してある枝に戻ると、次の質問から続けられます。
+同じ枝の履歴全体を対象にする `all_history` と、直近の指定トークン数を優先する `recent` を選べます。`checkpoint preview` は、対象範囲、共通部分へ戻る時間の推定、ディスク上の画像容量、履歴トークン毎秒に換算した復帰速度を表示します。計測が足りない項目には「未計測または部分計測」と表示します。
 
-## 実機で使う
+| 設定 | 実際に行うこと |
+|---|---|
+| `off`（既定） | 名前付き保存と枝切替時の保存を行う |
+| `fixed` | テンプレートや特殊トークンを含む実入力の先頭から、N、2N、3N…を評価した時点で完全な状態を採取する。入力処理と生成の両方に適用 |
+| `auto` | 復元・再入力の実測と容量から候補間隔を比較し、復帰時間の目標を満たす範囲で保持量を抑える。計測不足の間は指定した固定間隔を使用 |
 
-サーバーの一つ目の端末で次を実行し、`Branch CLI ready` の表示を待ちます。
+## 独立CLIを起動する
+
+x9ramの端末で実行してください。下の3例のうち1つを選びます。いずれも専用の1スロットを使い、`Branch CLI ready` が表示されたら別の端末から操作できます。最初の端末で Ctrl+C を押すと、起動前に稼働していた通常APIが復帰します。
 
 ```bash
-cd /home/codex/projects/llm-lab/engine-state-phase1-20261128
-sudo ./branch open
+cd /home/codex/projects/llm-lab/checkpoint-v2-20261128
+
+# 実トークン位置を1,024ずつ区切る
+sudo ./branch open --checkpoint-mode fixed --checkpoint-interval-tokens 1024 --checkpoint-budget-mib 1024
 ```
 
-この端末は開いたままにします。1台のGPUを専有するため、通常APIが稼働中なら処理中の要求を待って一時停止します。CLIは専用のUnixソケットで動きます。終了時はこの端末で Ctrl+C を押してください。起動前に動いていた通常APIが復帰します。保存した枝は次回も使えます。
-
-同じサーバーの二つ目の端末で、次を実行します。
+```bash
+# 枝全体を対象に、共通部分への復帰を5秒以内にすることを目指す
+sudo ./branch open --checkpoint-mode auto --checkpoint-interval-tokens 1024 --resume-target-ms 5000 --checkpoint-budget-mib 1024 --coverage-policy all_history
+```
 
 ```bash
-cd /home/codex/projects/llm-lab/engine-state-phase1-20261128
-./branch turn --text 'これから箱番号を一つずつ登録します。'
+# 同じ容量で、現在の枝の末尾4,096トークンを優先する
+sudo ./branch open --checkpoint-mode auto --checkpoint-interval-tokens 1024 --resume-target-ms 5000 --checkpoint-budget-mib 1024 --coverage-policy recent --recent-window-tokens 4096
+```
+
+二つ目の端末でも同じディレクトリに移り、以下を実行します。
+
+```bash
+cd /home/codex/projects/llm-lab/checkpoint-v2-20261128
+./branch checkpoint preview --history-tokens 8192
+./branch --json checkpoint preview --history-tokens 8192 --mode auto --coverage recent --recent 4096 --target-ms 5000
+./branch turn --text '倉庫Aの棚番号は731です。'
+./branch checkpoint status
+./branch --json checkpoint status
+```
+
+`--history-tokens` は想定する履歴全長です。省略すると現在の長さを使います。現在の履歴上で、例えば17トークン目に戻る経路を調べるには `./branch checkpoint preview --return-position 17` を実行します。その位置で入力も終了する場合は `--empty-suffix` を付けます。プレビューは推論、保存、削除、設定変更を伴いません。
+
+| 保持方針 | 評価する範囲 | 容量が厳しいとき |
+|---|---|---|
+| `all_history` | 選んだ枝の先頭から現在地まで | 最も長い再入力区間を広げにくい点を残す |
+| `recent` | 現在地からWトークン前まで。左端に戻るための、それ以前の保存点も考慮 | 指定範囲の再入力を優先。窓外は目標の対象外 |
+
+`currently_available` は現在の枝の実トークン列に合い、画像の存在とサイズを確認できた位置です。実際の復元時にSHA-256と画像内のID列を検証します。`after_plan_forecast` は今の位置から指定の終点まで進んだ場合の試算です。途中で有効化したとき、既に通過した位置には穴が残ります。別の内容に編集すると、その入力と一致する点で再計画します。
+
+## 枝と保存点
+
+```bash
 ./branch mark 共通 --pin
 ./branch fork A --from 共通
 ./branch checkout A
-./branch turn --text 'この枝の箱番号は731です。'
+./branch turn --text 'この枝の検証番号は284です。'
 ./branch checkout main
-./branch fork B --from 共通
-./branch checkout B
-./branch turn --text 'この枝の箱番号は284です。'
-./branch checkout A
-./branch turn --text 'この枝の箱番号を数字だけで答えてください。'
+./branch inspect snapshot 共通
+./branch list
 ```
 
-共通地点にいる間に `mark` してください。各枝に同じ名前や同じ長さのテキストがあっても、内部の枝ID・保存点IDと、実際に処理したトークン列によって区別します。回答本文は受信中に表示します。集計用には `./branch --json turn --text '…'` で、追加処理したトークン数や最初の本文を受信した時刻も取得できます。
+`turn --messages 会話.json` は、役割と本文を持つメッセージ配列をテンプレートに通して編集後の入力を作ります。途中の画像は復帰用の内部状態です。回答・新しい世代・末尾の未評価トークンは、ターンが完了した時点で確定します。途中画像から既知IDを再入力して新しい要求を始められます。中断時点の乱数、サンプラー、文法状態から同じランダム生成を再開する機能は対象外です。
 
-現在のheadがその名前の保存点IDを指している間にもう一度 `mark` すると、画像を確認して同じIDを返します。その画像が退避・欠損・破損していれば `missing_image`、同じ名前が別のheadを指していれば `mark_exists` を返します。どちらの拒否でも枝と保存点の参照を保ちます。現在地を改めて保存するには新しい名前を使ってください。
+`mark`、`fork`、`checkout`、`pin`、`unpin`、`release`、`inspect`、`recover` は引き続き利用できます。新しい名前と保存点の対応は不変です。同じ名前の画像が損傷した場合は新しい名前を使います。画像を外しても確定済みのトークン列と会話は保持します。操作中にネイティブ応答が途絶え、`uncertain` が出た場合は専用CLIを一度閉じ、同じ構成で開き直します。新しいプロセスで確定済みの枝を復元します。
 
-| 操作 | 確認・変更できること |
-|---|---|
-| `./branch list` | 枝名、親、現在の枝、世代、処理済み位置、未入力のサンプル数、最後の利用、再入力数、保持容量 |
-| `./branch inspect branch A` | 枝のheadと、保存済みなら実ファイルのSHA-256・サイズ・実トークンとの一致 |
-| `./branch inspect snapshot 共通` | 名前または不変IDで保存点を検査 |
-| `./branch fork 別案 --from 共通` | 同じ保存点を参照する枝を作成。`--from` を省くと現在地を保存してから分岐 |
-| `./branch pin branch A`、`./branch unpin mark 共通` | 枝のheadまたは名前付き保存点の保持指定 |
-| `./branch release branch B`、`./branch release mark 共通` | 指定した参照を解除。別の枝・保持点に必要な画像は共有を継続。pinを解除してから実行 |
-| `./branch budget 1073741824` | ディスク上のnative画像予算をバイトで指定。初期値は1 GiB |
-| `./branch recover` | 物理スロットが失効したとき、記録してある論理headを再構築 |
+## 見積もりの読み方
 
-予算を超えると、保持指定のない画像を最後の利用順に外します。トークンログ・親子関係は残るため、戻るときに祖先から再入力できます。保持指定と切替に必要な画像が収まらない場合は、その操作をエラーとして返します。SQLiteのメタデータ容量は別に表示します。画像を作る瞬間には、確定前の一時ファイル1件分のディスク空間も使います。
+- 復帰時間は、保存候補の選択、画像検証、実機への復元、共通部分の再入力、その区間内の同期保存が済むまでです。その後に変わった入力を処理する時間、最初の本文までの時間、モデルロードは別に測ります。物理スロットに共通部分が既にあれば、そのまま進めます。
+- 復元した位置で入力がちょうど終わるとき、状態画像には最後のlogitsがありません。一つ前までの利用可能な候補から既知IDを再評価し、当該位置の最初のlogitsを得ます。receiptの `old_replayed` で実数を確認できます。
+- `target_met` は復帰時間に対する `yes / no / unknown` です。新しい保存に使える容量は別項目です。例えばpinで予算を使い切っていても、既存画像から目標時間で戻れる位置があります。画像が欠損すれば、実際の経路は他の一致点または先頭へ戻ります。
+- 換算速度の分子は復帰した位置までの履歴長pです。最大待ち時間と最低換算速度にはそれぞれのpと使用点cを記録します。pが0、時間が0または不明なら対応する速度は空欄です。多数の位置を間引いた場合は、評価点での最大値と範囲全体の不明を別々に表示します。
+- `auto` は同一ビルド・実行設定における直近192件の観測を使います。文脈長、再入力長、実機のオフロードしきい値による区分の近い2～6件から推定します。復元と再入力の合計を比較できるときは速い経路を、根拠が足りないときは最も近い一致点を選びます。候補間隔は基準の1/4〜16倍です。通常の間隔変更には2回の確認を使い、画像書込み時には毎回、正確なサイズで予算を確認します。観測は管理プロセスを閉じるとリセットされます。
 
-## 完了したターンに自動の保存点を置く
+**容量の単位と範囲。** 1 MiB は1,048,576バイトです。有効時のディスク画像予算は、同じストアの名前付き画像、他枝・pin・共有画像、書込み途中の1画像を含みます。共有SHAは1回計上します。画像を書き始める前にネイティブ側で完全状態の長さを確定し、管理側は予約したバイト数まで受信します。公開後は同じファイルをrenameします。SQLite・WAL、OSのページキャッシュ、ネイティブの一時RAM、VRAMはこの上限の外です。`off` では従来の確定画像予算を使います。`./branch budget バイト数` で容量を変更できます。保護中の画像が収まらない変更は拒否し、以前の上限を保ちます。
 
-一つ目の端末で次のいずれかを実行します。二つ目の端末の操作例は上と同じです。
+**表示を検算するための仮想例。** 履歴8,192のうち4,096〜8,192を対象に、256ずつ離れた17点を置きます。各画像32 MiB、復元250 ms、再入力1,024 tokens/sと仮定すると、最大待ちは499.0234375 ms、最低換算速度はp=4,351、c=4,096で約8,719 tokens/sです。保持は544 MiB、さらに32 MiBを同時に書く場合のピークは576 MiBです。実機の値は実測報告にあります。[推定式と再現試験](test_checkpoints.py)
 
-| 起動コマンド | 完了したターンでの動作 |
-|---|---|
-| `sudo ./branch open` | 既定の `off`。明示した保存と、枝を切り替えるために必要な保存を行う |
-| `sudo ./branch open --checkpoint-mode fixed --checkpoint-interval-tokens 1024` | 復帰できそうな最も近い祖先から1,024トークン以上進んだ最初のターン末尾で保存 |
-| `sudo ./branch open --checkpoint-mode auto --checkpoint-interval-tokens 1024` | 実測費用で判断する。比較できる観測が足りない間は指定した固定間隔を使う |
+## 対応する専用ビルド
 
-間隔は正の整数で、既定は1,024です。長い1ターンは境界まで全体を処理するため、再入力が1,024トークンを超える場合があります。保存位置は実際に評価したID列の末尾で、サンプル済みの未入力IDはその先に保持します。既存の不変snapshotを作り、名前付きmarkやpinを増やしません。明示的な保持が必要な位置は従来どおり `mark --pin` で指定できます。
-
-途中を編集すると、その入力とトークン単位で一致する保存祖先から先を再処理します。一つのターンの中にツール結果が複数あっても、ターン途中に新しい保存点は生まれません。判断時は枝・実トークンprefix・画像の所在とサイズのヒントを使い、実際に復元する時点でSHAと画像内のトークン列を検証します。
-
-**autoの計算。** Aを使える祖先、Bを現在地とし、Bへ将来一度戻ると仮定します。`既知IDの再prefill費 P(A,B) ＋ 復元費 R(A) － 復元費 R(B) > 1.5 × 追加保存費 S(B)` で保存します。各費用はミリ秒です。初回本文は通常どおりストリームで届き、保存は回答の確定後、最終receiptの前に行います。一度も戻らなければ保存費は追加の待ち時間になります。
-
-- Pは検証済みの生成・replayが返した `prompt_ms` と新規処理数 `prompt_n` から計算します。この構成では新規128未満と128以上を経験的に分けます。実際のオフロード条件は各演算のバッチ長に適用されます。複数ubatchを含む要求では複数の経路があり得ます。
-- 各区分の直近8件のうち、候補と長さが半分～2倍の成功観測が3件以上あるときに使用します。Pは合計ms÷合計トークンによる加重単価です。Sは任意保存の処理中記録・native保存・境界とSHAの照合・同期・公開・後処理を含む時間の中央値です。実際に保存を行って既存SHAと一致した場合もその費用を含めます。
-- Rは選択・検証・復元を終えて再入力を始められるまでです。checkout／recoverと編集時の経路を分け、直近に通った同じ経路でAとBをそれぞれ推定します。空から開始するときだけ、erase観測不足ならR(A)の下限0を使います。観測窓は同じ実行設定のmanager内のRAMに持ち、再起動でリセットします。互換性のあるLinuxの専用バックエンドでは `branchctl.py --store ... serve --binding ...` にも同じ二つの引数を指定できます。
-
-`./branch status` の `checkpoint_policy` にモード、間隔、観測・採用・見送り数が出ます。`./branch --json turn ...` の `checkpoint` には、根拠、アンカー、距離、各推定値、実保存時間と結果が入ります。既知の予算／書込みエラーは、確定済みの回答とともに返します。同じ枝・容量条件・候補サイズ帯で同じ予算不足が続く間は再試行を抑えます。画像予算のほかに、各保存点のトークン・メッセージによるSQLite使用量があります。
-
-`turn_committed: true` は、そのターンが保存済みであることを示します。`saved_cleanup_warning` の保存点は公開済みで、後処理に問題があります。`failed` と `slot_mode: invalid` なら `recover` を使います。`unknown` なら閉じて専用エンジンを開き直し、最後に確定した枝から続けてください。既存のcheckout中の復旧手順も引き続き利用できます。[判断式のコード](checkpoint_policy.py)・[実機での対応比較](../../../archive/review-handoffs-not-for-readers/2026-11-28-adaptive-checkpoints/RESULTS_JA.md)
-
-## 入力と復帰の意味
-
-`turn --messages 会話.json` には、役割と本文を持つメッセージ配列を渡せます。テキストと記録済みのツール結果をテンプレートに通し、正規化したトークン列を照合します。復帰時には記録済みのツール結果を入力として再利用します。現在地の全トークン列が新しい入力の先頭と一致すれば、そのまま続きを処理します。編集した場合は、一致する祖先のうち最も長い保存点を選びます。適合する画像がなければ先頭から計算し、実際の再利用・再計算数を返します。
-
-対象は完了したターンからの続行です。生成済みの末尾1トークンは、まだモデルに入力されていない場合があります。処理済み列とサンプル済みの末尾を別に保存し、次のターンのテンプレートが要求する分を一度だけ評価します。乱数状態を含む文字途中からの生成、画像入力、Open WebUIの分岐操作との連携は未検証です。
-
-## 実装と回復
-
-管理プロセスが専用スロットの唯一の利用者になります。すべての会話入力と切替を同じキューで順番に扱い、同一バックエンドや保存領域に二つの管理プロセスを起動すると拒否します。CLIの変更要求は、セッション・元の枝ID・head世代・全体の更新番号を照合します。自動処理側で取得したticketを固定したいときは `--at '保存したticketのJSON'` を使えます。接続先のプロセスはUnixソケットのpeer資格情報、起動時刻とboot IDで識別します。[CLIと単一ライター](branchctl.py)
-
-切替は、出発した枝の確定保存、移動先の画像検証と復元、SQLite上のactive切替の順です。nativeが復元失敗を返した場合は元の枝を復元します。元の枝も復元できないときは論理headを保持し、物理スロットを失効扱いにします。要求の完了が不明な通信切断や管理プロセスの異常終了では、遅延した要求との衝突を避けるため、そのネイティブプロセスの世代を隔離します。この場合は最初の端末で閉じて専用エンジンを開き直すと、確定済みheadから復帰します。[枝の操作と世代照合](manager.py)
-
-保存ファイルは既存の完全native形式です。ステージングファイルの処理済みトークン・サイズ・SHA-256を確認し、ファイルとディレクトリを同期してからSQLiteのトランザクションを確定します。枝と保存点に別のIDを割り当て、画像本体はSHA-256で共有します。利用者のデータはサーバーの `user-store/` に保存します。[画像・メタデータ・保持予算](storage.py)
-
-専用ビルドは、nativeのストリーム最終応答で `branch_sampled_ids` を明示要求したときに、サンプルされたIDの全列を返します。UTF-8の途中で個別イベントが保留されても末尾の境界を照合できます。演算は通常版のCPU・CUDA・ggml-base・llamaのライブラリが担当します。独立環境の一般／MXしきい値は128/128、入力／生成は24/24です。[スロット形式とストリーミングの処理](native.py)・[HTTP側の変更](native-stream.patch)
-
-## 開発用の再現
-
-Pythonの標準ライブラリだけで回帰試験を実行できます。
+x9ramではDeepSeekのテキスト用スロット1個と、同期式のローカルディスク保存を使用します。専用コーデック `XKV1` はDSV4の圧縮状態に加え、raw KVの使用中セル、物理位置、次の配置位置を記録します。通常API、旧CLI、既存の会話ストアはそれぞれ元の実行条件で使えます。今回の実機用ディレクトリには独立したストアが作られます。
 
 ```bash
-python3 -B -m unittest discover -s current/experiments/state-branches -p 'test_*.py'
+# このディレクトリのLinux向け回帰試験。モデルとGPUは不要
+python3 -B -m unittest discover -q
 ```
 
-この実機でHTTPアダプターを再ビルドする際は、リポジトリのルートから次を実行します。出力先には新しいディレクトリを指定してください。配備済みサーバーのビルド記録とオブジェクトを再利用し、サーバーの翻訳単位2件をコンパイルします。
+同じx9ramビルドを再現する場合は、空の出力ディレクトリを選び、次を順に実行します。
 
 ```bash
-python3 scripts/prepare_source.py --profile current
-python3 current/experiments/state-branches/build_adapter.py \
-  --source work/current-source \
-  --build /home/codex/projects/llm-lab/deepseek41-bringup-20261101/build \
-  --output /tmp/xeon-branch-private-build
+lab=/home/codex/projects/llm-lab
+engine="$lab/deepseek41-bringup-20261101"
+out="$lab/checkpoint-v2-rebuild/build"
+python3 build_adapter.py --source "$engine/source" --build "$engine/build" --output "$out"
+python3 build_layout.py --source "$engine/source" --build "$engine/build" --link-receipt "$lab/exploration-20261112/sparse-cache/LOADER_BUILD.json" --output "$out/physical"
 ```
 
-このサーバーの実験用ワークスペースはビルド済みです。別のワークスペースを用意する場合、ランチャーは `$XEON_BRANCH_WORKSPACE/build/libllama-server-impl.so` と同じ場所の `BUILD.json` を使用します。
+最初のコマンドは専用HTTPアダプターを、次のコマンドはKV保存・復元を含むモデルライブラリを作ります。後者は元のリンク入力から配備済みライブラリと同じSHA-256になることを先に検証します。LinuxのCLI・ストア・プランナーはPython標準ライブラリで動きます。x9ram用の起動・保護監視とDSV4コーデックは、この実機の構成に依存します。[ネイティブでの同期保存](prefix-capture.hpp)・[KV配置の保存形式](physical-layout.patch)・[実機の比較結果](../../../archive/review-handoffs-not-for-readers/2026-11-28-prefix-checkpoints/RESULTS_JA.md)
 
-独立試験で測定した往復、欠損時の再入力、全語彙の照合結果は実測記録にあります。[実機での検証](../../../archive/review-handoffs-not-for-readers/2026-11-28-state-branches/RESULTS_JA.md)
-
-285トークンと約16kトークンの切替では、画像の書き込み・検証・SQLiteの確定を個別に計測しました。復元に成功した画像の最終利用時刻は、枝の切替が確定するトランザクションで記録します。[切替費用と編集したツール結果の検証](../../../archive/review-handoffs-not-for-readers/2026-11-28-branch-switch-cost/RESULTS_JA.md)

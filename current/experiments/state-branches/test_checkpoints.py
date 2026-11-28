@@ -1,363 +1,302 @@
-"""Placement and failure boundaries, without a model or GPU."""
+"""Detect logical-head corruption, inaccurate boundaries, optimism about coverage and over-budget staging."""
 
+import io
 import json
-import os
 from pathlib import Path
-import sqlite3
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
-
-from checkpoint_policy import CheckpointPolicy
+from native import Error, Uncertain, image_tokens, pack, unpack
 from manager import Manager
-from native import Error, Native, Uncertain, pack
 from storage import Store
 from test_branches import SmallSlot
+from planner import Config, Profile, evaluate, eviction, plan, resume_route
+from prefix_io import read_image
 
 
-class PolicyTests(unittest.TestCase):
-    def test_nonfinite_aggregate_falls_back_with_a_serializable_receipt(self):
-        p = CheckpointPolicy("auto", 8)
-        for _ in range(4):
-            p.observe_prefill({"prompt_n": 32, "prompt_ms": 1.6e308})
-            p.observe_save(64, 900, 1.6e308)
-            p.observe_restore("place", 48, 900, 1.6e308)
-        decision = p.decide("old", 32, 64)
-        self.assertEqual(decision["basis"], "cold_fallback")
-        self.assertIsNone(decision["estimate_ms"]["replay"])
-        self.assertIsNone(decision["estimate_ms"]["save"])
-        json.dumps(decision, allow_nan=False)
+class Linear:
+    def restore(self, c):
+        return 250
 
-    def test_only_validated_native_replay_feeds_prompt_cost(self):
-        p = CheckpointPolicy("auto", 1)
+    def prefill(self, c, n):
+        return 1000 * n / 1024
 
-        class Engine:
-            prefill_observer = p.observe_prefill
-            result = {"tokens_cached": 4, "timings": {"cache_n": 1, "prompt_n": 3, "prompt_ms": 5}}
+    def save(self, c):
+        return 50
 
-            def call(self, *args):
-                return self.result
+    def image_size(self, p):
+        return 32 * 1024**2
 
-        e = Engine()
-        self.assertEqual(Native.replay(e, pack([1, 2, 3, 4]), True), 3)
-        self.assertEqual(p.observed["prefill"], 1)
-        e.result["timings"].pop("prompt_ms")
-        self.assertEqual(Native.replay(e, pack([1, 2, 3, 4]), True), 3)
-        self.assertEqual(p.observed["prefill"], 1)
-        e.result["tokens_cached"] = 2
-        with self.assertRaises(Error):
-            Native.replay(e, pack([1, 2, 3, 4]), True)
+    def basis(self):
+        return {"observations": {"prefill": 4}, "samples": 12}
 
-    def test_fixed_boundary_and_one_return_cost_model(self):
-        fixed = CheckpointPolicy("fixed", 8)
-        for d, status in [(7, "skipped"), (8, "attempt"), (38, "attempt"), (0, "skipped")]:
-            self.assertEqual(fixed.decide(None, 0, d)["status"], status)
-        p = CheckpointPolicy("auto", 8, runtime="one", thresholds=(128, 64))
-        for n, ms in [(4, 8), (8, 8), (16, 8)]:
-            p.observe_prefill(
-                {"prompt_ms": ms, "prompt_n": n, "cache_n": 10000, "predicted_ms": 100000}
+
+class Planning(unittest.TestCase):
+    def test_readme_fixture_all_integer_positions(self):
+        positions = list(range(4096, 8193, 256))
+        size = 32 * 1024**2
+        v = evaluate((4096, 8192), positions, Linear(), 500)
+        self.assertEqual(v["max_replay_tokens"], 255)
+        self.assertEqual(v["estimated_max_resume"], dict(p=4351, c=4096, ms=499.0234375))
+        minimum = v["estimated_min_equivalent"]
+        self.assertEqual((minimum["p"], minimum["c"]), (4351, 4096))
+        self.assertAlmostEqual(minimum["tokens_per_second"], 1000 * 4351 / 499.0234375)
+        self.assertEqual(len(positions) * size, 544 * 1024**2)
+        self.assertEqual((len(positions) + 1) * size, 576 * 1024**2)
+
+    def test_cost_can_favour_more_distant_point_and_empty_suffix(self):
+        class Slow(Linear):
+            def restore(self, c):
+                return {0: 2500, 8: 50, 16: 900}[c]
+
+            def prefill(self, c, n):
+                return n * n if n else 0
+
+        self.assertEqual(resume_route(19, [8, 16], Slow())[:2], (8, 171))
+        self.assertEqual(resume_route(8, [8], Slow(), strict=True)[0], 0)
+        self.assertEqual(evaluate((8, 8), [8], Slow(), 30)["target_met"], "no")
+
+    def test_budget_and_time_are_independent(self):
+        rows = {"pin": dict(bytes=200, protected=True, positions=[8])}
+        v = plan(Config("fixed", 8, 2000, "recent", 2), "b", 8, 10, rows, 200, Linear())
+        self.assertEqual(v["requested_range"], (8, 10))
+        self.assertFalse(v["capacity"]["new_save_possible"])
+        self.assertEqual(v["current"]["target_met"], "yes")
+        cold = plan(Config("auto", 8), "b", 24, 33, rows, 200, Profile("x"))
+        self.assertIsNone(cold["current"]["estimated_max_resume"])
+        self.assertEqual(cold["current"]["target_met"], "unknown")
+        self.assertNotIn(16, cold["after_plan_forecast"]["expected_retained"])
+        self.assertEqual(cold["after_plan_forecast"]["attempt_positions"], [32])
+
+    def test_each_retention_policy_keeps_its_own_range_and_pin(self):
+        rows = {
+            str(p): dict(bytes=10, protected=(p == 16), positions=[p]) for p in (16, 32, 48, 64)
+        }
+        a = eviction(rows, 10, 40, (0, 80), 80)
+        r = eviction(rows, 10, 40, (64, 80), 80)
+        self.assertIsNotNone(r)
+        self.assertNotIn("16", r)
+        self.assertNotIn("64", r)
+        self.assertNotEqual(a, r)
+        self.assertIsNone(eviction(rows, 41, 40, (64, 80), 80))
+
+    def test_zero_partial_and_preview_hysteresis(self):
+        class Zero(Linear):
+            def restore(self, c):
+                return 0
+
+            def prefill(self, c, n):
+                return 0
+
+        self.assertIsNone(evaluate((0, 1), [], Zero(), 5)["estimated_min_equivalent"])
+        data = dict(
+            config=Config("auto", 8, target_ms=265),
+            branch="b",
+            start=0,
+            history=32,
+            rows={},
+            budget=300 * 1024**2,
+            costs=Linear(),
+            hysteresis={"interval": 8},
+        )
+        a = plan(**data)
+        b = plan(**data)
+        self.assertEqual(a, b)
+        self.assertEqual(data["hysteresis"], {"interval": 8})
+        second = plan(**{**data, "hysteresis": a["hysteresis_after"]})
+        self.assertEqual(second["chosen_interval"], second["hysteresis_after"]["pending"])
+        cold = Profile("x")
+        cold.add("prefill", 1, 7, float("nan"))
+        self.assertEqual(cold.rows, [])
+        json.dumps(a, allow_nan=False)
+
+
+class Replies:
+    def __init__(self):
+        self.ack = []
+
+    def sendall(self, v):
+        self.ack.append(v)
+
+
+class Slot(SmallSlot):
+    def forward(self, ids, prompt_n, maximum, emit):
+        start = len(self.live) // 4
+        values = ids + [65] * (maximum - 1)
+        plan = self.boundary_request
+        for pos in plan[0] if plan else []:
+            if not start < pos <= len(values):
+                continue
+            self.live = pack(values[:pos])
+            blob = b""
+            if pos in plan[1]:
+                p, _, _ = self.save(self.live)
+                blob = p.read_bytes()
+                p.unlink()
+            conn = Replies()
+            plan[2](
+                dict(
+                    position=pos,
+                    bytes=len(blob),
+                    phase="prefill" if pos <= prompt_n else "decode",
+                    arrived_ns=time.monotonic_ns(),
+                ),
+                conn,
+                io.BytesIO(blob),
             )
-        for _ in range(3):
-            p.observe_save(16, 900, 4)
-            p.observe_restore("place", 3, 300, 8)
-            p.observe_restore("place", 16, 900, 10)
-        # Position ranges overlap only where explicitly allowed.
-        r = p.decide("p", 3, 16)
-        self.assertEqual(r["basis"], "cold_fallback")  # only 8 and 16 are near distance 13
-        p.observe_prefill({"prompt_n": 13, "prompt_ms": 26})
-        r = p.decide("p", 3, 16)
-        self.assertEqual(r["basis"], "cost_model")
-        self.assertAlmostEqual(r["estimate_ms"]["replay"], 13 * (8 + 8 + 26) / (8 + 16 + 13))
-        self.assertEqual(
-            (r["estimate_ms"]["restore_anchor"], r["estimate_ms"]["restore_candidate"]), (8, 10)
-        )
-        self.assertTrue(r["model_accept"])
-        self.assertEqual(p.decide(None, 0, 600)["basis"], "cold_fallback")
-        p.observe_restore("prepare_turn", 16, 900, 9)
-        self.assertEqual(p.decide("p", 3, 16)["basis"], "cold_fallback")
-        self.assertEqual(
-            CheckpointPolicy("auto", 8, runtime="two").decide("p", 3, 16)["samples"]["prefill"], 0
+            if getattr(self, "break_after", None) == pos:
+                raise Uncertain("cancelled", "fixture interrupt")
+        self.live = pack(values)
+        emit("A")
+        return dict(
+            content="A",
+            sampled=[65] * (maximum - 1) + [1],
+            timings={"cache_n": start, "prompt_n": len(ids) - start, "predicted_n": maximum},
         )
 
-    def test_equal_cost_missing_samples_and_sliding_windows(self):
-        p = CheckpointPolicy("auto", 1024, thresholds=(128, 128))
-        for bad in (0, -1, None, True, float("inf"), float("nan")):
-            p.observe_prefill({"prompt_n": 32, "prompt_ms": bad})
-        p.observe_prefill({"prompt_n": 0, "prompt_ms": 3})
-        p.observe_prefill({"prompt_n": 32})
-        self.assertFalse(p.observed)
-        for _ in range(3):
-            p.observe_prefill({"prompt_n": 32, "prompt_ms": 15})
-            p.observe_save(232, 888, 10)
-            p.observe_restore("place", 200, 777, 3)
-        r = p.decide("p", 200, 232)
-        self.assertEqual(r["estimate_ms"]["gain"], 15)
-        self.assertFalse(r["model_accept"])
-        p.observe_prefill({"prompt_n": 32, "prompt_ms": 150})
-        self.assertTrue(p.decide("p", 200, 232)["model_accept"])
-        for _ in range(8):
-            p.observe_prefill({"prompt_n": 32, "prompt_ms": 15})
-        self.assertFalse(p.decide("p", 200, 232)["model_accept"])
-        for _ in range(4):
-            p.observe_prefill({"prompt_n": 128, "prompt_ms": 100})
-        self.assertEqual(p.decide("p", 200, 327)["samples"]["prefill"], 0)
-        self.assertEqual(p.decide("p", 200, 328)["samples"]["prefill"], 4)
-        q = p.decide(None, 0, 232)
-        self.assertTrue(q["empty_lower_bound"])
-        self.assertEqual(q["estimate_ms"]["restore_anchor"], 0.0)
-        p.budget_failed("A", 130, (20, 10, ()))
-        self.assertTrue(p.blocked("A", 142, (20, 10, ())))
-        for args in [("A", 129, (20, 10, ())), ("B", 142, (20, 10, ())), ("A", 142, (100, 10, ()))]:
-            self.assertFalse(p.blocked(*args))
+    def generate(self, ids, maximum, emit):
+        return self.forward(ids, len(ids), maximum, emit)
+
+    def replay(self, tokens, cache):
+        start = len(self.live) // 4
+        self.forward(unpack(tokens), len(tokens) // 4, 1, lambda _: None)
+        return len(tokens) // 4 - start
 
 
-class TextSlot(SmallSlot):
-    def render(self, messages):
-        text = "".join(("|" if m["role"] == "user" else "") + m["content"] for m in messages)
-        return [0, *text.encode()]
-
-
-class ManagerTests(unittest.TestCase):
+class Integration(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
-        self.n = TextSlot(self.root)
-        self.s = Store(self.root, self.n, 10_000)
+        p = Path(self.tmp.name)
+        self.n = Slot(p)
+        self.s = Store(p, self.n, 2000)
         self.addCleanup(self.s.db.close)
-        self.m = Manager(self.s, "fixed", 1)
+        self.m = Manager(self.s, "fixed", 4)
+        # Separate integration tests on the real native slot cover bounded named saves.
+        self.s.bounded_save = None
         self.do("recover")
 
     def do(self, op, **kw):
-        return self.m.handle({"op": op, "ticket": self.s.stamp(), **kw})
+        return self.m.handle(dict(op=op, ticket=self.s.stamp(), **kw))
 
-    def test_off_and_optional_publication_tickets_and_edit_ancestry(self):
-        self.m = Manager(self.s)
-        first = self.s.stamp()
-        with patch.object(
-            self.n, "save", side_effect=AssertionError("off wrote an image")
-        ), patch.object(
-            self.s, "checkpoint_anchor", side_effect=AssertionError("off scanned ancestors")
-        ):
-            x = self.do("turn", text="introduction")
-        self.assertEqual(x["checkpoint"]["status"], "disabled")
-        self.assertEqual(x["ticket"]["revision"], first["revision"] + 1)
-        self.m = Manager(self.s, "fixed", 1)
-        a = self.do("turn", text="P")
-        p = a["checkpoint"]["snapshot_id"]
-        head = self.s.snap(p)
-        self.assertEqual(head["tokens"], self.n.live)
-        self.assertEqual(head["pending"], pack([1]))
-        self.assertEqual(a["ticket"]["generation"], first["generation"] + 2)
-        self.assertEqual(a["ticket"]["revision"], x["ticket"]["revision"] + 2)
-        with self.assertRaisesRegex(Error, "generation changed"):
-            self.m.handle({"op": "mark", "name": "late", "ticket": x["ticket"]})
-        self.assertEqual(a["ticket"], self.do("status")["ticket"])
-        self.assertEqual(self.s.db.execute("SELECT count(*) FROM marks").fetchone()[0], 0)
-        self.assertEqual(self.do("mark", name="pin-me", pin=True)["snapshot"]["id"], p)
-        b = self.do("turn", text="number 731")
-        q = b["checkpoint"]["snapshot_id"]
-        later = self.do("turn", text="after B")["checkpoint"]["snapshot_id"]
-        messages = json.loads(head["messages"]) + [{"role": "user", "content": "number 284"}]
-        edit = self.do("turn", messages=messages)
-        self.assertEqual(edit["restored_prefix"], p)
-        self.assertEqual(edit["checkpoint"]["anchor_id"], p)
-        self.assertEqual(self.s.snap(edit["checkpoint"]["snapshot_id"])["parent"], later)
-        self.assertNotEqual(q, edit["checkpoint"]["anchor_id"])
-        self.assertEqual(self.s.control()["mode"], "ready")
-
-    def test_anchor_hint_residency_and_longer_ancestor_after_edit(self):
-        p = self.do("turn", text="root")["checkpoint"]["snapshot_id"]
-        longer = self.do("turn", text="a longer suffix")["checkpoint"]["snapshot_id"]
-        self.m = Manager(self.s, "fixed", 1000)
-        old = self.s.snap(p)
-        z = self.do(
-            "turn", messages=json.loads(old["messages"]) + [{"role": "user", "content": "x"}]
-        )
-        self.assertEqual(z["checkpoint"]["anchor_id"], p)
-        with patch(
-            "storage.digest", side_effect=AssertionError("checkpoint decision read whole image")
-        ):
-            z = self.do("turn", text="more")
-        self.assertEqual(z["checkpoint"]["anchor_id"], p)
-        self.do("budget", bytes=1)
-        z = self.do("turn", text="again")
-        self.assertIsNone(z["checkpoint"]["anchor_id"])
-        self.assertEqual(z["checkpoint"]["distance_tokens"], z["processed"])
-        self.assertEqual(self.s.resolve(longer)["id"], longer)
-
-    def test_committed_turn_survives_known_failure_and_budget_retries(self):
-        self.do("budget", bytes=112)
-        calls = []
-        original = self.n.save
-
-        def larger(ids):
-            calls.append(1)
-            path, _, _ = original(ids)
-            with path.open("ab") as f:
-                f.write(bytes(1000))
-            from native import digest
-
-            return path, digest(path), path.stat().st_size
-
-        with patch.object(self.n, "save", side_effect=larger):
-            t = self.s.stamp()
-            a = self.do("turn", text="abcdefgh")
-            b = self.do("turn", text="x")
-            self.assertEqual(a["checkpoint"]["status"], "failed")
-            self.assertEqual(a["checkpoint"]["reason"], "budget")
-            self.assertEqual(b["checkpoint"]["reason"], "budget_retry_suppressed")
-            self.assertEqual(len(calls), 1)
-            self.do("budget", bytes=5000)
-            c = self.do("turn", text="y")
-            self.assertEqual(c["checkpoint"]["status"], "saved")
-        self.assertEqual(a["ticket"]["revision"], t["revision"] + 1)
-        self.assertEqual(self.s.branch()["gen"], 3)
-        self.assertEqual(len(json.loads(self.s.branch()["messages"])), 6)
-        self.assertEqual(self.s.branch()["tokens"], self.n.live)
-
-    def test_abort_before_commit_and_warning_after_commit(self):
-        start = self.s.stamp()
-        self.s.db.execute(
-            """CREATE TEMP TRIGGER cancel_autosave BEFORE INSERT ON snapshots
-               BEGIN SELECT RAISE(ABORT,'injected snapshot failure'); END"""
-        )
-        x = self.do("turn", text="a")
-        self.assertTrue(x["turn_committed"])
-        self.assertEqual(x["checkpoint"]["status"], "failed")
-        self.assertEqual(x["ticket"]["revision"], start["revision"] + 1)
+    def test_decode_tail_absolute_grid_and_preview_read_only(self):
+        ticket = self.s.stamp()
+        q = dict(op="checkpoint", history=13)
+        a = self.m.handle(q)
+        self.assertEqual(a, self.m.handle(q))
+        self.assertEqual(self.s.stamp(), ticket)
+        r = self.do("turn", text="abcdefgh", max_tokens=5)
+        self.assertEqual(r["checkpoint"]["plan_id"], a["plan_id"])
+        points = [
+            (e["position"], e["phase"]) for e in r["checkpoint"]["events"] if e["status"] == "saved"
+        ]
+        self.assertEqual(points, [(4, "prefill"), (8, "prefill"), (12, "decode")])
+        self.assertEqual(r["processed"], 13)
         self.assertIsNone(self.s.branch()["head"])
-        self.assertEqual(self.s.control()["mode"], "ready")
-        self.s.db.execute("DROP TRIGGER cancel_autosave")
-        with patch.object(self.s, "clean_files", side_effect=OSError("synthetic cleanup")):
-            y = self.do("turn", text="b")
-        c = y["checkpoint"]
-        self.assertEqual(c["status"], "saved_cleanup_warning")
-        self.assertEqual(c["snapshot_id"], self.s.branch()["head"])
-        self.assertTrue(c["snapshot_committed"])
-        self.assertEqual(y["ticket"]["revision"], x["ticket"]["revision"] + 2)
-        self.assertEqual(self.s.snap(c["snapshot_id"])["tokens"], self.n.live)
+        self.assertEqual(self.s.branch()["gen"], 1)
+        self.do("mark", name="not-on-grid")
+        r = self.do(
+            "turn", messages=[dict(role="user", content="abcdefghAAAAxyzxyz")], max_tokens=1
+        )
+        self.assertIn(16, [e["position"] for e in r["checkpoint"]["events"]])
+        self.assertNotIn(
+            17, [e["position"] for e in r["checkpoint"]["events"] if e["status"] == "saved"]
+        )
 
-    def test_ambiguous_save_and_bad_boundary_do_not_regenerate(self):
-        with patch.object(self.n, "save", side_effect=Uncertain("native_outcome_unknown", "lost")):
-            x = self.do("turn", text="P")
-        self.assertTrue(x["turn_committed"])
-        self.assertEqual(x["checkpoint"]["status"], "unknown")
+    def test_before_on_after_edits_and_zero_suffix(self):
+        for p in (7, 8, 9):
+            self.do("turn", messages=[dict(role="user", content="abcdefghijkl")], max_tokens=1)
+            text = "abcdefghijkl"[: p - 1] + "ZZ"
+            r = self.do("turn", messages=[dict(role="user", content=text)], max_tokens=1)["resume"]
+            self.assertEqual(
+                (r["common_prefix"], r["from_position"], r["old_replayed"]),
+                (p, 4 * (p // 4), p % 4),
+            )
+        self.do("turn", messages=[dict(role="user", content="abcdefghijkl")], max_tokens=1)
+        r = self.do("turn", messages=[dict(role="user", content="abcdefg")], max_tokens=1)["resume"]
+        self.assertEqual(
+            (r["common_prefix"], r["from_position"], r["old_replayed"], r["new_input"]),
+            (8, 4, 4, 0),
+        )
+
+    def test_damage_ancestors_and_cancel_do_not_move_head(self):
+        self.do("turn", text="abcdefghijkl", max_tokens=1)
+        row = self.s.db.execute("SELECT * FROM anchors WHERE length(tokens)=32").fetchone()
+        path = self.n.images / (row["sha"] + ".slot")
+        raw = path.read_bytes()
+        path.chmod(0o600)
+        path.write_bytes(raw[:-1] + b"!")
+        r = self.do("turn", messages=[dict(role="user", content="abcdefgZ")], max_tokens=1)[
+            "resume"
+        ]
+        self.assertEqual(r["from_position"], 4)
+        self.assertTrue(any(x["reason"] == "damaged" for x in r["skipped"]))
+        old = dict(self.s.branch())
+        self.n.break_after = 12
+        with self.assertRaises(Uncertain):
+            self.do(
+                "turn", messages=[dict(role="user", content="different abcdefghijkl")], max_tokens=1
+            )
+        self.assertEqual(dict(self.s.branch()), old)
         self.assertEqual(self.s.control()["mode"], "uncertain")
         with self.assertRaises(Error):
             self.do("recover")
-        expected = self.s.branch()["tokens"]
-        self.n.epoch = "fresh"
-        s = Store(self.root, self.n, 10_000)
-        self.addCleanup(s.db.close)
-        self.s = s
-        self.m = Manager(s, "fixed", 1)
-        with patch.object(
-            self.n, "generate", side_effect=AssertionError("generated during recovery")
-        ):
-            self.do("recover")
-        self.assertEqual(self.n.live, expected)
-        self.assertEqual(self.s.branch()["gen"], 1)
-        with patch.object(
-            self.n, "save", side_effect=Error("boundary_mismatch", "synthetic boundary")
-        ):
-            out = self.do("turn", text="B")
-        self.assertEqual(out["checkpoint"]["status"], "failed")
-        self.assertEqual(self.s.control()["mode"], "invalid")
-        self.assertEqual(self.s.branch()["gen"], 2)
-        self.assertEqual(self.s.branch()["pending"], pack([1]))
 
-    def test_required_checkout_keeps_mutating_until_target_commit(self):
-        self.m = Manager(self.s, "fixed", 1000)
-        self.do("turn", text="parent")
+    def test_prewrite_cap_and_missing_and_shared_references(self):
+        r = self.do("turn", text="abcdefghijkl", max_tokens=1)
         self.do("mark", name="parent", pin=True)
-        self.do("fork", name="B")
-        self.do("turn", text="dirty")
-        stamp = self.s.stamp()
-        original = self.n.restore
-
-        def see(sha, tokens, size):
-            self.assertEqual(self.s.control()["mode"], "mutating")
-            self.assertEqual(self.s.stamp(), stamp)
-            self.assertIsNotNone(self.s.branch()["head"])
-            return original(sha, tokens, size)
-
-        with patch.object(self.n, "restore", side_effect=see):
-            switched = self.do("checkout", name="B")
-        self.assertTrue(switched["exact_head"])
-        self.assertEqual(self.s.stamp()["revision"], stamp["revision"] + 1)
-
-    def test_capacity_allows_eviction_and_records_the_victim(self):
-        p = self.do("turn", text="parent")["checkpoint"]
-        self.do("budget", bytes=p["image_bytes"] + 45)
-        b = self.do("turn", text="child")["checkpoint"]
-        self.assertEqual(b["status"], "saved")
-        original = self.s.snap(p["snapshot_id"])
-        self.assertEqual(b["evicted"], [original["sha"]])
-        self.assertEqual(self.s.valid(original), "evicted")
-        self.do("budget", bytes=1)
-        with patch.object(
-            self.n, "save", side_effect=AssertionError("predictably impossible save")
-        ):
-            result = self.do("turn", text="next")
-        self.assertEqual(result["checkpoint"]["reason"], "budget")
-        self.assertEqual(result["checkpoint"]["checkpoint_elapsed_ms"], 0)
-
-    def test_hint_reconsiders_an_older_longer_exact_prefix_as_the_boundary_grows(self):
-        short = self.do("turn", text="root")["checkpoint"]["snapshot_id"]
-        long = self.do("turn", text="a long suffix")["checkpoint"]["snapshot_id"]
-        z = self.s.snap(long)
-        short_ids = self.s.snap(short)["tokens"]
-        # Reconstruct a shorter live prefix while retaining the longer point in its ancestry.
-        branch = dict(self.s.branch())
-        self.s.db.execute("UPDATE branches SET tokens=?", (z["tokens"][:-4],))
-        a, hint = self.s.checkpoint_anchor(branch, len(z["tokens"]) // 4 - 1, False, None, None)
-        self.assertEqual(a["id"], short)
-        self.assertTrue(z["tokens"].startswith(short_ids))
-        self.s.db.execute("UPDATE branches SET tokens=?,gen=gen+1", (z["tokens"],))
-        a, _ = self.s.checkpoint_anchor(self.s.branch(), len(z["tokens"]) // 4, True, None, hint)
-        self.assertEqual(a["id"], long)
-
-    def test_reconciliation_error_preserves_streamed_turn_and_fences(self):
-        with patch.object(self.s, "clean_files", side_effect=OSError("cleanup")), patch.object(
-            self.s, "snap", side_effect=sqlite3.OperationalError("catalog unavailable")
-        ):
-            x = self.do("turn", text="completed")
-        self.assertTrue(x["turn_committed"])
-        self.assertEqual(x["content"], "A")
-        self.assertEqual(x["checkpoint"]["status"], "unknown")
-        self.assertEqual(self.do("status")["mode"], "uncertain")
+        self.do("fork", name="sibling", **{"from": "parent"})
+        total = self.s.listing()["image_bytes"]
+        self.assertEqual(total, sum(p.stat().st_size for p in self.n.images.glob("*.slot")))
+        self.assertEqual(self.s.db.execute("SELECT COUNT(*) FROM anchor_refs").fetchone()[0], 6)
         with self.assertRaises(Error):
-            self.do("recover")
-        self.assertEqual(self.s.branch()["gen"], 1)
+            self.do("budget", bytes=1)
+        self.assertEqual(self.s.control()["budget"], 2000)
+        self.do("budget", bytes=total)
+        r = self.do("turn", text="x" * 16, max_tokens=1)
+        self.assertTrue(any(e["status"] == "skipped" for e in r["checkpoint"]["events"]))
+        self.assertLessEqual(sum(p.stat().st_size for p in self.n.images.glob("*.slot")), total)
+        self.do("release", kind="branch", name="sibling")
+        self.assertEqual(self.s.db.execute("SELECT COUNT(*) FROM anchor_refs").fetchone()[0], 3)
 
-    def test_manager_interruption_in_optional_phase_keeps_committed_turn(self):
-        pid = os.fork()
-        if pid == 0:
-            try:
-                self.s.db.close()
-                s = Store(self.root, self.n, 10000)
-                m = Manager(s, "fixed", 1)
-                self.n.save = lambda _: os._exit(74)
-                m.handle({"op": "turn", "text": "finished", "max_tokens": 2, "ticket": s.stamp()})
-            finally:
-                os._exit(75)
-        self.assertEqual(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]), 74)
-        self.assertEqual(self.s.control()["mode"], "mutating")
-        self.assertEqual(self.s.branch()["gen"], 1)
-        tokens = self.s.branch()["tokens"]
-        self.assertEqual(self.s.branch()["pending"], pack([1]))
-        reopened = Store(self.root, self.n, 10000)
-        self.addCleanup(reopened.db.close)
-        self.assertEqual(reopened.control()["mode"], "uncertain")
-        self.n.epoch = "new epoch"
-        fresh = Store(self.root, self.n, 10000)
-        self.addCleanup(fresh.db.close)
-        with patch.object(self.n, "generate", side_effect=AssertionError("resampled")):
-            Manager(fresh, "fixed", 1).handle({"op": "recover", "ticket": fresh.stamp()})
-        self.assertEqual(self.n.live, tokens)
-        self.assertEqual(fresh.branch()["gen"], 1)
 
+    def test_failed_stage_keeps_the_preceding_turn_committable(self):
+        # read_image's disk failure contract drains the full admitted export.
+        def reject(stream, path, size):
+            self.assertEqual(len(stream.read()), size)
+            raise OSError("synthetic full disk")
+        with patch("checkpoints.read_image", side_effect=reject):
+            result=self.do("turn",text="abcdefghi",max_tokens=1)
+        self.assertTrue(result["turn_committed"])
+        self.assertEqual(self.s.branch()["gen"],1)
+        self.assertEqual(self.s.listing()["image_bytes"],0)
+        self.assertTrue(all(e["reason"]=="storage_error" for e in result["checkpoint"]["events"] if e["bytes"]))
+        self.assertFalse(list(self.n.images.glob(".writing-*")))
+
+    def test_missing_file_and_foreign_compatibility_fall_back(self):
+        self.do("turn",text="abcdefghijkl",max_tokens=1)
+        row=self.s.db.execute("SELECT * FROM anchors WHERE length(tokens)=32").fetchone()
+        (self.n.images/(row["sha"]+".slot")).unlink()
+        self.s.db.execute("UPDATE anchors SET compat='foreign' WHERE length(tokens)=16")
+        r=self.do("turn",messages=[dict(role="user",content="abcdefgZ")],max_tokens=1)["resume"]
+        self.assertEqual(r["from_position"],0)
+        self.assertTrue(any(v["reason"]=="missing" for v in r["skipped"]))
+
+    def test_shared_sha_survives_until_last_reference(self):
+        self.do("turn",text="abcdefg",max_tokens=1)
+        self.do("mark",name="root")
+        self.do("fork",name="fork",**{"from":"root"})
+        point=self.s.db.execute("SELECT * FROM anchors WHERE length(tokens)=16").fetchone()
+        p=self.n.images/(point["sha"]+".slot")
+        self.assertTrue(p.exists())
+        self.do("release",kind="branch",name="fork")
+        self.assertTrue(p.exists())
+        with self.s.tx():
+            self.s.anchors.release(self.s.branch()["id"])
+            self.s.collect()
+        self.s.clean_files()
+        self.assertFalse(p.exists())
 
 if __name__ == "__main__":
     unittest.main()
