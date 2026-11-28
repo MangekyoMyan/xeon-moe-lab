@@ -201,11 +201,14 @@ class Manager:
         if op == "mark":
             label = name_ok(request["name"])
             old = store.db.execute("SELECT sid FROM marks WHERE name=?", (label,)).fetchone()
-            if old and old[0] != branch["head"]:
-                raise Error("mark_exists", "a different point already owns this mark")
-            point = store.save_active()
-            if old and old[0] != point["id"]:
-                raise Error("mark_exists", "the named snapshot is immutable")
+            if old:
+                if old["sid"] != branch["head"]:
+                    raise Error("mark_exists", "a different point already owns this mark")
+                point = store.snap(old["sid"])
+                if store.valid(point) not in ("available", "empty"):
+                    raise Error("missing_image", "named image unavailable; use a new mark to save this state")
+            else:
+                point = store.save_active()
             with store.tx():
                 store.db.execute(
                     "INSERT OR IGNORE INTO marks VALUES(?,?,?)",

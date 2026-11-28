@@ -156,6 +156,49 @@ class BranchTests(unittest.TestCase):
         self.assertGreater(result["replayed"], 0)
         self.assertEqual(self.n.live, expected)
 
+    def test_repeated_mark_preserves_immutable_id_and_has_no_side_effect_on_rejection(self):
+        self.do("turn", text="P")
+        original = self.do("mark", name="P")["snapshot"]
+        self.assertEqual(self.do("mark", name="P")["snapshot"]["id"], original["id"])
+
+        def catalog():
+            tables = ("control", "branches", "snapshots", "marks", "blobs")
+            return {
+                table: [tuple(row) for row in self.s.db.execute(f"SELECT * FROM {table} ORDER BY rowid")]
+                for table in tables
+            }
+
+        self.do("budget", bytes=1)
+        self.do("budget", bytes=4096)
+        ticket, before = self.s.stamp(), catalog()
+        self.assertEqual(list(self.n.images.glob("*.slot")), [])
+        for pin in (False, True):
+            self.error("missing_image", "mark", name="P", pin=pin)
+            self.assertEqual(catalog(), before)
+            self.assertEqual(list(self.n.images.glob("*.slot")), [])
+        self.assertEqual(self.s.stamp(), ticket)
+        fork = self.do("fork", name="reader", ticket=ticket, **{"from": "P"})
+        self.assertEqual(fork["branch"]["head"], original["id"])
+        other = self.do("mark", name="replacement")["snapshot"]
+        self.assertNotEqual(other["id"], original["id"])
+        self.assertEqual(self.s.resolve("P")["id"], original["id"])
+
+    def test_repeat_mark_rejects_damaged_image_or_a_different_head(self):
+        self.do("turn", text="P")
+        old = self.do("mark", name="P")["snapshot"]
+        file = self.n.images / (old["image_sha256"] + ".slot")
+        file.chmod(0o600)
+        damaged = b"x" * file.stat().st_size
+        file.write_bytes(damaged)
+        before = dict(self.s.branch())
+        self.error("missing_image", "mark", name="P", pin=True)
+        self.assertEqual(self.s.db.execute("SELECT count(*) FROM snapshots").fetchone()[0], 1)
+        self.assertEqual(dict(self.s.branch()), before)
+        self.assertEqual(file.read_bytes(), damaged)
+        self.do("turn", text="another input")
+        self.error("mark_exists", "mark", name="P")
+        self.assertEqual(self.s.resolve("P")["id"], old["id"])
+
     def test_stream_receipt_includes_tokens_omitted_from_partial_utf8_events(self):
         class Receipt:
             def call(self, method, path, body, consume):
