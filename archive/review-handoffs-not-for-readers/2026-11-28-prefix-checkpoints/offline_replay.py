@@ -18,6 +18,8 @@ def main():
         data=(R/name).read_bytes()
         assert len(data)==m["bytes"] and sha(data)==m["sha256"],name
     assert agg(R)==read(R/"SUMMARY.json")
+    from policy_replay import replay
+    assert replay()==read(R/"POLICY_REPLAY.json")
     refs={}
     for line in (R/"native-calls.jsonl").read_text().splitlines():
         row=json.loads(line)

@@ -6,17 +6,24 @@ from pathlib import Path
 import sqlite3
 import sys
 R=Path(__file__).resolve().parent
-sys.path.insert(0,str(R/"checkout/current/experiments/state-branches"))
-from native import pack
+sys.path.insert(0,str(R/"source" if (R/"source").is_dir() else R/"checkout/current/experiments/state-branches"))
+from native import pack,unpack
 from planner import eviction,evaluate,Profile
 def read(p):return [json.loads(l) for l in p.read_text().splitlines()]
 def replay():
     seen_edits=0;admissions=0;unique=0;all_results=[]
+    exported=R/"workflow-evidence/catalog-prefixes.json"
+    portable=json.loads(exported.read_bytes()) if exported.exists() else {}
+    from_local=not exported.exists()
     for s in read(R/"workflow-evidence/plans.jsonl"):
         label=s["session"]
-        db=sqlite3.connect("file:"+str(R/"cases-final"/label/"branches.sqlite3")+"?mode=ro&immutable=1",uri=True)
-        points={k:(tok,sha) for k,tok,sha in db.execute("SELECT id,tokens,sha FROM anchors")}
-        db.close()
+        if from_local:
+            db=sqlite3.connect("file:"+str(R/"cases-final"/label/"branches.sqlite3")+"?mode=ro&immutable=1",uri=True)
+            points={k:(tok,sha) for k,tok,sha in db.execute("SELECT id,tokens,sha FROM anchors")}
+            db.close()
+            portable[label]={k:[unpack(tok),sha] for k,(tok,sha) in points.items()}
+        else:
+            points={k:(pack(tok),sha) for k,(tok,sha) in portable[label].items()}
         current={}
         operations=[r["op"] for r in read(R/"workflow-evidence/workflows.jsonl") if r["session"]==label]
         for op in operations:
@@ -44,6 +51,7 @@ def replay():
             assert v["current"][k]==new[k],(label,k)
         seen_edits+=new["evaluated_positions"]
         all_results.append({"session":label,"evaluated_positions":new["evaluated_positions"],"time_target":new["target_met"]})
+    if from_local:exported.write_text(json.dumps(portable,separators=(",",":"))+"\n")
     return dict(capacity_admissions=admissions,successful=unique,session_status_positions=seen_edits,sessions=all_results)
 if __name__=="__main__":
     data=replay();(R/"POLICY_REPLAY.json").write_text(json.dumps(data,indent=2)+"\n");print(data)

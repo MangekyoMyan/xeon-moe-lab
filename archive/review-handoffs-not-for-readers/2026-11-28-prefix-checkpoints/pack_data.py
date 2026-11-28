@@ -87,6 +87,7 @@ def main():
     for p in ("SUMMARY.json","RING.json","SERVICE.json","DESIGN.json","POLICY_REPLAY.json","RESULTS_JA.md","CODE.json","offline_replay.py"):
         copy(R/p,D/p)
     copy(R/"summarize.py",D/"summarize.py")
+    copy(R/"policy_replay.py",D/"policy_replay.py")
     for label,base in (("compact",R/"build-compact"),("server",R/"build-release"),("model",R/"build-release/physical")):
         copy(base/"BUILD.json",D/"build"/(label+".json"))
     import difflib
