@@ -49,7 +49,6 @@ class Manager:
         self.changed = True
         if chosen and chosen["sha"]:
             self.native.restore(chosen["sha"], chosen["tokens"], chosen["bytes"])
-            store.db.execute("UPDATE blobs SET used=? WHERE sha=?", (time.time(), chosen["sha"]))
             at = len(chosen["tokens"]) // 4
         else:
             self.native.erase()
@@ -152,7 +151,14 @@ class Manager:
             self.finish()
         return response
 
-    def finish(self):
+    def finish(self, placement=None):
+        # A restored image becomes the last-used one when its placement commits. If this
+        # transaction fails, the rollback placement records the image that actually won.
+        if placement is not None and placement["from_snapshot"] is not None:
+            self.store.db.execute(
+                "UPDATE blobs SET used=? WHERE sha=(SELECT sha FROM snapshots WHERE id=?)",
+                (time.time(), placement["from_snapshot"]),
+            )
         self.store.db.execute("UPDATE control SET rev=rev+1")
         self.store.state("ready")
 
@@ -181,7 +187,7 @@ class Manager:
                     ),
                 )
                 store.db.execute("UPDATE control SET active=?", (target["id"],))
-                self.finish()
+                self.finish(placement=detail)
             return {"outgoing_snapshot": outgoing["id"], **detail}
         if op == "recover":
             detail = self.place(branch)
@@ -195,7 +201,7 @@ class Manager:
                         branch["id"],
                     ),
                 )
-                self.finish()
+                self.finish(placement=detail)
             store.clean_files()
             return detail
         if op == "mark":
@@ -206,7 +212,10 @@ class Manager:
                     raise Error("mark_exists", "a different point already owns this mark")
                 point = store.snap(old["sid"])
                 if store.valid(point) not in ("available", "empty"):
-                    raise Error("missing_image", "named image unavailable; use a new mark to save this state")
+                    raise Error(
+                        "missing_image",
+                        "named image unavailable; use a new mark to save this state",
+                    )
             else:
                 point = store.save_active()
             with store.tx():
@@ -352,7 +361,7 @@ class Manager:
                                 branch["id"],
                             ),
                         )
-                        self.finish()
+                        self.finish(placement=back)
                     more["rollback"] = back
                 except Exception as secondary:
                     mode = "uncertain" if isinstance(secondary, Uncertain) else "invalid"

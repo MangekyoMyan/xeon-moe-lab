@@ -2,9 +2,11 @@
 
 import json
 from pathlib import Path
+import sqlite3
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 from manager import Manager
 from native import Error, Native, digest, pack
 from storage import Store, uid
@@ -164,7 +166,9 @@ class BranchTests(unittest.TestCase):
         def catalog():
             tables = ("control", "branches", "snapshots", "marks", "blobs")
             return {
-                table: [tuple(row) for row in self.s.db.execute(f"SELECT * FROM {table} ORDER BY rowid")]
+                table: [
+                    tuple(row) for row in self.s.db.execute(f"SELECT * FROM {table} ORDER BY rowid")
+                ]
                 for table in tables
             }
 
@@ -198,6 +202,58 @@ class BranchTests(unittest.TestCase):
         self.do("turn", text="another input")
         self.error("mark_exists", "mark", name="P")
         self.assertEqual(self.s.resolve("P")["id"], old["id"])
+
+    def test_restored_image_use_becomes_visible_with_the_active_branch(self):
+        self.do("turn", text="P")
+        target = self.do("mark", name="P")["snapshot"]
+        other = self.do("fork", name="B")["branch"]["id"]
+        self.do("turn", text="A")
+        self.do("mark", name="A")
+        self.s.db.execute("UPDATE blobs SET used=1 WHERE sha=?", (target["image_sha256"],))
+        original = self.s.stamp()["branch"]
+        reader = sqlite3.connect(self.root / "branches.sqlite3")
+        self.addCleanup(reader.close)
+
+        def visible():
+            return reader.execute(
+                "SELECT c.active,c.mode,b.used FROM control c,blobs b WHERE b.sha=?",
+                (target["image_sha256"],),
+            ).fetchone()
+
+        place = self.m.place
+
+        def after_native_restore(branch):
+            receipt = place(branch)
+            self.assertEqual(visible(), (original, "mutating", 1))
+            return receipt
+
+        with patch.object(self.m, "place", after_native_restore):
+            self.do("checkout", name="B")
+        active, mode, used = visible()
+        self.assertEqual((active, mode), (other, "ready"))
+        self.assertGreater(used, 1)
+
+    def test_aborted_final_commit_does_not_touch_the_rejected_image(self):
+        self.do("turn", text="P")
+        target = self.do("mark", name="P")["snapshot"]
+        self.do("fork", name="B")
+        self.do("turn", text="A")
+        source = self.do("mark", name="A")["snapshot"]
+        origin = self.s.stamp()["branch"]
+        self.s.db.execute("UPDATE blobs SET used=1")
+        # Rev is written after active and last-use, inside the same final transaction.
+        self.s.db.execute(
+            """CREATE TEMP TRIGGER reject_target BEFORE UPDATE OF rev ON control
+               WHEN (SELECT name FROM branches WHERE id=NEW.active)='B'
+               BEGIN SELECT RAISE(ABORT,'injected final commit failure'); END"""
+        )
+        self.error("operation_failed", "checkout", name="B")
+        self.assertEqual(self.s.stamp()["branch"], origin)
+        self.assertEqual(self.s.control()["mode"], "ready")
+        used = dict(self.s.db.execute("SELECT sha,used FROM blobs"))
+        self.assertEqual(used[target["image_sha256"]], 1)
+        self.assertGreater(used[source["image_sha256"]], 1)
+        self.assertEqual(self.s.branch()["tokens"], self.n.live)
 
     def test_stream_receipt_includes_tokens_omitted_from_partial_utf8_events(self):
         class Receipt:
