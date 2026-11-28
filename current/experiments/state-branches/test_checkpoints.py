@@ -275,6 +275,37 @@ class ManagerTests(unittest.TestCase):
         self.assertTrue(switched["exact_head"])
         self.assertEqual(self.s.stamp()["revision"], stamp["revision"] + 1)
 
+    def test_capacity_allows_eviction_and_records_the_victim(self):
+        p = self.do("turn", text="parent")["checkpoint"]
+        self.do("budget", bytes=p["image_bytes"] + 45)
+        b = self.do("turn", text="child")["checkpoint"]
+        self.assertEqual(b["status"], "saved")
+        original = self.s.snap(p["snapshot_id"])
+        self.assertEqual(b["evicted"], [original["sha"]])
+        self.assertEqual(self.s.valid(original), "evicted")
+        self.do("budget", bytes=1)
+        with patch.object(
+            self.n, "save", side_effect=AssertionError("predictably impossible save")
+        ):
+            result = self.do("turn", text="next")
+        self.assertEqual(result["checkpoint"]["reason"], "budget")
+        self.assertEqual(result["checkpoint"]["checkpoint_elapsed_ms"], 0)
+
+    def test_hint_reconsiders_an_older_longer_exact_prefix_as_the_boundary_grows(self):
+        short = self.do("turn", text="root")["checkpoint"]["snapshot_id"]
+        long = self.do("turn", text="a long suffix")["checkpoint"]["snapshot_id"]
+        z = self.s.snap(long)
+        short_ids = self.s.snap(short)["tokens"]
+        # Reconstruct a shorter live prefix while retaining the longer point in its ancestry.
+        branch = dict(self.s.branch())
+        self.s.db.execute("UPDATE branches SET tokens=?", (z["tokens"][:-4],))
+        a, hint = self.s.checkpoint_anchor(branch, len(z["tokens"]) // 4 - 1, False, None, None)
+        self.assertEqual(a["id"], short)
+        self.assertTrue(z["tokens"].startswith(short_ids))
+        self.s.db.execute("UPDATE branches SET tokens=?,gen=gen+1", (z["tokens"],))
+        a, _ = self.s.checkpoint_anchor(self.s.branch(), len(z["tokens"]) // 4, True, None, hint)
+        self.assertEqual(a["id"], long)
+
     def test_reconciliation_error_preserves_streamed_turn_and_fences(self):
         with patch.object(self.s, "clean_files", side_effect=OSError("cleanup")), patch.object(
             self.s, "snap", side_effect=sqlite3.OperationalError("catalog unavailable")
