@@ -1,0 +1,29 @@
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -2416,7 +2416,12 @@
+         // in stream mode, content and tokens are already in last partial chunk
+         if (slot.task->params.stream) {
+             res->content     = {};
+-            res->tokens      = llama_tokens{};
++            // An explicit raw-token receipt also covers tokens held back for incomplete UTF-8.
++            const auto & fields = slot.task->params.response_fields;
++            if (slot.task->params.return_tokens &&
++                std::find(fields.begin(), fields.end(), "branch_sampled_ids") != fields.end()) {
++                res->tokens = std::move(slot.generated_tokens);
++            }
+         } else {
+             res->content     = std::move(slot.generated);
+             res->tokens      = std::move(slot.generated_tokens);
+--- a/tools/server/server-task.cpp
++++ b/tools/server/server-task.cpp
+@@ -348,6 +348,10 @@
+         {"tokens_cached",       n_tokens_cached},
+         {"timings",             stats.to_json()},
+     };
++    if (stream && !tokens.empty()) {
++        res["branch_sampled_ids"] = std::move(res["tokens"]);
++        res["tokens"] = json::array();
++    }
+     if (!stream && !probs_output.empty()) {
+         res["completion_probabilities"] = completion_token_output::probs_vector_to_json(probs_output, post_sampling_probs);
+     }
