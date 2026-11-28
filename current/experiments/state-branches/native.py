@@ -51,6 +51,12 @@ def unpack(raw):
     return a.tolist()
 
 
+def observe_prefill(native, timings):
+    observer = getattr(native, "prefill_observer", None)
+    if observer is not None:
+        observer(timings)
+
+
 def image_tokens(path, limit):
     # GGSQ v4, server_tokens v1, text only. The remaining numerical state is opaque.
     with path.open("rb") as f:
@@ -224,6 +230,7 @@ class Native:
             raise Error(
                 "replay_boundary", "native replay did not reach the recorded token boundary"
             )
+        observe_prefill(self, t)
         return t["prompt_n"]
 
     def generate(self, ids, maximum, emit):
@@ -268,6 +275,7 @@ class Native:
                     "generation_boundary",
                     "final sampled-token receipt or processed count does not match",
                 )
+            observe_prefill(self, tm)
             return {
                 "content": "".join(pieces),
                 "sampled": samples,

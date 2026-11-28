@@ -12,6 +12,7 @@ import socketserver
 import sys
 import time
 from manager import Manager
+from checkpoint_policy import MODES, DEFAULT_INTERVAL
 from native import Error, Native, encode
 from storage import Store
 
@@ -47,7 +48,27 @@ class Handler(socketserver.StreamRequestHandler):
             send({"ok": False, "code": "request", "error": str(e)})
 
 
-def serve(root, binding, budget, native_factory=Native):
+def add_checkpoint_arguments(parser):
+    parser.add_argument("--checkpoint-mode", choices=MODES, default="off")
+
+    def interval(text):
+        value = int(text)
+        if value < 1:
+            raise argparse.ArgumentTypeError("checkpoint interval must be positive")
+        return value
+
+    parser.add_argument("--checkpoint-interval-tokens", type=interval, default=DEFAULT_INTERVAL)
+
+
+def serve(
+    root,
+    binding,
+    budget,
+    native_factory=Native,
+    *,
+    checkpoint_mode="off",
+    checkpoint_interval=DEFAULT_INTERVAL
+):
     os.umask(0o077)
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     if root.stat().st_mode & 0o077:
@@ -72,7 +93,7 @@ def serve(root, binding, budget, native_factory=Native):
         n = native_factory(binding)
         s = Store(root, n, budget)
         stack.callback(s.db.close)
-        manager = Manager(s)
+        manager = Manager(s, checkpoint_mode, checkpoint_interval)
         if s.control()["mode"] != "uncertain":
             # Even a clean manager restart re-establishes its own durable head.
             try:
@@ -133,6 +154,7 @@ def cli():
     daemon = cmd.add_parser("serve")
     daemon.add_argument("--binding", type=Path, required=True)
     daemon.add_argument("--budget-mib", type=int, default=1024)
+    add_checkpoint_arguments(daemon)
     for key in ("list", "status", "recover"):
         cmd.add_parser(key)
     t = cmd.add_parser("turn")
@@ -161,7 +183,15 @@ def cli():
     a = p.parse_args()
     root = a.store.resolve()
     if a.op == "serve":
-        serve(root, a.binding.resolve(), a.budget_mib * 1024**2)
+        options = (
+            {}
+            if (a.checkpoint_mode, a.checkpoint_interval_tokens) == ("off", DEFAULT_INTERVAL)
+            else {
+                "checkpoint_mode": a.checkpoint_mode,
+                "checkpoint_interval": a.checkpoint_interval_tokens,
+            }
+        )
+        serve(root, a.binding.resolve(), a.budget_mib * 1024**2, **options)
         return
     req = {
         k: v
@@ -198,6 +228,16 @@ def cli():
             out["pending_sampled_ids"],
             file=sys.stderr,
         )
+        cp = out.get("checkpoint", {})
+        if cp.get("status") in ("failed", "unknown", "saved_cleanup_warning"):
+            print(
+                "Turn committed; checkpoint",
+                cp["status"],
+                cp.get("reason"),
+                "slot",
+                cp.get("slot_mode", "ready"),
+                file=sys.stderr,
+            )
     else:
         print(json.dumps(out, ensure_ascii=False, indent=None if a.json else 2))
 

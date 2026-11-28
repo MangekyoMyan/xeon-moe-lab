@@ -16,6 +16,8 @@ import subprocess
 import sys
 import time
 from native import Connection, Native, digest, proc_id
+from checkpoint_policy import DEFAULT_INTERVAL
+from branchctl import add_checkpoint_arguments
 
 HERE = Path(__file__).resolve().parent
 LAB = Path("/home/codex/projects/llm-lab")
@@ -217,7 +219,15 @@ def engine(workspace, store, run, observed=False, stock=False):
 
 
 @contextlib.contextmanager
-def manager(store, binding, log_path, test_module=None):
+def manager(
+    store,
+    binding,
+    log_path,
+    test_module=None,
+    *,
+    checkpoint_mode="off",
+    checkpoint_interval=DEFAULT_INTERVAL,
+):
     from branchctl import rpc
 
     owner = LAB.stat()
@@ -233,6 +243,10 @@ def manager(store, binding, log_path, test_module=None):
                 "serve",
                 "--binding",
                 str(binding),
+                "--checkpoint-mode",
+                checkpoint_mode,
+                "--checkpoint-interval-tokens",
+                str(checkpoint_interval),
             ],
             user=owner.st_uid,
             group=owner.st_gid,
@@ -295,6 +309,7 @@ def main():
     p.add_argument("action", choices=["open", "worker"])
     p.add_argument("--workspace", type=Path, default=DEFAULT)
     p.add_argument("--run", type=Path)
+    add_checkpoint_arguments(p)
     a = p.parse_args()
     if os.geteuid() != 0 or not __debug__:
         raise SystemExit("run this hardware launcher with sudo and normal Python assertions")
@@ -343,7 +358,11 @@ def main():
     try:
         with window(workspace, "BRANCH-CLI"):
             with engine(workspace, store, run) as binding, manager(
-                store, binding, run / "manager.log"
+                store,
+                binding,
+                run / "manager.log",
+                checkpoint_mode=a.checkpoint_mode,
+                checkpoint_interval=a.checkpoint_interval_tokens,
             ) as worker:
                 print(
                     f"Branch CLI ready. In a second terminal:\npython3 {HERE/'branchctl.py'} --store {store} list",
