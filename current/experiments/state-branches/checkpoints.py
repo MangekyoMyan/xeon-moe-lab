@@ -118,6 +118,16 @@ class Checkpoints:
             and data.startswith(r["tokens"])
             and not (strict and len(r["tokens"]) == goal * 4)
         ]
+        # A public head and an internal anchor can share a processed position.
+        # Keep the logical head on an exact restore; other ties are stable across restarts.
+        candidates.sort(
+            key=lambda r: (
+                r["id"] != branch["head"],
+                r["id"] != branch["base"],
+                -r["created"],
+                r["id"],
+            )
+        )
         skipped = []
         available = []
         for r in candidates:

@@ -314,6 +314,14 @@ class Integration(unittest.TestCase):
         self.assertEqual(r["from_position"], 0)
         self.assertTrue(any(v["reason"] == "missing" for v in r["skipped"]))
 
+    def test_named_head_on_grid_survives_recovery(self):
+        self.do("turn", text="abc", max_tokens=1)
+        mark = self.do("mark", name="at-four", pin=True)["snapshot"]["id"]
+        result = self.do("recover")
+        self.assertTrue(result["exact_head"])
+        self.assertEqual(result["from_snapshot"], mark)
+        self.assertEqual(self.do("mark", name="at-four")["snapshot"]["id"], mark)
+
     def test_shared_sha_survives_until_last_reference(self):
         self.do("turn", text="abcdefg", max_tokens=1)
         self.do("mark", name="root")
