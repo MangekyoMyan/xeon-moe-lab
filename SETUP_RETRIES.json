@@ -1,0 +1,26 @@
+{
+  "comparison-1": {
+    "stage": "before the first timed turn",
+    "problem": "test inventory attempted a Manager-only status field on Store.listing",
+    "measured_sessions": 0,
+    "resolution": "obtain policy status from the manager"
+  },
+  "comparison-2": {
+    "stage": "before the first timed turn",
+    "problem": "test catalog reset rejected empty SQLite WAL/SHM files left by read-only inspection",
+    "measured_sessions": 0,
+    "resolution": "take scratch writer lock, checkpoint a closed catalog, then atomically reinstall the synthetic template"
+  },
+  "comparison-3": {
+    "stage": "before the first timed turn",
+    "problem": "missing sqlite3 import in the new scratch reset",
+    "measured_sessions": 0,
+    "resolution": "corrected import and successfully preflighted the actual scratch catalog without loading a model"
+  },
+  "candidate-1": {
+    "stage": "after all eight numerical cases, before uncertain-save injection",
+    "problem": "missing json import in diagnostic catalog reader",
+    "all_numeric_cases_preserved": true,
+    "resolution": "retained all initial rows; separately ran only the remaining fault and original native control"
+  }
+}
